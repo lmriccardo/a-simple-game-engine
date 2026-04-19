@@ -5,11 +5,11 @@
 ## 1. Platform Layer
 Build the lowest-level code that talks to the operating system.
 
-- [ ] Create an application entry point
-- [ ] Open a window
-- [ ] Create a main loop
-- [ ] Handle window close event
-- [ ] Track delta time per frame
+- [x] Create an application entry point
+- [x] Open a window
+- [x] Create a main loop
+- [x] Handle window close event
+- [x] Track delta time per frame
 - [ ] Add basic logging to console
 - [ ] Add error reporting helpers
 - [ ] Add assertions for debugging
