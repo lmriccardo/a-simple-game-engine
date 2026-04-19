@@ -27,10 +27,7 @@ public:
     SDLRenderer& operator=(SDLRenderer const& inOther) = delete;
 
     void Clear(RGBA_Color const& inColor) const override;
-    void DrawRect(
-        float inX, float inY, float inW, float inH, 
-        RGBA_Color const& inColor
-    ) const override;
+    void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const override;
 
     void Present() const override;
     bool IsValid() const override;

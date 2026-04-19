@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Color.hpp"
+#include <ASGE/Math/Rect.hpp>
 
 namespace asge::graphics
 {
@@ -25,10 +26,7 @@ public:
      * @param inH the input height
      * @param inColor the input RGBA color
      */
-    virtual void DrawRect(
-        float inX, float inY, float inW, float inH, 
-        RGBA_Color const& inColor
-    ) const = 0;
+    virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

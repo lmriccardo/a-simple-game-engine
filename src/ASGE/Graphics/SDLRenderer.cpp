@@ -47,10 +47,10 @@ void asge::graphics::SDLRenderer::Clear(RGBA_Color const& inColor) const
     }
 }
 
-void asge::graphics::SDLRenderer::DrawRect(float inX, float inY, float inW, float inH, RGBA_Color const &inColor) const
+void asge::graphics::SDLRenderer::DrawRect(math::Rect const& inRect, RGBA_Color const &inColor) const
 {
     SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
-    SDL_FRect rect{ inX, inY, inW, inH};
+    SDL_FRect rect{ inRect.x, inRect.y, inRect.w, inRect.h };
     SDL_RenderRect(m_Renderer, &rect);
 }
 
