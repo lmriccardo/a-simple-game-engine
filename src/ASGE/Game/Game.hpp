@@ -2,7 +2,7 @@
 
 #include <ASGE/Graphics/Renderer.hpp>
 
-namespace asge
+namespace asge::game
 {
 
 class IGame

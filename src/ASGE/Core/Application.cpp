@@ -1,6 +1,22 @@
 #include "Application.hpp"
 
-asge::Application::Application(IGame &inGame, ApplicationConfig const &inConfig)
+using namespace asge;
+
+void Application::processEvent(SDL_Event const* inSdlEventPtr) noexcept
+{
+    event::SystemEvent sysEvent = event::_internal::ProcessEvent( inSdlEventPtr );
+
+    switch (sysEvent.s_Tag)
+    {
+    case event::SystemEventType::QUIT:
+        m_Running = false;
+        break;
+    default:
+        break;
+    }
+}
+
+asge::Application::Application(game::IGame &inGame, ApplicationConfig const &inConfig)
 : m_Game(inGame), m_Config(inConfig)
 {
     m_VideoSys.Initialize( inConfig.s_Title, inConfig.s_Width, inConfig.s_Height );
@@ -15,9 +31,7 @@ void asge::Application::Run()
     {
         while (SDL_PollEvent(&event))
         {
-            if (event.type == SDL_EVENT_QUIT) {
-                m_Running = false;
-            }
+            processEvent( &event );
         }
 
         m_Game.Update(0.016f);

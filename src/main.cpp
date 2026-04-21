@@ -1,8 +1,8 @@
 #include <iostream>
 #include <ASGE/Core/Application.hpp>
-#include <ASGE/Core/Game.hpp>
+#include <ASGE/Game/Game.hpp>
 
-class Game final: public asge::IGame
+class Game final: public asge::game::IGame
 {
 public:
     void Update(float inDeltaTime) {};

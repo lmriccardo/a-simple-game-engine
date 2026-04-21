@@ -3,6 +3,9 @@ add_library(ASGE STATIC
     Core/VideoSystem.cpp
     Core/Application.cpp
 
+    # Event system components of the Engine
+    Events/EventType.cpp
+
     # Graphic portion with Renderers and others 
     Graphics/SDLRenderer.cpp
 
