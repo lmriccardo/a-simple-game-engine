@@ -1,6 +1,5 @@
 #include <iostream>
-#include <ASGE/Core/Application.hpp>
-#include <ASGE/Game/Game.hpp>
+#include <ASGE/ASGE.hpp>
 
 class Game final: public asge::game::IGame
 {
@@ -14,6 +13,8 @@ public:
 
 int main(int, char**)
 {
+    LOG_INSTANCE().SetLogLevel(asge::logger::LogLevel::DEBUG);
+
     Game game;
     asge::Application app(game, asge::ApplicationConfig{});
     app.Run();

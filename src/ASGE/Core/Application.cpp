@@ -9,8 +9,11 @@ void Application::processEvent(SDL_Event const* inSdlEventPtr) noexcept
     switch (sysEvent.s_Tag)
     {
     case event::SystemEventType::QUIT:
+    {
+        LOG_DEBUG("Application quit requested");
         m_Running = false;
         break;
+    }
     default:
         break;
     }

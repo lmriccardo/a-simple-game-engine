@@ -2,6 +2,7 @@
 
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Events/EventType.hpp>
+#include <ASGE/Logger/Logger.hpp>
 #include "VideoSystem.hpp"
 #include "ApplicationConfig.hpp"
 
@@ -21,7 +22,7 @@ private:
 public:
     Application(game::IGame& inGame, ApplicationConfig const& inConfig);
 
-    // Main Application Loop
+    /* Main application loop */
     void Run();
 };
 
