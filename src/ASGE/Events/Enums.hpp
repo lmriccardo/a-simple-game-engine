@@ -7,26 +7,38 @@
 namespace asge::event
 {
 
-#define EVENT_UKNOWN 0
-
-/* Events releated to the Window */
-enum class WindowEventType : std::uint32_t
+namespace _internal
 {
-    NONE           = EVENT_UKNOWN,
-    QUIT           = 0x00000100u,  // User-requested quit
-    WINDOW_RESIZED = 0x00000206u,  // Window has been resized
+
+struct Offsets
+{
+    static constexpr std::uint32_t WINDOW_EVENT_START   = 0x00000010u;
+    static constexpr std::uint32_t WINDOW_EVENT_END     = 0x00000100u;
+    static constexpr std::uint32_t KEYBOARD_EVENT_START = WINDOW_EVENT_END;
+    static constexpr std::uint32_t KEYBOARD_EVENT_END   = 0x00000200u;
+    static constexpr std::uint32_t MOUSE_EVENT_START    = KEYBOARD_EVENT_END;
+    static constexpr std::uint32_t MOUSE_EVENT_END      = 0x00000300u;
 };
 
-/* Events releated to the user-input */
-enum class InputEventType : std::uint32_t
+}
+
+enum class EventType : std::uint32_t
 {
-    NONE                    = EVENT_UKNOWN, // None (do not remove)
-    KEY_PRESSED             = 0x00000300u,  // A key is pressed
-    KEY_RELEASED,                           // A key is released
-    MOUSE_MOTION,                           // Mouse moved
-    MOUSE_BUTTON_PRESSED,                   // Mouse button is pressed
-    MOUSE_BUTTON_RELEASED,                  // Mouse button is released
-    MOUSE_WHEEL_MOTION                      // Mouse wheel motion
+    UKNOWN,
+    QUIT,                                                               // User-requested quit
+    
+    /* Window events */
+    WINDOW_RESIZED          = _internal::Offsets::WINDOW_EVENT_START,   // Window has been resized
+
+    /* Keyboard events */
+    KEYBOARD_KEY_PRESSED    = _internal::Offsets::KEYBOARD_EVENT_START, // A key is pressed
+    KEYBOARD_KEY_RELEASED,                                              // A key is released
+
+    /* Mouse Events */
+    MOUSE_MOTION            = _internal::Offsets::MOUSE_EVENT_START,    // Mouse moved
+    MOUSE_BUTTON_PRESSED,                                               // Mouse button is pressed
+    MOUSE_BUTTON_RELEASED,                                              // Mouse button is released
+    MOUSE_WHEEL_MOTION                                                  // Mouse wheel motion
 };
 
 enum class SystemEventType
@@ -36,5 +48,66 @@ enum class SystemEventType
     WINDOW,
     KEYBOARD
 };
+
+namespace _internal
+{
+
+template<std::uint32_t Start, std::uint32_t Stop>
+inline constexpr bool IsIncluded( std::uint32_t inType ) noexcept
+{
+    return inType >= Start && inType < Stop;
+}
+
+template<SystemEventType Set>
+inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
+{
+    switch ( Set )
+    {
+    case SystemEventType::QUIT: return inType == static_cast<uint32_t>( EventType::QUIT );
+    case SystemEventType::WINDOW:
+        return IsIncluded<Offsets::WINDOW_EVENT_START, Offsets::WINDOW_EVENT_END>(inType);
+    case SystemEventType::KEYBOARD:
+        return IsIncluded<Offsets::KEYBOARD_EVENT_START, Offsets::KEYBOARD_EVENT_END>(inType);
+    default:
+        return false;
+    }
+}
+
+template<SystemEventType SysT>
+inline SystemEventType CheckOne( EventType inEventType ) noexcept
+{
+    auto innEvent_i = static_cast<std::uint32_t>( inEventType );
+    if ( IsValidSysType<SysT>( innEvent_i) ) return SysT;
+    return SystemEventType::UKNOWN;
+}
+
+template<SystemEventType... SysTypes>
+inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
+{
+    SystemEventType result = SystemEventType::UKNOWN;
+
+    // Use parameter-pack expansion to evaluate each type
+    (
+        [&] {
+            if (CheckOne<SysTypes>( inEventType ) != SystemEventType::UKNOWN)
+                result = SysTypes;
+        }(),
+        ...
+    );
+    
+    return result;
+}
+
+inline SystemEventType ToSysEventType( 
+    EventType inEventType ) noexcept
+{
+    return ToSysEventTypeImpl<
+        SystemEventType::QUIT,
+        SystemEventType::KEYBOARD,
+        SystemEventType::WINDOW
+    >(inEventType);
+}
+
+}
 
 }

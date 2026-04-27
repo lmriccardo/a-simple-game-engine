@@ -4,7 +4,8 @@ add_library(ASGE STATIC
     Core/Application.cpp
 
     # Event system components of the Engine
-    Events/EventType.cpp
+    Events/Translation/SDL_TranslationUnit.cpp
+    Events/Events.cpp
 
     # Graphic portion with Renderers and others 
     Graphics/SDLRenderer.cpp

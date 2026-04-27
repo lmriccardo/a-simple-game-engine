@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ASGE/Game/Game.hpp>
-#include <ASGE/Events/EventType.hpp>
+#include <ASGE/Events/Events.hpp>
 #include <ASGE/Logger/Logger.hpp>
 #include "VideoSystem.hpp"
 #include "ApplicationConfig.hpp"
