@@ -34,38 +34,41 @@ void asge::event::_internal::ProcessEvent_SDL(
 void asge::event::_internal::__processQuit(
     SystemEvent *inSysEvent, SDL_Event const &inSdlEvent) noexcept
 {
-    inSysEvent->s_Tag = SystemEventType::QUIT;
-    inSysEvent->s_Event.quit.s_Type = EventType::QUIT;
-    inSysEvent->s_Event.quit.s_Timestamp = inSdlEvent.quit.timestamp;
+    QuitEvent qEvent;
+    qEvent.s_Type = EventType::QUIT;
+    qEvent.s_Timestamp = inSdlEvent.quit.timestamp;
+    *inSysEvent = SystemEvent{ std::move(qEvent) };
 }
 
 void asge::event::_internal::__processWindow(
     SystemEvent *inSysEvent, SDL_Event const &inSdlEvent) noexcept
 {
-    inSysEvent->s_Tag = SystemEventType::WINDOW;
-    auto& winEvent = inSysEvent->s_Event.win;
+    WindowEvent winEvent;
 
     __processCommonEvent_SDL( winEvent, inSdlEvent.type, inSdlEvent.window );
     
     winEvent.s_WindowId = inSdlEvent.window.windowID;
     winEvent.s_Data1 = inSdlEvent.window.data1;
     winEvent.s_Data2 = inSdlEvent.window.data2;
+
+    *inSysEvent = SystemEvent{ std::move(winEvent) };
 }
 
 void asge::event::_internal::__processKeyboard(
     SystemEvent *inSysEvent, SDL_Event const &inSdlEvent) noexcept
 {
-    inSysEvent->s_Tag = SystemEventType::KEYBOARD;
-    auto& keyboardEvent = inSysEvent->s_Event.key;
+    KeyboardEvent keyEvent;
+    
+    __processCommonEvent_SDL(keyEvent, inSdlEvent.type, inSdlEvent.key);
 
-    __processCommonEvent_SDL(keyboardEvent, inSdlEvent.type, inSdlEvent.key);
+    keyEvent.s_WindowId = inSdlEvent.key.windowID;
+    keyEvent.s_KeyboardId = inSdlEvent.key.which;
+    keyEvent.s_Keycode = static_cast<input::Keycode>( inSdlEvent.key.key );
+    keyEvent.s_Keymod = static_cast<input::Keymod>( inSdlEvent.key.mod );
+    keyEvent.s_Down = inSdlEvent.key.down;
+    keyEvent.s_Repeat = inSdlEvent.key.repeat;
 
-    keyboardEvent.s_WindowId = inSdlEvent.key.windowID;
-    keyboardEvent.s_KeyboardId = inSdlEvent.key.which;
-    keyboardEvent.s_Keycode = static_cast<input::Keycode>( inSdlEvent.key.key );
-    keyboardEvent.s_Keymod = static_cast<input::Keymod>( inSdlEvent.key.mod );
-    keyboardEvent.s_Down = inSdlEvent.key.down;
-    keyboardEvent.s_Repeat = inSdlEvent.key.repeat;
+    *inSysEvent = SystemEvent{ std::move(keyEvent) };
 }
 
 /* #endif */

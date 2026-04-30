@@ -6,16 +6,12 @@ void Application::processEvent(SDL_Event const* inSdlEventPtr) noexcept
 {
     event::SystemEvent sysEvent = event::_internal::ProcessEvent( inSdlEventPtr );
 
-    switch (sysEvent.s_Tag)
-    {
-    case event::SystemEventType::QUIT:
+    // Check if the event is a quit event
+    if ( auto const* event = sysEvent.TryGet<event::QuitEvent>() )
     {
         LOG_DEBUG("Application quit requested");
         m_Running = false;
-        break;
-    }
-    default:
-        break;
+        return;
     }
 }
 

@@ -19,3 +19,14 @@ SystemEvent asge::event::_internal::ProcessEvent(void const *inPlftEvent) noexce
 
     return rEvent;
 }
+
+bool asge::event::SystemEvent::IsUnknown() const noexcept
+{
+    return std::holds_alternative<UnknownEvent>( m_Event );
+}
+
+SystemEvent const &asge::event::SystemEvent::GetUnknown() noexcept
+{
+    static SystemEvent se{ UnknownEvent{} };
+    return se;
+}
