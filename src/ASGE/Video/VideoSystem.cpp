@@ -2,7 +2,7 @@
 
 using namespace asge;
 
-void asge::VideoSystem::Shutdown()
+void asge::video::VideoSystem::Shutdown()
 {
     // Destroy the renderer (its deconstructor calls destroy it)
     m_Renderer.reset();
@@ -15,7 +15,7 @@ void asge::VideoSystem::Shutdown()
     SDL_Quit();
 }
 
-bool asge::VideoSystem::Initialize(std::string const &inTitle, int inWidth, int inHeight)
+bool asge::video::VideoSystem::Initialize(std::string const &inTitle, int inWidth, int inHeight)
 {
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
@@ -43,12 +43,12 @@ bool asge::VideoSystem::Initialize(std::string const &inTitle, int inWidth, int 
     return true;
 }
 
-graphics::IRenderer &asge::VideoSystem::GetRenderer()
+graphics::IRenderer &asge::video::VideoSystem::GetRenderer()
 {
     return *m_Renderer;
 }
 
-graphics::IRenderer const &asge::VideoSystem::GetRenderer() const
+graphics::IRenderer const &asge::video::VideoSystem::GetRenderer() const
 {
     return *m_Renderer;
 }

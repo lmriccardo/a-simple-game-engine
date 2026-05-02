@@ -1,11 +1,12 @@
 #pragma once
 
 #include <SDL3/SDL.h>
-#include <ASGE/Graphics/SDLRenderer.hpp>
 #include <memory>
 #include <string>
 
-namespace asge
+#include "Graphics/SDLRenderer.hpp"
+
+namespace asge::video
 {
 
 class VideoSystem

@@ -9,6 +9,11 @@ public:
     {
         inRenderer.Clear({255, 0, 0, 255});
     }
+
+    void AtSystemEvent(asge::event::SystemEvent const& inSysEvent)
+    {
+        
+    }
 };
 
 int main(int, char**)

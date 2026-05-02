@@ -1,14 +1,14 @@
 add_library(ASGE STATIC
     # Core components of the Engine
-    Core/VideoSystem.cpp
     Core/Application.cpp
 
     # Event system components of the Engine
     Events/Translation/SDL_TranslationUnit.cpp
     Events/Events.cpp
 
-    # Graphic portion with Renderers and others 
-    Graphics/SDLRenderer.cpp
+    # Video and Graphic portion with Renderers and others
+    Video/VideoSystem.cpp
+    Video/Graphics/SDLRenderer.cpp
 
     # Engine Logger
     Logger/Logger.cpp

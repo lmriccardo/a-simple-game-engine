@@ -6,8 +6,8 @@
 #include <ASGE/Events/Events.hpp>
 #include <ASGE/Events/Keycode.hpp>
 #include <ASGE/Game/Game.hpp>
-#include <ASGE/Graphics/Color.hpp>
-#include <ASGE/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Color.hpp>
+#include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Logger/Logger.hpp>
 #include <ASGE/Time/TimeUtils.hpp>
 #include <ASGE/Math/Rect.hpp>
