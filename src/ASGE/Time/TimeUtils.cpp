@@ -10,7 +10,7 @@ std::tm asge::time::LocalTime(Timestamp const &inTimestamp) noexcept
 #ifdef _MSC_VER
     localtime_s(&resLocalTime, &currTime);
 #else
-    localtime_r(&resLocalTime, &currTime);
+    localtime_r(&currTime, &resLocalTime);
 #endif
 
     return resLocalTime;

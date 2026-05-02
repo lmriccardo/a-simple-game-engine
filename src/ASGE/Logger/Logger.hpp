@@ -10,7 +10,7 @@
 #include <ASGE/Time/TimeUtils.hpp>
 
 #if defined(__clang__) || defined(__GNUC__)
-    #define FUNC_NAME __PRETTY_FUNCTION__
+    #define FUNC_NAME __FUNCTION__
 #else
     #define FUNC_NAME __func__
 #endif
