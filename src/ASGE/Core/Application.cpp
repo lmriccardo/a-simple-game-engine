@@ -13,6 +13,9 @@ void Application::processEvent(SDL_Event const* inSdlEventPtr) noexcept
         m_Running = false;
         return;
     }
+
+    // Otherwise pass the system event to the game
+    m_Game.OnSystemEvent( sysEvent );
 }
 
 asge::Application::Application(game::IGame &inGame, ApplicationConfig const &inConfig)

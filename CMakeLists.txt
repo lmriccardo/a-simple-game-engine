@@ -14,16 +14,4 @@ endif()
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 
 add_subdirectory(src/ASGE)
-add_executable(asge src/main.cpp)
-target_link_libraries(asge PRIVATE ASGE)
-set_target_properties(asge
-    PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin")
-
-if(WIN32)
-    add_custom_command(TARGET asge POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-            $<TARGET_FILE:SDL3::SDL3>
-            $<TARGET_FILE_DIR:asge>
-    )
-endif()
+add_subdirectory(examples)
