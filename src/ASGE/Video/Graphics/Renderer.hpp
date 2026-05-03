@@ -27,6 +27,8 @@ public:
      * @param inColor the input RGBA color
      */
     virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const = 0;
+    virtual void DrawRect(float x, float y, float w, float h, 
+        RGBA_Color const& inColor) const = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

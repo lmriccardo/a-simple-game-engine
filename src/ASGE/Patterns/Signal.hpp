@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace asge::patterns
+namespace asge::signals
 {
 
 // Forward declaration of the Connection class

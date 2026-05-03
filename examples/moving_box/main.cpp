@@ -1,11 +1,11 @@
 #include <iostream>
-#include "Game.hpp"
+#include "MovingBoxGame.hpp"
 
 int main(int, char**)
 {
     LOG_INSTANCE().SetLogLevel(asge::logger::LogLevel::DEBUG);
 
-    BackgroundChangingGame game;
+    MovingBoxGame game;
     asge::Application app(game, asge::ApplicationConfig{});
     app.Run();
     return 0;

@@ -9,7 +9,7 @@ class BackgroundChangingGame : public asge::game::IGame
 public:
     ~BackgroundChangingGame() override = default;
 
-    void Update(float inDeltaTime);
-    void Render(asge::graphics::IRenderer& inRenderer);
-    void OnSystemEvent(asge::event::SystemEvent const& inSysEvent);
+    void Update(float inDeltaTime) override;
+    void Render(asge::graphics::IRenderer& inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };

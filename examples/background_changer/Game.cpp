@@ -1,6 +1,6 @@
 #include "Game.hpp"
 
-void BackgroundChangingGame::Update(float inDeltaTime)
+void BackgroundChangingGame::Update([[maybe_unused]]float inDeltaTime)
 {
 }
 
