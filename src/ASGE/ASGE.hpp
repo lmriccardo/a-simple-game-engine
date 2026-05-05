@@ -11,5 +11,6 @@
 #include <ASGE/Logger/Logger.hpp>
 #include <ASGE/Time/TimeUtils.hpp>
 #include <ASGE/Math/Rect.hpp>
-#include <ASGE/Math/Vector2.hpp>
+#include <ASGE/Math/Vectors.hpp>
+#include <ASGE/Math/Vec2.hpp>
 #include <ASGE/Patterns/Signal.hpp>

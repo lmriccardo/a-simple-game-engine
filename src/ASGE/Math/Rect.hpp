@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Vector2.hpp"
-
 namespace asge::math
 {
 

@@ -2,12 +2,12 @@
 
 void MovingBox::Update(float inDeltaTime)
 {
-    auto dir = asge::math::Vector2::Zero();
+    auto dir = asge::math::Float2::Zero();
 
-    if (m_Left)  dir.x -= 1.0f;
-    if (m_Right) dir.x += 1.0f;
-    if (m_Up)    dir.y -= 1.0f;
-    if (m_Down)  dir.y += 1.0f;
+    if (m_Left)  dir.x() -= 1.0f;
+    if (m_Right) dir.x() += 1.0f;
+    if (m_Up)    dir.y() -= 1.0f;
+    if (m_Down)  dir.y() += 1.0f;
 
     m_Position += dir * m_Speed * inDeltaTime;
 }
@@ -15,7 +15,7 @@ void MovingBox::Update(float inDeltaTime)
 void MovingBox::Render(asge::graphics::IRenderer &inRender)
 {
     inRender.DrawRect( 
-        m_Position.x, m_Position.y, m_Dimension.x, m_Dimension.y,
+        m_Position.x(), m_Position.y(), m_Dimension.x(), m_Dimension.y(),
         {255, 0, 0, 255}
     );
 }

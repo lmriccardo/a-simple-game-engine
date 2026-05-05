@@ -17,7 +17,6 @@ add_library(ASGE STATIC
     Time/TimeUtils.cpp
 
     # Math utilities implementation
-    Math/Vector2.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
