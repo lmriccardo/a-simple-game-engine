@@ -15,6 +15,7 @@ add_library(ASGE STATIC
 
     # Timers or timing utils for the engine
     Time/TimeUtils.cpp
+    Time/Time.cpp
 
     # Math utilities implementation
 )

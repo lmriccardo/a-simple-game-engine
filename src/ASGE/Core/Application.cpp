@@ -22,6 +22,7 @@ asge::Application::Application(game::IGame &inGame, ApplicationConfig const &inC
 : m_Game(inGame), m_Config(inConfig)
 {
     m_VideoSys.Initialize( inConfig.s_Title, inConfig.s_Width, inConfig.s_Height );
+    time::TargetFPS( m_Config.s_TargetFps );
 }
 
 void asge::Application::Run()
@@ -31,15 +32,15 @@ void asge::Application::Run()
 
     while (m_Running)
     {
+        GET_TIMESYSTEM.Tick();
+
         while (SDL_PollEvent(&event))
         {
             processEvent( &event );
         }
 
-        m_Game.Update(0.016f);
+        m_Game.Update(time::DeltaTime());
         m_Game.Render(m_VideoSys.GetRenderer());
         m_VideoSys.GetRenderer().Present();
-
-        SDL_Delay(16);
     }
 }

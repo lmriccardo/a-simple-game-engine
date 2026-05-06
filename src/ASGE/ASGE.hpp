@@ -9,7 +9,7 @@
 #include <ASGE/Video/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Logger/Logger.hpp>
-#include <ASGE/Time/TimeUtils.hpp>
+#include <ASGE/Time/Time.hpp>
 #include <ASGE/Math/Rect.hpp>
 #include <ASGE/Math/VectorN.hpp>
 #include <ASGE/Math/Vector2.hpp>

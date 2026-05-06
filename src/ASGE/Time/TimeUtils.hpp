@@ -11,6 +11,7 @@ namespace asge::time
 
 using SystemClock = std::chrono::system_clock;
 using SteadyClock = std::chrono::steady_clock;
+using Seconds     = std::chrono::duration<float>;
 using Timestamp   = SystemClock::time_point;
 using Timepoint   = SteadyClock::time_point;
 using Duration    = SteadyClock::duration;
