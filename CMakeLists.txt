@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.31.0)
 project(asge VERSION 0.1.0 LANGUAGES C CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -13,5 +14,11 @@ endif()
     
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 
+include(CTest)
+
 add_subdirectory(src/ASGE)
 add_subdirectory(examples)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
