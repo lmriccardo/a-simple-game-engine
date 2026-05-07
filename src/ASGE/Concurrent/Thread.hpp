@@ -134,24 +134,24 @@ namespace _internal
  * @tparam _Args     Types for each function parameter
  */
 template<typename _Callable, typename ..._Args>
-class ThreadImpl : Thread
+class ThreadImpl : public Thread
 {
 private:
     _Callable            m_Func; // Callable function
     std::tuple<_Args...> m_Args; // Arguments to the callable
 
-    static auto BindContext( _Callable&& inFn, ThreadContext& inCtx )
+    static auto BindContext( _Callable& inFn, ThreadContext& inCtx )
     {
-        return [ fn = std::forward<_Callable>(inFn), ctx = inCtx ]
+        return [ &fn = inFn, &ctx = inCtx ]
             (auto&& ...args) mutable {
                 return fn( ctx, std::forward<decltype(args)>(args)... );
             };
     }
 
-    void Run( ThreadContext& inCtx )
+    void Run( ThreadContext& inCtx ) override
     {
         // First we need to bind the context as the first argument
-        auto fn = BindContext( std::forward<_Callable>(m_Func), inCtx );
+        auto fn = BindContext( m_Func, inCtx );
         std::apply( fn, m_Args );
     }
 public:
