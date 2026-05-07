@@ -14,3 +14,4 @@
 #include <ASGE/Math/VectorN.hpp>
 #include <ASGE/Math/Vector2.hpp>
 #include <ASGE/Patterns/Signal.hpp>
+#include <ASGE/Concurrent/Thread.hpp>

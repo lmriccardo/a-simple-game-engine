@@ -18,6 +18,9 @@ add_library(ASGE STATIC
     Time/Time.cpp
 
     # Math utilities implementation
+
+    # Concurrency utilities
+    Concurrent/Thread.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)

@@ -8,14 +8,15 @@ Build the foundational runtime.
 - [x] Window management
 - [x] Main loop
 - [x] Timing system
-- [ ] Threading utilities
-- [ ] Logging system
+- [WIP] Threading utilities
+- [x] Logging system
 - [ ] Memory allocator
 - [ ] Config system
 
 #### Timing System
 
-The `TimingSystem` tracks times between frames and provides consistent time values to the rest of the engine.
+The `TimingSystem` tracks times between frames and provides 
+consistent time values to the rest of the engine.
 Main responsabilities are:
 
 - Measure `deltaTime`
