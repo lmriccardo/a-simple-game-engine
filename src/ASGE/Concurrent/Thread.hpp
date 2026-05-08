@@ -28,6 +28,27 @@ public:
     }
 };
 
+/**
+ * @brief Abstract base class representing a managed, cancellable thread.
+ *
+ * Wraps a std::thread and provides a structured lifecycle — start, run,
+ * cancel, teardown — built around a virtual Run() method that subclasses
+ * override to implement their logic. The thread loop itself is managed
+ * internally: Run() is called repeatedly until the context is cancelled,
+ * keeping subclass implementations focused purely on per-iteration logic.
+ *
+ * Cancellation is cooperative. Subclasses signal intent to stop by calling
+ * Cancel() on the ThreadContext passed to Run(). The loop exits cleanly
+ * after the current iteration completes, then TearDown() is invoked.
+ *
+ * Threads can operate in two modes:
+ *  - Joinable: the creating thread can wait for completion via Join().
+ *  - Daemon:   the thread is detached and runs independently until cancelled.
+ *
+ * Each instance is assigned a unique name (defaulting to ASGE_Thread_N)
+ * used for identification and debugging. Copy is disabled since a thread
+ * represents a unique resource. Move is supported.
+ */
 class Thread
 {
     ThreadContext m_Ctx;

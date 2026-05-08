@@ -28,12 +28,19 @@ Main responsabilities are:
 - Separate real time from game time
 
 ## Milestones
+
 ### Phase 1
+
+*Status:* ✅ **COMPLETED**
+
 - Window opens
 - Engine loop runs
 - Delta time works
 
 ### Phase 2
+
+*Status* : 🚧 **WORK IN PROGRESS**
+
 - Logging + profiler
 - Thread-safe systems
 - Hot reload support
