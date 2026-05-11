@@ -44,7 +44,7 @@ void asge::concurrent::Thread::Join()
 
 void asge::concurrent::Thread::Detach()
 {
-    if ( !m_Ctx.Cancelled() && m_Thread != nullptr )
+    if ( !m_Ctx->Done() && m_Thread != nullptr )
     {
         m_Thread->detach();
         m_Daemon = true;
@@ -66,8 +66,8 @@ void asge::concurrent::Thread::Start()
 
 void asge::concurrent::Thread::Cancel()
 {
-    if ( m_Thread != nullptr && !m_Ctx.Cancelled() && Started() )
+    if ( m_Thread != nullptr && !m_Ctx->Done() && Started() )
     {
-        m_Ctx.Cancel();
+        m_Ctx->Cancel( ContextErr::Canceled );
     }
 }

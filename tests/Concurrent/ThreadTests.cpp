@@ -20,13 +20,13 @@ public:
         : Thread(), limit(inLimit) {}
 
     CountingThread(std::string const& inName, int inLimit, bool inDaemon = false)
-        : Thread(inName, inDaemon), limit(inLimit) {}
+        : Thread(inName, nullptr, inDaemon), limit(inLimit) {}
 
 protected:
-    void Run(ThreadContext& ctx) override
+    void Run(context_pointer& ctx) override
     {
         ++count;
-        if (count.load() >= limit) ctx.Cancel();
+        if (count.load() >= limit) ctx->Cancel(ContextErr::Canceled);
     }
 
     void TearDown() override { tearDownCalled = true; }
@@ -39,7 +39,7 @@ public:
     explicit IdleThread(std::string const& inName) : Thread(inName) {}
 
 protected:
-    void Run(ThreadContext&) override
+    void Run(context_pointer&) override
     {
         std::this_thread::yield();
     }
@@ -53,30 +53,9 @@ namespace
 using asge::concurrent::CountingThread;
 using asge::concurrent::IdleThread;
 using asge::concurrent::Thread;
-using asge::concurrent::ThreadContext;
-
-// ─── ThreadContext ────────────────────────────────────────────────────────────
-
-TEST(ThreadContext, DefaultsToNotCancelled)
-{
-    ThreadContext ctx;
-    EXPECT_FALSE(ctx.Cancelled());
-}
-
-TEST(ThreadContext, CancelSetsCancelledTrue)
-{
-    ThreadContext ctx;
-    ctx.Cancel();
-    EXPECT_TRUE(ctx.Cancelled());
-}
-
-TEST(ThreadContext, CancelIsIdempotent)
-{
-    ThreadContext ctx;
-    ctx.Cancel();
-    ctx.Cancel();
-    EXPECT_TRUE(ctx.Cancelled());
-}
+using asge::concurrent::ContextErr;
+using asge::concurrent::Background;
+using asge::concurrent::context_pointer;
 
 // ─── Thread ───────────────────────────────────────────────────────────────────
 
@@ -208,66 +187,98 @@ TEST(Thread, DetachMakesDaemon)
 
 // ─── Thread::Start (static factory) ──────────────────────────────────────────
 
-TEST(ThreadStaticStart, ReturnsNonNullPointer)
+TEST(Thread, ThreadStaticStart_ReturnsNonNullPointer)
 {
-    auto callback = [](ThreadContext& ctx) { ctx.Cancel(); };
-    auto t = Thread::Start(false, callback);
+    auto callback = [](context_pointer& ctx) { ctx->Cancel(ContextErr::Canceled); };
+    auto t = Thread::Start(false, nullptr, callback);
     ASSERT_TRUE(t);
     t->Join();
 }
 
-TEST(ThreadStaticStart, StartedFlagAndThreadIdSetAfterConstruction)
+TEST(Thread, ThreadStaticStart_StartedFlagAndThreadIdSetAfterConstruction)
 {
-    auto callback = [](ThreadContext& ctx) { ctx.Cancel(); };
-    auto t = Thread::Start(false, callback);
+    auto callback = [](context_pointer& ctx) { ctx->Cancel(ContextErr::Canceled); };
+    auto t = Thread::Start(false, nullptr, callback);
     EXPECT_TRUE(t->Started());
     EXPECT_NE(t->GetThreadId(), std::thread::id{});
     t->Join();
 }
 
-TEST(ThreadStaticStart, CallableIsInvoked)
+TEST(Thread, ThreadStaticStart_CallableIsInvoked)
 {
     std::atomic<int> count{0};
-    auto callback = [&count](ThreadContext& ctx) {
+    auto callback = [&count](context_pointer& ctx) {
         ++count;
-        ctx.Cancel();
+        ctx->Cancel(ContextErr::Canceled);
     };
-    auto t = Thread::Start(false, callback);
+    auto t = Thread::Start(false, nullptr, callback);
     t->Join();
     EXPECT_GE(count.load(), 1);
 }
 
-TEST(ThreadStaticStart, CallableReceivesExtraArgs)
+TEST(Thread, ThreadStaticStart_CallableReceivesExtraArgs)
 {
     std::atomic<int> result{0};
-    auto callback = [&result](ThreadContext& ctx, int x) {
+    auto callback = [&result](context_pointer& ctx, int x) {
         result.store(x);
-        ctx.Cancel();
+        ctx->Cancel(ContextErr::Canceled);
     };
-    auto t = Thread::Start(false, callback, 42);
+    auto t = Thread::Start(false, nullptr, callback, 42);
     t->Join();
     EXPECT_EQ(result.load(), 42);
 }
 
-TEST(ThreadStaticStart, DaemonThreadIsDetached)
+TEST(Thread, ThreadStaticStart_DaemonThreadIsDetached)
 {
-    auto callback = [](ThreadContext& ctx) { ctx.Cancel(); };
-    auto t = Thread::Start(true, callback);
+    auto callback = [](context_pointer& ctx) { ctx->Cancel(ContextErr::Canceled); };
+    auto t = Thread::Start(true, nullptr, callback);
     EXPECT_TRUE(t->Daemon());
     EXPECT_FALSE(t->Joinable());
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
-TEST(ThreadStaticStart, CancelStopsCallableLoop)
+TEST(Thread, ThreadStaticStart_CancelStopsCallableLoop)
 {
     std::atomic<int> count{0};
-    auto callback = [&count](ThreadContext&) {
+    auto callback = [&count](context_pointer&) {
         ++count;
         std::this_thread::yield();
     };
-    auto t = Thread::Start(false, callback);
+    auto t = Thread::Start(false, nullptr, callback);
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     t->Cancel();
+    t->Join();
+    EXPECT_GT(count.load(), 0);
+}
+
+TEST(Thread, ThreadStaticStart_InheritsParentContext)
+{
+    auto parent = asge::concurrent::WithCancel(Background());
+    std::atomic<bool> ran{false};
+
+    auto callback = [&ran](context_pointer& ctx) {
+        ran.store(true);
+        ctx->Cancel(ContextErr::Canceled);
+    };
+
+    auto t = Thread::Start(false, parent, callback);
+    t->Join();
+    EXPECT_TRUE(ran.load());
+}
+
+TEST(Thread, ThreadStaticStart_ParentContextCancellationStopsThread)
+{
+    auto parent = asge::concurrent::WithCancel(Background());
+    std::atomic<int> count{0};
+
+    auto callback = [&count](context_pointer&) {
+        ++count;
+        std::this_thread::yield();
+    };
+
+    auto t = Thread::Start(false, parent, callback);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    parent->Cancel();
     t->Join();
     EXPECT_GT(count.load(), 0);
 }

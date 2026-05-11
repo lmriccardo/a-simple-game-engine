@@ -8,25 +8,10 @@
 #include <tuple>
 #include <functional>
 
+#include "Context.hpp"
+
 namespace asge::concurrent
 {
-
-class ThreadContext
-{ 
-    std::atomic_bool m_Cancel{false};
-public:
-    void Cancel() noexcept
-    {
-        if ( !Cancelled() ) {
-            m_Cancel.store(true, std::memory_order_relaxed);
-        }
-    }
-
-    bool Cancelled() const noexcept
-    {
-        return m_Cancel.load(std::memory_order_relaxed);
-    }
-};
 
 /**
  * @brief Abstract base class representing a managed, cancellable thread.
@@ -51,17 +36,16 @@ public:
  */
 class Thread
 {
-    ThreadContext m_Ctx;
-    
     void _Run()
     {
-        while (!m_Ctx.Cancelled())
+        while (!m_Ctx->Done())
         {
             this->Run(m_Ctx);
         }
     }
 
 protected:
+    context_pointer              m_Ctx{nullptr};
     std::unique_ptr<std::thread> m_Thread{nullptr};
 
     std::thread::id m_ThreadId;
@@ -82,20 +66,24 @@ protected:
      * be specified in this method. To cancel the thread, the Cancel
      * function on the context shall be called.
      */
-    virtual void Run( ThreadContext& ) = 0;
+    virtual void Run( context_pointer& ) = 0;
 
     // Functions executed when the thread is cancelled
     virtual void TearDown() {};
 public:
     using thread_pointer = std::unique_ptr<Thread>;
 
-    Thread()
-    : m_Name("ASGE_Thread_" + std::to_string(s_ThreadCounter++))
+    Thread( context_pointer inCtx = nullptr )
+    : m_Ctx( WithCancel(inCtx) ), 
+      m_Name("ASGE_Thread_" + std::to_string(s_ThreadCounter++))
     {}
 
-    Thread(std::string const& inName, bool inDaemon=false)
-    : m_Name(inName), m_Daemon(inDaemon)
+    Thread(std::string const& inName, 
+        context_pointer inCtx=nullptr, bool inDaemon=false)
+    : Thread( inCtx )
     {
+        m_Name = inName;
+        m_Daemon = inDaemon;
         s_ThreadCounter++;
     }
 
@@ -132,7 +120,7 @@ public:
      * reference.
      */
     template<typename _Callable, typename... _Args>
-    static thread_pointer Start(bool, _Callable&&, _Args&& ...);
+    static thread_pointer Start(bool, context_pointer, _Callable&&, _Args&& ...);
 
     void Join();
     void Detach();
@@ -161,23 +149,16 @@ private:
     _Callable            m_Func; // Callable function
     std::tuple<_Args...> m_Args; // Arguments to the callable
 
-    static auto BindContext( _Callable& inFn, ThreadContext& inCtx )
+    void Run( context_pointer& inCtx ) override
     {
-        return [ &fn = inFn, &ctx = inCtx ]
-            (auto&& ...args) mutable {
-                return fn( ctx, std::forward<decltype(args)>(args)... );
-            };
-    }
-
-    void Run( ThreadContext& inCtx ) override
-    {
-        // First we need to bind the context as the first argument
-        auto fn = BindContext( m_Func, inCtx );
-        std::apply( fn, m_Args );
+        std::apply( m_Func, std::tuple_cat(
+            std::tie(inCtx),          // context is always first
+            m_Args
+        ));
     }
 public:
-    ThreadImpl( _Callable&& inFunc, _Args&&... inArgs )
-    : Thread(), m_Func( std::forward<_Callable>(inFunc) ),
+    ThreadImpl( context_pointer inCtx, _Callable&& inFunc, _Args&&... inArgs )
+    : Thread(inCtx), m_Func( std::forward<_Callable>(inFunc) ),
       m_Args( std::forward<_Args>(inArgs)... )
     {}
 };
@@ -187,12 +168,12 @@ public:
 using thread_pointer = Thread::thread_pointer;
 
 template <typename _Callable, typename... _Args>
-inline thread_pointer Thread::Start(bool inDaemon, 
-    _Callable && inFunc, _Args &&...inArgs)
+inline thread_pointer Thread::Start(bool inDaemon,
+    context_pointer inCtx, _Callable && inFunc, _Args &&...inArgs)
 {
     using tImpl = _internal::ThreadImpl<_Callable, _Args...>;
     thread_pointer cThread = std::make_unique<tImpl>(
-        std::forward<_Callable>(inFunc), std::forward<_Args>(inArgs)...);
+        inCtx, std::forward<_Callable>(inFunc), std::forward<_Args>(inArgs)...);
     
     cThread->Start();
     if (inDaemon) cThread->Detach();
