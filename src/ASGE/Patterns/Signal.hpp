@@ -9,41 +9,13 @@
 #include <cstddef>
 #include <cstdint>
 
+#include <ASGE/Utils/Functools.hpp>
+
 namespace asge::signals
 {
 
 // Forward declaration of the Connection class
 template <typename... Args> class Connection;
-
-namespace _internal
-{
-
-// Trait to extract the class type from a member function pointer
-template <typename T>
-struct member_function_class;
-
-template <typename ClassType, typename ReturnType, typename... Args>
-struct member_function_class<ReturnType (ClassType::*)(Args...)> {
-    using type = ClassType;
-};
-
-template <typename ClassType, typename ReturnType, typename... Args>
-struct member_function_class<ReturnType (ClassType::*)(Args...) const> {
-    using type = ClassType;
-};
-
-template <typename T>
-using member_function_class_t = typename member_function_class<T>::type;
-
-template<typename Callable, typename T>
-concept MemberFunctionOf =
-    std::is_member_function_pointer_v<std::remove_reference_t<Callable>> &&
-    std::is_base_of_v<
-        _internal::member_function_class_t<std::remove_reference_t<Callable>>,
-        std::remove_reference_t<T>
-    >;
-
-};
 
 /**
  * Creates a callback wrapper that holds a weak reference to an object and
@@ -60,7 +32,7 @@ concept MemberFunctionOf =
  * @param ptr  Shared pointer to the object instance
  */
 template<typename T, typename Callable>
-requires _internal::MemberFunctionOf<Callable, T>
+requires functools::_internal::MemberFunctionOf<Callable, T>
 auto MakeCallback( Callable&& inFunc, std::shared_ptr<T> inPtr )
 {
     std::weak_ptr<T> wptr = inPtr;
