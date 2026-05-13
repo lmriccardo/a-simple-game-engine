@@ -146,21 +146,8 @@ private:
 template<typename T>
 class ContextWithValue;
 
-/**
- * @brief Derives a child context that carries an immutable typed value.
- *
- * Creates a new ContextWithValue<T> as a child of the given parent, attaching
- * it to the context tree. If the parent is already cancelled at the time of
- * this call, the child is cancelled immediately with the same error. Otherwise
- * the child is registered with the parent and will be cancelled automatically
- * when the parent is.
- * 
- * @tparam T        Type of the value to carry. Must be move-constructible.
- * @param inValue   The value to attach to the context.
- * @param inParent  The parent context (nullptr by default).
- */
 template<typename T>
-ContextWithValue<T>::pointer WithValue( T inValue, context_pointer inParent = nullptr );
+std::shared_ptr<ContextWithValue<T>> WithValue( T inValue, context_pointer inParent = nullptr );
 
 /**
  * @brief A context that carries an immutable typed value alongside cancellation.
@@ -190,7 +177,7 @@ public:
 
     const_reference Value() const noexcept { return m_Value; }
 
-    friend pointer WithValue<>( T, context_pointer );
+    friend std::shared_ptr<ContextWithValue<T>> WithValue<T>( T, context_pointer );
 };
 
 /**
@@ -233,7 +220,7 @@ Context::pointer WithCancel( context_pointer inParent = nullptr );
  * @param inParent  The parent context (nullptr by default).
  */
 template<typename T>
-ContextWithValue<T>::pointer WithValue( T inValue, context_pointer inParent)
+std::shared_ptr<ContextWithValue<T>> WithValue( T inValue, context_pointer inParent)
 {
     auto ctx = std::shared_ptr<ContextWithValue<T>>(
         new ContextWithValue<T>( inParent, std::move(inValue) )
