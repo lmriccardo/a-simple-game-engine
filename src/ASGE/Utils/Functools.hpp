@@ -85,28 +85,37 @@ concept MemberFunctionOf =
         std::remove_reference_t<T>
     >;
 
-struct ICallable
-{
-public:
-    virtual ~ICallable() = default;
-    virtual void Call() = 0;
-};
-
 }
 
 template<typename _Callable, typename... _Args>
-class Callable : public _internal::ICallable
+class Callable
 {
 protected:
     _Callable            m_Func;
     std::tuple<_Args...> m_Args;
+
+    // Take the return type from function signature
+    using return_type = typename _internal::return_type_t<_Callable>;
 public:
     Callable( _Callable&& inFn, _Args&&... inArgs )
     : m_Func( std::forward<_Callable>( inFn ) )
     , m_Args( std::forward<_Args>(inArgs)... )
     {}
 
-    virtual void Call() {}
+    virtual ~Callable() = default;
+
+    Callable( Callable&& )            = default;
+    Callable& operator=( Callable&& ) = default;
+
+    virtual return_type Call()
+    {
+        return std::apply( m_Func, m_Args );
+    }
+
+    return_type operator()()
+    {
+        return Call();
+    }
 };
 
 }

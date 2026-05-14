@@ -2,8 +2,10 @@
     "configurations": [
         {
             "name": "default",
+            "compileCommands": "${workspaceFolder}/build/compile_commands.json",
             "cppStandard": "c++23",
-            "cStandard": "c17"
+            "cStandard": "c17",
+            "includePath": ["${workspaceFolder}/src/"]
         }
     ],
     "version": 4

@@ -1,17 +1,14 @@
-add_executable(ASGE_ConcurrentTests
-    ThreadTests.cpp
-    MPMCQueueTests.cpp
-    ContextTests.cpp
-    WorkerJobTests.cpp
+add_executable(ASGE_UtilsTests
+    FunctoolsTests.cpp
 )
 
-target_link_libraries(ASGE_ConcurrentTests
+target_link_libraries(ASGE_UtilsTests
     PRIVATE
         ASGE
         GTest::gtest_main
 )
 
-target_compile_options(ASGE_ConcurrentTests
+target_compile_options(ASGE_UtilsTests
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
             -Wall -Wextra -Wpedantic
@@ -20,12 +17,12 @@ target_compile_options(ASGE_ConcurrentTests
 )
 
 if(WIN32)
-    add_custom_command(TARGET ASGE_ConcurrentTests POST_BUILD
+    add_custom_command(TARGET ASGE_UtilsTests POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             $<TARGET_FILE:SDL3::SDL3>
-            $<TARGET_FILE_DIR:ASGE_ConcurrentTests>
+            $<TARGET_FILE_DIR:ASGE_UtilsTests>
     )
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(ASGE_ConcurrentTests)
+gtest_discover_tests(ASGE_UtilsTests)

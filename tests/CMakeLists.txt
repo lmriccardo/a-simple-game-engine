@@ -10,3 +10,4 @@ FetchContent_MakeAvailable(googletest)
 
 add_subdirectory(Math)
 add_subdirectory(Concurrent)
+add_subdirectory(Utils)
