@@ -1,18 +1,19 @@
 #pragma once
 
-#include <ASGE/Core/Application.hpp>
-#include <ASGE/Core/ApplicationConfig.hpp>
+#include <ASGE/Application/Application.hpp>
+#include <ASGE/Application/ApplicationConfig.hpp>
 #include <ASGE/Events/Enums.hpp>
 #include <ASGE/Events/Events.hpp>
 #include <ASGE/Events/Keycode.hpp>
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Video/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
-#include <ASGE/Logger/Logger.hpp>
-#include <ASGE/Time/Time.hpp>
+#include <ASGE/Core/Logger/Logger.hpp>
+#include <ASGE/Core/Time/Time.hpp>
 #include <ASGE/Math/Rect.hpp>
 #include <ASGE/Math/VectorN.hpp>
 #include <ASGE/Math/Vector2.hpp>
-#include <ASGE/Patterns/Signal.hpp>
-#include <ASGE/Concurrent/Thread.hpp>
-#include <ASGE/Concurrent/Context.hpp>
+#include <ASGE/Core/Patterns/Signal.hpp>
+#include <ASGE/Core/Concurrent/Thread.hpp>
+#include <ASGE/Core/Concurrent/Context.hpp>
+#include <ASGE/Core/Concurrent/ThreadPool.hpp>

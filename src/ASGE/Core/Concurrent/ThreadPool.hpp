@@ -10,7 +10,7 @@
 #include <vector>
 #include <type_traits>
 
-#include <ASGE/Utils/Functools.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 #define MAX_JOB_QUEUE_SIZE 1024
 

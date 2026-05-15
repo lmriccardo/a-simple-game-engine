@@ -1,4 +1,4 @@
-#include <ASGE/Concurrent/Thread.hpp>
+#include <ASGE/Core/Concurrent/Thread.hpp>
 
 #include <gtest/gtest.h>
 

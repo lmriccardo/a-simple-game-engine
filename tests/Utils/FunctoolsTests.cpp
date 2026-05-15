@@ -1,4 +1,4 @@
-#include <ASGE/Utils/Functools.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 #include <gtest/gtest.h>
 

@@ -2,9 +2,9 @@
 
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Events/Events.hpp>
-#include <ASGE/Logger/Logger.hpp>
+#include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Video/VideoSystem.hpp>
-#include <ASGE/Time/Time.hpp>
+#include <ASGE/Core/Time/Time.hpp>
 #include "ApplicationConfig.hpp"
 
 namespace asge

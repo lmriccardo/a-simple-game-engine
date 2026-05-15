@@ -1,6 +1,6 @@
 add_library(ASGE STATIC
     # Core components of the Engine
-    Core/Application.cpp
+    Application/Application.cpp
 
     # Event system components of the Engine
     Events/Translation/SDL_TranslationUnit.cpp
@@ -11,18 +11,18 @@ add_library(ASGE STATIC
     Video/Graphics/SDLRenderer.cpp
 
     # Engine Logger
-    Logger/Logger.cpp
+    Core/Logger/Logger.cpp
 
     # Timers or timing utils for the engine
-    Time/TimeUtils.cpp
-    Time/Time.cpp
+    Core/Time/TimeUtils.cpp
+    Core/Time/Time.cpp
 
     # Math utilities implementation
 
     # Concurrency utilities
-    Concurrent/Thread.cpp
-    Concurrent/Context.cpp
-    Concurrent/ThreadPool.cpp
+    Core/Concurrent/Thread.cpp
+    Core/Concurrent/Context.cpp
+    Core/Concurrent/ThreadPool.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)

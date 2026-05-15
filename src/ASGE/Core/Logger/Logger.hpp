@@ -7,7 +7,7 @@
 #include <string>
 #include <sstream>
 
-#include <ASGE/Time/TimeUtils.hpp>
+#include <ASGE/Core/Time/TimeUtils.hpp>
 
 #if defined(__clang__) || defined(__GNUC__)
     #define FUNC_NAME __FUNCTION__

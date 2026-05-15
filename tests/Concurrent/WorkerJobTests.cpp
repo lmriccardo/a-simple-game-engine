@@ -1,4 +1,4 @@
-#include <ASGE/Concurrent/ThreadPool.hpp>
+#include <ASGE/Core/Concurrent/ThreadPool.hpp>
 
 #include <gtest/gtest.h>
 

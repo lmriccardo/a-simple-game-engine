@@ -9,7 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <ASGE/Utils/Functools.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 namespace asge::signals
 {
