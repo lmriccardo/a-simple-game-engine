@@ -50,9 +50,7 @@ protected:
 
     std::thread::id m_ThreadId;
     std::string     m_Name;
-
-    bool             m_Daemon {false};
-    std::atomic_bool m_Started{false};
+    bool            m_Daemon {false};
 
     inline static std::uint64_t s_ThreadCounter{0};
 
@@ -178,6 +176,12 @@ inline thread_pointer Thread::Start(bool inDaemon,
     cThread->Start();
     if (inDaemon) cThread->Detach();
     return cThread;
+}
+
+/* Get the hardware concurrency of the current system */
+inline std::size_t HardwareConcurrency() noexcept 
+{ 
+    return std::thread::hardware_concurrency(); 
 }
 
 }

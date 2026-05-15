@@ -3,6 +3,7 @@ add_executable(ASGE_ConcurrentTests
     MPMCQueueTests.cpp
     ContextTests.cpp
     WorkerJobTests.cpp
+    ThreadPoolTests.cpp
 )
 
 target_link_libraries(ASGE_ConcurrentTests

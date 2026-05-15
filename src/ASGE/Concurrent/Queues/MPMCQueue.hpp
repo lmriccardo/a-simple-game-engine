@@ -95,7 +95,7 @@ public:
         }
     }
 
-    bool TryPop(reference  outItem) noexcept
+    bool TryPop(reference outItem) noexcept
     {
         size_type read = m_ReadHead.load( std::memory_order_relaxed );
 

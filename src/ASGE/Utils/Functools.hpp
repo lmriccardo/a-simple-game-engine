@@ -91,11 +91,11 @@ template<typename _Callable, typename... _Args>
 class Callable
 {
 protected:
-    _Callable            m_Func;
-    std::tuple<_Args...> m_Args;
+    std::decay_t<_Callable>            m_Func;
+    std::tuple<std::decay_t<_Args>...> m_Args;
 
     // Take the return type from function signature
-    using return_type = typename _internal::return_type_t<_Callable>;
+    using return_type = typename _internal::return_type_t<std::decay_t<_Callable>>;
 public:
     Callable( _Callable&& inFn, _Args&&... inArgs )
     : m_Func( std::forward<_Callable>( inFn ) )

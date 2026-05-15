@@ -20,7 +20,7 @@ bool asge::concurrent::Thread::Daemon() const noexcept
 
 bool asge::concurrent::Thread::Started() const noexcept
 {
-    return m_Started.load(std::memory_order_relaxed);
+    return m_Thread != nullptr;
 }
 
 const std::string &asge::concurrent::Thread::GetName() const noexcept
@@ -57,7 +57,6 @@ void asge::concurrent::Thread::Start()
     {
         m_Thread = std::make_unique<std::thread>(&Thread::_Run, this);
         m_ThreadId = m_Thread->get_id();
-        m_Started.store( true, std::memory_order_relaxed );
 
         // Detach if the thread is a deamon
         if (Daemon()) Detach();

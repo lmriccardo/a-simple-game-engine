@@ -22,6 +22,7 @@ add_library(ASGE STATIC
     # Concurrency utilities
     Concurrent/Thread.cpp
     Concurrent/Context.cpp
+    Concurrent/ThreadPool.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)

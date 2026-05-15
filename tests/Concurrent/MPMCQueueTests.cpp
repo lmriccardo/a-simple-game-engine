@@ -1,4 +1,4 @@
-#include <ASGE/Concurrent/MPMCQueue.hpp>
+#include <ASGE/Concurrent/Queues/MPMCQueue.hpp>
 
 #include <gtest/gtest.h>
 
