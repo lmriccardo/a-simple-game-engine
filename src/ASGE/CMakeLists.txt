@@ -23,6 +23,9 @@ add_library(ASGE STATIC
     Core/Concurrent/Thread.cpp
     Core/Concurrent/Context.cpp
     Core/Concurrent/ThreadPool.cpp
+
+    # Allocators utilities
+    Core/Allocators/LinearAllocator.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)

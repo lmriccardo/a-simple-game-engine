@@ -17,3 +17,4 @@
 #include <ASGE/Core/Concurrent/Thread.hpp>
 #include <ASGE/Core/Concurrent/Context.hpp>
 #include <ASGE/Core/Concurrent/ThreadPool.hpp>
+#include <ASGE/Core/Allocators/LinearAllocator.hpp>
