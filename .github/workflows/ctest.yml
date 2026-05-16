@@ -42,7 +42,7 @@ jobs:
         run: ./scripts/install-sdl-windows.ps1
 
       - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTING=ON
+        run: cmake -S . -B build -DBUILD_TESTING=ON -DASGE_BUILD_EXAMPLES=OFF
 
       - name: Build
         run: cmake --build build --config Debug

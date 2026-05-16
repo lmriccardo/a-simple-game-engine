@@ -17,7 +17,11 @@ find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 include(CTest)
 
 add_subdirectory(src/ASGE)
-add_subdirectory(examples)
+
+option(ASGE_BUILD_EXAMPLES "Build the examples folder" ON)
+if(ASGE_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
