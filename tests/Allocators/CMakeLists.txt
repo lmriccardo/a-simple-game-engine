@@ -1,6 +1,7 @@
 add_executable(ASGE_AllocatorTest
     LinearAllocatorTests.cpp
     ArenaAllocatorTests.cpp
+    PoolAllocatorTests.cpp
 )
 
 target_link_libraries(ASGE_AllocatorTest

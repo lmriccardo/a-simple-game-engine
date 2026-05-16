@@ -12,7 +12,7 @@ Build the foundational runtime.
 - [x] Logging system
 - [WIP] Memory allocator
     + Linear Allocator ( Arena, Stack buffer )
-    + Pool Allocators ( thread-safetiness ???? )
+    + Pool Allocators
     + Stack Allocators
 - [ ] Config system
 
