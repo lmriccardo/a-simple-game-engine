@@ -18,7 +18,7 @@ Recommended implementation order:
 7. Physics
 8. Audio
 9. UI
-10. Scripting
-11. Editor
+10. Networking
+11. Scripting
 12. Optimization
-13. Networking
+13. Documentation
