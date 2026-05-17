@@ -5,6 +5,7 @@
 #include <memory>
 #include <array>
 #include <new>
+#include <type_traits>
 
 namespace asge::mem
 {
@@ -58,6 +59,7 @@ private:
 
     std::array<Slot, N> m_Pool;  // Stack-allocated slot array.
     Slot* m_FreeHead{nullptr};   // Head of the intrusive free-list.
+    std::size_t m_Used{0};       // Total number of used slots
 
     PoolAllocator()
     {
@@ -77,9 +79,12 @@ private:
     void Free( T* inPtr ) noexcept
     {
         inPtr->~T();
+
         Slot* slot   = reinterpret_cast<Slot*>( inPtr );
         slot->s_Next = m_FreeHead;
         m_FreeHead   = slot;
+        
+        m_Used--;
     }
 
 public:
@@ -128,9 +133,15 @@ public:
 
         T* retObj = reinterpret_cast<T*>( currSlot->s_Storage );
         ::new(retObj) T( std::forward<_Args>(inArgs)... );
+        m_Used++;
 
         return { retObj, Deleter{ this->shared_from_this() } };
     }
+
+    [[nodiscard]] size_type Used() const noexcept { return m_Used; }
+    [[nodiscard]] size_type Remaining() const noexcept { return N - m_Used; }
+    [[nodiscard]] size_type Full() const noexcept { return m_Used == N; }
+    [[nodiscard]] size_type Empty() const noexcept { return m_Used == 0; }
 };
 
 }

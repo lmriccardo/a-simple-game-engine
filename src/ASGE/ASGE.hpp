@@ -18,3 +18,5 @@
 #include <ASGE/Core/Concurrent/Context.hpp>
 #include <ASGE/Core/Concurrent/ThreadPool.hpp>
 #include <ASGE/Core/Allocators/LinearAllocator.hpp>
+#include <ASGE/Core/Allocators/PoolAllocator.hpp>
+#include <ASGE/Core/Allocators/StackAllocator.hpp>

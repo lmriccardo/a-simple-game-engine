@@ -6,6 +6,7 @@
 #include <cassert>
 #include <memory>
 #include <new>
+#include <type_traits>
 
 #define DEF_ALIGN alignof( std::max_align_t)
 
@@ -75,8 +76,9 @@ public:
      * @return Pointer to the fully constructed T object.
      * @throws std::bad_alloc if the allocator is full.
      */
-    template<typename T, typename ..._Args> [[nodiscard]]
-    T* AllocOne( _Args&& ... inArgs )
+    template<typename T, typename ..._Args> 
+    requires std::is_constructible_v<T, _Args...>
+    [[nodiscard]] T* AllocOne( _Args&& ... inArgs )
     {
         void *mem = Alloc( sizeof(T), alignof(T) );
         if (!mem) throw std::bad_alloc{};

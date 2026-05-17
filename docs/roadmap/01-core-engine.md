@@ -10,10 +10,7 @@ Build the foundational runtime.
 - [x] Timing system
 - [x] Threading utilities
 - [x] Logging system
-- [WIP] Memory allocator
-    + Linear Allocator ( Arena, Stack buffer )
-    + Pool Allocators
-    + Stack Allocators
+- [x] Memory allocator
 - [ ] Config system
 
 ## Milestones
