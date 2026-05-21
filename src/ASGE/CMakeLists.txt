@@ -26,6 +26,12 @@ add_library(ASGE STATIC
 
     # Allocators utilities
     Core/Allocators/LinearAllocator.cpp
+
+    # Configuration utilities
+    Core/Configuration/TOML_Parser.cpp
+
+    # String utilities
+    Core/Strings.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)

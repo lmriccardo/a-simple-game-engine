@@ -20,3 +20,4 @@ endmacro()
 
 add_subdirectory(background_changer)
 add_subdirectory(moving_box)
+add_subdirectory(configuration_reader)
