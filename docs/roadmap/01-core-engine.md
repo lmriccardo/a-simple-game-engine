@@ -11,7 +11,7 @@ Build the foundational runtime.
 - [x] Threading utilities
 - [x] Logging system
 - [x] Memory allocator
-- [ ] Config system
+- [WIP] Config system
 
 ## Milestones
 

@@ -1,8 +1,8 @@
 #include "TOML_Parser.hpp"
 
-using namespace asge::config::_internal;
+using namespace asge::config::toml::_internal;
 
-std::string asge::config::_internal::TOML_Table::GetAbsoluteName() const noexcept
+std::string asge::config::toml::_internal::Table::GetAbsoluteName() const noexcept
 {
     if ( auto pTable = m_ParentTable.lock() )
     {
@@ -14,16 +14,16 @@ std::string asge::config::_internal::TOML_Table::GetAbsoluteName() const noexcep
     return m_Name;
 }
 
-void asge::config::_internal::TOML_Table::PrintTable(std::ostream &oss) const noexcept
+void asge::config::toml::_internal::Table::PrintTable(std::ostream &oss) const noexcept
 {
     // print header
     if (!m_Name.empty()) {
         switch (m_Type) {
-        case TOML_TableType::Standard:
+        case TableType::Standard:
             oss << "["  << GetAbsoluteName() << "]\n";
             break;
-        case TOML_TableType::Root:
-        case TOML_TableType::Array:
+        case TableType::Root:
+        case TableType::Array:
             oss << "[[" << GetAbsoluteName() << "]]\n";
             break;
         }
@@ -40,8 +40,8 @@ void asge::config::_internal::TOML_Table::PrintTable(std::ostream &oss) const no
         sub->PrintTable(oss);
 }
 
-void asge::config::_internal::TOML_Table::AddKvPair(
-    std::string const &inKey, TOML_ValueType const &inValue) noexcept
+void asge::config::toml::_internal::Table::AddKvPair(
+    std::string const &inKey, ValueType const &inValue) noexcept
 {
     if ( m_kvPairs.find( inKey ) != m_kvPairs.end() )
     {
@@ -52,18 +52,18 @@ void asge::config::_internal::TOML_Table::AddKvPair(
     m_kvPairs[inKey] = inValue;
 }
 
-void asge::config::_internal::TOML_Table::AddSubTable(std::shared_ptr<TOML_Table> inChild) noexcept
+void asge::config::toml::_internal::Table::AddSubTable(std::shared_ptr<Table> inChild) noexcept
 {
     m_SubTables.push_back( inChild );
     inChild->SetParent( shared_from_this() );
 }
 
-void asge::config::_internal::TOML_Table::SetParent(std::weak_ptr<TOML_Table> inParent) noexcept
+void asge::config::toml::_internal::Table::SetParent(std::weak_ptr<Table> inParent) noexcept
 {
     m_ParentTable.swap( inParent );
 }
 
-std::ostream &asge::config::_internal::operator<<(std::ostream &oss, TOML_ValueType const &inValue) noexcept
+std::ostream &asge::config::toml::_internal::operator<<(std::ostream &oss, ValueType const &inValue) noexcept
 {
     std::visit([&oss](auto&& v) {
         using T = std::decay_t<decltype(v)>;
@@ -108,13 +108,13 @@ std::ostream &asge::config::_internal::operator<<(std::ostream &oss, TOML_ValueT
     return oss;
 }
 
-std::ostream &asge::config::_internal::operator<<(std::ostream &oss, TOML_Table const &inTable) noexcept
+std::ostream &asge::config::toml::_internal::operator<<(std::ostream &oss, Table const &inTable) noexcept
 {
     inTable.PrintTable( oss );
     return oss;
 }
 
-std::vector<std::string_view> asge::config::_internal::TOML_SplitArrayElements(std::string_view inStr)
+std::vector<std::string_view> asge::config::toml::_internal::SplitArrayElements(std::string_view inStr)
 {
     // This function already assumes that the input string already
     // have outer brackets stripped
@@ -168,36 +168,67 @@ std::vector<std::string_view> asge::config::_internal::TOML_SplitArrayElements(s
     return outResult;
 }
 
-TOML_ValueType asge::config::_internal::TOML_ParseArray(std::string_view inLine)
+ValueType asge::config::toml::_internal::ParseArray(std::string_view inLine)
 {
-    return TOML_ValueType();
+    if ( inLine.front() == '[' ) inLine.remove_prefix(1);
+    if ( inLine.back()  == ']' ) inLine.remove_suffix(1);
+    inLine = str::Trim( inLine );
+    
+    // Check that after stripping out brackets the resulting string
+    // is not empty. If it is empty than we simply return an empty vector
+    if ( inLine.empty() ) return std::vector<int>{};
+
+    // Split the array string into multiple elements
+    auto arrayElems = SplitArrayElements( inLine );
+    if ( arrayElems.empty() ) return std::vector<int>{};
+
+    // Detect the element type of the array by inspecting only the first element
+    ElementType elemType = DetectType( arrayElems[0] );
+
+    switch (elemType)
+    {
+    case ElementType::String: return BuildArray<ElementType::String>( arrayElems );
+    case ElementType::Bool:   return BuildArray<ElementType::Bool>( arrayElems );
+    case ElementType::Int:    return BuildArray<ElementType::Int>( arrayElems );
+    case ElementType::Double: return BuildArray<ElementType::Double>( arrayElems );
+    case ElementType::Array:
+    {
+        auto nested = std::make_shared<toml_array>();
+        for ( auto const& element : arrayElems ) {
+            nested->elements.push_back(ParseArray( element ));
+        }
+        return nested;
+    }
+    default:
+        break;
+    }
 }
 
-std::string asge::config::_internal::TOML_ParseString(std::istringstream &inStream, std::string_view inLine)
+std::string asge::config::toml::_internal::ParseString(std::istringstream *inStream, std::string_view inLine)
 {
     return std::string();
 }
 
-TOML_ValueType asge::config::_internal::TOML_ValueParse(std::istringstream &inStream, std::string_view inLine)
+ValueType asge::config::toml::_internal::ParseValue(std::istringstream *inStream, std::string_view inLine)
 {
-    const auto tomlType = TOML_DetectType( inLine );
+    const auto tomlType = DetectType( inLine );
 
     switch (tomlType)
     {
-    case TOML_ElementType::String: return TOML_ParseString(inStream, inLine);
-    case TOML_ElementType::Array: return TOML_ParseArray(inLine);
-    case TOML_ElementType::Bool: return inLine == "true";
-    case TOML_ElementType::Double: return std::stod( std::string(inLine) );
-    case TOML_ElementType::Int: return std::stoi( std::string(inLine) );
+    case ElementType::String: return ParseString(inStream, inLine);
+    case ElementType::Array: return ParseArray(inLine);
+    case ElementType::Bool: return inLine == "true";
+    case ElementType::Double: return std::stod( std::string(inLine) );
+    case ElementType::Int: return std::stoi( std::string(inLine) );
     default:
         throw std::runtime_error("bad TOML formatting!!");
     }
 }
 
-TOML_Table asge::config::_internal::TOML_Parse(std::string const &inRaw) noexcept
+Table asge::config::toml::_internal::Parse(std::string const &inRaw) noexcept
 {
     // Creates the root table
-    auto rootTable = std::make_shared<TOML_Table>( TOML_TableType::Root );
+    auto rootTable = std::make_shared<Table>( TableType::Root );
     auto currTable = rootTable;
 
     std::istringstream stream( inRaw );
@@ -218,7 +249,7 @@ TOML_Table asge::config::_internal::TOML_Parse(std::string const &inRaw) noexcep
         {
             auto kvKey    = str::Trim(svLine.substr(0, kvSep));
             auto kvValue  = str::Trim(svLine.substr(kvSep + 1, svLine.size()));
-            auto kvParsed = TOML_ValueParse( stream, kvValue );
+            auto kvParsed = ParseValue( &stream, kvValue );
 
             // Add the key-value pair into the current table
             currTable->AddKvPair( std::string(kvKey), kvParsed );
@@ -233,15 +264,15 @@ TOML_Table asge::config::_internal::TOML_Parse(std::string const &inRaw) noexcep
     return std::move(*rootTable);
 }
 
-TOML_ElementType asge::config::_internal::TOML_DetectType(std::string_view inLine) noexcept
+ElementType asge::config::toml::_internal::DetectType(std::string_view inLine) noexcept
 {
-    if (inLine.empty()) return TOML_ElementType::Null;
+    if (inLine.empty()) return ElementType::Null;
 
-    if (inLine[0] == '[')                           return TOML_ElementType::Array;
-    if (inLine[0] == '"' || inLine[0] == '\'')      return TOML_ElementType::String;
-    if (inLine == "true")                           return TOML_ElementType::Bool;
-    if (inLine == "false")                          return TOML_ElementType::Bool;
-    if (inLine.find('.') != std::string_view::npos) return TOML_ElementType::Double;
+    if (inLine[0] == '[')                           return ElementType::Array;
+    if (inLine[0] == '"' || inLine[0] == '\'')      return ElementType::String;
+    if (inLine == "true")                           return ElementType::Bool;
+    if (inLine == "false")                          return ElementType::Bool;
+    if (inLine.find('.') != std::string_view::npos) return ElementType::Double;
 
-    return TOML_ElementType::Int;
+    return ElementType::Int;
 }

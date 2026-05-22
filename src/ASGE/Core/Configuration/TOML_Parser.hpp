@@ -12,7 +12,7 @@
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
 
-namespace asge::config
+namespace asge::config::toml
 {
 
 namespace _internal
@@ -23,7 +23,7 @@ namespace _internal
  */
 struct toml_array;
 
-using TOML_ValueType = std::variant<
+using ValueType = std::variant<
     std::string,
     double,
     int,
@@ -35,61 +35,88 @@ using TOML_ValueType = std::variant<
     std::shared_ptr<toml_array>
 >;
 
-std::ostream& operator<<( std::ostream& oss, TOML_ValueType const& inValue ) noexcept;
+std::ostream& operator<<( std::ostream& oss, ValueType const& inValue ) noexcept;
 
 struct toml_array 
 {
-    std::vector<TOML_ValueType> elements;
+    std::vector<ValueType> elements;
 };
 
-enum class TOML_TableType
+enum class TableType
 {
     Root,       // It is a root table of an array of tables of the same type
     Standard,   // Meaning that there will be no more tables of the same type
     Array       // It is a grouping of tables
 };
 
-enum class TOML_ElementType { Null, Int, Double, Bool, String, Array };
+enum class ElementType { Null, Int, Double, Bool, String, Array };
 
-class TOML_Table : public std::enable_shared_from_this<TOML_Table>
+class Table : public std::enable_shared_from_this<Table>
 {
 private:
     std::string m_Name; // The name of the TOML table
-    std::unordered_map<std::string, TOML_ValueType> m_kvPairs; // Key-Value pairs
-    std::vector<std::shared_ptr<TOML_Table>> m_SubTables; // A vector of possible subtables
-    std::weak_ptr<TOML_Table> m_ParentTable; // The parent table
-    TOML_TableType m_Type; // Table type wrt arrays of tables
+    std::unordered_map<std::string, ValueType> m_kvPairs; // Key-Value pairs
+    std::vector<std::shared_ptr<Table>> m_SubTables; // A vector of possible subtables
+    std::weak_ptr<Table> m_ParentTable; // The parent table
+    TableType m_Type; // Table type wrt arrays of tables
 
     std::string GetAbsoluteName() const noexcept;
     void PrintTable(std::ostream& oss) const noexcept;
 public:
-    TOML_Table(std::string const& inName, TOML_TableType inType)
+    Table(std::string const& inName, TableType inType)
     : m_Name( inName ), m_Type( inType )
     {}
 
-    TOML_Table(TOML_TableType inType) : m_Name( "" ), m_Type( inType ) {}
+    Table(TableType inType) : m_Name( "" ), m_Type( inType ) {}
 
     /* Delete all copy and move constructors and ass. operators */
-    TOML_Table(TOML_Table const&)            = delete;
-    TOML_Table& operator=(TOML_Table const&) = delete;
-    TOML_Table(TOML_Table&&)                 = default;
-    TOML_Table& operator=(TOML_Table&&)      = default;
+    Table(Table const&)            = delete;
+    Table& operator=(Table const&) = delete;
+    Table(Table&&)                 = default;
+    Table& operator=(Table&&)      = default;
 
-    ~TOML_Table() = default;
+    ~Table() = default;
 
-    void AddKvPair( std::string const& inKey, TOML_ValueType const& inValue ) noexcept;
-    void AddSubTable( std::shared_ptr<TOML_Table> inChild ) noexcept;
-    void SetParent( std::weak_ptr<TOML_Table> inParent ) noexcept;
+    void AddKvPair( std::string const& inKey, ValueType const& inValue ) noexcept;
+    void AddSubTable( std::shared_ptr<Table> inChild ) noexcept;
+    void SetParent( std::weak_ptr<Table> inParent ) noexcept;
 
-    friend std::ostream& operator<<( std::ostream& oss, TOML_Table const& inTable ) noexcept;
+    friend std::ostream& operator<<( std::ostream& oss, Table const& inTable ) noexcept;
 };
 
-std::vector<std::string_view> TOML_SplitArrayElements( std::string_view inStr );
-TOML_ValueType TOML_ParseArray( std::string_view inLine );
-std::string TOML_ParseString( std::istringstream& inStream, std::string_view inLine );
-TOML_ValueType TOML_ValueParse(std::istringstream& inStream, std::string_view inLine);
-TOML_Table TOML_Parse(std::string const& inRaw) noexcept;
-TOML_ElementType TOML_DetectType( std::string_view inLine ) noexcept;
+template<ElementType EType = ElementType::Null>
+struct to_native_type { using type = void; };
+
+#define DEF_TO_NATIVE_TYPE( eType, Native ) \
+    template<> struct to_native_type<eType> { \
+        using type = Native; \
+    };
+
+DEF_TO_NATIVE_TYPE( ElementType::Bool, bool )
+DEF_TO_NATIVE_TYPE( ElementType::String, std::string )
+DEF_TO_NATIVE_TYPE( ElementType::Int, int )
+DEF_TO_NATIVE_TYPE( ElementType::Double, double )
+
+template<ElementType EType>
+using to_native_type_t = typename to_native_type<EType>::type;
+
+std::vector<std::string_view> SplitArrayElements( std::string_view inStr );
+ValueType ParseArray( std::string_view inLine );
+std::string ParseString( std::istringstream* inStream, std::string_view inLine );
+ValueType ParseValue(std::istringstream* inStream, std::string_view inLine);
+Table Parse(std::string const& inRaw) noexcept;
+ElementType DetectType( std::string_view inLine ) noexcept;
+
+template<ElementType EType>
+ValueType BuildArray( std::vector<std::string_view>& inElements )
+{
+    using value_type = to_native_type_t<EType>;
+    std::vector<value_type> outResult;
+    for ( auto& element : inElements ) {
+        outResult.push_back( std::get<value_type>(ParseValue( nullptr, element )) );
+    }
+    return outResult;
+}
 
 }
 }
