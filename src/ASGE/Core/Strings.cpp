@@ -37,3 +37,26 @@ std::vector<std::string> asge::str::Split(std::string_view inSv, const char *inS
 
     return outVector;
 }
+
+std::string asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
+{
+    std::string out;
+    if (inCp < 0x80)
+        out += static_cast<char>(inCp);
+    else if (inCp < 0x800) {
+        out += static_cast<char>(0xC0 | (inCp >> 6));
+        out += static_cast<char>(0x80 | (inCp & 0x3F));
+    }
+    else if (inCp < 0x10000) {
+        out += static_cast<char>(0xE0 | (inCp >> 12));
+        out += static_cast<char>(0x80 | ((inCp >> 6) & 0x3F));
+        out += static_cast<char>(0x80 | (inCp & 0x3F));
+    }
+    else {
+        out += static_cast<char>(0xF0 | (inCp >> 18));
+        out += static_cast<char>(0x80 | ((inCp >> 12) & 0x3F));
+        out += static_cast<char>(0x80 | ((inCp >> 6)  & 0x3F));
+        out += static_cast<char>(0x80 | (inCp & 0x3F));
+    }
+    return out;
+}

@@ -4,6 +4,7 @@
 #include <string_view>
 #include <vector>
 #include <cstring>
+#include <cstdint>
 
 namespace asge::str
 {
@@ -32,5 +33,12 @@ std::string_view Trim(std::string_view inSv) noexcept;
  * @return A `std::vector<std::string>` containing the split tokens in order.
  */
 std::vector<std::string> Split( std::string_view inSv, const char* inSep );
+
+/**
+ * @brief UTF-8 encoder for \uXXXX and \UXXXXXXXX
+ * @param inCp The unsigned 32-bit integer to encode into a string
+ * @return The encoded string
+ */
+std::string EncodeUTF8( std::uint32_t inCp ) noexcept;
 
 }
