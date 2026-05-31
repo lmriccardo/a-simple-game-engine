@@ -1,3 +1,4 @@
 third-party/
 build/
 bin/
+examples/file_watching/files

@@ -17,34 +17,6 @@ namespace asge::signals
 // Forward declaration of the Connection class
 template <typename... Args> class Connection;
 
-/**
- * Creates a callback wrapper that holds a weak reference to an object and
- * safely invokes a member function on that object if it is still alive.
- * 
- * This function accepts a member function pointer and a shared pointer to an object
- * and returns a callable lambda that, when invoked, attempts to lock the weak pointer
- * to the object. If successful, it calls the member function otherwise do nothing.
- * 
- * @tparam T The class type of the object owning the member function
- * @tparam _Callable Type of the member function pointer
- * 
- * @param func The member function pointer to invoke on the object
- * @param ptr  Shared pointer to the object instance
- */
-template<typename T, typename Callable>
-requires functools::_internal::MemberFunctionOf<Callable, T>
-auto MakeCallback( Callable&& inFunc, std::shared_ptr<T> inPtr )
-{
-    std::weak_ptr<T> wptr = inPtr;
-    return [ wptr, func = std::forward<Callable>(inFunc)](auto&&... args)
-    {
-        if ( std::shared_ptr<T> sptr = wptr.lock() )
-        {
-            ( sptr.get()->*func )( std::forward<decltype(args)>(args)... );
-        }
-    };
-}
-
 // --------------------------------------------------
 // ---------- SIGNAL CLASS DECLARATION --------------
 // --------------------------------------------------

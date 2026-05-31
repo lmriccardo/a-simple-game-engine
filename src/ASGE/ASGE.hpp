@@ -20,3 +20,4 @@
 #include <ASGE/Core/Allocators/LinearAllocator.hpp>
 #include <ASGE/Core/Allocators/PoolAllocator.hpp>
 #include <ASGE/Core/Allocators/StackAllocator.hpp>
+#include <ASGE/Core/Filesystem/FileWatcher.hpp>

@@ -18,10 +18,10 @@
 #define LOG( lvl, ... ) \
     do { asge::logger::Logger::Instance().Log(lvl, FUNC_NAME, __VA_ARGS__); } while(0)
 
-#define LOG_DEBUG(...) LOG(asge::logger::LogLevel::DEBUG, __VA_ARGS__)
-#define LOG_INFO(...) LOG(asge::logger::LogLevel::INFO, __VA_ARGS__)
-#define LOG_WARNING(...) LOG(asge::logger::LogLevel::WARNING, __VA_ARGS__)
-#define LOG_ERROR(...) LOG(asge::logger::LogLevel::ERROR, __VA_ARGS__)
+#define LOG_DEBUG(...)   LOG((asge::logger::LogLevel::Debug), __VA_ARGS__)
+#define LOG_INFO(...)    LOG((asge::logger::LogLevel::Info), __VA_ARGS__)
+#define LOG_WARNING(...) LOG((asge::logger::LogLevel::Warning), __VA_ARGS__)
+#define LOG_ERROR(...)   LOG((asge::logger::LogLevel::Error), __VA_ARGS__)
 
 #define LOG_INSTANCE() asge::logger::Logger::Instance()
 
@@ -31,10 +31,10 @@ namespace asge::logger
 /* Enumerates all possible logging levels */
 enum class LogLevel
 {
-    DEBUG,
-    INFO,
-    WARNING,
-    ERROR
+    Debug,
+    Info,
+    Warning,
+    Error
 };
 
 /* Prints a log level string into the input out stream */
@@ -48,7 +48,7 @@ private:
     atomic_ll          m_Level; // The current logging level of the logger
     mutable std::mutex m_Mutex; // Mutex for console/file output contention
 
-    Logger(): m_Level{LogLevel::INFO} {} // The constructor is private
+    Logger(): m_Level{LogLevel::Info} {} // The constructor is private
 
 public:
     static Logger& Instance();

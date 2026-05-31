@@ -6,10 +6,10 @@ std::ostream &asge::logger::operator<<(std::ostream &inOss, LogLevel inLevel) no
 {
     switch (inLevel)
     {
-    case LogLevel::DEBUG:   inOss << "DEBUG";   break;
-    case LogLevel::INFO:    inOss << "INFO";    break;
-    case LogLevel::WARNING: inOss << "WARNING"; break;
-    case LogLevel::ERROR:   inOss << "ERROR";   break;
+    case LogLevel::Debug:   inOss << "DEBUG";   break;
+    case LogLevel::Info:    inOss << "INFO";    break;
+    case LogLevel::Warning: inOss << "WARNING"; break;
+    case LogLevel::Error:   inOss << "ERROR";   break;
     default:
         break;
     }

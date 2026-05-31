@@ -32,6 +32,9 @@ add_library(ASGE STATIC
 
     # String utilities
     Core/Strings.cpp
+
+    # Filesystem utilities
+    Core/Filesystem/FileWatcher.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
