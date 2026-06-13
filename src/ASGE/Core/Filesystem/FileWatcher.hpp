@@ -16,6 +16,8 @@
 #include <ASGE/Core/Concurrent/Thread.hpp>
 #include <ASGE/Core/Patterns/Signal.hpp>
 
+#include "FileData.hpp"
+
 #ifdef _WIN32
 #include <windows.h>
 #define INVALID_FD INVALID_HANDLE_VALUE
@@ -60,13 +62,13 @@ using handle_t = std::int32_t;
 
 struct FileEvent
 {
-    std::filesystem::path      s_Path;      // The absolute path of the file
-    FEventType                 s_Event;     // The event regarding that file
-    time::Timestamp            s_Timestamp; // When the event was detected
-    std::filesystem::path      s_OldPath;   // Populated only for FEventType::Moved
-    std::uintmax_t             s_FileSize;  // Size in bytes at event time
-    std::filesystem::file_type s_FileType;  // Regular, directory, symlink, ...
-    native_event_t             s_RawEvent;  // Native event type from OS
+    Path            s_Path;      // The absolute path of the file
+    FEventType      s_Event;     // The event regarding that file
+    time::Timestamp s_Timestamp; // When the event was detected
+    Path            s_OldPath;   // Populated only for FEventType::Moved
+    FileSize        s_FileSize;  // Size in bytes at event time
+    FileType        s_FileType;  // Regular, directory, symlink, ...
+    native_event_t  s_RawEvent;  // Native event type from OS
 
     /* Checks if the current file is a directory */
     bool IsDir() const noexcept;
@@ -75,10 +77,10 @@ struct FileEvent
     bool Is( FEventType inType ) const noexcept;
 
     static FileEvent CreateFileEvent(
-        std::filesystem::path const& inFullPath,
+        Path const& inFullPath,
         FEventType inEvenType,
         native_event_t inRawAction,
-        std::filesystem::path const& inOldPath = ""
+        Path const& inOldPath = ""
     ) noexcept;
 };
 
@@ -96,11 +98,13 @@ public:
 
 struct PathHash 
 {
-    inline std::size_t operator()(const std::filesystem::path& p) const noexcept 
+    inline std::size_t operator()(const Path& p) const noexcept 
     {
         return std::filesystem::hash_value(p);
     }
 };
+
+using WatcherHandler = signals::Connection<FileEvent const&>;
 
 #ifdef _WIN32
 namespace _win32
@@ -121,8 +125,7 @@ class FileWatcher : public concurrent::Thread
 public:
     using callback_type = std::function<void(FileEvent const&)>;
     using callback_type_cref = callback_type const&;
-    using path_type = std::filesystem::path;
-    using watcher_handle_type = signals::Connection<FileEvent const&>;
+    using path_type = Path;
     using mask_type = FEventType;
 
 private:
@@ -134,7 +137,7 @@ private:
     handle_t m_hIOCP; // Windows I/O Completion Port handle
     std::unordered_map<path_type, watched_pointer, PathHash> m_WatchedDirs;
     std::mutex m_DirectoriesMutex;
-    std::filesystem::path m_PendingOldPath;
+    Path m_PendingOldPath;
 
     static bool RegisterDirChanges( WatchedDir* inWdirPtr );
     static callback_type CreateCallback( callback_type_cref inCallback, mask_type inMask );
@@ -147,14 +150,16 @@ private:
 
 public:
     FileWatcher();
+    FileWatcher(concurrent::context_pointer inCtx);
     ~FileWatcher();
 
-    watcher_handle_type AddWatch( path_type inPath, 
+    WatcherHandler AddWatch( path_type inPath, 
         callback_type_cref inCallback, 
         mask_type inMask = mask_type::All );
 };
 
 }
+using FileWatcher = _win32::FileWatcher;
 #else
 namespace _unix
 {

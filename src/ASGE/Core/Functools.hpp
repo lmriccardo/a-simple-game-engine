@@ -116,6 +116,21 @@ auto MakeCallback( Callable&& inFunc, std::shared_ptr<T> inPtr )
     };
 }
 
+/**
+ * The same MakeCallback with smart pointers, but using raw pointers, which means
+ * that the lifetime of the object pointed to must be managed carefully, otherwise
+ * segmentation fault would occur.
+ */
+template<typename T, typename Callable>
+requires _internal::MemberFunctionOf<Callable, T>
+auto MakeCallback( Callable&& inFunc, T* inPtr )
+{
+    return [inPtr, func = std::forward<Callable>(inFunc)](auto&&... args)
+    {
+        ( inPtr->*func )( std::forward<decltype(args)>(args)... );
+    };
+}
+
 template<typename _Callable, typename... _Args>
 class Callable
 {

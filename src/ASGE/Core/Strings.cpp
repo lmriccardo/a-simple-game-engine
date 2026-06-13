@@ -1,6 +1,8 @@
 #include "Strings.hpp"
 
-std::string_view asge::str::Trim(std::string_view inSv) noexcept
+using namespace asge::str;
+
+StringView asge::str::Trim(StringView inSv) noexcept
 {
     auto start = inSv.find_first_not_of(" \t\r\n");
     if (start == std::string_view::npos) return {};
@@ -12,7 +14,7 @@ std::string_view asge::str::Trim(std::string_view inSv) noexcept
     return inSv;
 }
 
-std::vector<std::string> asge::str::Split(std::string_view inSv, const char *inSep)
+std::vector<String> asge::str::Split(StringView inSv, const char *inSep)
 {
     std::vector<std::string> outVector;
     if (inSv.empty() || inSep == nullptr) return outVector;
@@ -38,7 +40,7 @@ std::vector<std::string> asge::str::Split(std::string_view inSv, const char *inS
     return outVector;
 }
 
-std::string asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
+String asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
 {
     std::string out;
     if (inCp < 0x80)
@@ -59,4 +61,9 @@ std::string asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
         out += static_cast<char>(0x80 | (inCp & 0x3F));
     }
     return out;
+}
+
+String asge::str::ToUTF8(U8String const &inStr) noexcept
+{
+    return String(reinterpret_cast<const char*>(inStr.data()), inStr.size());
 }

@@ -106,8 +106,8 @@ bool asge::filesystem::FileEvent::Is(FEventType inType) const noexcept
 }
 
 FileEvent asge::filesystem::FileEvent::CreateFileEvent(
-    std::filesystem::path const &inFullPath, FEventType inEvenType, 
-    native_event_t inRawAction, std::filesystem::path const &inOldPath
+    Path const &inFullPath, FEventType inEvenType, 
+    native_event_t inRawAction, Path const &inOldPath
 ) noexcept {
     FileEvent event;
     event.s_Path      = inFullPath;
@@ -214,7 +214,6 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
     if (!success) return nullptr;
     watched_pointer& entry = insertedIt->second;
 
-    
     // Initialize all fields
     entry->s_hDir = hDirectory;
     entry->s_RefCount = 1;
@@ -272,7 +271,7 @@ void asge::filesystem::_win32::FileWatcher::ProcessBuffer(WatchedDir *inEntry, D
     {
         // Combine the watched root directory path and the relative filename
         std::wstring_view relPathView( pNotify->FileName, pNotify->FileNameLength / sizeof(WCHAR) );
-        std::filesystem::path fullPath = std::filesystem::path(inEntry->s_PathView) / relPathView;
+        Path fullPath = Path(inEntry->s_PathView) / relPathView;
 
         // Map the Win32 Action DWORD to your custom FEventType enum
         if ( pNotify->Action == FILE_ACTION_RENAMED_OLD_NAME )
@@ -340,13 +339,15 @@ void asge::filesystem::_win32::FileWatcher::Run(concurrent::context_pointer &inC
     // Re-arm the engine immediately!
     if ( bool failed = !RegisterDirChanges( entry ) )
     {
-        std::cout << "ciao" << std::endl;
         entry->s_Active.store(false, std::memory_order_relaxed);
     }
 }
 
 asge::filesystem::_win32::FileWatcher::FileWatcher()
-: concurrent::Thread( "FileWatcher" )
+: FileWatcher( nullptr ) {}
+
+asge::filesystem::_win32::FileWatcher::FileWatcher(concurrent::context_pointer inCtx)
+: concurrent::Thread( "FileWatcher", inCtx )
 {
     m_hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
     LOG_INFO("New File Watcher Created");
@@ -370,7 +371,7 @@ asge::filesystem::_win32::FileWatcher::~FileWatcher()
     }
 }
 
-_win32::FileWatcher::watcher_handle_type asge::filesystem::_win32::FileWatcher::AddWatch(
+WatcherHandler asge::filesystem::_win32::FileWatcher::AddWatch(
     path_type inPath, callback_type_cref inCallback, mask_type inMask
 ) {
     // Check if the input path is a regular file or a folder

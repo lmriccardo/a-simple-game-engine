@@ -29,11 +29,14 @@ add_library(ASGE STATIC
 
     # Configuration utilities
     Core/Configuration/TOML_Parser.cpp
+    Core/Configuration/ConfigurationManager.cpp
 
     # String utilities
     Core/Strings.cpp
 
     # Filesystem utilities
+    Core/Filesystem/FileIO.cpp
+    Core/Filesystem/FileMetadata.cpp
     Core/Filesystem/FileWatcher.cpp
 )
 

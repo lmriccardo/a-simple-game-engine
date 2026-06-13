@@ -9,6 +9,12 @@
 namespace asge::str
 {
 
+using String = std::string;
+using StringView = std::string_view;
+using WString = std::wstring;
+using WStringView = std::wstring_view;
+using U8String = std::u8string;
+
 /**
  * @brief Removes leading and trailing whitespace from a string_view.
  *
@@ -19,7 +25,7 @@ namespace asge::str
  *
  * @param inSv The input string_view to be trimmed.
  */
-std::string_view Trim(std::string_view inSv) noexcept;
+StringView Trim(StringView inSv) noexcept;
 
 /**
  * @brief Splits a string_view into a vector of sub-views based on a delimiter string.
@@ -32,13 +38,18 @@ std::string_view Trim(std::string_view inSv) noexcept;
  * @param inSep A null-terminated C-string representing the delimiter sequence.
  * @return A `std::vector<std::string>` containing the split tokens in order.
  */
-std::vector<std::string> Split( std::string_view inSv, const char* inSep );
+std::vector<String> Split( StringView inSv, const char* inSep );
 
 /**
  * @brief UTF-8 encoder for \uXXXX and \UXXXXXXXX
  * @param inCp The unsigned 32-bit integer to encode into a string
  * @return The encoded string
  */
-std::string EncodeUTF8( std::uint32_t inCp ) noexcept;
+String EncodeUTF8( std::uint32_t inCp ) noexcept;
+
+/**
+ * @brief Converts UTF-8 string into a simple string
+ */
+String ToUTF8( U8String const& inStr ) noexcept;
 
 }
