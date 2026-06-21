@@ -14,32 +14,13 @@
 
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
+#include <ASGE/Core/Traits.hpp>
 
 namespace asge::config
 {
 
 namespace _internal::toml
 {
-
-template<typename T, typename Variant>
-struct variant_contains;
-
-template<typename T, typename ...Ts>
-struct variant_contains<T, std::variant<Ts...>>
-    : std::disjunction<std::is_same<T, Ts>...> 
-{};
-
-template<typename T, typename Variant>
-constexpr bool variant_contains_v = variant_contains<T, Variant>::value;
-
-template<typename T>
-struct is_vector : std::false_type {};
-
-template<typename T>
-struct is_vector<std::vector<T>> : std::true_type {};
-
-template<typename T>
-constexpr bool is_vector_v = is_vector<T>::value;
 
 /**
  * Key values can either be: strings, doubles, integer, boolean, array
@@ -66,14 +47,14 @@ struct TOMLValue : public ValueType
 };
 
 template<typename T>
-auto ToTypedVector(std::vector<TOMLValue> const& inVec)
+std::vector<T> ToTypedVector(std::vector<TOMLValue> const& inVec)
 {
     std::vector<T> outResult;
     outResult.reserve( inVec.size() );
 
     for ( auto const& inElement : inVec )
     {
-        if constexpr ( is_vector_v<T> )
+        if constexpr ( asge::_internal::traits::is_vector_v<T> )
         {
             // nested — recurse into inner vector<TOMLValue>
             auto* row = std::get_if<std::vector<TOMLValue>>(&inElement);
@@ -225,7 +206,7 @@ public:
     pointer GetTable( std::string const& inPath ) const noexcept;
 
     template<typename RetType>
-    requires variant_contains_v<RetType, ValueType>
+    requires asge::_internal::traits::variant_contains_v<RetType, ValueType>
     RetType const* Get( std::string const& inPath ) const
     {
         std::string_view svPath = str::Trim(inPath);
@@ -240,7 +221,6 @@ public:
 
         auto kvIt = m_kvPairs.find(std::string(svPath));
         if ( kvIt == m_kvPairs.end() ) {
-            LOG_ERROR("No key '", svPath, "' in table '", m_Name, "'");
             return nullptr;
         }
 
@@ -253,10 +233,10 @@ public:
     }
 
     template<typename T>
-    auto GetTypedArray( std::string const& inPath ) const
+    std::vector<T> GetTypedArray( std::string const& inPath ) const
     {
         auto* raw = Get<std::vector<TOMLValue>>( inPath );
-        if (!raw) return decltype(ToTypedVector<T>(*raw)){};
+        if (!raw) return {};
         return ToTypedVector<T>(*raw);
     }
 };

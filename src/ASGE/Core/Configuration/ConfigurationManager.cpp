@@ -5,7 +5,7 @@ namespace toml = _internal::toml;
 
 void asge::config::ConfigurationManager::ReadConfiguration( filesystem::Path const& inPath )
 {
-    m_Configuration = toml::Parse( filesystem::ReadText( inPath ) );
+    m_Configuration.store(toml::Parse( filesystem::ReadText( inPath ) ), std::memory_order_release);
 }
 
 void asge::config::ConfigurationManager::HotReloadHelper(filesystem::FileEvent const &inEvent)

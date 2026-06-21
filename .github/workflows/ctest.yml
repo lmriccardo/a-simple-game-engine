@@ -41,7 +41,12 @@ jobs:
         shell: pwsh
         run: ./scripts/install-sdl-windows.ps1
 
-      - name: Configure
+      - name: Configure on Windows
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -G "Visual Studio 18 2026" -DBUILD_TESTING=ON -DASGE_BUILD_EXAMPLES=OFF
+      
+      - name: Configura on Linux
+        if: runner.os == 'Linux'
         run: cmake -S . -B build -DBUILD_TESTING=ON -DASGE_BUILD_EXAMPLES=OFF
 
       - name: Build

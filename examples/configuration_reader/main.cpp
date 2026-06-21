@@ -1,35 +1,20 @@
 #include <iostream>
-#include <ASGE/Core/Configuration/TOML_Parser.hpp>
+#include <ASGE/Core/Configuration/ConfigurationManager.hpp>
 
-using namespace asge::config::_internal;
-
-std::string toml_str = 
-    "# Root level keys\n"
-    "root_key = 1\n"
-    "\n"
-    "# Standard table\n"
-    "[server]\n"
-    "host = \"localhost\"\n"
-    "port = 8080\n"
-    "\n"
-    "# Nested standard table\n"
-    "[server.tls]\n"
-    "enabled = true\n"
-    "cert    = \"/etc/ssl/cert.pem\"\n"
-    "\n"
-    "# Another top-level table\n"
-    "[database]\n"
-    "host = \"db.local\"\n"
-    "port = 5432\n"
-    "name = \"mydb\"\n";
+using namespace asge::config;
 
 int main()
 {
-    auto table = toml::Parse(toml_str);
-    std::cout << table << std::endl;
-    table->Get<std::string>( "root_ke" );
-    table->Get<std::string>( "root_key" );
-    std::cout << *table->Get<int>( "root_key" ) << std::endl;
+    ConfigurationManager cm( asge::concurrent::WithCancel() );
+    bool load_result = cm.Load( "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\configuration_reader\\conf.toml" );
+
+    auto w = cm.Get<int>("Window.Width");
+    auto h = cm.Get<int>("Window.Height");
+    auto fps = cm.Get<int>("Rendering.Target_Fps");
+
+    std::cout << "Window.Width  = " << *w << "\n";
+    std::cout << "Window.Height = " << *h << "\n";
+    std::cout << "Rendering.Target_Fps = " << *fps << std::endl;
 
     return 0;
 }

@@ -56,7 +56,7 @@ FileResult<FileTime> asge::filesystem::meta::GetLastModified(Path const &inPath)
 
 FileResult<asge::str::String> asge::filesystem::meta::GetExtension(Path const &inPath) noexcept
 {
-    const auto ext = str::ToUTF8( inPath.u8string() );
+    const auto ext = str::ToUTF8( inPath.extension().u8string() );
 
     if ( ext.empty() )
     {

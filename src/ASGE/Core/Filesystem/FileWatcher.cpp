@@ -316,9 +316,6 @@ void asge::filesystem::_win32::FileWatcher::ProcessBuffer(WatchedDir *inEntry, D
 
 void asge::filesystem::_win32::FileWatcher::Run(concurrent::context_pointer &inCtx)
 {
-    // Early returns if the context has been canceled
-    if ( inCtx->Done() ) return;
-
     DWORD bytesTransferred = 0;
     ULONG_PTR completionKey = 0;
     LPOVERLAPPED lpOverlapped = nullptr;
@@ -329,6 +326,9 @@ void asge::filesystem::_win32::FileWatcher::Run(concurrent::context_pointer &inC
 
     // If timeout happened or any other errors continue
     if ( !status || !lpOverlapped ) return;
+
+    // Early returns if the context has been canceled
+    if ( inCtx->Done() ) return;
 
     // Recover our WatchedDir context completely using the CompletionKey
     WatchedDir* entry = reinterpret_cast<WatchedDir*>( completionKey );
@@ -355,10 +355,14 @@ asge::filesystem::_win32::FileWatcher::FileWatcher(concurrent::context_pointer i
 
 asge::filesystem::_win32::FileWatcher::~FileWatcher()
 {
+    Cancel();
+
     if (m_hIOCP != INVALID_HANDLE_VALUE)
     {
         PostQueuedCompletionStatus(m_hIOCP, 0, 0, nullptr);
     }
+
+    Join();
 
     for ( auto const& [_, v] : m_WatchedDirs )
     {

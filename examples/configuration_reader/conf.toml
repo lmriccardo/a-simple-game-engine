@@ -1,0 +1,6 @@
+[Window]
+Width=800
+Height=600
+
+[Rendering]
+Target_Fps=120
