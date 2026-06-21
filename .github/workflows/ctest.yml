@@ -30,7 +30,7 @@ jobs:
       - name: Install CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: "3.31.x"
+          cmake-version: "latest"
 
       - name: Build and install SDL on Linux
         if: runner.os == 'Linux'
