@@ -1,0 +1,5 @@
+add_subdirectory(Math)
+add_subdirectory(Concurrent)
+add_subdirectory(Utils)
+add_subdirectory(Allocators)
+add_subdirectory(Configuration)

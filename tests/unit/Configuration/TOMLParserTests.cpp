@@ -22,28 +22,28 @@ using asge::errors::ConfError;
 table_pointer ParseOk(std::string const& inRaw)
 {
     auto result = Parse(inRaw);
-    EXPECT_TRUE(result.HasValue());
-    return result.HasValue() ? result.Value() : nullptr;
+    EXPECT_TRUE(result.IsOk());
+    return result.IsOk() ? result.Value() : nullptr;
 }
 
 template<typename T>
 T const* GetOrNull(table_pointer const& inTable, std::string const& inPath)
 {
     auto result = inTable->Get<T>(inPath);
-    return result.HasValue() ? result.Value() : nullptr;
+    return result.IsOk() ? result.Value() : nullptr;
 }
 
 table_pointer GetTableOrNull(table_pointer const& inTable, std::string const& inPath)
 {
     auto result = inTable->GetTable(inPath);
-    return result.HasValue() ? result.Value() : nullptr;
+    return result.IsOk() ? result.Value() : nullptr;
 }
 
 template<typename T>
 std::vector<T> GetArrayOrEmpty(table_pointer const& inTable, std::string const& inPath)
 {
     auto result = inTable->template GetTypedArray<T>(inPath);
-    return result.HasValue() ? result.Value() : std::vector<T>{};
+    return result.IsOk() ? result.Value() : std::vector<T>{};
 }
 
 // ─── DetectType ───────────────────────────────────────────────────────────────
@@ -478,14 +478,14 @@ TEST(TOMLParserTest, Parse_MultipleArrayTableEntries)
 TEST(TOMLParserTest, Parse_UnexpectedTokenReturnsError)
 {
     auto result = Parse("not a valid line\n");
-    ASSERT_FALSE(result.HasValue());
+    ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlUnexpectedToken));
 }
 
 TEST(TOMLParserTest, Parse_DuplicateKeyReturnsError)
 {
     auto result = Parse("key = 1\nkey = 2\n");
-    ASSERT_FALSE(result.HasValue());
+    ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlAlreadyExistingKey));
 }
 
@@ -495,7 +495,7 @@ TEST(TOMLParserTest, Get_MissingKeyReturnsError)
 {
     auto root   = ParseOk("key = 1\n");
     auto result = root->Get<int>("missing");
-    ASSERT_FALSE(result.HasValue());
+    ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoAttribute));
 }
 
@@ -503,7 +503,7 @@ TEST(TOMLParserTest, Get_WrongTypeReturnsError)
 {
     auto root   = ParseOk("key = 42\n");
     auto result = root->Get<std::string>("key");
-    ASSERT_FALSE(result.HasValue());
+    ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
 }
 
@@ -511,7 +511,7 @@ TEST(TOMLParserTest, Get_MissingTableInPathReturnsError)
 {
     auto root   = ParseOk("key = 1\n");
     auto result = root->Get<int>("no_table.key");
-    ASSERT_FALSE(result.HasValue());
+    ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
 }
 
@@ -521,7 +521,7 @@ TEST(TOMLParserTest, GetTable_MissingTableReturnsError)
 {
     auto root   = ParseOk("key = 1\n");
     auto result = root->GetTable("nonexistent");
-    ASSERT_FALSE(result.HasValue());
+    ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
 }
 
@@ -545,7 +545,7 @@ TEST(TOMLParserTest, GetTypedArray_MissingKeyReturnsEmpty)
 {
     auto root   = ParseOk("key = 1\n");
     auto result = root->GetTypedArray<int>("missing");
-    ASSERT_TRUE(result.HasValue());
+    ASSERT_TRUE(result.IsOk());
     EXPECT_TRUE(result.Value().empty());
 }
 

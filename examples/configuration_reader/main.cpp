@@ -34,6 +34,14 @@ int main()
         return 1;
     }
 
+    auto hotReloadResult = cm.SetHotReloadEnabled(true);
+    if (!hotReloadResult)
+    {
+        auto const err = hotReloadResult.Error();
+        LOG_ERROR("Error enabling hot reload: ", err);
+        return 1;
+    }
+
     PrintIntSetting(cm, "Window.Width");
     PrintIntSetting(cm, "Window.Height");
     PrintIntSetting(cm, "Rendering.Target_Fps");

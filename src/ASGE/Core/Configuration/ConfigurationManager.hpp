@@ -22,15 +22,21 @@ private:
     filesystem::FileWatcher      m_FileWatcher;
     filesystem::WatcherHandler   m_WatcherConnection;
     std::atomic<table_pointer_t> m_Configuration{ nullptr };
+    std::atomic<bool>            m_HotReloadEnabled{ false };
 
     // Reads the configuration of the currently loaded path
     BoolResult ReadConfiguration( filesystem::Path const& inPath );
     void HotReloadHelper( filesystem::FileEvent const& inEvent );
+
+    // (Re)registers the file watch on inPath, replacing any existing one
+    BoolResult EnableHotReloadWatch( filesystem::Path const& inPath );
 public:
     ConfigurationManager( concurrent::context_pointer inCtx = nullptr );
     ~ConfigurationManager();
-    
+
     BoolResult Load( filesystem::Path const& confPath );
+    BoolResult SetHotReloadEnabled( bool inEnabled );
+    bool IsHotReloadEnabled() const noexcept;
 
     template<typename T>
     Result<T> Get( std::string const& inParamPath ) const

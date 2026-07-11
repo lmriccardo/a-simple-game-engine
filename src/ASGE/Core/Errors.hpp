@@ -123,30 +123,30 @@ public:
         return Derived( std::in_place_index<1>, error_info{ std::move(code), std::move(detail) } );
     }
 
-    [[nodiscard]] bool HasValue() const noexcept { return m_Storage.index() == 0; }
-    [[nodiscard]] explicit operator bool() const noexcept { return HasValue(); }
+    [[nodiscard]] bool IsOk() const noexcept { return m_Storage.index() == 0; }
+    [[nodiscard]] explicit operator bool() const noexcept { return IsOk(); }
 
     [[nodiscard]] T const& Value() const&
     {
-        ASGE_ASSERT(HasValue(), "Result::Value() called on an error result");
+        ASGE_ASSERT(IsOk(), "Result::Value() called on an error result");
         return std::get<0>(m_Storage);
     }
 
     [[nodiscard]] T&& Value() &&
     {
-        ASGE_ASSERT(HasValue(), "Result::Value() called on an error result");
+        ASGE_ASSERT(IsOk(), "Result::Value() called on an error result");
         return std::get<0>(std::move(m_Storage));
     }
 
     [[nodiscard]] error_info const& Error() const
     {
-        ASGE_ASSERT(!HasValue(), "Result::Error() called on a success result");
+        ASGE_ASSERT(!IsOk(), "Result::Error() called on a success result");
         return std::get<1>(m_Storage);
     }
 
     [[nodiscard]] std::error_code Code() const noexcept
     {
-        return HasValue() ? std::error_code{} : std::get<1>(m_Storage).s_Code;
+        return IsOk() ? std::error_code{} : std::get<1>(m_Storage).s_Code;
     }
 
     template<typename Other>
@@ -162,9 +162,8 @@ public:
 
     void LogError() const noexcept
     {
-        if (HasValue()) return;
-        auto const err = Error();
-        LOG_ERROR( err.s_Code.message(), err.s_Detail );
+        if (IsOk()) return;
+        LOG_ERROR( Error() );
     }
 };
 

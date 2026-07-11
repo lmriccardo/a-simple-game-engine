@@ -40,6 +40,23 @@ asge::config::ConfigurationManager::~ConfigurationManager()
 {
 }
 
+asge::BoolResult asge::config::ConfigurationManager::EnableHotReloadWatch(filesystem::Path const &inPath)
+{
+    // First we need to check that the previous connection is off
+    if ( m_WatcherConnection.IsConnected() ) m_WatcherConnection.Disconnect();
+
+    // Add a new watch to the file watcher which returns the new connection
+    auto connectionResult = m_FileWatcher.AddWatch(
+        inPath,
+        functools::MakeCallback( &ConfigurationManager::HotReloadHelper, this),
+        filesystem::FEventType::Modified
+    );
+
+    if (!connectionResult) return BoolResult::Err( connectionResult.Error() );
+    m_WatcherConnection = connectionResult.Value();
+    return BoolResult::Ok();
+}
+
 asge::BoolResult asge::config::ConfigurationManager::Load(filesystem::Path const &confPath)
 {
     // Check if the current configuration matches with the input one
@@ -55,33 +72,19 @@ asge::BoolResult asge::config::ConfigurationManager::Load(filesystem::Path const
         if ( fileExtensionResult && fileExtensionResult.Value() == ".toml" )
         {
             m_ConfigPath = confPath;
-            
-            // First we need to check that the previous connection is off
-            if ( m_WatcherConnection.IsConnected() )
-            {
-                m_WatcherConnection.Disconnect();
-            }
-
-            // Add a new watch to the file watcher which returns the new connection
-            auto connectionResult = m_FileWatcher.AddWatch(
-                confPath, 
-                functools::MakeCallback( &ConfigurationManager::HotReloadHelper, this),
-                filesystem::FEventType::Modified
-            );
-
-            if (!connectionResult)
-            {
-                return BoolResult::Err( connectionResult.Error() );
-            }
-
-            m_WatcherConnection = connectionResult.Value();
 
             // Read the new configuration
             auto read_result = ReadConfiguration( confPath );
-            if ( !read_result ) 
+            if ( !read_result )
             {
-                m_WatcherConnection.Disconnect();
                 return BoolResult::Err( read_result.Error() );
+            }
+
+            // Hot-reload is opt-in: only register the watch if it has
+            // already been requested via SetHotReloadEnabled(true)
+            if ( m_HotReloadEnabled.load( std::memory_order_acquire ) )
+            {
+                return EnableHotReloadWatch( confPath );
             }
 
             return BoolResult::Ok();
@@ -91,4 +94,27 @@ asge::BoolResult asge::config::ConfigurationManager::Load(filesystem::Path const
     // Returns error if the input path is an invalid path
     auto const ec = make_error_code( errors::ConfError::InvalidInputPath );
     return BoolResult::Err( ec, str::ToUTF8( confPath.u8string() ) );
+}
+
+asge::BoolResult asge::config::ConfigurationManager::SetHotReloadEnabled(bool inEnabled)
+{
+    m_HotReloadEnabled.store( inEnabled, std::memory_order_release );
+
+    if ( !inEnabled )
+    {
+        if ( m_WatcherConnection.IsConnected() ) m_WatcherConnection.Disconnect();
+        return BoolResult::Ok();
+    }
+
+    if ( m_ConfigPath.empty() || m_WatcherConnection.IsConnected() )
+    {
+        return BoolResult::Ok();
+    }
+
+    return EnableHotReloadWatch( m_ConfigPath );
+}
+
+bool asge::config::ConfigurationManager::IsHotReloadEnabled() const noexcept
+{
+    return m_HotReloadEnabled.load( std::memory_order_acquire );
 }
