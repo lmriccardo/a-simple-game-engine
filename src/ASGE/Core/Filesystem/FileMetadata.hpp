@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <ASGE/Core/Strings.hpp>
+#include <ASGE/Core/Errors.hpp>
 #include "FileData.hpp"
 
 namespace asge::filesystem::meta
@@ -26,13 +27,13 @@ bool IsSocket(Path const& inPath) noexcept;
 bool IsEmpty(Path const& inPath) noexcept;
 
 /* Returns the size of the file in bytes. */
-FileResult<FileSize> GetFileSize(Path const& inPath) noexcept;
+Result<FileSize> GetFileSize(Path const& inPath) noexcept;
 
 /* Returns the last write time of the file or directory. */
-FileResult<FileTime> GetLastModified(Path const& inPath) noexcept;
+Result<FileTime> GetLastModified(Path const& inPath) noexcept;
 
 /* Returns the extension (if any) of the input regular file */
-FileResult<str::String> GetExtension( Path const& inPath ) noexcept;
+Result<str::String> GetExtension( Path const& inPath ) noexcept;
 
 /* Returns the filename component of the path, including extension */
 str::String GetFilename(Path const& inPath) noexcept;

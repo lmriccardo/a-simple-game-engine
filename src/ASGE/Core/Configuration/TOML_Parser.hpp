@@ -13,8 +13,8 @@
 #include <type_traits>
 
 #include <ASGE/Core/Strings.hpp>
-#include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Traits.hpp>
+#include <ASGE/Core/Errors.hpp>
 
 namespace asge::config
 {
@@ -46,8 +46,10 @@ struct TOMLValue : public ValueType
     TOMLValue(ValueType const& inValue) : ValueType(inValue) {}
 };
 
-template<typename T>
-std::vector<T> ToTypedVector(std::vector<TOMLValue> const& inVec)
+template<typename T> using VectorResult = Result<std::vector<T>>;
+
+template<typename T> 
+VectorResult<T> ToTypedVector(std::vector<TOMLValue> const& inVec)
 {
     std::vector<T> outResult;
     outResult.reserve( inVec.size() );
@@ -59,24 +61,31 @@ std::vector<T> ToTypedVector(std::vector<TOMLValue> const& inVec)
             // nested — recurse into inner vector<TOMLValue>
             auto* row = std::get_if<std::vector<TOMLValue>>(&inElement);
             if (!row) {
-                LOG_ERROR("ToTypedVector: expected nested array at index ", &inElement - &inVec[0]);
-                return std::vector<T>{};
+                auto ec = make_error_code( errors::ConfError::TomlExpectedNestedArray );
+                std::string detail = "at index" + std::to_string(&inElement - &inVec[0]);
+                return VectorResult<T>::Err( ec, detail );
             }
-            outResult.push_back(ToTypedVector<typename T::value_type>(*row));
+
+            // Recurse and check error for recursive call
+            auto result = ToTypedVector<typename T::value_type>(*row);
+            if (!result) return VectorResult<T>::Err( result.Error() );
+            outResult.push_back(std::move(result.Value()));
         }
         else
         {
             // scalar or string
             auto* val = std::get_if<T>(&inElement);
             if (!val) {
-                LOG_ERROR("ToTypedVector: type mismatch at index ", &inElement - &inVec[0]);
-                return std::vector<T>{};
+                auto ec = make_error_code( errors::ConfError::TomlTypeMismatch );
+                std::string detail = "at index" + std::to_string(&inElement - &inVec[0]);
+                return VectorResult<T>::Err( ec, detail );
             }
+
             outResult.push_back(*val);
         }
     }
 
-    return outResult;
+    return VectorResult<T>::Ok( std::move(outResult) );
 }
 
 enum class TableType
@@ -118,14 +127,14 @@ using to_native_type_t = typename to_native_type<EType>::type;
 
 ElementType DetectType( std::string_view inLine ) noexcept;
 std::string_view StripComment( std::string_view inLine ) noexcept;
-table_pointer Parse(std::string const& inRaw) noexcept;
-ValueType ParseValue(std::istringstream* inStream, std::string_view inLine);
+Result<table_pointer> Parse(std::string const& inRaw) noexcept;
+Result<ValueType> ParseValue(std::istringstream* inStream, std::string_view inLine);
 
 // ----------------------- PARSING ARRAYS -----------------------
 
 
 std::vector<std::string_view> SplitArrayElements( std::string_view inStr );
-ValueType ParseArray( std::string_view inLine );
+Result<ValueType> ParseArray( std::string_view inLine );
 template<ElementType EType>
 ValueType BuildArray( std::vector<std::string_view>& inElements )
 {
@@ -139,7 +148,7 @@ ValueType BuildArray( std::vector<std::string_view>& inElements )
 
 // ----------------------- PARSING STRINGS -----------------------
 
-std::string ParseString( std::istringstream* inStream, std::string_view inLine );
+Result<str::String> ParseString( std::istringstream* inStream, std::string_view inLine );
 StringType DetectStringType( std::string_view inSv ) noexcept;
 std::string ProcessEscape( std::string_view inSv, bool isMultiline=false ) noexcept;
 std::string ParseBasicString( std::string_view inLine, bool isLiteral=false ) noexcept;
@@ -158,9 +167,9 @@ struct PathSegment
 PathSegment ParseSegment(std::string_view inSegment);
 
 std::pair<std::string_view, std::string_view> SplitTablePath( std::string_view inTableName ) noexcept;
-table_pointer FindSubTable( table_pointer inParent, std::string const& inName ) noexcept;
-table_pointer FindSubTable( table_const_pointer inParent, std::string const& inName ) noexcept;
-table_pointer FindSubTableAt( table_const_pointer inParent, std::string const& inName, std::size_t inIndex ) noexcept;
+Result<table_pointer> FindSubTable( table_pointer inParent, std::string const& inName ) noexcept;
+Result<table_pointer> FindSubTable( table_const_pointer inParent, std::string const& inName ) noexcept;
+Result<table_pointer> FindSubTableAt( table_const_pointer inParent, std::string const& inName, std::size_t inIndex ) noexcept;
 table_pointer FindOrCreateTable( table_pointer inRoot, std::string_view inTableName, TableType inType);
 table_pointer ParseArrayTable( table_pointer inRoot, std::string_view inLine );
 table_pointer ParseTable( table_pointer inRoot, std::string_view inLine );
@@ -194,7 +203,7 @@ public:
 
     ~Table() = default;
 
-    void AddKvPair( std::string const& inKey, ValueType const& inValue ) noexcept;
+    BoolResult AddKvPair( std::string const& inKey, ValueType const& inValue ) noexcept;
     void AddSubTable( pointer inChild ) noexcept;
     void SetParent( std::weak_ptr<Table> inParent ) noexcept;
 
@@ -203,11 +212,11 @@ public:
     std::vector<pointer> const& GetSubTables() const noexcept;
     std::string const& GetName() const noexcept;
 
-    pointer GetTable( std::string const& inPath ) const noexcept;
+    Result<pointer> GetTable( std::string const& inPath ) const noexcept;
 
     template<typename RetType>
     requires asge::_internal::traits::variant_contains_v<RetType, ValueType>
-    RetType const* Get( std::string const& inPath ) const
+    Result<RetType const*> Get( std::string const& inPath ) const
     {
         std::string_view svPath = str::Trim(inPath);
 
@@ -215,29 +224,39 @@ public:
         if ( sepPos != std::string_view::npos )
         {
             auto child = GetTable(std::string(svPath.substr(0, sepPos)));
-            if ( !child ) return nullptr;
-            return child->Get<RetType>(std::string(svPath.substr(sepPos + 1)));
+            if ( !child )
+            {
+                return Result<RetType const*>::Err( child.Error() );
+            }
+
+            return child.Value()->Get<RetType>(std::string(svPath.substr(sepPos + 1)));
         }
 
         auto kvIt = m_kvPairs.find(std::string(svPath));
-        if ( kvIt == m_kvPairs.end() ) {
-            return nullptr;
+        if ( kvIt == m_kvPairs.end() ) 
+        {
+            return Result<RetType const*>::Err( 
+                make_error_code( errors::ConfError::TomlNoAttribute ), 
+                std::string(svPath)
+            );
         }
 
-        if ( !std::holds_alternative<RetType>(kvIt->second) ) {
-            LOG_ERROR("Type mismatch at key '", svPath, "'");
-            return nullptr;
+        if ( !std::holds_alternative<RetType>(kvIt->second) ) 
+        {
+            return Result<RetType const*>::Err( 
+                make_error_code( errors::ConfError::TomlTypeMismatch )
+            );
         }
 
-        return std::get_if<RetType>(&kvIt->second);
+        return Result<RetType const*>::Ok(std::get_if<RetType>(&kvIt->second));
     }
 
     template<typename T>
-    std::vector<T> GetTypedArray( std::string const& inPath ) const
+    VectorResult<T> GetTypedArray( std::string const& inPath ) const
     {
-        auto* raw = Get<std::vector<TOMLValue>>( inPath );
-        if (!raw) return {};
-        return ToTypedVector<T>(*raw);
+        auto raw = Get<std::vector<TOMLValue>>( inPath );
+        if (!raw) return VectorResult<T>::Ok(std::vector<T>{});
+        return ToTypedVector<T>(*raw.Value());
     }
 };
 

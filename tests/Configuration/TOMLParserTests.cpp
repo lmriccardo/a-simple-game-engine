@@ -1,4 +1,5 @@
 #include <ASGE/Core/Configuration/TOML_Parser.hpp>
+#include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
 
@@ -9,6 +10,41 @@ namespace
 {
 
 using namespace asge::config::_internal::toml;
+using asge::errors::ConfError;
+
+// ─── Result<T> helpers ────────────────────────────────────────────────────────
+// The parser API returns asge::Result<T> everywhere. These helpers collapse
+// the happy path down to the raw value (or nullptr/empty on error) so the
+// bulk of the tests below can stay focused on parsing behaviour; the
+// dedicated "error case" tests further down inspect the Result/error code
+// directly.
+
+table_pointer ParseOk(std::string const& inRaw)
+{
+    auto result = Parse(inRaw);
+    EXPECT_TRUE(result.HasValue());
+    return result.HasValue() ? result.Value() : nullptr;
+}
+
+template<typename T>
+T const* GetOrNull(table_pointer const& inTable, std::string const& inPath)
+{
+    auto result = inTable->Get<T>(inPath);
+    return result.HasValue() ? result.Value() : nullptr;
+}
+
+table_pointer GetTableOrNull(table_pointer const& inTable, std::string const& inPath)
+{
+    auto result = inTable->GetTable(inPath);
+    return result.HasValue() ? result.Value() : nullptr;
+}
+
+template<typename T>
+std::vector<T> GetArrayOrEmpty(table_pointer const& inTable, std::string const& inPath)
+{
+    auto result = inTable->template GetTypedArray<T>(inPath);
+    return result.HasValue() ? result.Value() : std::vector<T>{};
+}
 
 // ─── DetectType ───────────────────────────────────────────────────────────────
 
@@ -245,63 +281,63 @@ TEST(TOMLParserTest, ParseSegment_ZeroIndex)
 
 TEST(TOMLParserTest, Parse_IntValue)
 {
-    auto root = Parse("count = 7\n");
-    auto* val = root->Get<int>("count");
+    auto root = ParseOk("count = 7\n");
+    auto* val = GetOrNull<int>(root, "count");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, 7);
 }
 
 TEST(TOMLParserTest, Parse_DoubleValue)
 {
-    auto root = Parse("pi = 3.14\n");
-    auto* val = root->Get<double>("pi");
+    auto root = ParseOk("pi = 3.14\n");
+    auto* val = GetOrNull<double>(root, "pi");
     ASSERT_NE(val, nullptr);
     EXPECT_DOUBLE_EQ(*val, 3.14);
 }
 
 TEST(TOMLParserTest, Parse_BoolTrue)
 {
-    auto root = Parse("flag = true\n");
-    auto* val = root->Get<bool>("flag");
+    auto root = ParseOk("flag = true\n");
+    auto* val = GetOrNull<bool>(root, "flag");
     ASSERT_NE(val, nullptr);
     EXPECT_TRUE(*val);
 }
 
 TEST(TOMLParserTest, Parse_BoolFalse)
 {
-    auto root = Parse("flag = false\n");
-    auto* val = root->Get<bool>("flag");
+    auto root = ParseOk("flag = false\n");
+    auto* val = GetOrNull<bool>(root, "flag");
     ASSERT_NE(val, nullptr);
     EXPECT_FALSE(*val);
 }
 
 TEST(TOMLParserTest, Parse_StringValue)
 {
-    auto root = Parse(R"(name = "Alice")" "\n");
-    auto* val = root->Get<std::string>("name");
+    auto root = ParseOk(R"(name = "Alice")" "\n");
+    auto* val = GetOrNull<std::string>(root, "name");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, "Alice");
 }
 
 TEST(TOMLParserTest, Parse_MultipleRootKeys)
 {
-    auto root = Parse("a = 1\nb = 2\n");
-    EXPECT_EQ(*root->Get<int>("a"), 1);
-    EXPECT_EQ(*root->Get<int>("b"), 2);
+    auto root = ParseOk("a = 1\nb = 2\n");
+    EXPECT_EQ(*GetOrNull<int>(root, "a"), 1);
+    EXPECT_EQ(*GetOrNull<int>(root, "b"), 2);
 }
 
 TEST(TOMLParserTest, Parse_CommentLinesIgnored)
 {
-    auto root = Parse("# this is a comment\nkey = 99\n");
-    auto* val = root->Get<int>("key");
+    auto root = ParseOk("# this is a comment\nkey = 99\n");
+    auto* val = GetOrNull<int>(root, "key");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, 99);
 }
 
 TEST(TOMLParserTest, Parse_InlineCommentStripped)
 {
-    auto root = Parse("key = 10 # inline comment\n");
-    auto* val = root->Get<int>("key");
+    auto root = ParseOk("key = 10 # inline comment\n");
+    auto* val = GetOrNull<int>(root, "key");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, 10);
 }
@@ -310,16 +346,16 @@ TEST(TOMLParserTest, Parse_InlineCommentStripped)
 
 TEST(TOMLParserTest, Parse_BasicStringEscape)
 {
-    auto root = Parse(R"(msg = "hello\nworld")" "\n");
-    auto* val = root->Get<std::string>("msg");
+    auto root = ParseOk(R"(msg = "hello\nworld")" "\n");
+    auto* val = GetOrNull<std::string>(root, "msg");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, "hello\nworld");
 }
 
 TEST(TOMLParserTest, Parse_LiteralStringNoEscape)
 {
-    auto root = Parse("msg = 'no\\nescape'\n");
-    auto* val = root->Get<std::string>("msg");
+    auto root = ParseOk("msg = 'no\\nescape'\n");
+    auto* val = GetOrNull<std::string>(root, "msg");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, "no\\nescape");
 }
@@ -328,8 +364,8 @@ TEST(TOMLParserTest, Parse_LiteralStringNoEscape)
 
 TEST(TOMLParserTest, Parse_IntArray)
 {
-    auto root = Parse("nums = [1, 2, 3]\n");
-    auto vec  = root->GetTypedArray<int>("nums");
+    auto root = ParseOk("nums = [1, 2, 3]\n");
+    auto vec  = GetArrayOrEmpty<int>(root, "nums");
     ASSERT_EQ(vec.size(), 3u);
     EXPECT_EQ(vec[0], 1);
     EXPECT_EQ(vec[1], 2);
@@ -338,8 +374,8 @@ TEST(TOMLParserTest, Parse_IntArray)
 
 TEST(TOMLParserTest, Parse_StringArray)
 {
-    auto root = Parse(R"(tags = ["a", "b", "c"])" "\n");
-    auto vec  = root->GetTypedArray<std::string>("tags");
+    auto root = ParseOk(R"(tags = ["a", "b", "c"])" "\n");
+    auto vec  = GetArrayOrEmpty<std::string>(root, "tags");
     ASSERT_EQ(vec.size(), 3u);
     EXPECT_EQ(vec[0], "a");
     EXPECT_EQ(vec[1], "b");
@@ -348,8 +384,8 @@ TEST(TOMLParserTest, Parse_StringArray)
 
 TEST(TOMLParserTest, Parse_DoubleArray)
 {
-    auto root = Parse("vals = [1.1, 2.2]\n");
-    auto vec  = root->GetTypedArray<double>("vals");
+    auto root = ParseOk("vals = [1.1, 2.2]\n");
+    auto vec  = GetArrayOrEmpty<double>(root, "vals");
     ASSERT_EQ(vec.size(), 2u);
     EXPECT_DOUBLE_EQ(vec[0], 1.1);
     EXPECT_DOUBLE_EQ(vec[1], 2.2);
@@ -357,8 +393,8 @@ TEST(TOMLParserTest, Parse_DoubleArray)
 
 TEST(TOMLParserTest, Parse_EmptyArray)
 {
-    auto root = Parse("empty = []\n");
-    auto vec  = root->GetTypedArray<int>("empty");
+    auto root = ParseOk("empty = []\n");
+    auto vec  = GetArrayOrEmpty<int>(root, "empty");
     EXPECT_TRUE(vec.empty());
 }
 
@@ -366,59 +402,59 @@ TEST(TOMLParserTest, Parse_EmptyArray)
 
 TEST(TOMLParserTest, Parse_StandardTableAccessViaGetTable)
 {
-    auto root = Parse("[server]\nport = 8080\n");
-    auto tbl  = root->GetTable("server");
+    auto root = ParseOk("[server]\nport = 8080\n");
+    auto tbl  = GetTableOrNull(root, "server");
     ASSERT_NE(tbl, nullptr);
-    auto* val = tbl->Get<int>("port");
+    auto* val = GetOrNull<int>(tbl, "port");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, 8080);
 }
 
 TEST(TOMLParserTest, Parse_StandardTableAccessViaDottedPath)
 {
-    auto root = Parse("[server]\nport = 8080\n");
-    auto* val = root->Get<int>("server.port");
+    auto root = ParseOk("[server]\nport = 8080\n");
+    auto* val = GetOrNull<int>(root, "server.port");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, 8080);
 }
 
 TEST(TOMLParserTest, Parse_NestedTableDottedPath)
 {
-    auto root = Parse("[server.tls]\nenabled = true\n");
-    auto* val = root->Get<bool>("server.tls.enabled");
+    auto root = ParseOk("[server.tls]\nenabled = true\n");
+    auto* val = GetOrNull<bool>(root, "server.tls.enabled");
     ASSERT_NE(val, nullptr);
     EXPECT_TRUE(*val);
 }
 
 TEST(TOMLParserTest, Parse_RootAndTableKeysCoexist)
 {
-    auto root = Parse("root_key = 1\n[section]\nkey = 2\n");
-    EXPECT_EQ(*root->Get<int>("root_key"), 1);
-    EXPECT_EQ(*root->Get<int>("section.key"), 2);
+    auto root = ParseOk("root_key = 1\n[section]\nkey = 2\n");
+    EXPECT_EQ(*GetOrNull<int>(root, "root_key"), 1);
+    EXPECT_EQ(*GetOrNull<int>(root, "section.key"), 2);
 }
 
 TEST(TOMLParserTest, Parse_MultipleStandardTables)
 {
-    auto root = Parse("[a]\nval = 1\n[b]\nval = 2\n");
-    EXPECT_EQ(*root->Get<int>("a.val"), 1);
-    EXPECT_EQ(*root->Get<int>("b.val"), 2);
+    auto root = ParseOk("[a]\nval = 1\n[b]\nval = 2\n");
+    EXPECT_EQ(*GetOrNull<int>(root, "a.val"), 1);
+    EXPECT_EQ(*GetOrNull<int>(root, "b.val"), 2);
 }
 
 // ─── Parse — array tables ─────────────────────────────────────────────────────
 
 TEST(TOMLParserTest, Parse_SingleArrayTableEntry)
 {
-    auto root = Parse("[[items]]\nname = \"first\"\n");
-    auto tbl  = root->GetTable("items[0]");
+    auto root = ParseOk("[[items]]\nname = \"first\"\n");
+    auto tbl  = GetTableOrNull(root, "items[0]");
     ASSERT_NE(tbl, nullptr);
-    auto* val = tbl->Get<std::string>("name");
+    auto* val = GetOrNull<std::string>(tbl, "name");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, "first");
 }
 
 TEST(TOMLParserTest, Parse_MultipleArrayTableEntries)
 {
-    auto root = Parse(
+    auto root = ParseOk(
         "[[products]]\n"
         "name = \"Hammer\"\n"
         "sku  = 1\n"
@@ -427,54 +463,78 @@ TEST(TOMLParserTest, Parse_MultipleArrayTableEntries)
         "sku  = 2\n"
     );
 
-    auto t0 = root->GetTable("products[0]");
-    auto t1 = root->GetTable("products[1]");
+    auto t0 = GetTableOrNull(root, "products[0]");
+    auto t1 = GetTableOrNull(root, "products[1]");
     ASSERT_NE(t0, nullptr);
     ASSERT_NE(t1, nullptr);
-    EXPECT_EQ(*t0->Get<std::string>("name"), "Hammer");
-    EXPECT_EQ(*t1->Get<std::string>("name"), "Nail");
-    EXPECT_EQ(*t0->Get<int>("sku"), 1);
-    EXPECT_EQ(*t1->Get<int>("sku"), 2);
+    EXPECT_EQ(*GetOrNull<std::string>(t0, "name"), "Hammer");
+    EXPECT_EQ(*GetOrNull<std::string>(t1, "name"), "Nail");
+    EXPECT_EQ(*GetOrNull<int>(t0, "sku"), 1);
+    EXPECT_EQ(*GetOrNull<int>(t1, "sku"), 2);
+}
+
+// ─── Parse — malformed input ──────────────────────────────────────────────────
+
+TEST(TOMLParserTest, Parse_UnexpectedTokenReturnsError)
+{
+    auto result = Parse("not a valid line\n");
+    ASSERT_FALSE(result.HasValue());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlUnexpectedToken));
+}
+
+TEST(TOMLParserTest, Parse_DuplicateKeyReturnsError)
+{
+    auto result = Parse("key = 1\nkey = 2\n");
+    ASSERT_FALSE(result.HasValue());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlAlreadyExistingKey));
 }
 
 // ─── Table::Get — error cases ─────────────────────────────────────────────────
 
-TEST(TOMLParserTest, Get_MissingKeyReturnsNull)
+TEST(TOMLParserTest, Get_MissingKeyReturnsError)
 {
-    auto root = Parse("key = 1\n");
-    EXPECT_EQ(root->Get<int>("missing"), nullptr);
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->Get<int>("missing");
+    ASSERT_FALSE(result.HasValue());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoAttribute));
 }
 
-TEST(TOMLParserTest, Get_WrongTypeReturnsNull)
+TEST(TOMLParserTest, Get_WrongTypeReturnsError)
 {
-    auto root = Parse("key = 42\n");
-    EXPECT_EQ(root->Get<std::string>("key"), nullptr);
+    auto root   = ParseOk("key = 42\n");
+    auto result = root->Get<std::string>("key");
+    ASSERT_FALSE(result.HasValue());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
 }
 
-TEST(TOMLParserTest, Get_MissingTableInPathReturnsNull)
+TEST(TOMLParserTest, Get_MissingTableInPathReturnsError)
 {
-    auto root = Parse("key = 1\n");
-    EXPECT_EQ(root->Get<int>("no_table.key"), nullptr);
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->Get<int>("no_table.key");
+    ASSERT_FALSE(result.HasValue());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
 }
 
 // ─── Table::GetTable — error cases ───────────────────────────────────────────
 
-TEST(TOMLParserTest, GetTable_MissingTableReturnsNull)
+TEST(TOMLParserTest, GetTable_MissingTableReturnsError)
 {
-    auto root = Parse("key = 1\n");
-    EXPECT_EQ(root->GetTable("nonexistent"), nullptr);
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->GetTable("nonexistent");
+    ASSERT_FALSE(result.HasValue());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
 }
 
 TEST(TOMLParserTest, GetTable_CorrectNameReturnsTable)
 {
-    auto root = Parse("[section]\nval = 5\n");
-    EXPECT_NE(root->GetTable("section"), nullptr);
+    auto root = ParseOk("[section]\nval = 5\n");
+    EXPECT_NE(GetTableOrNull(root, "section"), nullptr);
 }
 
 TEST(TOMLParserTest, GetTable_NameMatchesHeader)
 {
-    auto root = Parse("[section]\nval = 5\n");
-    auto tbl  = root->GetTable("section");
+    auto root = ParseOk("[section]\nval = 5\n");
+    auto tbl  = GetTableOrNull(root, "section");
     ASSERT_NE(tbl, nullptr);
     EXPECT_EQ(tbl->GetName(), "section");
 }
@@ -483,9 +543,10 @@ TEST(TOMLParserTest, GetTable_NameMatchesHeader)
 
 TEST(TOMLParserTest, GetTypedArray_MissingKeyReturnsEmpty)
 {
-    auto root = Parse("key = 1\n");
-    auto vec  = root->GetTypedArray<int>("missing");
-    EXPECT_TRUE(vec.empty());
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->GetTypedArray<int>("missing");
+    ASSERT_TRUE(result.HasValue());
+    EXPECT_TRUE(result.Value().empty());
 }
 
 }

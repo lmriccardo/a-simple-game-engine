@@ -3,6 +3,10 @@
 #include <fstream>
 #include <string>
 #include <filesystem>
+#include <ASGE/Core/Errors.hpp>
+#include <ASGE/Core/Strings.hpp>
+#include "FileMetadata.hpp"
+#include "FileData.hpp"
 
 namespace asge::filesystem
 {
@@ -11,6 +15,6 @@ namespace asge::filesystem
  * @brief Reads the input file content into a string
  * @param inPath The path of the file
  */
-std::string ReadText( std::filesystem::path const& inPath );
+Result<str::String> ReadText( Path const& inPath );
 
 }

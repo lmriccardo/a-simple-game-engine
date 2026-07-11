@@ -1,10 +1,23 @@
 #include "FileIO.hpp"
 
-std::string asge::filesystem::ReadText(std::filesystem::path const &inPath)
+asge::Result<asge::str::String> asge::filesystem::ReadText(Path const &inPath)
 {
     std::ifstream file(inPath);
-    if (!file.is_open()) return "";
+    std::error_code ec;
 
-    return {std::istreambuf_iterator<char>(file), 
-            std::istreambuf_iterator<char>()};
+    if (!file.is_open())
+    {
+        ec = std::error_code( errno, std::generic_category() );
+        return Result<str::String>::Err( ec,str::ToUTF8( inPath.u8string() ));
+    }
+
+    str::String content{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+
+    if (file.bad())
+    {
+        ec = std::error_code( errno, std::generic_category() );
+        return Result<str::String>::Err( ec,str::ToUTF8( inPath.u8string() ));
+    }
+
+    return Result<str::String>::Ok( std::move(content) );
 }

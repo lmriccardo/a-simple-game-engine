@@ -5,11 +5,11 @@ using namespace asge::filesystem;
 
 int main()
 {
-    _win32::FileWatcher fw;
+    FileWatcher fw;
     fw.Start();
     
-    fw.AddWatch( 
-        "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files",
+    auto result = fw.AddWatch( 
+        "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files1",
         [&fw]( FileEvent const& inEvent )
         {
             std::cout << inEvent << std::endl;
@@ -17,6 +17,15 @@ int main()
         }
     );
 
+    if (!result)
+    {
+        auto const err = result.Error();
+        LOG_ERROR("Error adding watcher: ", err);
+        fw.Cancel();
+        fw.Join();
+        return 1;
+    }
+    
     fw.Join();
 
     return 0;

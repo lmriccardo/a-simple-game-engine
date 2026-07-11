@@ -181,7 +181,7 @@ asge::filesystem::_win32::FileWatcher::CreateCallback(
     };
 }
 
-asge::filesystem::_win32::WatchedDir* 
+asge::Result<asge::filesystem::_win32::WatchedDir*>
 asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inPath)
 {
     std::lock_guard<std::mutex> lock( m_DirectoriesMutex );
@@ -191,7 +191,7 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
     if ( it != m_WatchedDirs.end() )
     {
         it->second->s_RefCount++;
-        return it->second.get();
+        return Result<WatchedDir*>::Ok(it->second.get());
     }
 
     // Case 2: Brand new path. Open the directory handle and bind to IOCP.
@@ -206,12 +206,22 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
     );
 
     // Handle error (throw exception or return nullptr)
-    if ( hDirectory == INVALID_HANDLE_VALUE ) return nullptr;
+    if ( hDirectory == INVALID_HANDLE_VALUE )
+    {
+        auto const ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
+        return Result<WatchedDir*>::Err(ec, "Failed to open directory watching" 
+            + str::ToUTF8(inPath.u8string()));
+    }
 
     // Try emplacing a new entry so we have a persistent memory address
     watched_pointer watchedDir = std::make_unique<WatchedDir>();
     auto [ insertedIt, success ] = m_WatchedDirs.try_emplace( inPath, std::move(watchedDir) );
-    if (!success) return nullptr;
+    if (!success)
+    {
+        auto const ec = make_error_code(errors::FileWatcherError::AlreadyWatched);
+        return Result<WatchedDir*>::Err( ec, str::ToUTF8(inPath.u8string()) );
+    }
+
     watched_pointer& entry = insertedIt->second;
 
     // Initialize all fields
@@ -237,11 +247,11 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
     {
         CloseHandle( hDirectory );
         m_WatchedDirs.erase( insertedIt );
-        LOG_ERROR( "Failed to register directory changes window." );
-        return nullptr;
+        auto const ec = make_error_code(errors::FileWatcherError::FailedDirRegister);
+        return Result<WatchedDir*>::Err( ec, str::ToUTF8(inPath.u8string()) );
     }
 
-    return entry.get();
+    return Result<WatchedDir*>::Ok(entry.get());
 }
 
 void asge::filesystem::_win32::FileWatcher::UnregisterPathWithIOCP(path_type const &inPath)
@@ -375,23 +385,40 @@ asge::filesystem::_win32::FileWatcher::~FileWatcher()
     }
 }
 
-WatcherHandler asge::filesystem::_win32::FileWatcher::AddWatch(
+asge::Result<WatcherHandler> asge::filesystem::_win32::FileWatcher::AddWatch(
     path_type inPath, callback_type_cref inCallback, mask_type inMask
 ) {
+    // Check if the input path actually exists
+    if ( !meta::Exists( inPath ) )
+    {
+        auto const ec = std::make_error_code( std::errc::no_such_file_or_directory );
+        return asge::Result<WatcherHandler>::Err( ec, str::ToUTF8( inPath.u8string() ) );
+    }
+
     // Check if the input path is a regular file or a folder
-    if ( std::filesystem::is_directory( inPath ) )
+    if ( meta::IsDirectory( inPath ) )
     {
         // First we need to tell windows to watch the directory
-        RegisterPathWithIOCP( inPath );
+        auto result = RegisterPathWithIOCP( inPath );
+        if ( !result )
+        {
+            return Result<WatcherHandler>::Err( result.Error() );
+        }
+
         LOG_INFO("Added new watch for ", inPath, " with mask ", inMask);
-        return m_OnEvent.Connect( CreateCallback( inCallback, inMask ) );
+        auto connector = m_OnEvent.Connect( CreateCallback( inCallback, inMask ) );
+        return Result<WatcherHandler>::Ok(connector);
     }
     else
     {
         // First normalize the path, then take the parent folder and the filename
         inPath = inPath.lexically_normal();
         path_type parentPath = inPath.parent_path();
-        RegisterPathWithIOCP( parentPath );
+        auto result = RegisterPathWithIOCP( parentPath );
+        if ( !result )
+        {
+            return Result<WatcherHandler>::Err( result.Error() );
+        }
 
         // Creates a new callback that filters the event by the path name
         auto filtered = [ inCallback, inPath ]( FileEvent const& e ) {
@@ -400,7 +427,8 @@ WatcherHandler asge::filesystem::_win32::FileWatcher::AddWatch(
 
         // Registers the callback into the signals
         LOG_INFO("Added new watch for ", inPath, " with mask ", inMask);
-        return m_OnEvent.Connect( CreateCallback( filtered, inMask ) );
+        auto connector = m_OnEvent.Connect( CreateCallback( filtered, inMask ) );
+        return Result<WatcherHandler>::Ok(connector);
     }
 }
 

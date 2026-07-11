@@ -40,16 +40,17 @@ void asge::config::_internal::toml::Table::PrintTable(std::ostream &oss) const n
         sub->PrintTable(oss);
 }
 
-void asge::config::_internal::toml::Table::AddKvPair(
-    std::string const &inKey, ValueType const &inValue) noexcept
+asge::BoolResult asge::config::_internal::toml::Table::AddKvPair(std::string const &inKey, ValueType const &inValue) noexcept
 {
     if ( m_kvPairs.find( inKey ) != m_kvPairs.end() )
     {
-        LOG_ERROR("Key " + inKey + " already present in " + m_Name + " table");
-        return;
+        auto const ec = make_error_code( errors::ConfError::TomlAlreadyExistingKey );
+        std::string detail = "key " + inKey + " table " + m_Name;
+        return BoolResult::Err( ec, detail );
     }
 
     m_kvPairs[inKey] = inValue;
+    return BoolResult::Ok();
 }
 
 void asge::config::_internal::toml::Table::AddSubTable(Table::pointer inChild) noexcept
@@ -73,7 +74,7 @@ std::string const &asge::config::_internal::toml::Table::GetName() const noexcep
     return m_Name;
 }
 
-Table::pointer asge::config::_internal::toml::Table::GetTable(std::string const &inPath) const noexcept
+asge::Result<Table::pointer> asge::config::_internal::toml::Table::GetTable(std::string const &inPath) const noexcept
 {
     std::string_view svPath = str::Trim(inPath);
 
@@ -82,23 +83,17 @@ Table::pointer asge::config::_internal::toml::Table::GetTable(std::string const 
         sepPos == std::string_view::npos ? svPath : svPath.substr(0, sepPos));
 
     // resolve current segment — indexed or plain
-    std::shared_ptr<Table> child;
-    if ( segment.index.has_value() )
-        child = FindSubTableAt(shared_from_this(), std::string(segment.name), *segment.index);
-    else
-        child = FindSubTable(shared_from_this(), std::string(segment.name));
+    Result<table_pointer> child = segment.index.has_value()
+        ? FindSubTableAt(shared_from_this(), std::string(segment.name), *segment.index)
+        : FindSubTable(shared_from_this(), std::string(segment.name));
 
-    if ( !child )
-    {
-        LOG_ERROR("No subtable named '", segment.name, "'");
-        return nullptr;
-    }
+    if ( !child ) return Result<Table::pointer>::Err( child.Error() );
 
     // base case — no more segments
     if ( sepPos == std::string_view::npos ) return child;
 
     // recurse into remaining path
-    return child->GetTable(std::string(svPath.substr(sepPos + 1)));
+    return child.Value()->GetTable(std::string(svPath.substr(sepPos + 1)));
 }
 
 std::ostream &asge::config::_internal::toml::operator<<(std::ostream &oss, ValueType const &inValue) noexcept
@@ -189,44 +184,65 @@ std::vector<std::string_view> asge::config::_internal::toml::SplitArrayElements(
     return outResult;
 }
 
-ValueType asge::config::_internal::toml::ParseArray(std::string_view inLine)
+asge::Result<ValueType> asge::config::_internal::toml::ParseArray(std::string_view inLine)
 {
     if ( inLine.front() == '[' ) inLine.remove_prefix(1);
     if ( inLine.back()  == ']' ) inLine.remove_suffix(1);
     inLine = str::Trim( inLine );
 
-    if ( inLine.empty() ) return std::vector<TOMLValue>{};
+    if ( inLine.empty() ) return Result<ValueType>::Ok(std::vector<TOMLValue>{});
 
     auto arrayElems = SplitArrayElements( inLine );
-    if ( arrayElems.empty() ) return std::vector<TOMLValue>{};
+    if ( arrayElems.empty() ) return Result<ValueType>::Ok(std::vector<TOMLValue>{});
 
     std::vector<TOMLValue> result;
     result.reserve( arrayElems.size() );
     for ( auto const& elem : arrayElems )
-        result.push_back( ParseValue( nullptr, str::Trim(elem) ) );
+    {
+        auto parse_result = ParseValue( nullptr, str::Trim(elem) );
+        if ( !parse_result ) return parse_result;
+        result.push_back( std::move(parse_result.Value()) );
+    }
 
-    return result;
+    return Result<ValueType>::Ok(std::move(result));
 }
 
-std::string asge::config::_internal::toml::ParseString(std::istringstream *inStream, std::string_view inLine)
+asge::Result<asge::str::String> asge::config::_internal::toml::ParseString(
+    std::istringstream *inStream, std::string_view inLine)
 {
     StringType strType = DetectStringType( inLine );
     bool isLiteral = ( strType == StringType::Literal 
         || strType == StringType::MultiLiteral );
 
+    str::String result;
+
     switch ( strType )
     {
     case StringType::Basic:
-    case StringType::Literal: return ParseBasicString( inLine, isLiteral );
+    case StringType::Literal:
+    {
+        result = ParseBasicString( inLine, isLiteral );
+        break;
+    }
     case StringType::MultiBasic:
     case StringType::MultiLiteral: 
-        return ParseMultiLineString( *inStream, inLine, isLiteral );
-    default:
     {
-        LOG_ERROR("Invalid string");
-        return {};
+        result = ParseMultiLineString( *inStream, inLine, isLiteral );
+        break;
     }
+    default: break;
     }
+
+    // If the resulting string is empty either it is an invalid
+    // string format, or there is an empty string in the
+    // configuration which is invalid by construction
+    if ( result.empty() )
+    {
+        auto const ec = make_error_code( errors::ConfError::TomlInvalidString );
+        return Result<str::String>::Err(ec);
+    }
+
+    return Result<str::String>::Ok( std::move(result) );
 }
 
 StringType asge::config::_internal::toml::DetectStringType(std::string_view inSv) noexcept
@@ -363,25 +379,31 @@ asge::config::_internal::toml::SplitTablePath(std::string_view inTableName) noex
     return { inTableName.substr(0, sepPos), inTableName.substr( sepPos + 1 ) };
 }
 
-table_pointer asge::config::_internal::toml::FindSubTable(table_pointer inParent, std::string const &inName) noexcept
+asge::Result<table_pointer> asge::config::_internal::toml::FindSubTable(
+    table_pointer inParent, std::string const &inName) noexcept
 {
     for ( auto const& subTable : inParent->GetSubTables() )
     {
-        if ( subTable->GetName() == inName ) return subTable;
+        if ( subTable->GetName() == inName ) return Result<table_pointer>::Ok( subTable );
     }
-    return nullptr;
+    auto const ec = make_error_code( errors::ConfError::TomlNoSubtable );
+    str::String detail = "name " + inName;
+    return Result<table_pointer>::Err( ec, detail );
 }
 
-table_pointer asge::config::_internal::toml::FindSubTable(table_const_pointer inParent, std::string const &inName) noexcept
+asge::Result<table_pointer> asge::config::_internal::toml::FindSubTable(
+    table_const_pointer inParent, std::string const &inName) noexcept
 {
     for ( auto const& subTable : inParent->GetSubTables() )
     {
-        if ( subTable->GetName() == inName ) return subTable;
+        if ( subTable->GetName() == inName ) return Result<table_pointer>::Ok( subTable );
     }
-    return nullptr;
+    auto const ec = make_error_code( errors::ConfError::TomlNoSubtable );
+    str::String detail = "name " + inName;
+    return Result<table_pointer>::Err( ec, detail );
 }
 
-table_pointer asge::config::_internal::toml::FindSubTableAt(table_const_pointer inParent, 
+asge::Result<table_pointer> asge::config::_internal::toml::FindSubTableAt(table_const_pointer inParent, 
     std::string const &inName, std::size_t inIndex) noexcept
 {
     std::size_t count = 0;
@@ -389,12 +411,13 @@ table_pointer asge::config::_internal::toml::FindSubTableAt(table_const_pointer 
     {
         if ( sub->GetName() == inName )
         {
-            if ( count == inIndex ) return sub;
+            if ( count == inIndex ) return Result<table_pointer>::Ok(sub);
             ++count;
         }
     }
-    LOG_ERROR("No subtable '", inName, "' at index", inIndex);
-    return nullptr;
+    auto const ec = make_error_code( errors::ConfError::TomlNoSubtable );
+    str::String detail = "name " + inName;
+    return Result<table_pointer>::Err( ec, detail );
 }
 
 table_pointer asge::config::_internal::toml::FindOrCreateTable(
@@ -413,15 +436,19 @@ table_pointer asge::config::_internal::toml::FindOrCreateTable(
 
         // Search the subtable as direct child of the current
         // table. If it does not exists than create it and add it.
-        auto nextTable = FindSubTable( currTable, std::string( currName ) );
-        if ( !nextTable )
+        auto nextTableResult = FindSubTable( currTable, std::string( currName ) );
+        if ( !nextTableResult )
         {
-            nextTable = std::make_shared<Table>( std::string(currName), inType );
+            auto nextTable = std::make_shared<Table>( std::string(currName), inType );
             nextTable->SetParent( currTable );
             currTable->AddSubTable( nextTable );
+            currTable = nextTable;
+        }
+        else
+        {
+            currTable = nextTableResult.Value();
         }
 
-        currTable = nextTable;
         remTablePath = sepPos == std::string_view::npos
             ? std::string_view{}
             : remTablePath.substr( sepPos + 1 );
@@ -469,23 +496,31 @@ table_pointer asge::config::_internal::toml::ParseTable(table_pointer inRoot, st
     return newTable;
 }
 
-ValueType asge::config::_internal::toml::ParseValue(std::istringstream *inStream, std::string_view inLine)
+asge::Result<ValueType> asge::config::_internal::toml::ParseValue(std::istringstream *inStream, std::string_view inLine)
 {
     const auto tomlType = DetectType( inLine );
 
-    switch (tomlType)
+    try
     {
-    case ElementType::String: return ParseString(inStream, inLine);
-    case ElementType::Array: return ParseArray(inLine);
-    case ElementType::Bool: return inLine == "true";
-    case ElementType::Double: return std::stod( std::string(inLine) );
-    case ElementType::Int: return std::stoi( std::string(inLine) );
-    default:
-        throw std::runtime_error("bad TOML formatting!!");
+        switch (tomlType)
+        {
+        case ElementType::String: return Result<ValueType>::From(ParseString(inStream, inLine));
+        case ElementType::Array: return Result<ValueType>::From(ParseArray(inLine));
+        case ElementType::Bool: return Result<ValueType>::Ok(inLine == "true");
+        case ElementType::Double: return Result<ValueType>::Ok(std::stod( std::string(inLine) ));
+        case ElementType::Int: return Result<ValueType>::Ok(std::stoi( std::string(inLine) ));
+        default:
+            return Result<ValueType>::Err( make_error_code( errors::ConfError::TomlBadFormatting ) );
+        }
+        }
+    catch(const std::exception& e)
+    {
+        return Result<ValueType>::Err(make_error_code( errors::ConfError::TomlBadFormatting ), e.what() );
     }
+    
 }
 
-table_pointer asge::config::_internal::toml::Parse(std::string const &inRaw) noexcept
+asge::Result<table_pointer> asge::config::_internal::toml::Parse(std::string const &inRaw) noexcept
 {
     // Creates the root table
     auto rootTable = std::make_shared<Table>( TableType::Root );
@@ -514,9 +549,17 @@ table_pointer asge::config::_internal::toml::Parse(std::string const &inRaw) noe
             auto kvKey    = str::Trim(svLine.substr(0, kvSep));
             auto kvValue  = str::Trim(svLine.substr(kvSep + 1, svLine.size()));
             auto kvParsed = ParseValue( &stream, kvValue );
+            if ( !kvParsed )
+            {
+                return Result<table_pointer>::Err( kvParsed.Error() );
+            }
 
             // Add the key-value pair into the current table
-            currTable->AddKvPair( std::string(kvKey), kvParsed );
+            if ( auto result = currTable->AddKvPair( std::string(kvKey), kvParsed.Value() ); !result )
+            {
+                return Result<table_pointer>::Err( result.Error() );
+            }
+            
             continue;
         }
 
@@ -539,10 +582,11 @@ table_pointer asge::config::_internal::toml::Parse(std::string const &inRaw) noe
         }
 
         // If we reach here the line is malformed
-        LOG_ERROR("Unexpected token: {}", svLine);
+        auto const ec = make_error_code( errors::ConfError::TomlUnexpectedToken );
+        return Result<table_pointer>::Err( ec, str::String(svLine) ); 
     }
 
-    return rootTable;
+    return Result<table_pointer>::Ok( std::move(rootTable) );
 }
 
 ElementType asge::config::_internal::toml::DetectType(std::string_view inLine) noexcept

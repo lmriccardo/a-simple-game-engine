@@ -1,20 +1,50 @@
 #include <iostream>
+#include <chrono>
+#include <thread>
 #include <ASGE/Core/Configuration/ConfigurationManager.hpp>
 
 using namespace asge::config;
 
+namespace
+{
+
+void PrintIntSetting(ConfigurationManager const& cm, std::string const& inPath)
+{
+    auto result = cm.Get<int>(inPath);
+    if (!result)
+    {
+        auto const err = result.Error();
+        LOG_ERROR("Error reading ", inPath, ": ", err);
+        return;
+    }
+
+    std::cout << inPath << " = " << result.Value() << "\n";
+}
+
+}
+
 int main()
 {
     ConfigurationManager cm( asge::concurrent::WithCancel() );
-    bool load_result = cm.Load( "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\configuration_reader\\conf.toml" );
+    auto load_result = cm.Load( "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\configuration_reader\\conf.toml" );
+    if (!load_result)
+    {
+        auto const err = load_result.Error();
+        LOG_ERROR("Error loading conf: ", err);
+        return 1;
+    }
 
-    auto w = cm.Get<int>("Window.Width");
-    auto h = cm.Get<int>("Window.Height");
-    auto fps = cm.Get<int>("Rendering.Target_Fps");
+    PrintIntSetting(cm, "Window.Width");
+    PrintIntSetting(cm, "Window.Height");
+    PrintIntSetting(cm, "Rendering.Target_Fps");
 
-    std::cout << "Window.Width  = " << *w << "\n";
-    std::cout << "Window.Height = " << *h << "\n";
-    std::cout << "Rendering.Target_Fps = " << *fps << std::endl;
+    std::this_thread::sleep_for( std::chrono::seconds(10) );
+
+    std::cout << "After Reload" << std::endl;
+
+    PrintIntSetting(cm, "Window.Width");
+    PrintIntSetting(cm, "Window.Height");
+    PrintIntSetting(cm, "Rendering.Target_Fps");
 
     return 0;
 }

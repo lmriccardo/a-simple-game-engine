@@ -3,18 +3,33 @@
 using namespace asge::config;
 namespace toml = _internal::toml;
 
-void asge::config::ConfigurationManager::ReadConfiguration( filesystem::Path const& inPath )
+asge::BoolResult asge::config::ConfigurationManager::ReadConfiguration( filesystem::Path const& inPath )
 {
-    m_Configuration.store(toml::Parse( filesystem::ReadText( inPath ) ), std::memory_order_release);
+    auto read_result = filesystem::ReadText( inPath );
+    if ( !read_result ) {
+        return BoolResult::Err( read_result.Error() );
+    }
+    
+    auto result = toml::Parse( read_result.Value() );
+    if (!result) {
+        return BoolResult::Err( result.Error() );
+    }
+
+    m_Configuration.store(std::move(result.Value()), std::memory_order_release);
+    return BoolResult::Ok();
 }
 
 void asge::config::ConfigurationManager::HotReloadHelper(filesystem::FileEvent const &inEvent)
 {
-    ReadConfiguration( inEvent.s_Path ); // Reload the entire configuration
+    auto result = ReadConfiguration( inEvent.s_Path ); // Reload the entire configuration
+    if (!result)
+    {
+        auto const err = result.Error();
+        LOG_ERROR("Error reloading the conf: ", err.s_Code.message(), err.s_Detail);
+    }
 }
 
-asge::config::ConfigurationManager::ConfigurationManager(
-    concurrent::context_pointer inCtx)
+asge::config::ConfigurationManager::ConfigurationManager(concurrent::context_pointer inCtx)
     : m_FileWatcher(inCtx)
 {
     // Just starts the filewatcher
@@ -25,19 +40,19 @@ asge::config::ConfigurationManager::~ConfigurationManager()
 {
 }
 
-bool asge::config::ConfigurationManager::Load(filesystem::Path const &confPath)
+asge::BoolResult asge::config::ConfigurationManager::Load(filesystem::Path const &confPath)
 {
     // Check if the current configuration matches with the input one
     if ( !filesystem::meta::IsEmpty( m_ConfigPath ) && m_ConfigPath == confPath )
     {
-        return true;
+        return BoolResult::Ok();
     }
 
     // Check if the input path is a file and has the .toml extension
     if ( filesystem::meta::IsFile( confPath ) )
     {
-        auto fileExtension = filesystem::meta::GetExtension( confPath );
-        if ( fileExtension && *fileExtension == ".toml" )
+        auto fileExtensionResult = filesystem::meta::GetExtension( confPath );
+        if ( fileExtensionResult && fileExtensionResult.Value() == ".toml" )
         {
             m_ConfigPath = confPath;
             
@@ -48,18 +63,32 @@ bool asge::config::ConfigurationManager::Load(filesystem::Path const &confPath)
             }
 
             // Add a new watch to the file watcher which returns the new connection
-            m_WatcherConnection = m_FileWatcher.AddWatch(
+            auto connectionResult = m_FileWatcher.AddWatch(
                 confPath, 
                 functools::MakeCallback( &ConfigurationManager::HotReloadHelper, this),
                 filesystem::FEventType::Modified
             );
 
-            // Read the new configuration
-            ReadConfiguration( confPath );
+            if (!connectionResult)
+            {
+                return BoolResult::Err( connectionResult.Error() );
+            }
 
-            return true;
+            m_WatcherConnection = connectionResult.Value();
+
+            // Read the new configuration
+            auto read_result = ReadConfiguration( confPath );
+            if ( !read_result ) 
+            {
+                m_WatcherConnection.Disconnect();
+                return BoolResult::Err( read_result.Error() );
+            }
+
+            return BoolResult::Ok();
         }
     }
 
-    return false;
+    // Returns error if the input path is an invalid path
+    auto const ec = make_error_code( errors::ConfError::InvalidInputPath );
+    return BoolResult::Err( ec, str::ToUTF8( confPath.u8string() ) );
 }

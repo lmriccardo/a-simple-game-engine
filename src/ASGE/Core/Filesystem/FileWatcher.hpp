@@ -15,8 +15,11 @@
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Concurrent/Thread.hpp>
 #include <ASGE/Core/Patterns/Signal.hpp>
+#include <ASGE/Core/Errors.hpp>
+#include <ASGE/Core/Strings.hpp>
 
 #include "FileData.hpp"
+#include "FileMetadata.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -142,7 +145,7 @@ private:
     static bool RegisterDirChanges( WatchedDir* inWdirPtr );
     static callback_type CreateCallback( callback_type_cref inCallback, mask_type inMask );
 
-    WatchedDir* RegisterPathWithIOCP( path_type const& inPath );
+    Result<WatchedDir*> RegisterPathWithIOCP( path_type const& inPath );
     void UnregisterPathWithIOCP( path_type const& inPath );
     void ProcessBuffer( WatchedDir* inEntry, DWORD inBytesTransferred );
 
@@ -153,18 +156,29 @@ public:
     FileWatcher(concurrent::context_pointer inCtx);
     ~FileWatcher();
 
-    WatcherHandler AddWatch( path_type inPath, 
-        callback_type_cref inCallback, 
-        mask_type inMask = mask_type::All );
+    Result<WatcherHandler> AddWatch( 
+        path_type inPath, callback_type_cref inCallback, 
+        mask_type inMask = mask_type::All 
+    );
 };
 
 }
 using FileWatcher = _win32::FileWatcher;
 #else
-namespace _unix
+namespace _linux
 {
-    
+
+class FileWatcher : public concurrent::Thread
+{
+    void Run( concurrent::context_pointer& inCtx ) override {}
+public:
+    FileWatcher() {}
+    FileWatcher(concurrent::context_pointer inCtx) {}
+    ~FileWatcher() {}
+};
+
 }
+using FileWatcher = _linux::FileWatcher;
 #endif
 
 }
