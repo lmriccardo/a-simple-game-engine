@@ -264,7 +264,8 @@ inline str::String ToErrorString(FileWatcherError e) noexcept
 enum class ConfError : std::uint8_t
 {
     InvalidInputPath = 1,
-    
+    ConfigurationNotLoaded,
+
     // TOML ERRORS
     TomlExpectedNestedArray,
     TomlTypeMismatch,
@@ -281,6 +282,7 @@ inline str::String ToErrorString(ConfError e) noexcept
     switch (e)
     {
     case ConfError::InvalidInputPath: return "invalid configuration input path";
+    case ConfError::ConfigurationNotLoaded: return "no configuration has been loaded yet";
     case ConfError::TomlExpectedNestedArray: return "expected nested array";
     case ConfError::TomlTypeMismatch: return "invalid type mismatch";
     case ConfError::TomlAlreadyExistingKey: return "key already exists";

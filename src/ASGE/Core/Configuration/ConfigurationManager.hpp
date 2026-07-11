@@ -36,8 +36,13 @@ public:
     Result<T> Get( std::string const& inParamPath ) const
     {
         auto cfg = m_Configuration.load( std::memory_order_acquire );
+        if ( !cfg )
+        {
+            return Result<T>::Err( make_error_code( errors::ConfError::ConfigurationNotLoaded ) );
+        }
+
         if constexpr ( asge::_internal::traits::is_vector_v<T> ) {
-            return cfg->template GetTypedArray<T>( inParamPath );
+            return cfg->template GetTypedArray<typename T::value_type>( inParamPath );
         } else {
             auto result = cfg->template Get<T>( inParamPath );
             if (!result) return Result<T>::Err( result.Error() );

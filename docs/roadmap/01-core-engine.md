@@ -12,10 +12,10 @@ Build the foundational runtime.
 - [x] Logging system
 - [x] Memory allocator
 - [WIP] Config system
-    1. TOML support parser and value provider
-    2. Generic configuration manager
-    3. FileWatcher + generic filesystem utilities (cross-platform)
-    4. Hot-Reload support into the configuration manager
+    1. ✅ TOML support parser and value provider
+    2. ✅ Generic configuration manager
+    3. ✅ FileWatcher + generic filesystem utilities (cross-platform)
+    4. ✅ Hot-Reload support into the configuration manager
     5. Configuration Writing back to the file
 - [x] Error system
 

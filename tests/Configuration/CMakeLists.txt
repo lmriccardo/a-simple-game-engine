@@ -1,5 +1,6 @@
 add_executable(ASGE_ConfigurationTests
     TOMLParserTests.cpp
+    ConfigurationManagerTests.cpp
 )
 
 target_link_libraries(ASGE_ConfigurationTests
