@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,13 @@ table_pointer GetTableOrNull(table_pointer const& inTable, std::string const& in
 {
     auto result = inTable->GetTable(inPath);
     return result.IsOk() ? result.Value() : nullptr;
+}
+
+std::string DumpTable(table_pointer const& inTable)
+{
+    std::ostringstream oss;
+    oss << *inTable;
+    return oss.str();
 }
 
 template<typename T>
@@ -547,6 +555,239 @@ TEST(TOMLParserTest, GetTypedArray_MissingKeyReturnsEmpty)
     auto result = root->GetTypedArray<int>("missing");
     ASSERT_TRUE(result.IsOk());
     EXPECT_TRUE(result.Value().empty());
+}
+
+// ─── EscapeForOutput ──────────────────────────────────────────────────────────
+
+TEST(TOMLParserTest, EscapeForOutput_EscapesBackslash)
+{
+    EXPECT_EQ(EscapeForOutput("a\\b", false), "a\\\\b");
+}
+
+TEST(TOMLParserTest, EscapeForOutput_EscapesQuote)
+{
+    EXPECT_EQ(EscapeForOutput(R"(a"b)", false), R"(a\"b)");
+}
+
+TEST(TOMLParserTest, EscapeForOutput_SingleLineEscapesNewline)
+{
+    EXPECT_EQ(EscapeForOutput("a\nb", false), "a\\nb");
+}
+
+TEST(TOMLParserTest, EscapeForOutput_MultilineKeepsNewlineRaw)
+{
+    EXPECT_EQ(EscapeForOutput("a\nb", true), "a\nb");
+}
+
+TEST(TOMLParserTest, EscapeForOutput_TabKeptRaw)
+{
+    EXPECT_EQ(EscapeForOutput("a\tb", false), "a\tb");
+}
+
+// ─── WriteValue ───────────────────────────────────────────────────────────────
+
+std::string WriteValueToString(ValueType const& inValue, TOMLTypeInfo const& inInfo)
+{
+    std::ostringstream oss;
+    WriteValue(oss, inValue, inInfo);
+    return oss.str();
+}
+
+TEST(TOMLParserTest, WriteValue_Int)
+{
+    EXPECT_EQ(WriteValueToString(ValueType(42), TOMLTypeInfo{ElementType::Int}), "42");
+}
+
+TEST(TOMLParserTest, WriteValue_DoubleWholeNumberGetsDecimalPoint)
+{
+    EXPECT_EQ(WriteValueToString(ValueType(3.0), TOMLTypeInfo{ElementType::Double}), "3.0");
+}
+
+TEST(TOMLParserTest, WriteValue_DoubleWithFraction)
+{
+    EXPECT_EQ(WriteValueToString(ValueType(3.5), TOMLTypeInfo{ElementType::Double}), "3.5");
+}
+
+TEST(TOMLParserTest, WriteValue_BoolTrue)
+{
+    EXPECT_EQ(WriteValueToString(ValueType(true), TOMLTypeInfo{ElementType::Bool}), "true");
+}
+
+TEST(TOMLParserTest, WriteValue_BoolFalse)
+{
+    EXPECT_EQ(WriteValueToString(ValueType(false), TOMLTypeInfo{ElementType::Bool}), "false");
+}
+
+TEST(TOMLParserTest, WriteValue_BasicStringEscapes)
+{
+    TOMLTypeInfo info{ElementType::String, StringType::Basic};
+    EXPECT_EQ(WriteValueToString(ValueType(std::string("a\nb")), info), R"("a\nb")");
+}
+
+TEST(TOMLParserTest, WriteValue_LiteralStringNoEscape)
+{
+    TOMLTypeInfo info{ElementType::String, StringType::Literal};
+    EXPECT_EQ(WriteValueToString(ValueType(std::string("no\\nescape")), info), R"('no\nescape')");
+}
+
+TEST(TOMLParserTest, WriteValue_MultiBasicString)
+{
+    TOMLTypeInfo info{ElementType::String, StringType::MultiBasic};
+    EXPECT_EQ(WriteValueToString(ValueType(std::string("hello")), info), R"("""hello""")");
+}
+
+TEST(TOMLParserTest, WriteValue_MultiLiteralString)
+{
+    TOMLTypeInfo info{ElementType::String, StringType::MultiLiteral};
+    EXPECT_EQ(WriteValueToString(ValueType(std::string("hello")), info), "'''hello'''");
+}
+
+TEST(TOMLParserTest, WriteValue_ArrayRecurses)
+{
+    std::vector<TOMLValue> arr{ TOMLValue(1), TOMLValue(2) };
+    TOMLTypeInfo info{ElementType::Array, StringType::Invalid, { {ElementType::Int}, {ElementType::Int} }};
+    EXPECT_EQ(WriteValueToString(ValueType(arr), info), "[1, 2]");
+}
+
+TEST(TOMLParserTest, WriteValue_NestedArrayRecurses)
+{
+    std::vector<TOMLValue> row0{ TOMLValue(1), TOMLValue(2) };
+    std::vector<TOMLValue> row1{ TOMLValue(3), TOMLValue(4) };
+    std::vector<TOMLValue> matrix{ TOMLValue(row0), TOMLValue(row1) };
+
+    TOMLTypeInfo rowInfo{ElementType::Array, StringType::Invalid, { {ElementType::Int}, {ElementType::Int} }};
+    TOMLTypeInfo info{ElementType::Array, StringType::Invalid, { rowInfo, rowInfo }};
+
+    EXPECT_EQ(WriteValueToString(ValueType(matrix), info), "[[1, 2], [3, 4]]");
+}
+
+// ─── Table::Set — success cases ───────────────────────────────────────────────
+
+TEST(TOMLParserTest, Set_UpdatesIntValue)
+{
+    auto root = ParseOk("count = 7\n");
+    ASSERT_TRUE(root->Set<int>("count", 9).IsOk());
+    EXPECT_EQ(*GetOrNull<int>(root, "count"), 9);
+}
+
+TEST(TOMLParserTest, Set_UpdatesDoubleValue_KeepsFloatFormatting)
+{
+    auto root = ParseOk("pi = 3.14\n");
+    ASSERT_TRUE(root->Set<double>("pi", 3.0).IsOk());
+    EXPECT_DOUBLE_EQ(*GetOrNull<double>(root, "pi"), 3.0);
+    EXPECT_NE(DumpTable(root).find("pi = 3.0"), std::string::npos);
+}
+
+TEST(TOMLParserTest, Set_UpdatesBoolValue)
+{
+    auto root = ParseOk("flag = false\n");
+    ASSERT_TRUE(root->Set<bool>("flag", true).IsOk());
+    EXPECT_TRUE(*GetOrNull<bool>(root, "flag"));
+}
+
+TEST(TOMLParserTest, Set_UpdatesBasicString_KeepsBasicSubtype)
+{
+    auto root = ParseOk(R"(name = "Alice")" "\n");
+    ASSERT_TRUE(root->Set<std::string>("name", "Bob").IsOk());
+    EXPECT_EQ(*GetOrNull<std::string>(root, "name"), "Bob");
+    EXPECT_NE(DumpTable(root).find(R"(name = "Bob")"), std::string::npos);
+}
+
+TEST(TOMLParserTest, Set_UpdatesLiteralString_KeepsLiteralSubtype)
+{
+    auto root = ParseOk("msg = 'no\\nescape'\n");
+    ASSERT_TRUE(root->Set<std::string>("msg", "new\\nvalue").IsOk());
+    EXPECT_NE(DumpTable(root).find("msg = 'new\\nvalue'"), std::string::npos);
+}
+
+TEST(TOMLParserTest, Set_UpdatesMultiBasicString_KeepsMultiBasicSubtype)
+{
+    auto root = ParseOk("msg = \"\"\"hello\nworld\"\"\"\n");
+    ASSERT_TRUE(root->Set<std::string>("msg", "updated").IsOk());
+    EXPECT_NE(DumpTable(root).find(R"(msg = """updated""")"), std::string::npos);
+}
+
+TEST(TOMLParserTest, Set_UpdatesMultiLiteralString_KeepsMultiLiteralSubtype)
+{
+    auto root = ParseOk("msg = '''hello\nworld'''\n");
+    ASSERT_TRUE(root->Set<std::string>("msg", "updated").IsOk());
+    EXPECT_NE(DumpTable(root).find("msg = '''updated'''"), std::string::npos);
+}
+
+TEST(TOMLParserTest, Set_ThroughDottedPathUpdatesNestedTable)
+{
+    auto root = ParseOk("[server]\nport = 8080\n");
+    ASSERT_TRUE(root->Set<int>("server.port", 9090).IsOk());
+    EXPECT_EQ(*GetOrNull<int>(root, "server.port"), 9090);
+}
+
+// ─── Table::Set — error cases ─────────────────────────────────────────────────
+
+TEST(TOMLParserTest, Set_FailsOnMissingKey)
+{
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->Set<int>("missing", 2);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoAttribute));
+}
+
+TEST(TOMLParserTest, Set_FailsOnMissingParentTable)
+{
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->Set<int>("no_table.key", 2);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
+}
+
+TEST(TOMLParserTest, Set_FailsOnTypeMismatch)
+{
+    auto root   = ParseOk("key = 42\n");
+    auto result = root->Set<std::string>("key", "oops");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
+}
+
+// ─── Table::SetTypedArray ─────────────────────────────────────────────────────
+
+TEST(TOMLParserTest, SetTypedArray_UpdatesIntArray)
+{
+    auto root = ParseOk("nums = [1, 2, 3]\n");
+    ASSERT_TRUE(root->SetTypedArray<int>("nums", std::vector<int>{4, 5}).IsOk());
+    auto vec = GetArrayOrEmpty<int>(root, "nums");
+    ASSERT_EQ(vec.size(), 2u);
+    EXPECT_EQ(vec[0], 4);
+    EXPECT_EQ(vec[1], 5);
+}
+
+TEST(TOMLParserTest, SetTypedArray_UpdatesNestedArray)
+{
+    auto root = ParseOk("matrix = [[1, 2], [3, 4]]\n");
+    std::vector<std::vector<int>> newMatrix{ {5, 6}, {7, 8}, {9, 10} };
+    ASSERT_TRUE(root->SetTypedArray<std::vector<int>>("matrix", newMatrix).IsOk());
+    EXPECT_NE(DumpTable(root).find("matrix = [[5, 6], [7, 8], [9, 10]]"), std::string::npos);
+}
+
+TEST(TOMLParserTest, SetTypedArray_EmptyExistingArrayFallsBackToDefaultTypeInfo)
+{
+    auto root = ParseOk("nums = []\n");
+    ASSERT_TRUE(root->SetTypedArray<int>("nums", std::vector<int>{1, 2}).IsOk());
+    EXPECT_NE(DumpTable(root).find("nums = [1, 2]"), std::string::npos);
+}
+
+TEST(TOMLParserTest, SetTypedArray_FailsOnMissingKey)
+{
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->SetTypedArray<int>("missing", std::vector<int>{1});
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoAttribute));
+}
+
+TEST(TOMLParserTest, SetTypedArray_FailsOnTypeMismatch)
+{
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->SetTypedArray<int>("key", std::vector<int>{1});
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
 }
 
 }

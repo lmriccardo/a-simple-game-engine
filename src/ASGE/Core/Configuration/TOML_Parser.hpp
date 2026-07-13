@@ -97,13 +97,45 @@ enum class TableType
 
 enum class ElementType { Null, Int, Double, Bool, String, Array };
 
-enum class StringType { 
-    Basic,          // "..." 
+enum class StringType {
+    Basic,          // "..."
     Literal,        // '...'
     MultiBasic,     // """..."""
     MultiLiteral,   // '''...'''
     Invalid
 };
+
+/**
+ * Carries the original TOML formatting of a value (string quoting style,
+ * numeric kind, per-element info for arrays) so that Save() can reproduce
+ * it, since a bare ValueType cannot distinguish e.g. a literal string from
+ * a basic one, or a whole-number double from an int.
+ */
+struct TOMLTypeInfo
+{
+    ElementType s_Type = ElementType::Null;
+    StringType  s_StringType = StringType::Invalid;   // meaningful only if s_Type == String
+    std::vector<TOMLTypeInfo> s_ElementInfo;           // meaningful only if s_Type == Array
+};
+
+struct TOMLEntry
+{
+    ValueType    s_Value;
+    TOMLTypeInfo s_Info;
+};
+
+template<typename T>
+TOMLTypeInfo DefaultTypeInfoFor() noexcept
+{
+    if constexpr ( std::is_same_v<T, int> ) return TOMLTypeInfo{ ElementType::Int };
+    else if constexpr ( std::is_same_v<T, double> ) return TOMLTypeInfo{ ElementType::Double };
+    else if constexpr ( std::is_same_v<T, bool> ) return TOMLTypeInfo{ ElementType::Bool };
+    else if constexpr ( std::is_same_v<T, std::string> ) return TOMLTypeInfo{ ElementType::String, StringType::Basic };
+    else if constexpr ( asge::_internal::traits::is_vector_v<T> )
+        return TOMLTypeInfo{ ElementType::Array, StringType::Invalid, { DefaultTypeInfoFor<typename T::value_type>() } };
+    else
+        static_assert( asge::_internal::traits::always_false_v<T>, "unsupported TOML element type" );
+}
 
 class Table; // Forward declare table class
 using table_pointer = std::shared_ptr<Table>;
@@ -128,13 +160,13 @@ using to_native_type_t = typename to_native_type<EType>::type;
 ElementType DetectType( std::string_view inLine ) noexcept;
 std::string_view StripComment( std::string_view inLine ) noexcept;
 Result<table_pointer> Parse(std::string const& inRaw) noexcept;
-Result<ValueType> ParseValue(std::istringstream* inStream, std::string_view inLine);
+Result<TOMLEntry> ParseValue(std::istringstream* inStream, std::string_view inLine);
 
 // ----------------------- PARSING ARRAYS -----------------------
 
 
 std::vector<std::string_view> SplitArrayElements( std::string_view inStr );
-Result<ValueType> ParseArray( std::string_view inLine );
+Result<TOMLEntry> ParseArray( std::string_view inLine );
 template<ElementType EType>
 ValueType BuildArray( std::vector<std::string_view>& inElements )
 {
@@ -152,9 +184,14 @@ Result<str::String> ParseString( std::istringstream* inStream, std::string_view 
 StringType DetectStringType( std::string_view inSv ) noexcept;
 std::string ProcessEscape( std::string_view inSv, bool isMultiline=false ) noexcept;
 std::string ParseBasicString( std::string_view inLine, bool isLiteral=false ) noexcept;
-std::string ParseMultiLineString( std::istringstream& inStream, 
+std::string ParseMultiLineString( std::istringstream& inStream,
     std::string_view inSv, bool isLiteral=false
 );
+
+// ----------------------- SERIALIZING VALUES -----------------------
+
+std::string EscapeForOutput( std::string_view inRaw, bool isMultiline ) noexcept;
+void WriteValue( std::ostream& oss, ValueType const& inValue, TOMLTypeInfo const& inInfo ) noexcept;
 
 // ----------------------- PARSING TABLES UTILITIES -----------------------
 
@@ -181,13 +218,21 @@ public:
 
 private:
     std::string m_Name; // The name of the TOML table
-    std::unordered_map<std::string, ValueType> m_kvPairs; // Key-Value pairs
+    std::unordered_map<std::string, TOMLEntry> m_kvPairs; // Key-Value pairs
     std::vector<pointer> m_SubTables; // A vector of possible subtables
     std::weak_ptr<Table> m_ParentTable; // The parent table
     TableType m_Type; // Table type wrt arrays of tables
 
     std::string GetAbsoluteName() const noexcept;
     void PrintTable(std::ostream& oss) const noexcept;
+
+    /**
+     * @brief Resolves a dotted path to the TOMLEntry of an already-existing
+     *        key, recursing into subtables exactly like Get<T>/GetTable do.
+     *        Shared by Set/SetTypedArray so the path-walking logic (and its
+     *        error codes) lives in exactly one place.
+     */
+    Result<TOMLEntry*> FindEntry( std::string const& inPath ) noexcept;
 public:
     Table(std::string const& inName, TableType inType)
     : m_Name( inName ), m_Type( inType )
@@ -203,7 +248,7 @@ public:
 
     ~Table() = default;
 
-    BoolResult AddKvPair( std::string const& inKey, ValueType const& inValue ) noexcept;
+    BoolResult AddKvPair( std::string const& inKey, TOMLEntry inEntry ) noexcept;
     void AddSubTable( pointer inChild ) noexcept;
     void SetParent( std::weak_ptr<Table> inParent ) noexcept;
 
@@ -241,14 +286,14 @@ public:
             );
         }
 
-        if ( !std::holds_alternative<RetType>(kvIt->second) ) 
+        if ( !std::holds_alternative<RetType>(kvIt->second.s_Value) )
         {
-            return Result<RetType const*>::Err( 
+            return Result<RetType const*>::Err(
                 make_error_code( errors::ConfError::TomlTypeMismatch )
             );
         }
 
-        return Result<RetType const*>::Ok(std::get_if<RetType>(&kvIt->second));
+        return Result<RetType const*>::Ok(std::get_if<RetType>(&kvIt->second.s_Value));
     }
 
     template<typename T>
@@ -257,6 +302,71 @@ public:
         auto raw = Get<std::vector<TOMLValue>>( inPath );
         if (!raw) return VectorResult<T>::Ok(std::vector<T>{});
         return ToTypedVector<T>(*raw.Value());
+    }
+
+    /**
+     * @brief Overwrites the value of an already-existing key, preserving its
+     *        original TOMLTypeInfo (string subtype, numeric kind, ...). Does
+     *        not create missing keys or tables.
+     */
+    template<typename T>
+    requires asge::_internal::traits::variant_contains_v<T, ValueType>
+    BoolResult Set( std::string const& inPath, T inValue ) noexcept
+    {
+        auto entryResult = FindEntry( inPath );
+        if ( !entryResult ) return BoolResult::Err( entryResult.Error() );
+
+        auto* entry = entryResult.Value();
+        if ( !std::holds_alternative<T>(entry->s_Value) )
+        {
+            return BoolResult::Err( make_error_code( errors::ConfError::TomlTypeMismatch ) );
+        }
+
+        entry->s_Value = std::move(inValue);
+        return BoolResult::Ok();
+    }
+
+    /**
+     * @brief Overwrites an already-existing array-valued key with new
+     *        elements, reusing the array's existing per-element TOMLTypeInfo
+     *        (or a sensible default if the existing array was empty).
+     */
+    template<typename T>
+    BoolResult SetTypedArray( std::string const& inPath, std::vector<T> const& inValues ) noexcept
+    {
+        auto entryResult = FindEntry( inPath );
+        if ( !entryResult ) return BoolResult::Err( entryResult.Error() );
+
+        auto* entry = entryResult.Value();
+        if ( !std::holds_alternative<std::vector<TOMLValue>>(entry->s_Value) )
+        {
+            return BoolResult::Err( make_error_code( errors::ConfError::TomlTypeMismatch ) );
+        }
+
+        TOMLTypeInfo elemInfo = !entry->s_Info.s_ElementInfo.empty()
+            ? entry->s_Info.s_ElementInfo.front()
+            : DefaultTypeInfoFor<T>();
+
+        std::vector<TOMLValue> newValues;
+        newValues.reserve( inValues.size() );
+        for ( auto const& element : inValues )
+        {
+            if constexpr ( asge::_internal::traits::is_vector_v<T> )
+            {
+                std::vector<TOMLValue> nested;
+                nested.reserve( element.size() );
+                for ( auto const& innerElement : element ) nested.emplace_back( innerElement );
+                newValues.emplace_back( std::move(nested) );
+            }
+            else
+            {
+                newValues.emplace_back( element );
+            }
+        }
+
+        entry->s_Value = std::move(newValues);
+        entry->s_Info.s_ElementInfo.assign( inValues.size(), elemInfo );
+        return BoolResult::Ok();
     }
 };
 

@@ -1,5 +1,7 @@
 #include "TOML_Parser.hpp"
 
+#include <cstdio>
+
 using namespace asge::config::_internal::toml;
 
 std::string asge::config::_internal::toml::Table::GetAbsoluteName() const noexcept
@@ -30,9 +32,11 @@ void asge::config::_internal::toml::Table::PrintTable(std::ostream &oss) const n
     }
 
     // print key-value pairs
-    for (auto const& [key, value] : m_kvPairs) 
+    for (auto const& [key, entry] : m_kvPairs)
     {
-        oss << key << " = " << value << "\n";
+        oss << key << " = ";
+        WriteValue( oss, entry.s_Value, entry.s_Info );
+        oss << "\n";
     }
 
     // recurse into subtables
@@ -40,7 +44,7 @@ void asge::config::_internal::toml::Table::PrintTable(std::ostream &oss) const n
         sub->PrintTable(oss);
 }
 
-asge::BoolResult asge::config::_internal::toml::Table::AddKvPair(std::string const &inKey, ValueType const &inValue) noexcept
+asge::BoolResult asge::config::_internal::toml::Table::AddKvPair(std::string const &inKey, TOMLEntry inEntry) noexcept
 {
     if ( m_kvPairs.find( inKey ) != m_kvPairs.end() )
     {
@@ -49,7 +53,7 @@ asge::BoolResult asge::config::_internal::toml::Table::AddKvPair(std::string con
         return BoolResult::Err( ec, detail );
     }
 
-    m_kvPairs[inKey] = inValue;
+    m_kvPairs[inKey] = std::move(inEntry);
     return BoolResult::Ok();
 }
 
@@ -96,6 +100,34 @@ asge::Result<Table::pointer> asge::config::_internal::toml::Table::GetTable(std:
     return child.Value()->GetTable(std::string(svPath.substr(sepPos + 1)));
 }
 
+asge::Result<TOMLEntry*> asge::config::_internal::toml::Table::FindEntry(std::string const &inPath) noexcept
+{
+    std::string_view svPath = str::Trim(inPath);
+
+    auto sepPos = svPath.find('.');
+    if ( sepPos != std::string_view::npos )
+    {
+        auto child = GetTable(std::string(svPath.substr(0, sepPos)));
+        if ( !child )
+        {
+            return Result<TOMLEntry*>::Err( child.Error() );
+        }
+
+        return child.Value()->FindEntry(std::string(svPath.substr(sepPos + 1)));
+    }
+
+    auto kvIt = m_kvPairs.find(std::string(svPath));
+    if ( kvIt == m_kvPairs.end() )
+    {
+        return Result<TOMLEntry*>::Err(
+            make_error_code( errors::ConfError::TomlNoAttribute ),
+            std::string(svPath)
+        );
+    }
+
+    return Result<TOMLEntry*>::Ok( &kvIt->second );
+}
+
 std::ostream &asge::config::_internal::toml::operator<<(std::ostream &oss, ValueType const &inValue) noexcept
 {
     std::visit([&oss](auto&& v) {
@@ -128,6 +160,126 @@ std::ostream &asge::config::_internal::toml::operator<<(std::ostream &oss, Table
 {
     inTable.PrintTable( oss );
     return oss;
+}
+
+namespace
+{
+
+std::string FormatDouble(double inValue)
+{
+    std::ostringstream oss;
+    oss << inValue;
+    auto result = oss.str();
+    if (result.find('.') == std::string::npos &&
+        result.find('e') == std::string::npos &&
+        result.find('E') == std::string::npos)
+    {
+        result += ".0";
+    }
+    return result;
+}
+
+// Best-effort fallback used only when a value's TOMLTypeInfo is missing/stale
+// (e.g. array size mismatch) — infers a plain default straight from the
+// runtime alternative actually held by the ValueType.
+TOMLTypeInfo InferTypeInfo(ValueType const& inValue) noexcept
+{
+    return std::visit([](auto&& v) -> TOMLTypeInfo {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, std::string>) return TOMLTypeInfo{ ElementType::String, StringType::Basic };
+        else if constexpr (std::is_same_v<T, bool>)    return TOMLTypeInfo{ ElementType::Bool };
+        else if constexpr (std::is_same_v<T, int>)     return TOMLTypeInfo{ ElementType::Int };
+        else if constexpr (std::is_same_v<T, double>)  return TOMLTypeInfo{ ElementType::Double };
+        else return TOMLTypeInfo{ ElementType::Array };
+    }, inValue);
+}
+
+}
+
+std::string asge::config::_internal::toml::EscapeForOutput(std::string_view inRaw, bool isMultiline) noexcept
+{
+    std::string result;
+    result.reserve( inRaw.size() );
+
+    for ( unsigned char c : inRaw )
+    {
+        switch (c)
+        {
+        case '\\': result += "\\\\"; break;
+        case '"':  result += "\\\""; break;
+        case '\n': result += isMultiline ? "\n" : "\\n"; break;
+        case '\r': result += isMultiline ? "\r" : "\\r"; break;
+        case '\t': result += '\t'; break; // tab is allowed raw in both forms
+        default:
+            if ( c < 0x20 )
+            {
+                char buf[8];
+                std::snprintf( buf, sizeof(buf), "\\u%04x", c );
+                result += buf;
+            }
+            else
+            {
+                result += static_cast<char>(c);
+            }
+            break;
+        }
+    }
+
+    return result;
+}
+
+void asge::config::_internal::toml::WriteValue(std::ostream &oss, ValueType const &inValue, TOMLTypeInfo const &inInfo) noexcept
+{
+    std::visit([&oss, &inInfo](auto&& v) {
+        using T = std::decay_t<decltype(v)>;
+
+        if constexpr (std::is_same_v<T, std::string>)
+        {
+            switch (inInfo.s_StringType)
+            {
+            case StringType::Literal:
+                oss << '\'' << v << '\'';
+                break;
+            case StringType::MultiBasic:
+                oss << "\"\"\"" << EscapeForOutput(v, true) << "\"\"\"";
+                break;
+            case StringType::MultiLiteral:
+                oss << "'''" << v << "'''";
+                break;
+            case StringType::Basic:
+            case StringType::Invalid:
+            default:
+                oss << '"' << EscapeForOutput(v, false) << '"';
+                break;
+            }
+        }
+        else if constexpr (std::is_same_v<T, bool>)
+        {
+            oss << (v ? "true" : "false");
+        }
+        else if constexpr (std::is_same_v<T, double>)
+        {
+            oss << FormatDouble(v);
+        }
+        else if constexpr (std::is_same_v<T, int>)
+        {
+            oss << v;
+        }
+        else if constexpr (std::is_same_v<T, std::vector<TOMLValue>>)
+        {
+            oss << "[";
+            for ( std::size_t i = 0; i < v.size(); ++i )
+            {
+                if (i > 0) oss << ", ";
+                TOMLTypeInfo const& childInfo = i < inInfo.s_ElementInfo.size()
+                    ? inInfo.s_ElementInfo[i]
+                    : InferTypeInfo(v[i]);
+                WriteValue( oss, v[i], childInfo );
+            }
+            oss << "]";
+        }
+
+    }, inValue);
 }
 
 std::vector<std::string_view> asge::config::_internal::toml::SplitArrayElements(std::string_view inStr)
@@ -184,27 +336,42 @@ std::vector<std::string_view> asge::config::_internal::toml::SplitArrayElements(
     return outResult;
 }
 
-asge::Result<ValueType> asge::config::_internal::toml::ParseArray(std::string_view inLine)
+asge::Result<TOMLEntry> asge::config::_internal::toml::ParseArray(std::string_view inLine)
 {
     if ( inLine.front() == '[' ) inLine.remove_prefix(1);
     if ( inLine.back()  == ']' ) inLine.remove_suffix(1);
     inLine = str::Trim( inLine );
 
-    if ( inLine.empty() ) return Result<ValueType>::Ok(std::vector<TOMLValue>{});
+    if ( inLine.empty() )
+    {
+        return Result<TOMLEntry>::Ok(TOMLEntry{
+            std::vector<TOMLValue>{}, TOMLTypeInfo{ ElementType::Array }
+        });
+    }
 
     auto arrayElems = SplitArrayElements( inLine );
-    if ( arrayElems.empty() ) return Result<ValueType>::Ok(std::vector<TOMLValue>{});
+    if ( arrayElems.empty() )
+    {
+        return Result<TOMLEntry>::Ok(TOMLEntry{
+            std::vector<TOMLValue>{}, TOMLTypeInfo{ ElementType::Array }
+        });
+    }
 
     std::vector<TOMLValue> result;
+    std::vector<TOMLTypeInfo> elemInfos;
     result.reserve( arrayElems.size() );
+    elemInfos.reserve( arrayElems.size() );
     for ( auto const& elem : arrayElems )
     {
         auto parse_result = ParseValue( nullptr, str::Trim(elem) );
-        if ( !parse_result ) return parse_result;
-        result.push_back( std::move(parse_result.Value()) );
+        if ( !parse_result ) return Result<TOMLEntry>::Err( parse_result.Error() );
+        result.push_back( std::move(parse_result.Value().s_Value) );
+        elemInfos.push_back( std::move(parse_result.Value().s_Info) );
     }
 
-    return Result<ValueType>::Ok(std::move(result));
+    return Result<TOMLEntry>::Ok(TOMLEntry{
+        std::move(result), TOMLTypeInfo{ ElementType::Array, StringType::Invalid, std::move(elemInfos) }
+    });
 }
 
 asge::Result<asge::str::String> asge::config::_internal::toml::ParseString(
@@ -496,7 +663,7 @@ table_pointer asge::config::_internal::toml::ParseTable(table_pointer inRoot, st
     return newTable;
 }
 
-asge::Result<ValueType> asge::config::_internal::toml::ParseValue(std::istringstream *inStream, std::string_view inLine)
+asge::Result<TOMLEntry> asge::config::_internal::toml::ParseValue(std::istringstream *inStream, std::string_view inLine)
 {
     const auto tomlType = DetectType( inLine );
 
@@ -504,20 +671,35 @@ asge::Result<ValueType> asge::config::_internal::toml::ParseValue(std::istringst
     {
         switch (tomlType)
         {
-        case ElementType::String: return Result<ValueType>::From(ParseString(inStream, inLine));
-        case ElementType::Array: return Result<ValueType>::From(ParseArray(inLine));
-        case ElementType::Bool: return Result<ValueType>::Ok(inLine == "true");
-        case ElementType::Double: return Result<ValueType>::Ok(std::stod( std::string(inLine) ));
-        case ElementType::Int: return Result<ValueType>::Ok(std::stoi( std::string(inLine) ));
+        case ElementType::String:
+        {
+            auto strType = DetectStringType( inLine );
+            auto strResult = ParseString(inStream, inLine);
+            if ( !strResult ) return Result<TOMLEntry>::Err( strResult.Error() );
+            return Result<TOMLEntry>::Ok(TOMLEntry{
+                ValueType(std::move(strResult.Value())), TOMLTypeInfo{ ElementType::String, strType }
+            });
+        }
+        case ElementType::Array: return ParseArray(inLine);
+        case ElementType::Bool:
+            return Result<TOMLEntry>::Ok(TOMLEntry{ ValueType(inLine == "true"), TOMLTypeInfo{ ElementType::Bool } });
+        case ElementType::Double:
+            return Result<TOMLEntry>::Ok(TOMLEntry{
+                ValueType(std::stod( std::string(inLine) )), TOMLTypeInfo{ ElementType::Double }
+            });
+        case ElementType::Int:
+            return Result<TOMLEntry>::Ok(TOMLEntry{
+                ValueType(std::stoi( std::string(inLine) )), TOMLTypeInfo{ ElementType::Int }
+            });
         default:
-            return Result<ValueType>::Err( make_error_code( errors::ConfError::TomlBadFormatting ) );
+            return Result<TOMLEntry>::Err( make_error_code( errors::ConfError::TomlBadFormatting ) );
         }
         }
     catch(const std::exception& e)
     {
-        return Result<ValueType>::Err(make_error_code( errors::ConfError::TomlBadFormatting ), e.what() );
+        return Result<TOMLEntry>::Err(make_error_code( errors::ConfError::TomlBadFormatting ), e.what() );
     }
-    
+
 }
 
 asge::Result<table_pointer> asge::config::_internal::toml::Parse(std::string const &inRaw) noexcept

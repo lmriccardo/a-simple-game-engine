@@ -1,10 +1,14 @@
 #include "ConfigurationManager.hpp"
 
+#include <sstream>
+
 using namespace asge::config;
 namespace toml = _internal::toml;
 
 asge::BoolResult asge::config::ConfigurationManager::ReadConfiguration( filesystem::Path const& inPath )
 {
+    std::lock_guard<std::mutex> lock( m_ConfigMutex );
+
     auto read_result = filesystem::ReadText( inPath );
     if ( !read_result ) {
         return BoolResult::Err( read_result.Error() );
@@ -117,4 +121,24 @@ asge::BoolResult asge::config::ConfigurationManager::SetHotReloadEnabled(bool in
 bool asge::config::ConfigurationManager::IsHotReloadEnabled() const noexcept
 {
     return m_HotReloadEnabled.load( std::memory_order_acquire );
+}
+
+asge::BoolResult asge::config::ConfigurationManager::Save()
+{
+    std::lock_guard<std::mutex> lock( m_ConfigMutex );
+
+    auto cfg = m_Configuration.load( std::memory_order_acquire );
+    if ( !cfg )
+    {
+        return BoolResult::Err( make_error_code( errors::ConfError::ConfigurationNotLoaded ) );
+    }
+
+    std::ostringstream oss;
+    oss << *cfg; // reuses Table::operator<</PrintTable, now format-aware
+
+    // If hot-reload is enabled, this write will itself trigger the file
+    // watcher's Modified event and cause a re-parse of what was just
+    // written (ReadConfiguration takes the same m_ConfigMutex, so this is
+    // fully serialized) — an expected, harmless extra reload, not a bug.
+    return filesystem::WriteText( m_ConfigPath, oss.str() );
 }

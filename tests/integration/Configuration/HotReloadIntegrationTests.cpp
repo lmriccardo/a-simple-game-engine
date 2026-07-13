@@ -111,4 +111,26 @@ TEST_F(ConfigIntegrationTest, RejectsMalformedReloadKeepsLastGood)
     EXPECT_EQ(width.Value(), 1920); // still last-known-good
 }
 
+TEST_F(ConfigIntegrationTest, SaveTriggersHotReloadReparseWithSameSavedContent)
+{
+    auto path = WriteConfig("[graphics]\nwidth = 1920\n");
+
+    ConfigurationManager mgr;
+    ASSERT_TRUE(mgr.Load(path).IsOk());
+    mgr.SetHotReloadEnabled(true);
+
+    ASSERT_TRUE(mgr.Set<int>("graphics.width", 2560).IsOk());
+    ASSERT_TRUE(mgr.Save().IsOk());
+
+    // Save() writes the file, which fires the watcher and triggers a
+    // re-parse of what was just written — expected, not a bug. The value
+    // should still reflect what was saved once that reload settles.
+    bool updated = WaitFor([&] {
+        auto w = mgr.Get<int>("graphics.width");
+        return w.IsOk() && w.Value() == 2560;
+    });
+
+    ASSERT_TRUE(updated);
+}
+
 }
