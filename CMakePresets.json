@@ -1,0 +1,133 @@
+{
+    "version": 6,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 31,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "windows-base",
+            "hidden": true,
+            "generator": "Visual Studio 18 2026",
+            "architecture": {
+                "value": "x64",
+                "strategy": "set"
+            },
+            "binaryDir": "${sourceDir}/build",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "windows",
+            "displayName": "Windows (dev: tests + examples)",
+            "description": "Matches the day-to-day local dev loop: multi-config VS generator, tests and examples both built.",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "ON"
+            }
+        },
+        {
+            "name": "windows-ci",
+            "displayName": "Windows (CI parity)",
+            "description": "Mirrors the Windows job in .github/workflows/ctest.yml exactly (examples off, tests on).",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "OFF"
+            }
+        },
+        {
+            "name": "linux-base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux",
+            "displayName": "Linux (dev: tests + examples)",
+            "description": "Single-config generator, so CMAKE_BUILD_TYPE is fixed to Debug here for the local dev loop.",
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "ON"
+            }
+        },
+        {
+            "name": "linux-ci",
+            "displayName": "Linux (CI parity)",
+            "description": "Mirrors the Linux job in .github/workflows/ctest.yml exactly (no explicit CMAKE_BUILD_TYPE, examples off).",
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "OFF"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-debug",
+            "configurePreset": "windows",
+            "configuration": "Debug"
+        },
+        {
+            "name": "windows-release",
+            "configurePreset": "windows",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-ci-debug",
+            "configurePreset": "windows-ci",
+            "configuration": "Debug"
+        },
+        {
+            "name": "linux",
+            "configurePreset": "linux"
+        },
+        {
+            "name": "linux-ci",
+            "configurePreset": "linux-ci"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "windows-debug",
+            "configurePreset": "windows",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "windows-ci-debug",
+            "configurePreset": "windows-ci",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "linux",
+            "configurePreset": "linux",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "linux-ci",
+            "configurePreset": "linux-ci",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
+}

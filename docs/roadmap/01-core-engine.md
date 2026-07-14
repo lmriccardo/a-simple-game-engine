@@ -32,7 +32,7 @@ Build the foundational runtime.
 
 ### Phase 2
 
-*Status* : 🚧 **WORK IN PROGRESS**
+*Status* : ✅ **COMPLETED**
 
 - Logging + profiler
 - Thread-safe systems
