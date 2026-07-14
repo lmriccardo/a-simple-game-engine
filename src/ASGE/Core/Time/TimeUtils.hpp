@@ -19,6 +19,9 @@ using Duration    = SteadyClock::duration;
 /* Get the current time as a chrono time point */
 inline Timestamp Now() noexcept { return SystemClock::now(); }
 
+/* Get the current timepoint from the steady clock */
+inline Timepoint SteadyNow() noexcept { return SteadyClock::now(); }
+
 /* Converts the input timestamp into a localtime (calendar time) */
 std::tm LocalTime( Timestamp const& inTimestamp ) noexcept;
 
@@ -34,5 +37,14 @@ std::tm LocalTime( Timestamp const& inTimestamp ) noexcept;
  */
 std::string FormatTimestamp( 
     Timestamp const& inTimestamp, char const* inFormat );
+
+/* Returns the nanoseconds passed from the input timepoint */
+template<typename T>
+std::int64_t NanosFrom( std::chrono::time_point<T> inStart ) noexcept
+{
+    auto elapsed = T::now() - inStart;
+    auto nanos_d = std::chrono::duration_cast<std::chrono::nanoseconds>( elapsed );
+    return nanos_d.count();
+}
 
 }

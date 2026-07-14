@@ -38,6 +38,9 @@ add_library(ASGE STATIC
     Core/Filesystem/FileIO.cpp
     Core/Filesystem/FileMetadata.cpp
     Core/Filesystem/FileWatcher.cpp
+
+    # Profiling utilities
+    Core/Profiling/TimingProfiler.cpp
 )
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
