@@ -114,8 +114,8 @@ enum class StringType {
 struct TOMLTypeInfo
 {
     ElementType s_Type = ElementType::Null;
-    StringType  s_StringType = StringType::Invalid;   // meaningful only if s_Type == String
-    std::vector<TOMLTypeInfo> s_ElementInfo;           // meaningful only if s_Type == Array
+    StringType  s_StringType = StringType::Invalid; // meaningful only if s_Type == String
+    std::vector<TOMLTypeInfo> s_ElementInfo{}; // meaningful only if s_Type == Array
 };
 
 struct TOMLEntry
@@ -252,7 +252,11 @@ public:
     void AddSubTable( pointer inChild ) noexcept;
     void SetParent( std::weak_ptr<Table> inParent ) noexcept;
 
-    friend std::ostream& operator<<( std::ostream& oss, Table const& inTable ) noexcept;
+    inline friend std::ostream& operator<<( std::ostream& oss, Table const& inTable ) noexcept
+    {
+        inTable.PrintTable( oss );
+        return oss;
+    }
 
     std::vector<pointer> const& GetSubTables() const noexcept;
     std::string const& GetName() const noexcept;

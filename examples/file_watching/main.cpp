@@ -8,8 +8,12 @@ int main()
     FileWatcher fw;
     fw.Start();
     
-    auto result = fw.AddWatch( 
-        "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files1",
+    auto result = fw.AddWatch(
+#ifdef _WIN32
+        "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files",
+#else
+        "/home/ricca/dev/a-simple-game-engine/examples/file_watching/files",
+#endif
         [&fw]( FileEvent const& inEvent )
         {
             std::cout << inEvent << std::endl;

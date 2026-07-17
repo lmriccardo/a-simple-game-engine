@@ -145,6 +145,18 @@ FileEvent asge::filesystem::FileEvent::CreateFileEvent(
     return event;
 }
 
+asge::filesystem::_internal::callback_type 
+asge::filesystem::_internal::CreateCallback(callback_type_cref inCallback, FEventType inMask)
+{
+    return [ inCallback, inMask ]( FileEvent const& e )
+    {
+        if ( ( e.s_Event & inMask ) != FEventType::None )
+        {
+            inCallback( e );
+        }
+    };
+}
+
 #ifdef _WIN32
 bool asge::filesystem::_win32::FileWatcher::RegisterDirChanges(WatchedDir* inWdirPtr)
 {
@@ -166,19 +178,6 @@ bool asge::filesystem::_win32::FileWatcher::RegisterDirChanges(WatchedDir* inWdi
     }
 
     return true; // Succeeded immediately
-}
-
-asge::filesystem::_win32::FileWatcher::callback_type 
-asge::filesystem::_win32::FileWatcher::CreateCallback(
-    callback_type_cref inCallback, mask_type inMask
-) {
-    return [ inCallback, inMask ]( FileEvent const& e )
-    {
-        if ( ( e.s_Event & inMask ) != FEventType::None )
-        {
-            inCallback( e );
-        }
-    };
 }
 
 asge::Result<asge::filesystem::_win32::WatchedDir*>
@@ -386,7 +385,7 @@ asge::filesystem::_win32::FileWatcher::~FileWatcher()
 }
 
 asge::Result<WatcherHandler> asge::filesystem::_win32::FileWatcher::AddWatch(
-    path_type inPath, callback_type_cref inCallback, mask_type inMask
+    path_type inPath, _internal::callback_type_cref inCallback, mask_type inMask
 ) {
     // Check if the input path actually exists
     if ( !meta::Exists( inPath ) )
@@ -406,7 +405,7 @@ asge::Result<WatcherHandler> asge::filesystem::_win32::FileWatcher::AddWatch(
         }
 
         LOG_INFO("Added new watch for ", inPath, " with mask ", inMask);
-        auto connector = m_OnEvent.Connect( CreateCallback( inCallback, inMask ) );
+        auto connector = m_OnEvent.Connect( _internal::CreateCallback( inCallback, inMask ) );
         return Result<WatcherHandler>::Ok(connector);
     }
     else
@@ -433,5 +432,242 @@ asge::Result<WatcherHandler> asge::filesystem::_win32::FileWatcher::AddWatch(
 }
 
 #else
+
+bool asge::filesystem::_linux::FileWatcher::isValid() const noexcept
+{
+    return m_InotifyValid && m_EpollValid;
+}
+
+asge::BoolResult asge::filesystem::_linux::FileWatcher::RegisterNewWatch(path_type inPath) noexcept
+{
+    // Check for file watcher validity first
+    if ( !isValid() ) return BoolResult::Err( make_error_code( 
+        errors::FileWatcherError::InvalidFwHandle ) );
+
+    // Check if the path already exists
+    auto path_it = m_WatchFds.find( inPath );
+    if ( path_it != m_WatchFds.end() ) return BoolResult::Ok();
+
+    // Otherwise register new watcher
+    str::String u8_path = str::ToUTF8( inPath.u8string() );
+    handle_t watchFd = ::inotify_add_watch( 
+        m_InotifyHandle, 
+        u8_path.c_str(), 
+        IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO );
+
+    if ( watchFd < 0 )
+    {
+        return BoolResult::Err( MakeErrorFromErrno(), u8_path );
+    }
+
+    m_WatchFds.emplace( inPath, watchFd );
+    return BoolResult::Ok();
+}
+
+void asge::filesystem::_linux::FileWatcher::ReadInotifyEvents()
+{
+    alignas (struct inotify_event) char buff[4096];
+    for (;;)
+    {
+        ssize_t len = ::read( m_InotifyHandle, buff, sizeof(buff) );
+        if ( len < 0 )
+        {
+            if ( errno == EAGAIN || errno == EINTR ) break;
+            Result<int>::Err( MakeErrorFromErrno() ).LogError();
+            break;
+        }
+
+        ssize_t offset {0};
+        while ( offset < len )
+        {
+            auto const* event = reinterpret_cast<inotify_event const*>( buff + offset );
+            ConsumeInotifyEvent( event );
+            offset += sizeof( struct inotify_event ) + event->len;
+        }
+    }
+}
+
+void asge::filesystem::_linux::FileWatcher::ConsumeInotifyEvent(inotify_event const *inEvent)
+{
+    std::uint32_t eventMask = inEvent->mask;
+    
+    // Check for moves operations, in particular move from appends the
+    // current cookie into the vector of pending moves
+    if ( eventMask & IN_MOVED_FROM != 0 )
+    {
+        m_PendingMoves.emplace( inEvent->cookie, inEvent->name );
+        return;
+    }
+    
+    FEventType eventType = FEventType::None;
+    std::string oldPath{""};
+    if ( eventMask & IN_MOVED_TO != 0 )
+    {
+        auto pending_it = m_PendingMoves.find(inEvent->cookie);
+        if ( pending_it == m_PendingMoves.end() ) return;
+        oldPath = pending_it->second;
+        m_PendingMoves.erase( pending_it );
+        eventType = FEventType::Moved;
+    }
+    else
+    {
+        if ( eventMask & IN_CREATE != 0 ) eventType = FEventType::Created;
+        if ( eventMask & IN_MODIFY != 0 ) eventType = FEventType::Modified;
+        if ( eventMask & IN_DELETE != 0 ) eventType = FEventType::Deleted;
+    }
+
+    if ( eventType == FEventType::None ) return;
+    auto currFileEvent = FileEvent::CreateFileEvent(
+        path_type( std::string( inEvent->name ) ),
+        eventType,
+        eventMask,
+        oldPath
+    );
+
+    m_OnEvent.Emit( currFileEvent );
+}
+
+void asge::filesystem::_linux::FileWatcher::Run(concurrent::context_pointer &inCtx)
+{
+    if (!isValid())
+    {
+        LOG_ERROR("Unable to run an invalid file watcher");
+        inCtx->Cancel( concurrent::ContextErr::Canceled );
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_WatchesMtx);
+        if ( m_WatchFds.empty() ) return;
+    }
+
+    epoll_event events[ MAX_EPOLL_EVENTS ];
+    int n = ::epoll_wait( m_EpollHandle, events, MAX_EPOLL_EVENTS, -1);
+    if ( n < 0 )
+    {
+        // If an interrupt signal occurs ( close on the handle when canceling )
+        if ( errno != EINTR ) Result<int>::Err( MakeErrorFromErrno() ).LogError();
+        return;
+    }
+
+    for ( int ii = 0; ii < n; ++ii )
+    {
+        if ( events[ii].data.fd == m_InotifyHandle )
+        {
+            ReadInotifyEvents();
+        }
+    }
+}
+
+asge::filesystem::_linux::FileWatcher::FileWatcher()
+: FileWatcher( nullptr )
+{}
+
+asge::filesystem::_linux::FileWatcher::FileWatcher( concurrent::context_pointer inCtx )
+: concurrent::Thread( "FileWatcher", inCtx )
+{
+    m_InotifyHandle = ::inotify_init1( IN_NONBLOCK | IN_CLOEXEC );
+    m_EpollHandle = ::epoll_create1( EPOLL_CLOEXEC );
+
+    m_InotifyValid = m_InotifyHandle != INVALID_FD;
+    m_EpollValid = m_EpollHandle != INVALID_FD;
+
+    if ( !isValid() ) {
+        LOG_ERROR("Error when creating FileWatcher: {}", std::strerror( errno ));
+    } else {
+        epoll_event ev{};
+        ev.events = EPOLLIN;
+        ev.data.fd = m_InotifyHandle;
+
+        if ( ::epoll_ctl( m_EpollHandle, EPOLL_CTL_ADD, m_InotifyHandle, &ev) < 0 )
+        {
+            m_InotifyHandle = -1;
+            m_EpollHandle = -1;
+        }
+        else
+        {
+            LOG_INFO("New File Watcher created");
+        }
+    }
+}
+
+asge::filesystem::_linux::FileWatcher::~FileWatcher()
+{
+    Cancel();
+    
+    if ( m_EpollValid )
+    {
+        if ( ::close( m_EpollHandle ) < 0 )
+        {
+            LOG_ERROR( "Unable to close epoll handle: {}", std::strerror(errno) );
+            return;
+        }
+    }
+
+    Join();
+
+    if ( m_InotifyValid )
+    {
+        if ( ::close( m_InotifyHandle ) < 0 )
+        {
+            LOG_ERROR( "Unable to close inotify handle: {}", std::strerror(errno) );
+        }
+    }
+
+    if ( !isValid() ) return;
+
+    for ( auto const [path, fd] : m_WatchFds )
+    {
+        if ( close( fd ) < 0 )
+        {
+            str::String u8_path = str::ToUTF8( path.u8string() );
+            LOG_ERROR( "Unable to close handle for path {}: {}", 
+                u8_path, std::strerror(errno) );
+        }
+    }
+}
+
+asge::Result<WatcherHandler> asge::filesystem::_linux::FileWatcher::AddWatch( 
+    path_type inPath, _internal::callback_type_cref inCallback, mask_type inMask
+) {
+    // The file watcher must be a valid instance, otherwise we cannot add anything
+    if ( !isValid() ) return Result<WatcherHandler>::Err(
+        make_error_code( errors::FileWatcherError::InvalidFwHandle )
+    );
+
+    // Check if the input path actually exists
+    if ( !meta::Exists( inPath ) )
+    {
+        auto const ec = std::make_error_code( std::errc::no_such_file_or_directory );
+        return asge::Result<WatcherHandler>::Err( ec, str::ToUTF8( inPath.u8string() ) );
+    }
+
+    if ( meta::IsDirectory( inPath ) )
+    {
+        if ( auto result = RegisterNewWatch( inPath ); !result ) {
+            return Result<WatcherHandler>::Err( result.Error() );
+        }
+
+        auto connector = m_OnEvent.Connect( _internal::CreateCallback( inCallback, inMask ) );
+        return Result<WatcherHandler>::Ok(connector);
+    }
+    
+    // First normalize the path, then take the parent folder and the filename
+    inPath = inPath.lexically_normal();
+    path_type parentPath = inPath.parent_path();
+    if ( auto result = RegisterNewWatch( parentPath ); !result ) {
+        return Result<WatcherHandler>::Err( result.Error() );
+    }
+
+    // Creates a new callback that filters the event by the path name
+    auto filtered = [ inCallback, inPath ]( FileEvent const& e ) {
+        if ( !e.IsDir() && e.s_Path == inPath ) inCallback( e );
+    };
+
+    // Registers the callback into the signals
+    LOG_INFO("Added new watch for ", inPath, " with mask ", inMask);
+    auto connector = m_OnEvent.Connect( _internal::CreateCallback( filtered, inMask ) );
+    return Result<WatcherHandler>::Ok(connector);
+}
 
 #endif

@@ -25,6 +25,9 @@
 #include <windows.h>
 #define INVALID_FD INVALID_HANDLE_VALUE
 #else
+#include <sys/inotify.h>
+#include <sys/epoll.h>
+#include <cstring>
 #define INVALID_FD (-1)
 #endif
 
@@ -109,6 +112,15 @@ struct PathHash
 
 using WatcherHandler = signals::Connection<FileEvent const&>;
 
+namespace _internal
+{
+
+using callback_type = std::function<void(FileEvent const&)>;
+using callback_type_cref = callback_type const&;
+callback_type CreateCallback( callback_type_cref inCallback, FEventType inMask );
+
+};
+
 #ifdef _WIN32
 namespace _win32
 {
@@ -126,8 +138,6 @@ struct alignas(64) WatchedDir
 class FileWatcher : public concurrent::Thread
 {
 public:
-    using callback_type = std::function<void(FileEvent const&)>;
-    using callback_type_cref = callback_type const&;
     using path_type = Path;
     using mask_type = FEventType;
 
@@ -143,7 +153,6 @@ private:
     Path m_PendingOldPath;
 
     static bool RegisterDirChanges( WatchedDir* inWdirPtr );
-    static callback_type CreateCallback( callback_type_cref inCallback, mask_type inMask );
 
     Result<WatchedDir*> RegisterPathWithIOCP( path_type const& inPath );
     void UnregisterPathWithIOCP( path_type const& inPath );
@@ -156,8 +165,8 @@ public:
     FileWatcher(concurrent::context_pointer inCtx);
     ~FileWatcher();
 
-    Result<WatcherHandler> AddWatch( 
-        path_type inPath, callback_type_cref inCallback, 
+    Result<WatcherHandler> AddWatch( path_type inPath, 
+        _internal::callback_type_cref inCallback, 
         mask_type inMask = mask_type::All 
     );
 };
@@ -170,11 +179,37 @@ namespace _linux
 
 class FileWatcher : public concurrent::Thread
 {
-    void Run( concurrent::context_pointer& inCtx ) override {}
 public:
-    FileWatcher() {}
-    FileWatcher(concurrent::context_pointer inCtx) {}
-    ~FileWatcher() {}
+    using path_type = Path;
+    using mask_type = FEventType;
+
+private:
+    static constexpr int MAX_EPOLL_EVENTS = 16;
+
+    handle_t m_InotifyHandle;
+    handle_t m_EpollHandle;
+    mutable std::mutex m_WatchesMtx;
+    bool m_InotifyValid{false};
+    bool m_EpollValid{false};
+
+    signals::Signal<FileEvent const&> m_OnEvent;
+    std::unordered_map<path_type, handle_t, PathHash> m_WatchFds;
+    std::unordered_map<std::uint32_t, std::string> m_PendingMoves;
+
+    /* Checks whether all handles are valid or not */
+    bool isValid() const noexcept;
+    BoolResult RegisterNewWatch( path_type inPath ) noexcept;
+    void ReadInotifyEvents();
+    void ConsumeInotifyEvent( inotify_event const* inEvent );
+    void Run( concurrent::context_pointer& inCtx ) override;
+public:
+    FileWatcher();
+    FileWatcher(concurrent::context_pointer inCtx);
+    ~FileWatcher();
+
+    Result<WatcherHandler> AddWatch( path_type inPath, 
+        _internal::callback_type_cref inCallback, 
+        mask_type inMask = mask_type::All );
 };
 
 }

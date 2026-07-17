@@ -70,7 +70,7 @@ class ResultBase
     // grants Derived access to protected members below
     friend Derived;
 
-    template<typename T>
+    template<typename ResultT>
     class is_result_impl
     {
         /**
@@ -82,11 +82,11 @@ class ResultBase
         static std::true_type test( ResultBase<U,D> const* );
         static std::false_type test(...);
     public:
-        static constexpr bool value = decltype( test(std::declval<T*>()) )::value;
+        static constexpr bool value = decltype( test(std::declval<ResultT*>()) )::value;
     };
 
-    template<typename T>
-    static constexpr bool is_result_v = is_result_impl<T>::value;
+    template<typename ResultT>
+    static constexpr bool is_result_v = is_result_impl<ResultT>::value;
 
 protected:
     using error_info = errors::_internal::ErrorInfo;
@@ -154,8 +154,6 @@ public:
     std::is_constructible_v<T, typename std::decay_t<Other>::value_type>
     static Derived From( Other&& other ) noexcept
     {
-        using OtherClean = std::decay_t<Other>;
-        using OtherT = typename OtherClean::value_type;
         if ( !other ) return Derived::Err( other.Error() );
         return Derived::Ok( T( std::forward<Other>(other).Value() ) );
     }
@@ -207,6 +205,11 @@ public:
 
 }
 
+[[nodiscard]] inline std::error_code MakeErrorFromErrno() noexcept
+{
+  return { errno, std::generic_category() };
+}
+
 // ---------------------------------------------------------------------------
 // REGISTER_ASGE_ERROR — registers a scoped enum as a std::error_code domain
 // without hand-writing an error_category subclass each time.
@@ -244,6 +247,7 @@ enum class FileWatcherError : std::uint8_t
 {
     AlreadyWatched = 1,
     FailedDirRegister,
+    InvalidFwHandle,
 };
 
 inline str::String ToErrorString(FileWatcherError e) noexcept
@@ -252,6 +256,7 @@ inline str::String ToErrorString(FileWatcherError e) noexcept
     {
     case FileWatcherError::AlreadyWatched: return "path is already being watched";
     case FileWatcherError::FailedDirRegister: return "failed to register directory changes window.";
+    case FileWatcherError::InvalidFwHandle: return "invalid file watcher handle";
     }
     return "uknown file watcher error";
 }

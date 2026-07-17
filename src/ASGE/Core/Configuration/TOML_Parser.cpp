@@ -156,12 +156,6 @@ std::ostream &asge::config::_internal::toml::operator<<(std::ostream &oss, Value
     return oss;
 }
 
-std::ostream &asge::config::_internal::toml::operator<<(std::ostream &oss, Table const &inTable) noexcept
-{
-    inTable.PrintTable( oss );
-    return oss;
-}
-
 namespace
 {
 

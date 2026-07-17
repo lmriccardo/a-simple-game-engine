@@ -7,7 +7,7 @@ asge::Result<asge::str::String> asge::filesystem::ReadText(Path const &inPath)
 
     if (!file.is_open())
     {
-        ec = std::error_code( errno, std::generic_category() );
+        ec = MakeErrorFromErrno();
         return Result<str::String>::Err( ec,str::ToUTF8( inPath.u8string() ));
     }
 
@@ -15,7 +15,7 @@ asge::Result<asge::str::String> asge::filesystem::ReadText(Path const &inPath)
 
     if (file.bad())
     {
-        ec = std::error_code( errno, std::generic_category() );
+        ec = MakeErrorFromErrno();
         return Result<str::String>::Err( ec,str::ToUTF8( inPath.u8string() ));
     }
 
@@ -29,7 +29,7 @@ asge::BoolResult asge::filesystem::WriteText(Path const &inPath, str::String con
 
     if (!file.is_open())
     {
-        ec = std::error_code( errno, std::generic_category() );
+        ec = MakeErrorFromErrno();
         return BoolResult::Err( ec, str::ToUTF8( inPath.u8string() ));
     }
 
@@ -37,7 +37,7 @@ asge::BoolResult asge::filesystem::WriteText(Path const &inPath, str::String con
 
     if (file.bad() || file.fail())
     {
-        ec = std::error_code( errno, std::generic_category() );
+        ec = MakeErrorFromErrno();
         return BoolResult::Err( ec, str::ToUTF8( inPath.u8string() ));
     }
 
