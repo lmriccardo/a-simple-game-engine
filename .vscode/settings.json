@@ -1,3 +1,13 @@
 {
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cmake.debugConfig": {
+        "MIMode": "gdb",
+        "setupCommands": [
+            {
+                "description": "Disable shell startup to avoid GDB controlling-terminal issues under WSL",
+                "text": "set startup-with-shell off",
+                "ignoreFailures": true
+            }
+        ]
+    }
 }

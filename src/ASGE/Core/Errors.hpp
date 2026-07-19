@@ -248,6 +248,9 @@ enum class FileWatcherError : std::uint8_t
     AlreadyWatched = 1,
     FailedDirRegister,
     InvalidFwHandle,
+#ifndef _WIN32
+    InvalidWatchDescriptor,
+#endif
 };
 
 inline str::String ToErrorString(FileWatcherError e) noexcept
@@ -257,6 +260,9 @@ inline str::String ToErrorString(FileWatcherError e) noexcept
     case FileWatcherError::AlreadyWatched: return "path is already being watched";
     case FileWatcherError::FailedDirRegister: return "failed to register directory changes window.";
     case FileWatcherError::InvalidFwHandle: return "invalid file watcher handle";
+#ifndef _WIN32
+    case FileWatcherError::InvalidWatchDescriptor: return "invalid watch descriptor";
+#endif
     }
     return "uknown file watcher error";
 }

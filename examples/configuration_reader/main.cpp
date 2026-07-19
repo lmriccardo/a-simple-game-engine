@@ -27,7 +27,11 @@ int main()
 {
     // Work on a throwaway copy of the shipped conf.toml so this example can
     // freely Set/Save without mutating the checked-in fixture.
+#ifdef _WIN32
     asge::filesystem::Path const sourcePath = "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\configuration_reader\\conf.toml";
+#else
+    asge::filesystem::Path const sourcePath = "/home/ricca/personal/a-simple-game-engine/examples/configuration_reader/conf.toml";
+#endif
     asge::filesystem::Path const workingPath = std::filesystem::temp_directory_path() / "asge_configuration_reader_example.toml";
 
     auto copy_result = asge::filesystem::Copy( sourcePath, workingPath );
@@ -51,27 +55,30 @@ int main()
     PrintIntSetting(cm, "Window.Width");
     PrintIntSetting(cm, "Window.Height");
     PrintIntSetting(cm, "Rendering.Target_Fps");
+    cm.SetHotReloadEnabled( true );
 
-    auto set_result = cm.Set<int>("Window.Width", 1024);
-    if (!set_result)
-    {
-        auto const err = set_result.Error();
-        LOG_ERROR("Error setting Window.Width: ", err);
-        return 1;
-    }
+    std::this_thread::sleep_for( std::chrono::seconds(2) );
 
-    auto save_result = cm.Save();
-    if (!save_result)
-    {
-        auto const err = save_result.Error();
-        LOG_ERROR("Error saving conf: ", err);
-        return 1;
-    }
+    // auto set_result = cm.Set<int>("Window.Width", 1024);
+    // if (!set_result)
+    // {
+    //     auto const err = set_result.Error();
+    //     LOG_ERROR("Error setting Window.Width: ", err);
+    //     return 1;
+    // }
 
-    std::cout << "After Set+Save" << std::endl;
-    PrintIntSetting(cm, "Window.Width");
-    PrintIntSetting(cm, "Window.Height");
-    PrintIntSetting(cm, "Rendering.Target_Fps");
+    // auto save_result = cm.Save();
+    // if (!save_result)
+    // {
+    //     auto const err = save_result.Error();
+    //     LOG_ERROR("Error saving conf: ", err);
+    //     return 1;
+    // }
+
+    // std::cout << "After Set+Save" << std::endl;
+    // PrintIntSetting(cm, "Window.Width");
+    // PrintIntSetting(cm, "Window.Height");
+    // PrintIntSetting(cm, "Rendering.Target_Fps");
 
     return 0;
 }

@@ -12,7 +12,7 @@ int main()
 #ifdef _WIN32
         "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files",
 #else
-        "/home/ricca/dev/a-simple-game-engine/examples/file_watching/files",
+        "/home/ricca/personal/a-simple-game-engine/examples/file_watching/files",
 #endif
         [&fw]( FileEvent const& inEvent )
         {

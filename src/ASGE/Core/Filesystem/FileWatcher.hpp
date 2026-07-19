@@ -185,6 +185,7 @@ public:
 
 private:
     static constexpr int MAX_EPOLL_EVENTS = 16;
+    static constexpr int MILLISECONDS_TO_WAIT = 300;
 
     handle_t m_InotifyHandle;
     handle_t m_EpollHandle;
@@ -201,6 +202,7 @@ private:
     BoolResult RegisterNewWatch( path_type inPath ) noexcept;
     void ReadInotifyEvents();
     void ConsumeInotifyEvent( inotify_event const* inEvent );
+    Result<path_type> GetParentPathFromWd( handle_t inWd ) const noexcept;
     void Run( concurrent::context_pointer& inCtx ) override;
 public:
     FileWatcher();
