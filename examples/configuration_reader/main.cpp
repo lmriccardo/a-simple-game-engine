@@ -59,26 +59,26 @@ int main()
 
     std::this_thread::sleep_for( std::chrono::seconds(2) );
 
-    // auto set_result = cm.Set<int>("Window.Width", 1024);
-    // if (!set_result)
-    // {
-    //     auto const err = set_result.Error();
-    //     LOG_ERROR("Error setting Window.Width: ", err);
-    //     return 1;
-    // }
+    auto set_result = cm.Set<int>("Window.Width", 1024);
+    if (!set_result)
+    {
+        auto const err = set_result.Error();
+        LOG_ERROR("Error setting Window.Width: ", err);
+        return 1;
+    }
 
-    // auto save_result = cm.Save();
-    // if (!save_result)
-    // {
-    //     auto const err = save_result.Error();
-    //     LOG_ERROR("Error saving conf: ", err);
-    //     return 1;
-    // }
+    auto save_result = cm.Save();
+    if (!save_result)
+    {
+        auto const err = save_result.Error();
+        LOG_ERROR("Error saving conf: ", err);
+        return 1;
+    }
 
-    // std::cout << "After Set+Save" << std::endl;
-    // PrintIntSetting(cm, "Window.Width");
-    // PrintIntSetting(cm, "Window.Height");
-    // PrintIntSetting(cm, "Rendering.Target_Fps");
+    std::cout << "After Set+Save" << std::endl;
+    PrintIntSetting(cm, "Window.Width");
+    PrintIntSetting(cm, "Window.Height");
+    PrintIntSetting(cm, "Rendering.Target_Fps");
 
     return 0;
 }

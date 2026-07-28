@@ -583,7 +583,6 @@ void asge::filesystem::_linux::FileWatcher::Run(concurrent::context_pointer &inC
     // whether the context has been cancelled instead of blocking forever.
     if ( n == 0 )
     {
-        std::cout << "TIMEOUT" << std::endl;
         return;
     }
 
@@ -631,6 +630,7 @@ asge::filesystem::_linux::FileWatcher::FileWatcher( concurrent::context_pointer 
 asge::filesystem::_linux::FileWatcher::~FileWatcher()
 {
     Cancel();
+    Join();
     
     if ( m_EpollValid )
     {
@@ -641,8 +641,6 @@ asge::filesystem::_linux::FileWatcher::~FileWatcher()
         }
     }
 
-    Join();
-
     if ( m_InotifyValid )
     {
         if ( ::close( m_InotifyHandle ) < 0 )
@@ -651,17 +649,11 @@ asge::filesystem::_linux::FileWatcher::~FileWatcher()
         }
     }
 
-    if ( !isValid() ) return;
-
-    for ( auto const [path, fd] : m_WatchFds )
-    {
-        if ( close( fd ) < 0 )
-        {
-            str::String u8_path = str::ToUTF8( path.u8string() );
-            LOG_ERROR( "Unable to close handle for path {}: {}", 
-                u8_path, std::strerror(errno) );
-        }
-    }
+    // Watch descriptors from inotify_add_watch() are per-instance indices,
+    // not file descriptors — closing the inotify handle above already
+    // releases every watch registered on it, so there is nothing left to
+    // close here. Passing one to close() would close an unrelated fd
+    // (e.g. stdout, if the watch descriptor happened to be 1).
 }
 
 asge::Result<WatcherHandler> asge::filesystem::_linux::FileWatcher::AddWatch( 
