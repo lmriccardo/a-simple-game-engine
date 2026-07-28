@@ -15,6 +15,9 @@ endif()
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 
 include(CTest)
+include(GNUInstallDirs)
+
+option(ASGE_INSTALL "Generate install rules for the ASGE library" ${PROJECT_IS_TOP_LEVEL})
 
 add_subdirectory(src/ASGE)
 
@@ -25,4 +28,34 @@ endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+
+if(ASGE_INSTALL)
+    include(CMakePackageConfigHelpers)
+
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/ASGEConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion
+    )
+
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ASGEConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/ASGEConfig.cmake"
+        INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ASGE"
+    )
+
+    install(
+        FILES
+            "${CMAKE_CURRENT_BINARY_DIR}/ASGEConfig.cmake"
+            "${CMAKE_CURRENT_BINARY_DIR}/ASGEConfigVersion.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ASGE"
+    )
+
+    install(
+        EXPORT ASGETargets
+        FILE ASGETargets.cmake
+        NAMESPACE ASGE::
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ASGE"
+    )
 endif()

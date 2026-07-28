@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Consumers must be able to resolve SDL3 themselves (system install,
+# CMAKE_PREFIX_PATH, or their own SDL3_DIR) — ASGE's own bundled
+# third-party/SDL path is a build-time-only concern and isn't installed.
+find_dependency(SDL3 CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/ASGETargets.cmake")
+
+check_required_components(ASGE)

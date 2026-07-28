@@ -43,7 +43,26 @@ add_library(ASGE STATIC
     Core/Profiling/TimingProfiler.cpp
 )
 
+add_library(ASGE::ASGE ALIAS ASGE)
+
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
-target_include_directories(ASGE 
-    PUBLIC 
-        "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_include_directories(ASGE
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>"
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+if(ASGE_INSTALL)
+    install(
+        TARGETS ASGE
+        EXPORT ASGETargets
+        LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+
+    install(
+        DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/ASGE"
+        FILES_MATCHING PATTERN "*.hpp"
+    )
+endif()
