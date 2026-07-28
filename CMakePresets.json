@@ -71,6 +71,27 @@
                 "BUILD_TESTING": "ON",
                 "ASGE_BUILD_EXAMPLES": "OFF"
             }
+        },
+        {
+            "name": "linux-package",
+            "displayName": "Linux (package)",
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_TESTING": "OFF",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_INSTALL": "ON"
+            }
+        },
+        {
+            "name": "windows-package",
+            "displayName": "Windows (package)",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "BUILD_TESTING": "OFF",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_INSTALL": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -96,6 +117,15 @@
         {
             "name": "linux-ci",
             "configurePreset": "linux-ci"
+        },
+        {
+            "name": "linux-package",
+            "configurePreset": "linux-package"
+        },
+        {
+            "name": "windows-package",
+            "configurePreset": "windows-package",
+            "configuration": "Release"
         }
     ],
     "testPresets": [
