@@ -9,5 +9,8 @@
                 "ignoreFailures": true
             }
         ]
-    }
+    },
+    "conventionalCommits.scopes": [
+        "roadmap"
+    ]
 }
