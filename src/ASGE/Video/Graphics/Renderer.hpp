@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Color.hpp"
-#include <ASGE/Math/Rect.hpp>
+#include <ASGE/Core/Math/Rect.hpp>
 
 namespace asge::graphics
 {

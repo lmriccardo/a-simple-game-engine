@@ -10,9 +10,9 @@
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Time/Time.hpp>
-#include <ASGE/Math/Rect.hpp>
-#include <ASGE/Math/VectorN.hpp>
-#include <ASGE/Math/Vector2.hpp>
+#include <ASGE/Core/Math/Rect.hpp>
+#include <ASGE/Core/Math/VectorN.hpp>
+#include <ASGE/Core/Math/Vector2.hpp>
 #include <ASGE/Core/Patterns/Signal.hpp>
 #include <ASGE/Core/Concurrent/Thread.hpp>
 #include <ASGE/Core/Concurrent/Context.hpp>

@@ -1,4 +1,4 @@
-#include <ASGE/Math/VectorN.hpp>
+#include <ASGE/Core/Math/VectorN.hpp>
 
 #include <gtest/gtest.h>
 
