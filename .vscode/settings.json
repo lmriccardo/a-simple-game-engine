@@ -12,6 +12,7 @@
     },
     "conventionalCommits.scopes": [
         "roadmap",
-        "structure"
+        "structure",
+        "video"
     ]
 }

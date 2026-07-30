@@ -21,7 +21,7 @@ void Application::processEvent(SDL_Event const* inSdlEventPtr) noexcept
 asge::Application::Application(game::IGame &inGame, ApplicationConfig const &inConfig)
 : m_Game(inGame), m_Config(inConfig)
 {
-    m_VideoSys.Initialize( inConfig.s_Title, inConfig.s_Width, inConfig.s_Height );
+    m_VideoSys.Initialize( inConfig.s_Title, inConfig.s_Width, inConfig.s_Height ).LogError();
     time::TargetFPS( m_Config.s_TargetFps );
 }
 

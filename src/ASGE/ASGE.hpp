@@ -8,6 +8,8 @@
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Video/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Window.hpp>
+#include <ASGE/Video/GraphicsBackend.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Time/Time.hpp>
 #include <ASGE/Core/Math/Rect.hpp>
