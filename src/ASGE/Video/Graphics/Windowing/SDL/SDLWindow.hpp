@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Window.hpp"
+#include "../../Window.hpp"
 #include <string>
 #include <SDL3/SDL.h>
 

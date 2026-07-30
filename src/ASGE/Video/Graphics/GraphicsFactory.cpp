@@ -1,6 +1,6 @@
 #include "GraphicsFactory.hpp"
-#include "SDL/SDLWindow.hpp"
-#include "SDL/SDLRenderer.hpp"
+#include "Windowing/SDL/SDLWindow.hpp"
+#include "Rendering/SDLRenderer/SDLRenderer.hpp"
 
 using namespace asge::graphics;
 

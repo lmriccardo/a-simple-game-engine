@@ -19,16 +19,8 @@ public:
      * 
      * Draw a rectangle to screen given the input position (X, Y), the 
      * dimension (W = width, H = height) and the filling color (RGBA).
-     * 
-     * @param inX the x coordinate value position
-     * @param inY the y coordinate value position
-     * @param inW the input width
-     * @param inH the input height
-     * @param inColor the input RGBA color
      */
     virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const = 0;
-    virtual void DrawRect(float x, float y, float w, float h, 
-        RGBA_Color const& inColor) const = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

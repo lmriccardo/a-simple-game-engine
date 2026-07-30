@@ -51,12 +51,7 @@ public:
         s_LastClearColor = inColor;
     }
 
-    void DrawRect(asge::math::Rect const& inRect, RGBA_Color const& inColor) const override
-    {
-        DrawRect(inRect.x, inRect.y, inRect.w, inRect.h, inColor);
-    }
-
-    void DrawRect(float, float, float, float, RGBA_Color const&) const override
+    void DrawRect(asge::math::Rect const&, RGBA_Color const&) const override
     {
         ++s_DrawRectCalls;
     }
@@ -80,7 +75,7 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     std::unique_ptr<IRenderer> renderer = std::make_unique<FakeRenderer>(true);
 
     renderer->Clear(RGBA_Color{10, 20, 30, 255});
-    renderer->DrawRect(0.0F, 0.0F, 64.0F, 64.0F, RGBA_Color{});
+    renderer->DrawRect(asge::math::Rect{0.0F, 0.0F, 64.0F, 64.0F}, RGBA_Color{});
     renderer->Present();
 
     auto const& fake = static_cast<FakeRenderer const&>(*renderer);
