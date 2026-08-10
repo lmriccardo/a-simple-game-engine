@@ -1,4 +1,5 @@
 #include "GraphicsFactory.hpp"
+#include "../VideoError.hpp"
 #include "Windowing/SDL/SDLWindow.hpp"
 #include "Rendering/SDLRenderer/SDLRenderer.hpp"
 

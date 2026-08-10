@@ -1,4 +1,4 @@
-#include <ASGE/Core/Errors.hpp>
+#include <ASGE/Video/VideoError.hpp>
 
 #include <gtest/gtest.h>
 

@@ -1,4 +1,5 @@
 #include "SDLRenderer.hpp"
+#include "../../RenderError.hpp"
 
 #include <unordered_map>
 

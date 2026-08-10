@@ -1,4 +1,5 @@
 #include "VideoSystem.hpp"
+#include "VideoError.hpp"
 #include "Graphics/GraphicsFactory.hpp"
 
 using namespace asge;
