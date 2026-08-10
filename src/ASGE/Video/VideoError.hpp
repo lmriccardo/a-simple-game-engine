@@ -13,7 +13,8 @@ enum class VideoError : std::uint8_t
 {
     SubsystemInitFailed = 1,
     WindowCreationFailed,
-    RendererCreationFailed
+    RendererCreationFailed,
+    GetWindowSizeFailed
 };
 
 inline str::String ToErrorString(VideoError e) noexcept
@@ -23,6 +24,7 @@ inline str::String ToErrorString(VideoError e) noexcept
     case VideoError::SubsystemInitFailed: return "failed to initialize the video subsystem";
     case VideoError::WindowCreationFailed: return "failed to create the window";
     case VideoError::RendererCreationFailed: return "failed to create the renderer";
+    case VideoError::GetWindowSizeFailed: return "failed to query the window size";
     }
     return "uknown video error";
 }

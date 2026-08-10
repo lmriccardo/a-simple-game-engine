@@ -11,7 +11,11 @@ namespace asge::errors
 
 enum class RenderError : std::uint8_t
 {
-    RenderRectFailed = 1,
+    CreateRendererFailed = 1,
+    SetDrawColorFailed,
+    RenderClearFailed,
+    RenderPresentFailed,
+    RenderRectFailed,
     RenderLineFailed,
     RenderCircleFailed
 };
@@ -20,6 +24,10 @@ inline str::String ToErrorString(RenderError e) noexcept
 {
     switch (e)
     {
+    case RenderError::CreateRendererFailed: return "failed to create the renderer";
+    case RenderError::SetDrawColorFailed: return "failed to set the render draw color";
+    case RenderError::RenderClearFailed: return "failed to clear the renderer";
+    case RenderError::RenderPresentFailed: return "failed to present the renderer";
     case RenderError::RenderRectFailed: return "failed to render the rect";
     case RenderError::RenderLineFailed: return "failed to render the line";
     case RenderError::RenderCircleFailed: return "failed to render the circle";

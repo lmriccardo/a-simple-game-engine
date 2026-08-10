@@ -1,5 +1,5 @@
 #include "SDLRenderer.hpp"
-#include "../../RenderError.hpp"
+#include "../RenderError.hpp"
 
 #include <unordered_map>
 
@@ -10,7 +10,7 @@ asge::graphics::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
     m_Renderer = SDL_CreateRenderer(inWindow, nullptr);
     if (!m_Renderer)
     {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render creation fail : %s\n", SDL_GetError());
+        LogError( make_error_code( errors::RenderError::CreateRendererFailed ), SDL_GetError() );
     }
 }
 
@@ -41,19 +41,23 @@ void asge::graphics::SDLRenderer::Clear(RGBA_Color const& inColor) const
 {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render set draw color fail : %s\n", SDL_GetError());
+        LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
     }
 
     if (!SDL_RenderClear(m_Renderer))
     {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render clear fail : %s\n", SDL_GetError());
+        LogError( make_error_code( errors::RenderError::RenderClearFailed ), SDL_GetError() );
     }
 }
 
 void asge::graphics::SDLRenderer::DrawRect(
     math::Rect const& inRect, RGBA_Color const &inColor, bool inFill
 ) const {
-    SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
+    if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
+    {
+        LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
+    }
+
     SDL_FRect rect{ inRect.x, inRect.y, inRect.w, inRect.h };
     bool renderResult;
 
@@ -72,7 +76,11 @@ void asge::graphics::SDLRenderer::DrawRect(
 void asge::graphics::SDLRenderer::DrawLine(
     math::Float2 const &inC1, math::Float2 const &inC2, RGBA_Color const& inColor
 ) const {
-    SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
+    if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
+    {
+        LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
+    }
+
     if ( !SDL_RenderLine( m_Renderer, inC1.x(), inC1.y(), inC2.x(), inC2.y() ) )
     {
         LogError( make_error_code( errors::RenderError::RenderLineFailed ), SDL_GetError() );
@@ -82,7 +90,11 @@ void asge::graphics::SDLRenderer::DrawLine(
 void asge::graphics::SDLRenderer::DrawCircle(
     math::Int2 const& inCenter, int inRadius, RGBA_Color const &inColor, bool inFill
 ) const {
-    SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
+    if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
+    {
+        LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
+    }
+
     auto const points = math::MidpointCirclePoints(inCenter, inRadius);
     bool renderResult;
 
@@ -132,7 +144,7 @@ void asge::graphics::SDLRenderer::Present() const
 {
     if (!SDL_RenderPresent(m_Renderer))
     {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Render present fail : %s\n", SDL_GetError());
+        LogError( make_error_code( errors::RenderError::RenderPresentFailed ), SDL_GetError() );
     }
 }
 

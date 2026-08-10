@@ -1,4 +1,5 @@
 #include "SDLWindow.hpp"
+#include "../../../VideoError.hpp"
 
 using namespace asge::graphics;
 
@@ -7,7 +8,7 @@ asge::graphics::SDLWindow::SDLWindow(std::string const& inTitle, int inWidth, in
     m_Window = SDL_CreateWindow(inTitle.c_str(), inWidth, inHeight, 0);
     if (!m_Window)
     {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Window creation fail : %s\n", SDL_GetError());
+        LogError( make_error_code( errors::VideoError::WindowCreationFailed ), SDL_GetError() );
     }
 }
 
@@ -43,7 +44,11 @@ asge::math::Int2 asge::graphics::SDLWindow::Size() const
 {
     int width{0};
     int height{0};
-    SDL_GetWindowSize(m_Window, &width, &height);
+    if (!SDL_GetWindowSize(m_Window, &width, &height))
+    {
+        LogError( make_error_code( errors::VideoError::GetWindowSizeFailed ), SDL_GetError() );
+    }
+
     return math::Int2{ width, height };
 }
 
