@@ -86,6 +86,11 @@ public:
 
     VecN() = default;
 
+    template<_internal::Numeric... Us>
+    requires (sizeof...(Us) == N)
+    constexpr VecN( Us... inValues ) : m_Vector{ static_cast<T>(inValues)... }
+    {}
+
     explicit VecN( value_type const inValue )
     {
         Fill( inValue );

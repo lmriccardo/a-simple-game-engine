@@ -1,5 +1,7 @@
 #include "SDLRenderer.hpp"
 
+#include <unordered_map>
+
 using namespace asge::graphics;
 
 asge::graphics::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
@@ -73,6 +75,55 @@ void asge::graphics::SDLRenderer::DrawLine(
     if ( !SDL_RenderLine( m_Renderer, inC1.x(), inC1.y(), inC2.x(), inC2.y() ) )
     {
         LogError( make_error_code( errors::RenderError::RenderLineFailed ), SDL_GetError() );
+    }
+}
+
+void asge::graphics::SDLRenderer::DrawCircle(
+    math::Int2 const& inCenter, int inRadius, RGBA_Color const &inColor, bool inFill
+) const {
+    SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
+    auto const points = math::MidpointCirclePoints(inCenter, inRadius);
+    bool renderResult;
+
+    if ( !inFill )
+    {
+        std::vector<SDL_FPoint> sdlPoints;
+        sdlPoints.reserve( points.size() );
+        for ( auto const& point : points )
+        {
+            sdlPoints.push_back({ static_cast<float>(point.x()), static_cast<float>(point.y()) });
+        }
+
+        renderResult = SDL_RenderPoints(m_Renderer, sdlPoints.data(), static_cast<int>(sdlPoints.size()));
+    }
+    else
+    {
+        // Group the outline points by row and fill each row between its
+        // leftmost and rightmost point, reusing the same point set.
+        std::unordered_map<int, std::pair<int, int>> rowSpans;
+        for ( auto const& point : points )
+        {
+            auto [it, inserted] = rowSpans.try_emplace( point.y(), point.x(), point.x() );
+            if ( !inserted )
+            {
+                it->second.first  = point.x() < it->second.first  ? point.x() : it->second.first;
+                it->second.second = point.x() > it->second.second ? point.x() : it->second.second;
+            }
+        }
+
+        renderResult = true;
+        for ( auto const& [y, span] : rowSpans )
+        {
+            renderResult &= SDL_RenderLine(
+                m_Renderer, static_cast<float>(span.first), static_cast<float>(y),
+                static_cast<float>(span.second), static_cast<float>(y)
+            );
+        }
+    }
+
+    if (!renderResult)
+    {
+        LogError( make_error_code( errors::RenderError::RenderCircleFailed ), SDL_GetError() );
     }
 }
 

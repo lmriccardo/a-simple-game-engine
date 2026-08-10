@@ -339,7 +339,8 @@ inline str::String ToErrorString(VideoError e) noexcept
 enum class RenderError : std::uint8_t
 {
     RenderRectFailed = 1,
-    RenderLineFailed
+    RenderLineFailed,
+    RenderCircleFailed
 };
 
 inline str::String ToErrorString(RenderError e) noexcept
@@ -348,9 +349,10 @@ inline str::String ToErrorString(RenderError e) noexcept
     {
     case RenderError::RenderRectFailed: return "failed to render the rect";
     case RenderError::RenderLineFailed: return "failed to render the line";
+    case RenderError::RenderCircleFailed: return "failed to render the circle";
     }
     return "uknown video error";
-} 
+}
 
 }
 

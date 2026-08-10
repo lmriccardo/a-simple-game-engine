@@ -38,6 +38,20 @@ void ShapesDemoGame::Render(asge::graphics::IRenderer &inRenderer)
         LINE_ORIGIN.y() + std::sin(m_LineAngle) * LINE_RADIUS
     };
     inRenderer.DrawLine(LINE_ORIGIN, tip, { 80, 160, 240, 255 });
+
+    // Filled circle
+    inRenderer.DrawCircle(
+        asge::math::Int2{ 150, 480 }, 70,
+        { 240, 200, 60, 255 },
+        true
+    );
+
+    // Outlined circle
+    inRenderer.DrawCircle(
+        asge::math::Int2{ 650, 480 }, 70,
+        { 200, 90, 220, 255 },
+        false
+    );
 }
 
 void ShapesDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)

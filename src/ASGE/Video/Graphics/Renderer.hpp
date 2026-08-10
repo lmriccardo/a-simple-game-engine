@@ -23,8 +23,17 @@ public:
      */
     virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor, bool inFill) const = 0;
 
-    virtual void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2, 
+    virtual void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2,
         RGBA_Color const& inColor) const = 0;
+
+    /**
+     * @brief Draw a circle to screen
+     *
+     * Draws the outline (or filled interior) of a circle, rasterized via
+     * math::MidpointCirclePoints.
+     */
+    virtual void DrawCircle(math::Int2 const& inCenter, int inRadius,
+        RGBA_Color const& inColor, bool inFill) const = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

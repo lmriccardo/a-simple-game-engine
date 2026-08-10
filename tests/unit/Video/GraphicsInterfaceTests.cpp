@@ -39,6 +39,7 @@ public:
     mutable int s_ClearCalls{0};
     mutable int s_DrawRectCalls{0};
     mutable int s_DrawLineCalls{0};
+    mutable int s_DrawCircleCalls{0};
     mutable int s_PresentCalls{0};
     mutable RGBA_Color s_LastClearColor{};
     bool s_Valid;
@@ -59,6 +60,11 @@ public:
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&, RGBA_Color const&) const override
     {
         ++s_DrawLineCalls;
+    }
+
+    void DrawCircle(asge::math::Int2 const&, int, RGBA_Color const&, bool) const override
+    {
+        ++s_DrawCircleCalls;
     }
 
     void Present() const override { ++s_PresentCalls; }
@@ -82,12 +88,14 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     renderer->Clear(RGBA_Color{10, 20, 30, 255});
     renderer->DrawRect(asge::math::Rect{0.0F, 0.0F, 64.0F, 64.0F}, RGBA_Color{}, false);
     renderer->DrawLine(asge::math::Float2{0.0F, 0.0F}, asge::math::Float2{1.0F, 1.0F}, RGBA_Color{});
+    renderer->DrawCircle(asge::math::Int2{0, 0}, 8, RGBA_Color{}, false);
     renderer->Present();
 
     auto const& fake = static_cast<FakeRenderer const&>(*renderer);
     EXPECT_EQ(fake.s_ClearCalls, 1);
     EXPECT_EQ(fake.s_DrawRectCalls, 1);
     EXPECT_EQ(fake.s_DrawLineCalls, 1);
+    EXPECT_EQ(fake.s_DrawCircleCalls, 1);
     EXPECT_EQ(fake.s_PresentCalls, 1);
     EXPECT_EQ(fake.s_LastClearColor.r, 10);
     EXPECT_TRUE(renderer->IsValid());

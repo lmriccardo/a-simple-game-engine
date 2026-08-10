@@ -20,6 +20,7 @@ add_library(ASGE STATIC
     Core/Time/Time.cpp
 
     # Math utilities implementation
+    Core/Math/Geometry/Circle.cpp
 
     # Concurrency utilities
     Core/Concurrent/Thread.cpp
