@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Color.hpp"
-#include <ASGE/Core/Math/Rect.hpp>
+#include <ASGE/Core/Math/Math.hpp>
+#include <ASGE/Core/Errors.hpp>
 
 namespace asge::graphics
 {
@@ -20,7 +21,10 @@ public:
      * Draw a rectangle to screen given the input position (X, Y), the 
      * dimension (W = width, H = height) and the filling color (RGBA).
      */
-    virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const = 0;
+    virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor, bool inFill) const = 0;
+
+    virtual void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2, 
+        RGBA_Color const& inColor) const = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

@@ -1,7 +1,6 @@
 #include <ASGE/Video/Graphics/Window.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
-#include <ASGE/Core/Math/Vector2.hpp>
-#include <ASGE/Core/Math/Rect.hpp>
+#include <ASGE/Core/Math/Math.hpp>
 
 #include <gtest/gtest.h>
 
@@ -39,6 +38,7 @@ class FakeRenderer final : public IRenderer
 public:
     mutable int s_ClearCalls{0};
     mutable int s_DrawRectCalls{0};
+    mutable int s_DrawLineCalls{0};
     mutable int s_PresentCalls{0};
     mutable RGBA_Color s_LastClearColor{};
     bool s_Valid;
@@ -51,9 +51,14 @@ public:
         s_LastClearColor = inColor;
     }
 
-    void DrawRect(asge::math::Rect const&, RGBA_Color const&) const override
+    void DrawRect(asge::math::Rect const&, RGBA_Color const&, bool) const override
     {
         ++s_DrawRectCalls;
+    }
+
+    void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&, RGBA_Color const&) const override
+    {
+        ++s_DrawLineCalls;
     }
 
     void Present() const override { ++s_PresentCalls; }
@@ -75,12 +80,14 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     std::unique_ptr<IRenderer> renderer = std::make_unique<FakeRenderer>(true);
 
     renderer->Clear(RGBA_Color{10, 20, 30, 255});
-    renderer->DrawRect(asge::math::Rect{0.0F, 0.0F, 64.0F, 64.0F}, RGBA_Color{});
+    renderer->DrawRect(asge::math::Rect{0.0F, 0.0F, 64.0F, 64.0F}, RGBA_Color{}, false);
+    renderer->DrawLine(asge::math::Float2{0.0F, 0.0F}, asge::math::Float2{1.0F, 1.0F}, RGBA_Color{});
     renderer->Present();
 
     auto const& fake = static_cast<FakeRenderer const&>(*renderer);
     EXPECT_EQ(fake.s_ClearCalls, 1);
     EXPECT_EQ(fake.s_DrawRectCalls, 1);
+    EXPECT_EQ(fake.s_DrawLineCalls, 1);
     EXPECT_EQ(fake.s_PresentCalls, 1);
     EXPECT_EQ(fake.s_LastClearColor.r, 10);
     EXPECT_TRUE(renderer->IsValid());

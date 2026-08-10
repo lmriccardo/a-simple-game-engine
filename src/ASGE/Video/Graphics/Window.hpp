@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ASGE/Core/Math/Vector2.hpp>
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 
 namespace asge::graphics
 {

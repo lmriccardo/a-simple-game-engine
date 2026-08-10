@@ -20,6 +20,7 @@ endmacro()
 
 add_subdirectory(background_changer)
 add_subdirectory(moving_box)
+add_subdirectory(shapes_demo)
 add_subdirectory(configuration_reader)
 add_subdirectory(file_watching)
 add_subdirectory(scoped_profiler)

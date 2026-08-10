@@ -47,11 +47,33 @@ void asge::graphics::SDLRenderer::Clear(RGBA_Color const& inColor) const
     }
 }
 
-void asge::graphics::SDLRenderer::DrawRect(math::Rect const& inRect, RGBA_Color const &inColor) const
-{
+void asge::graphics::SDLRenderer::DrawRect(
+    math::Rect const& inRect, RGBA_Color const &inColor, bool inFill
+) const {
     SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
     SDL_FRect rect{ inRect.x, inRect.y, inRect.w, inRect.h };
-    SDL_RenderRect(m_Renderer, &rect);
+    bool renderResult;
+
+    if ( !inFill ) {
+        renderResult = SDL_RenderRect(m_Renderer, &rect);
+    } else {
+        renderResult = SDL_RenderFillRect(m_Renderer, &rect);
+    }
+
+    if (!renderResult)
+    {
+        LogError( make_error_code( errors::RenderError::RenderRectFailed ), SDL_GetError() );
+    }
+}
+
+void asge::graphics::SDLRenderer::DrawLine(
+    math::Float2 const &inC1, math::Float2 const &inC2, RGBA_Color const& inColor
+) const {
+    SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a);
+    if ( !SDL_RenderLine( m_Renderer, inC1.x(), inC1.y(), inC2.x(), inC2.y() ) )
+    {
+        LogError( make_error_code( errors::RenderError::RenderLineFailed ), SDL_GetError() );
+    }
 }
 
 void asge::graphics::SDLRenderer::Present() const

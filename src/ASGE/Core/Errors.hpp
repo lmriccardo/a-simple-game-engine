@@ -210,6 +210,11 @@ public:
   return { errno, std::generic_category() };
 }
 
+inline void LogError( std::error_code ec, asge::str::String detail={} ) noexcept
+{
+    LOG_ERROR( asge::errors::_internal::ErrorInfo{ ec, detail } );
+}
+
 // ---------------------------------------------------------------------------
 // REGISTER_ASGE_ERROR — registers a scoped enum as a std::error_code domain
 // without hand-writing an error_category subclass each time.
@@ -327,6 +332,26 @@ inline str::String ToErrorString(VideoError e) noexcept
     return "uknown video error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// RENDER SYSTEM ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class RenderError : std::uint8_t
+{
+    RenderRectFailed = 1,
+    RenderLineFailed
+};
+
+inline str::String ToErrorString(RenderError e) noexcept
+{
+    switch (e)
+    {
+    case RenderError::RenderRectFailed: return "failed to render the rect";
+    case RenderError::RenderLineFailed: return "failed to render the line";
+    }
+    return "uknown video error";
+} 
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
@@ -334,3 +359,4 @@ inline str::String ToErrorString(VideoError e) noexcept
 REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
 REGISTER_ASGE_ERROR(asge::errors::VideoError, "asge.video")
+REGISTER_ASGE_ERROR(asge::errors::RenderError, "asge.render")
