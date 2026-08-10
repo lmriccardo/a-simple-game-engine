@@ -14,9 +14,10 @@ void MovingBox::Update(float inDeltaTime)
 
 void MovingBox::Render(asge::graphics::IRenderer &inRender)
 {
-    inRender.DrawRect( 
-        m_Position.x(), m_Position.y(), m_Dimension.x(), m_Dimension.y(),
-        {255, 0, 0, 255}
+    inRender.DrawRect(
+        asge::math::Rect{ m_Position.x(), m_Position.y(), m_Dimension.x(), m_Dimension.y() },
+        {255, 0, 0, 255},
+        true
     );
 }
 

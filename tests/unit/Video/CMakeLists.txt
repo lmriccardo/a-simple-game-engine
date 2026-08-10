@@ -1,16 +1,15 @@
-add_executable(ASGE_MathTests
-    VectorNTests.cpp
-    Vector2Tests.cpp
-    CircleTests.cpp
+add_executable(ASGE_VideoTests
+    VideoErrorsTests.cpp
+    GraphicsInterfaceTests.cpp
 )
 
-target_link_libraries(ASGE_MathTests
+target_link_libraries(ASGE_VideoTests
     PRIVATE
         ASGE
         GTest::gtest_main
 )
 
-target_compile_options(ASGE_MathTests
+target_compile_options(ASGE_VideoTests
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
             -Wall -Wextra -Wpedantic
@@ -19,12 +18,12 @@ target_compile_options(ASGE_MathTests
 )
 
 if(WIN32)
-    add_custom_command(TARGET ASGE_MathTests POST_BUILD
+    add_custom_command(TARGET ASGE_VideoTests POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             $<TARGET_FILE:SDL3::SDL3>
-            $<TARGET_FILE_DIR:ASGE_MathTests>
+            $<TARGET_FILE_DIR:ASGE_VideoTests>
     )
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(ASGE_MathTests)
+gtest_discover_tests(ASGE_VideoTests)

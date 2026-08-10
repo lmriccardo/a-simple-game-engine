@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Color.hpp"
-#include <ASGE/Math/Rect.hpp>
+#include <ASGE/Core/Math/Math.hpp>
+#include <ASGE/Core/Errors.hpp>
 
 namespace asge::graphics
 {
@@ -19,16 +20,20 @@ public:
      * 
      * Draw a rectangle to screen given the input position (X, Y), the 
      * dimension (W = width, H = height) and the filling color (RGBA).
-     * 
-     * @param inX the x coordinate value position
-     * @param inY the y coordinate value position
-     * @param inW the input width
-     * @param inH the input height
-     * @param inColor the input RGBA color
      */
-    virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const = 0;
-    virtual void DrawRect(float x, float y, float w, float h, 
+    virtual void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor, bool inFill) const = 0;
+
+    virtual void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2,
         RGBA_Color const& inColor) const = 0;
+
+    /**
+     * @brief Draw a circle to screen
+     *
+     * Draws the outline (or filled interior) of a circle, rasterized via
+     * math::MidpointCirclePoints.
+     */
+    virtual void DrawCircle(math::Int2 const& inCenter, int inRadius,
+        RGBA_Color const& inColor, bool inFill) const = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

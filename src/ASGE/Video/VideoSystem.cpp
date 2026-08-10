@@ -1,46 +1,49 @@
 #include "VideoSystem.hpp"
+#include "VideoError.hpp"
+#include "Graphics/GraphicsFactory.hpp"
 
 using namespace asge;
 
 void asge::video::VideoSystem::Shutdown()
 {
-    // Destroy the renderer (its deconstructor calls destroy it)
+    // Destroy renderer and window first (their destructors release the backend resources)
     m_Renderer.reset();
-    if (m_Window)
-    {
-        SDL_DestroyWindow(m_Window);
-        m_Window = nullptr;
-    }
+    m_Window.reset();
 
-    SDL_Quit();
+    if (m_BackendInitialized)
+    {
+        graphics::ShutdownBackend(m_Backend);
+        m_BackendInitialized = false;
+    }
 }
 
-bool asge::video::VideoSystem::Initialize(std::string const &inTitle, int inWidth, int inHeight)
+BoolResult asge::video::VideoSystem::Initialize(std::string const &inTitle, int inWidth, int inHeight,
+    GraphicsBackend inBackend)
 {
-    if (!SDL_Init(SDL_INIT_VIDEO))
+    m_Backend = inBackend;
+
+    auto const backendResult = graphics::InitializeBackend(inBackend);
+    if (!backendResult)
     {
-        return false;
+        return backendResult;
+    }
+    m_BackendInitialized = true;
+
+    m_Window = graphics::CreateWindow(inBackend, inTitle, inWidth, inHeight);
+    if (!m_Window || !m_Window->IsValid())
+    {
+        Shutdown();
+        return BoolResult::Err(make_error_code(errors::VideoError::WindowCreationFailed));
     }
 
-    // Create the main window. If creation was not successful returns false
-    m_Window = SDL_CreateWindow( inTitle.c_str(), inWidth, inHeight, 0 );
-    if (!m_Window)
+    m_Renderer = graphics::CreateRenderer(inBackend, *m_Window);
+    if (!m_Renderer || !m_Renderer->IsValid())
     {
-        SDL_Quit();
-        return false;
+        Shutdown();
+        return BoolResult::Err(make_error_code(errors::VideoError::RendererCreationFailed));
     }
 
-    // Create the renderer and check for its validity
-    m_Renderer = std::make_unique<graphics::SDLRenderer>(m_Window);
-    if (!m_Renderer->IsValid())
-    {
-        SDL_DestroyWindow(m_Window);
-        SDL_Quit();
-        m_Window = nullptr;
-        return false;
-    }
-
-    return true;
+    return BoolResult::Ok();
 }
 
 graphics::IRenderer &asge::video::VideoSystem::GetRenderer()

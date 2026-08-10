@@ -210,6 +210,11 @@ public:
   return { errno, std::generic_category() };
 }
 
+inline void LogError( std::error_code ec, asge::str::String detail={} ) noexcept
+{
+    LOG_ERROR( asge::errors::_internal::ErrorInfo{ ec, detail } );
+}
+
 // ---------------------------------------------------------------------------
 // REGISTER_ASGE_ERROR — registers a scoped enum as a std::error_code domain
 // without hand-writing an error_category subclass each time.

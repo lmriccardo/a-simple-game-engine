@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Renderer.hpp"
+#include "../../Renderer.hpp"
 #include <string>
 #include <SDL3/SDL.h>
 
@@ -27,15 +27,15 @@ public:
     SDLRenderer& operator=(SDLRenderer const& inOther) = delete;
 
     void Clear(RGBA_Color const& inColor) const override;
-    void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor) const override;
-    void DrawRect(float x, float y, float w, float h, 
-        RGBA_Color const& inColor) const override;
+    void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor, bool inFill) const override;
+    void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2,RGBA_Color const& inColor) const override;
+    void DrawCircle(math::Int2 const& inCenter, int inRadius,RGBA_Color const& inColor, bool inFill) const override;
 
     void Present() const override;
     bool IsValid() const override;
-    
+
     // Destroy procedure for the renderer
     void Destroy();
 };
-    
+
 } // namespace asge::graphics
