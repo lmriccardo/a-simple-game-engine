@@ -1,6 +1,8 @@
 add_executable(ASGE_VideoTests
     VideoErrorsTests.cpp
     GraphicsInterfaceTests.cpp
+    SDLTextureTests.cpp
+    SDLRendererTextureTests.cpp
 )
 
 target_link_libraries(ASGE_VideoTests
@@ -8,6 +10,9 @@ target_link_libraries(ASGE_VideoTests
         ASGE
         GTest::gtest_main
 )
+
+# SDLHeadlessFixture.hpp is shared with tests/integration/Video
+target_include_directories(ASGE_VideoTests PRIVATE "${CMAKE_SOURCE_DIR}/tests/support")
 
 target_compile_options(ASGE_VideoTests
     PRIVATE

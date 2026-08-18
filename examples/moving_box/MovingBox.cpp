@@ -12,7 +12,7 @@ void MovingBox::Update(float inDeltaTime)
     m_Position += dir * m_Speed * inDeltaTime;
 }
 
-void MovingBox::Render(asge::graphics::IRenderer &inRender)
+void MovingBox::Render(asge::video::IRenderer &inRender)
 {
     inRender.DrawRect(
         asge::math::Rect{ m_Position.x(), m_Position.y(), m_Dimension.x(), m_Dimension.y() },

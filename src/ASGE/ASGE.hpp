@@ -6,7 +6,7 @@
 #include <ASGE/Events/Events.hpp>
 #include <ASGE/Events/Keycode.hpp>
 #include <ASGE/Game/Game.hpp>
-#include <ASGE/Video/Graphics/Color.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Video/Graphics/Window.hpp>
 #include <ASGE/Video/GraphicsBackend.hpp>

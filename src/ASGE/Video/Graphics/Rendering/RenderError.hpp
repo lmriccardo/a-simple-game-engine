@@ -12,12 +12,15 @@ namespace asge::errors
 enum class RenderError : std::uint8_t
 {
     CreateRendererFailed = 1,
+    TextureCreationFailed,
+    TextureUpdateFailed,
     SetDrawColorFailed,
     RenderClearFailed,
     RenderPresentFailed,
     RenderRectFailed,
     RenderLineFailed,
-    RenderCircleFailed
+    RenderCircleFailed,
+    RenderTextureFailed,
 };
 
 inline str::String ToErrorString(RenderError e) noexcept
@@ -31,6 +34,9 @@ inline str::String ToErrorString(RenderError e) noexcept
     case RenderError::RenderRectFailed: return "failed to render the rect";
     case RenderError::RenderLineFailed: return "failed to render the line";
     case RenderError::RenderCircleFailed: return "failed to render the circle";
+    case RenderError::TextureCreationFailed: return "failed to create the texture";
+    case RenderError::TextureUpdateFailed: return "failed to update the texture";
+    case RenderError::RenderTextureFailed: return "failed to render a texture";
     }
     return "uknown render error";
 }

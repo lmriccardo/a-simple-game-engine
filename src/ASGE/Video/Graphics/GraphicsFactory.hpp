@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-namespace asge::graphics
+namespace asge::video
 {
 
 /**
@@ -18,14 +18,14 @@ namespace asge::graphics
  *
  * @param inBackend The graphics backend to initialize
  */
-BoolResult InitializeBackend(video::GraphicsBackend inBackend);
+BoolResult InitializeBackend(GraphicsBackend inBackend);
 
 /**
  * @brief Shuts down the given graphics backend's subsystem
  *
  * @param inBackend The graphics backend to shut down
  */
-void ShutdownBackend(video::GraphicsBackend inBackend);
+void ShutdownBackend(GraphicsBackend inBackend);
 
 /**
  * @brief Creates a window for the given graphics backend
@@ -36,7 +36,7 @@ void ShutdownBackend(video::GraphicsBackend inBackend);
  * @param inHeight The height of the window
  */
 std::unique_ptr<IWindow> CreateWindow(
-    video::GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight);
+    GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight);
 
 /**
  * @brief Creates a renderer for the given graphics backend, bound to the input window
@@ -44,6 +44,6 @@ std::unique_ptr<IWindow> CreateWindow(
  * @param inBackend The graphics backend to create the renderer for
  * @param inWindow The window the renderer will draw to
  */
-std::unique_ptr<IRenderer> CreateRenderer(video::GraphicsBackend inBackend, IWindow const& inWindow);
+std::unique_ptr<IRenderer> CreateRenderer(GraphicsBackend inBackend, IWindow const& inWindow);
 
-} // namespace asge::graphics
+} // namespace asge::video

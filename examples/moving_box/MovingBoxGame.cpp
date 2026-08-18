@@ -5,7 +5,7 @@ void MovingBoxGame::Update(float inDeltaTime)
     m_Box.Update( inDeltaTime );
 }
 
-void MovingBoxGame::Render(asge::graphics::IRenderer &inRenderer)
+void MovingBoxGame::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 0, 0, 0, 255 });
     m_Box.Render( inRenderer );

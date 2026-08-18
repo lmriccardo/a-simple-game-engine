@@ -12,7 +12,7 @@ void asge::video::VideoSystem::Shutdown()
 
     if (m_BackendInitialized)
     {
-        graphics::ShutdownBackend(m_Backend);
+        video::ShutdownBackend(m_Backend);
         m_BackendInitialized = false;
     }
 }
@@ -22,21 +22,21 @@ BoolResult asge::video::VideoSystem::Initialize(std::string const &inTitle, int 
 {
     m_Backend = inBackend;
 
-    auto const backendResult = graphics::InitializeBackend(inBackend);
+    auto const backendResult = video::InitializeBackend(inBackend);
     if (!backendResult)
     {
         return backendResult;
     }
     m_BackendInitialized = true;
 
-    m_Window = graphics::CreateWindow(inBackend, inTitle, inWidth, inHeight);
+    m_Window = video::CreateWindow(inBackend, inTitle, inWidth, inHeight);
     if (!m_Window || !m_Window->IsValid())
     {
         Shutdown();
         return BoolResult::Err(make_error_code(errors::VideoError::WindowCreationFailed));
     }
 
-    m_Renderer = graphics::CreateRenderer(inBackend, *m_Window);
+    m_Renderer = video::CreateRenderer(inBackend, *m_Window);
     if (!m_Renderer || !m_Renderer->IsValid())
     {
         Shutdown();
@@ -46,12 +46,12 @@ BoolResult asge::video::VideoSystem::Initialize(std::string const &inTitle, int 
     return BoolResult::Ok();
 }
 
-graphics::IRenderer &asge::video::VideoSystem::GetRenderer()
+video::IRenderer &asge::video::VideoSystem::GetRenderer()
 {
     return *m_Renderer;
 }
 
-graphics::IRenderer const &asge::video::VideoSystem::GetRenderer() const
+video::IRenderer const &asge::video::VideoSystem::GetRenderer() const
 {
     return *m_Renderer;
 }

@@ -14,7 +14,7 @@ void ShapesDemoGame::Update(float inDeltaTime)
     m_LineAngle += LINE_SWEEP_SPEED * inDeltaTime;
 }
 
-void ShapesDemoGame::Render(asge::graphics::IRenderer &inRenderer)
+void ShapesDemoGame::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 20, 20, 20, 255 });
 
