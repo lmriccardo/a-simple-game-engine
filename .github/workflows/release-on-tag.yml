@@ -34,14 +34,14 @@ jobs:
         with:
           cmake-version: "latest"
 
-      - name: Build and install SDL on Linux
+      - name: Install dependencies on Linux
         if: runner.os == 'Linux'
-        run: bash scripts/install-sdl-linux.sh
+        run: bash scripts/install-deps.sh
 
-      - name: Build and install SDL on Windows
+      - name: Install dependencies on Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./scripts/install-sdl-windows.ps1
+        run: ./scripts/install-deps.ps1
 
       - name: Configure
         run: cmake --preset ${{ matrix.configure_preset }}

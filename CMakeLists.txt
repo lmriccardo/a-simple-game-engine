@@ -5,19 +5,37 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Search for SDL library
-if(WIN32)
-    set(SDL3_DIR "${CMAKE_SOURCE_DIR}/third-party/SDL/cmake")
-else()    
-    set(SDL3_DIR "${CMAKE_SOURCE_DIR}/third-party/SDL/lib/cmake/SDL3")
-endif()
-    
-find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
-
 include(CTest)
 include(GNUInstallDirs)
 
 option(ASGE_INSTALL "Generate install rules for the ASGE library" ${PROJECT_IS_TOP_LEVEL})
+
+# Search for SDL library
+if(WIN32)
+    set(SDL3_DIR "${CMAKE_SOURCE_DIR}/third-party/SDL/cmake")
+else()
+    set(SDL3_DIR "${CMAKE_SOURCE_DIR}/third-party/SDL/lib/cmake/SDL3")
+endif()
+
+find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
+
+# stb_image (single-header image loader, vendored via scripts/install-stb-image.*
+# into third-party/stb -- see that script for why it's fetched rather than
+# built like SDL). Header-only, so this is just an include path; nothing
+# breaks at configure time if it hasn't been fetched yet, only once code
+# actually includes it.
+add_library(stb_image INTERFACE)
+add_library(stb::image ALIAS stb_image)
+target_include_directories(stb_image INTERFACE
+    "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/third-party/stb>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+if(ASGE_INSTALL)
+    install(
+        FILES "${CMAKE_SOURCE_DIR}/third-party/stb/stb_image.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+endif()
 
 add_subdirectory(src/ASGE)
 
