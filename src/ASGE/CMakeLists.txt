@@ -22,6 +22,10 @@ add_library(ASGE STATIC
     # Math utilities implementation
     Core/Math/Geometry/Circle.cpp
 
+    # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
+    Core/Graphics/PixelFormat.cpp
+    Core/Graphics/Image.cpp
+
     # Concurrency utilities
     Core/Concurrent/Thread.cpp
     Core/Concurrent/Context.cpp

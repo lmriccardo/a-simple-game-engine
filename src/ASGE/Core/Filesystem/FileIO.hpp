@@ -3,6 +3,8 @@
 #include <fstream>
 #include <string>
 #include <filesystem>
+#include <vector>
+#include <cstddef>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include "FileMetadata.hpp"
@@ -31,5 +33,16 @@ BoolResult WriteText( Path const& inPath, str::String const& inContent );
  */
 // Named Copy (not CopyFile) — Windows headers #define CopyFile to CopyFileA/W.
 BoolResult Copy( Path const& inSource, Path const& inDestination ) noexcept;
+
+/**
+ * @brief Reads the entire contents of a file into memory as raw bytes.
+ *
+ * Opens the file in binary mode (no text-mode newline translation), so it
+ * is safe for arbitrary binary data such as images, audio, or compressed
+ * assets. For text files, prefer ReadText instead.
+ *
+ * @param inPath The path of the file to read.
+ */
+Result<std::vector<std::byte>> ReadBinary( Path const& inPath );
 
 }

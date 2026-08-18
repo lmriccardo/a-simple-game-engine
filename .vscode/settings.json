@@ -15,6 +15,7 @@
         "structure",
         "video",
         "rendering",
-        "workflows"
+        "workflows",
+        "graphics"
     ]
 }

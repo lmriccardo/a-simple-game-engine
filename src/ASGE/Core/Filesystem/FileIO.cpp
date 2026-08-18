@@ -59,3 +59,30 @@ asge::BoolResult asge::filesystem::Copy(Path const &inSource, Path const &inDest
 
     return BoolResult::Ok();
 }
+
+// FileIO.cpp
+asge::Result<std::vector<std::byte>> asge::filesystem::ReadBinary(Path const &inPath)
+{
+    std::ifstream file(inPath, std::ios::binary | std::ios::ate);
+    std::error_code ec;
+
+    if (!file.is_open())
+    {
+        ec = MakeErrorFromErrno();
+        return Result<std::vector<std::byte>>::Err(ec, str::ToUTF8(inPath.u8string()));
+    }
+
+    auto size = file.tellg();
+    file.seekg(0);
+
+    std::vector<std::byte> content(static_cast<std::size_t>(size));
+    file.read(reinterpret_cast<char*>(content.data()), size);
+
+    if (file.bad())
+    {
+        ec = MakeErrorFromErrno();
+        return Result<std::vector<std::byte>>::Err(ec, str::ToUTF8(inPath.u8string()));
+    }
+
+    return Result<std::vector<std::byte>>::Ok(std::move(content));
+}

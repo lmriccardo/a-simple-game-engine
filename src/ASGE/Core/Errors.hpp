@@ -310,9 +310,28 @@ inline str::String ToErrorString(ConfError e) noexcept
     return "uknown configuration error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// IMAGE LOADING ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class ImageError
+{
+    DecodeFailed = 1,
+};
+
+inline str::String ToErrorString(ImageError e) noexcept
+{
+    switch (e)
+    {
+    case ImageError::DecodeFailed: return "failed to decode image data";
+    }
+    return "unknown image error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
 
 REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
+REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.graphics.image")
