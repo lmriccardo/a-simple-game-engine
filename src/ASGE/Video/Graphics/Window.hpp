@@ -2,7 +2,7 @@
 
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 
-namespace asge::graphics
+namespace asge::video
 {
 
 class IWindow
@@ -20,4 +20,4 @@ public:
     virtual bool IsValid() const = 0;
 };
 
-} // namespace asge::graphics
+} // namespace asge::video

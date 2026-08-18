@@ -14,6 +14,6 @@ class MovingBox
     bool  m_Right{false};
 public:
     void Update(float inDeltaTime);
-    void Render(asge::graphics::IRenderer& inRender);
+    void Render(asge::video::IRenderer& inRender);
     void OnKeyboardEvent(asge::event::KeyboardEvent const& inKeyEvent);
 };

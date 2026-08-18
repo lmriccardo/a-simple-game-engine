@@ -4,7 +4,7 @@ void BackgroundChangingGame::Update([[maybe_unused]]float inDeltaTime)
 {
 }
 
-void BackgroundChangingGame::Render(asge::graphics::IRenderer &inRenderer)
+void BackgroundChangingGame::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear(m_BackgroundComponent.GetColor());
 }

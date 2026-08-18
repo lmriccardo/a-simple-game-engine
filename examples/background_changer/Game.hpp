@@ -10,6 +10,6 @@ public:
     ~BackgroundChangingGame() override = default;
 
     void Update(float inDeltaTime) override;
-    void Render(asge::graphics::IRenderer& inRenderer) override;
+    void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };

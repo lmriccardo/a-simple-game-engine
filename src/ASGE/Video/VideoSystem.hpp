@@ -14,10 +14,10 @@ namespace asge::video
 class VideoSystem
 {
 private:
-    std::unique_ptr<graphics::IWindow>   m_Window;                    // The main window
-    std::unique_ptr<graphics::IRenderer> m_Renderer;                  // The actual renderer
-    GraphicsBackend                      m_Backend{GraphicsBackend::SDL}; // The backend in use
-    bool                                 m_BackendInitialized{false}; // Whether the backend subsystem is up
+    std::unique_ptr<IWindow>   m_Window;                    // The main window
+    std::unique_ptr<IRenderer> m_Renderer;                  // The actual renderer
+    GraphicsBackend            m_Backend{GraphicsBackend::SDL}; // The backend in use
+    bool                       m_BackendInitialized{false}; // Whether the backend subsystem is up
 
 public:
     inline ~VideoSystem() { Shutdown(); }
@@ -40,10 +40,10 @@ public:
     void Shutdown();
 
     // Returns a reference to the renderer
-    graphics::IRenderer& GetRenderer();
+    IRenderer& GetRenderer();
 
     // Returns a const reference to the renderer
-    graphics::IRenderer const& GetRenderer() const;
+    IRenderer const& GetRenderer() const;
 };
 
 }

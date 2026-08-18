@@ -13,8 +13,8 @@
 namespace
 {
 
-using asge::graphics::IRenderer;
-using asge::graphics::IWindow;
+using asge::video::IRenderer;
+using asge::video::IWindow;
 using asge::graphics::RGBA_Color;
 
 class FakeWindow final : public IWindow

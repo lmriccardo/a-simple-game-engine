@@ -1,9 +1,9 @@
 #include "SDLWindow.hpp"
 #include "../../../VideoError.hpp"
 
-using namespace asge::graphics;
+using namespace asge::video;
 
-asge::graphics::SDLWindow::SDLWindow(std::string const& inTitle, int inWidth, int inHeight)
+asge::video::SDLWindow::SDLWindow(std::string const& inTitle, int inWidth, int inHeight)
 {
     m_Window = SDL_CreateWindow(inTitle.c_str(), inWidth, inHeight, 0);
     if (!m_Window)
@@ -12,13 +12,13 @@ asge::graphics::SDLWindow::SDLWindow(std::string const& inTitle, int inWidth, in
     }
 }
 
-asge::graphics::SDLWindow::SDLWindow(SDLWindow &&inOther)
+asge::video::SDLWindow::SDLWindow(SDLWindow &&inOther)
 : m_Window(inOther.m_Window)
 {
     inOther.m_Window = nullptr;
 }
 
-SDLWindow &asge::graphics::SDLWindow::operator=(SDLWindow &&inOther)
+SDLWindow &asge::video::SDLWindow::operator=(SDLWindow &&inOther)
 {
     if ( this != &inOther )
     {
@@ -30,17 +30,17 @@ SDLWindow &asge::graphics::SDLWindow::operator=(SDLWindow &&inOther)
     return *this;
 }
 
-asge::graphics::SDLWindow::~SDLWindow()
+asge::video::SDLWindow::~SDLWindow()
 {
     Destroy();
 }
 
-void* asge::graphics::SDLWindow::NativeHandle() const
+void* asge::video::SDLWindow::NativeHandle() const
 {
     return m_Window;
 }
 
-asge::math::Int2 asge::graphics::SDLWindow::Size() const
+asge::math::Int2 asge::video::SDLWindow::Size() const
 {
     int width{0};
     int height{0};
@@ -52,12 +52,12 @@ asge::math::Int2 asge::graphics::SDLWindow::Size() const
     return math::Int2{ width, height };
 }
 
-bool asge::graphics::SDLWindow::IsValid() const
+bool asge::video::SDLWindow::IsValid() const
 {
     return m_Window != nullptr;
 }
 
-void asge::graphics::SDLWindow::Destroy()
+void asge::video::SDLWindow::Destroy()
 {
     if (m_Window)
     {

@@ -4,7 +4,7 @@
 #include <string>
 #include <SDL3/SDL.h>
 
-namespace asge::graphics
+namespace asge::video
 {
 
 /**
@@ -26,10 +26,10 @@ public:
     SDLRenderer(SDLRenderer const& inOther) = delete;
     SDLRenderer& operator=(SDLRenderer const& inOther) = delete;
 
-    void Clear(RGBA_Color const& inColor) const override;
-    void DrawRect(math::Rect const& inRect, RGBA_Color const& inColor, bool inFill) const override;
-    void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2,RGBA_Color const& inColor) const override;
-    void DrawCircle(math::Int2 const& inCenter, int inRadius,RGBA_Color const& inColor, bool inFill) const override;
+    void Clear(graphics::RGBA_Color const& inColor) const override;
+    void DrawRect(math::Rect const& inRect, graphics::RGBA_Color const& inColor, bool inFill) const override;
+    void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2, graphics::RGBA_Color const& inColor) const override;
+    void DrawCircle(math::Int2 const& inCenter, int inRadius, graphics::RGBA_Color const& inColor, bool inFill) const override;
 
     void Present() const override;
     bool IsValid() const override;
@@ -38,4 +38,4 @@ public:
     void Destroy();
 };
 
-} // namespace asge::graphics
+} // namespace asge::video

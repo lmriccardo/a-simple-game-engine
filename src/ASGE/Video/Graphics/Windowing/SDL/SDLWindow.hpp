@@ -4,7 +4,7 @@
 #include <string>
 #include <SDL3/SDL.h>
 
-namespace asge::graphics
+namespace asge::video
 {
 
 /**
@@ -34,4 +34,4 @@ public:
     void Destroy();
 };
 
-} // namespace asge::graphics
+} // namespace asge::video

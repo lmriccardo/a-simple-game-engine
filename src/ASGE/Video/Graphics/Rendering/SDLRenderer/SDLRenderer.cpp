@@ -3,9 +3,9 @@
 
 #include <unordered_map>
 
-using namespace asge::graphics;
+using namespace asge::video;
 
-asge::graphics::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
+asge::video::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
 {
     m_Renderer = SDL_CreateRenderer(inWindow, nullptr);
     if (!m_Renderer)
@@ -14,13 +14,13 @@ asge::graphics::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
     }
 }
 
-asge::graphics::SDLRenderer::SDLRenderer(SDLRenderer &&inOther)
+asge::video::SDLRenderer::SDLRenderer(SDLRenderer &&inOther)
 : m_Renderer(inOther.m_Renderer)
 {
     inOther.m_Renderer = nullptr;
 }
 
-SDLRenderer &asge::graphics::SDLRenderer::operator=(SDLRenderer &&inOther)
+SDLRenderer &asge::video::SDLRenderer::operator=(SDLRenderer &&inOther)
 {
     if ( this != &inOther )
     {
@@ -32,12 +32,12 @@ SDLRenderer &asge::graphics::SDLRenderer::operator=(SDLRenderer &&inOther)
     return *this;
 }
 
-asge::graphics::SDLRenderer::~SDLRenderer()
+asge::video::SDLRenderer::~SDLRenderer()
 {
     Destroy();
 }
 
-void asge::graphics::SDLRenderer::Clear(RGBA_Color const& inColor) const
+void asge::video::SDLRenderer::Clear(graphics::RGBA_Color const& inColor) const
 {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -50,8 +50,8 @@ void asge::graphics::SDLRenderer::Clear(RGBA_Color const& inColor) const
     }
 }
 
-void asge::graphics::SDLRenderer::DrawRect(
-    math::Rect const& inRect, RGBA_Color const &inColor, bool inFill
+void asge::video::SDLRenderer::DrawRect(
+    math::Rect const& inRect, graphics::RGBA_Color const &inColor, bool inFill
 ) const {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -73,8 +73,8 @@ void asge::graphics::SDLRenderer::DrawRect(
     }
 }
 
-void asge::graphics::SDLRenderer::DrawLine(
-    math::Float2 const &inC1, math::Float2 const &inC2, RGBA_Color const& inColor
+void asge::video::SDLRenderer::DrawLine(
+    math::Float2 const &inC1, math::Float2 const &inC2, graphics::RGBA_Color const& inColor
 ) const {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -87,8 +87,8 @@ void asge::graphics::SDLRenderer::DrawLine(
     }
 }
 
-void asge::graphics::SDLRenderer::DrawCircle(
-    math::Int2 const& inCenter, int inRadius, RGBA_Color const &inColor, bool inFill
+void asge::video::SDLRenderer::DrawCircle(
+    math::Int2 const& inCenter, int inRadius, graphics::RGBA_Color const &inColor, bool inFill
 ) const {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -140,7 +140,7 @@ void asge::graphics::SDLRenderer::DrawCircle(
     }
 }
 
-void asge::graphics::SDLRenderer::Present() const
+void asge::video::SDLRenderer::Present() const
 {
     if (!SDL_RenderPresent(m_Renderer))
     {
@@ -148,12 +148,12 @@ void asge::graphics::SDLRenderer::Present() const
     }
 }
 
-bool asge::graphics::SDLRenderer::IsValid() const
+bool asge::video::SDLRenderer::IsValid() const
 {
     return m_Renderer != nullptr;
 }
 
-void asge::graphics::SDLRenderer::Destroy()
+void asge::video::SDLRenderer::Destroy()
 {
     if (m_Renderer)
     {
