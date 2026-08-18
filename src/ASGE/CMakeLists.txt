@@ -9,7 +9,8 @@ add_library(ASGE STATIC
     # Video and Graphic portion with Renderers and others
     Video/VideoSystem.cpp
     Video/Graphics/GraphicsFactory.cpp
-    Video/Graphics/Rendering/SDLRenderer/SDLRenderer.cpp
+    Video/Graphics/Rendering/SDL/SDLRenderer.cpp
+    Video/Graphics/Rendering/SDL/SDLTexture.cpp
     Video/Graphics/Windowing/SDL/SDLWindow.cpp
 
     # Engine Logger

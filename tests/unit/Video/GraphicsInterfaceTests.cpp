@@ -1,5 +1,7 @@
 #include <ASGE/Video/Graphics/Window.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Texture.hpp>
+#include <ASGE/Core/Graphics/Image.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 
 #include <gtest/gtest.h>
@@ -14,7 +16,10 @@ namespace
 {
 
 using asge::video::IRenderer;
+using asge::video::ITexture;
 using asge::video::IWindow;
+using asge::graphics::Image;
+using asge::graphics::PixelFormat;
 using asge::graphics::RGBA_Color;
 
 class FakeWindow final : public IWindow
@@ -33,6 +38,22 @@ public:
     bool IsValid() const override { return m_Valid; }
 };
 
+class FakeTexture final : public ITexture
+{
+private:
+    asge::math::Int2 m_Size;
+    bool m_Valid;
+
+public:
+    FakeTexture(asge::math::Int2 inSize = {1, 1}, bool inValid = true)
+    : m_Size(inSize), m_Valid(inValid)
+    {}
+
+    [[nodiscard]] asge::math::Int2 Size() const noexcept override { return m_Size; }
+    [[nodiscard]] void* NativeHandle() const noexcept override { return const_cast<FakeTexture*>(this); }
+    [[nodiscard]] bool IsValid() const noexcept override { return m_Valid; }
+};
+
 class FakeRenderer final : public IRenderer
 {
 public:
@@ -40,6 +61,12 @@ public:
     mutable int s_DrawRectCalls{0};
     mutable int s_DrawLineCalls{0};
     mutable int s_DrawCircleCalls{0};
+    mutable int s_DrawTextureRectCalls{0};
+    mutable int s_DrawTexturePositionCalls{0};
+    mutable int s_DrawTexture9GridCalls{0};
+    mutable int s_DrawTextureTiledCalls{0};
+    mutable int s_DrawTextureAffineCalls{0};
+    mutable int s_CreateTextureCalls{0};
     mutable int s_PresentCalls{0};
     mutable RGBA_Color s_LastClearColor{};
     bool s_Valid;
@@ -67,8 +94,43 @@ public:
         ++s_DrawCircleCalls;
     }
 
+    void DrawTexture(ITexture const&, asge::math::Rect const&) const noexcept override
+    {
+        ++s_DrawTextureRectCalls;
+    }
+
+    void DrawTexture(ITexture const&, asge::math::Float2 const&) const noexcept override
+    {
+        ++s_DrawTexturePositionCalls;
+    }
+
+    void DrawTexture9Grid(
+        ITexture const&, float, float, float, float, asge::math::Rect const&
+    ) const noexcept override
+    {
+        ++s_DrawTexture9GridCalls;
+    }
+
+    void DrawTextureTiled(ITexture const&, float, asge::math::Rect const&) const noexcept override
+    {
+        ++s_DrawTextureTiledCalls;
+    }
+
+    void DrawTextureAffine(
+        ITexture const&, asge::math::Float2 const&, asge::math::Float2 const&, asge::math::Float2 const&
+    ) const noexcept override
+    {
+        ++s_DrawTextureAffineCalls;
+    }
+
+    [[nodiscard]] std::unique_ptr<ITexture> CreateTexture(Image const&) const noexcept override
+    {
+        ++s_CreateTextureCalls;
+        return std::make_unique<FakeTexture>();
+    }
+
     void Present() const override { ++s_PresentCalls; }
-    bool IsValid() const override { return s_Valid; }
+    [[nodiscard]] bool IsValid() const override { return s_Valid; }
 };
 
 TEST(GraphicsInterfaceTest, WindowIsUsablePolymorphicallyThroughIWindow)
@@ -81,14 +143,35 @@ TEST(GraphicsInterfaceTest, WindowIsUsablePolymorphicallyThroughIWindow)
     EXPECT_NE(window->NativeHandle(), nullptr);
 }
 
+TEST(GraphicsInterfaceTest, TextureIsUsablePolymorphicallyThroughITexture)
+{
+    std::unique_ptr<ITexture> texture = std::make_unique<FakeTexture>(asge::math::Int2{64, 32}, true);
+
+    EXPECT_TRUE(texture->IsValid());
+    EXPECT_EQ(texture->Size().x(), 64);
+    EXPECT_EQ(texture->Size().y(), 32);
+    EXPECT_NE(texture->NativeHandle(), nullptr);
+}
+
 TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
 {
     std::unique_ptr<IRenderer> renderer = std::make_unique<FakeRenderer>(true);
+
+    Image::data_t pixels(1 * 1 * 4, std::uint8_t{0});
+    Image image(1, 1, PixelFormat::RGBA8, pixels);
+    auto texture = renderer->CreateTexture(image);
+    ASSERT_NE(texture, nullptr);
 
     renderer->Clear(RGBA_Color{10, 20, 30, 255});
     renderer->DrawRect(asge::math::Rect{0.0F, 0.0F, 64.0F, 64.0F}, RGBA_Color{}, false);
     renderer->DrawLine(asge::math::Float2{0.0F, 0.0F}, asge::math::Float2{1.0F, 1.0F}, RGBA_Color{});
     renderer->DrawCircle(asge::math::Int2{0, 0}, 8, RGBA_Color{}, false);
+    renderer->DrawTexture(*texture, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
+    renderer->DrawTexture(*texture, asge::math::Float2{0.0F, 0.0F});
+    renderer->DrawTexture9Grid(*texture, 4.0F, 4.0F, 4.0F, 4.0F, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
+    renderer->DrawTextureTiled(*texture, 1.0F, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
+    renderer->DrawTextureAffine(*texture,
+        asge::math::Float2{0.0F, 0.0F}, asge::math::Float2{32.0F, 0.0F}, asge::math::Float2{0.0F, 32.0F});
     renderer->Present();
 
     auto const& fake = static_cast<FakeRenderer const&>(*renderer);
@@ -96,6 +179,12 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     EXPECT_EQ(fake.s_DrawRectCalls, 1);
     EXPECT_EQ(fake.s_DrawLineCalls, 1);
     EXPECT_EQ(fake.s_DrawCircleCalls, 1);
+    EXPECT_EQ(fake.s_CreateTextureCalls, 1);
+    EXPECT_EQ(fake.s_DrawTextureRectCalls, 1);
+    EXPECT_EQ(fake.s_DrawTexturePositionCalls, 1);
+    EXPECT_EQ(fake.s_DrawTexture9GridCalls, 1);
+    EXPECT_EQ(fake.s_DrawTextureTiledCalls, 1);
+    EXPECT_EQ(fake.s_DrawTextureAffineCalls, 1);
     EXPECT_EQ(fake.s_PresentCalls, 1);
     EXPECT_EQ(fake.s_LastClearColor.r, 10);
     EXPECT_TRUE(renderer->IsValid());

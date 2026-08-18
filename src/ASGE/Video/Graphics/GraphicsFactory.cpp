@@ -1,7 +1,7 @@
 #include "GraphicsFactory.hpp"
 #include "../VideoError.hpp"
 #include "Windowing/SDL/SDLWindow.hpp"
-#include "Rendering/SDLRenderer/SDLRenderer.hpp"
+#include "Rendering/SDL/SDLRenderer.hpp"
 
 using namespace asge::video;
 
