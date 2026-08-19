@@ -1,11 +1,12 @@
 #include "SDLTexture.hpp"
 #include "../RenderError.hpp"
+#include "SDLPixelFormat.hpp"
 
 asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, graphics::Image const &inImage)
 {
     auto const dims = inImage.Dimensions();
     m_Handle = SDL_CreateTexture(
-        inRenderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
+        inRenderer, MapPixelFormat(inImage.Format()), SDL_TEXTUREACCESS_STATIC,
         dims.x(), dims.y()
     );
 
@@ -14,9 +15,10 @@ asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, graphics::Image co
         LogError( make_error_code( errors::RenderError::TextureCreationFailed ), SDL_GetError() );
         return;
     }
-    
-    bool updateResult = SDL_UpdateTexture( m_Handle, nullptr, inImage.Data(),
-        static_cast<int>(inImage.Stride()) );
+
+    auto const upload = ExpandPixelsForUpload( inImage );
+    bool updateResult = SDL_UpdateTexture( m_Handle, nullptr, upload.s_Data.data(),
+        static_cast<int>(upload.s_Stride) );
 
     if ( !updateResult )
     {

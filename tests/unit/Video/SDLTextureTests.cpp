@@ -2,6 +2,7 @@
 
 #include <ASGE/Video/Graphics/Rendering/SDL/SDLTexture.hpp>
 #include <ASGE/Core/Graphics/Image.hpp>
+#include <ASGE/Core/Math/Math.hpp>
 
 #include <gtest/gtest.h>
 
@@ -23,6 +24,12 @@ Image MakeImage(std::size_t inW, std::size_t inH, std::uint8_t inFill = 128)
 {
     Image::data_t pixels(inW * inH * 4, inFill);
     return Image(inW, inH, PixelFormat::RGBA8, pixels);
+}
+
+Image MakeA8Image(std::size_t inW, std::size_t inH, std::uint8_t inFill)
+{
+    Image::data_t pixels(inW * inH, inFill);
+    return Image(inW, inH, PixelFormat::A8, pixels);
 }
 
 // SDLTexture's constructor takes a raw SDL_Renderer*, not IRenderer -- these
@@ -93,6 +100,51 @@ TEST_F(SDLTextureTest, MoveConstructionLeavesSourceInert)
 
     EXPECT_TRUE(moved.IsValid());
     EXPECT_EQ(original.NativeHandle(), nullptr);
+}
+
+TEST_F(SDLTextureTest, A8ImageProducesUsableTexture)
+{
+    // SDL3 rejects palettized textures outright (SDL_PIXELFORMAT_INDEX8 ->
+    // "Palettized textures are not supported", confirmed empirically), so
+    // A8 images upload as RGBA32 via SDLPixelFormat's expansion. Construction
+    // succeeding at all is the first proof that path works.
+    auto image = MakeA8Image(4, 4, 200);
+    SDLTexture texture(m_Renderer, image);
+
+    EXPECT_TRUE(texture.IsValid());
+    EXPECT_EQ(texture.Size().x(), 4);
+    EXPECT_EQ(texture.Size().y(), 4);
+}
+
+TEST_F(SDLTextureTest, A8ImageRendersAsWhiteMaskedByItsAlphaByte)
+{
+    // End-to-end proof, not just construction: a fully-opaque (255) A8 pixel
+    // should composite as opaque white over a black background, which is
+    // only true if ExpandPixelsForUpload actually placed the source byte in
+    // the alpha channel (RGB=255,255,255) rather than, say, misreading raw
+    // single-channel bytes as packed RGBA garbage.
+    auto image = MakeA8Image(2, 2, 255);
+    SDLTexture texture(m_Renderer, image);
+    ASSERT_TRUE(texture.IsValid());
+
+    ASSERT_TRUE(SDL_SetRenderDrawColor(m_Renderer, 0, 0, 0, 255));
+    ASSERT_TRUE(SDL_RenderClear(m_Renderer));
+
+    auto* sdlTexture = static_cast<SDL_Texture*>(texture.NativeHandle());
+    SDL_FRect dst{0.0f, 0.0f, 8.0f, 8.0f};
+    ASSERT_TRUE(SDL_RenderTexture(m_Renderer, sdlTexture, nullptr, &dst));
+    ASSERT_TRUE(SDL_RenderPresent(m_Renderer));
+
+    SDL_Surface* surface = SDL_RenderReadPixels(m_Renderer, nullptr);
+    ASSERT_NE(surface, nullptr);
+
+    Uint8 r, g, b, a;
+    ASSERT_TRUE(SDL_ReadSurfacePixel(surface, 4, 4, &r, &g, &b, &a));
+    EXPECT_GT(r, 200);
+    EXPECT_GT(g, 200);
+    EXPECT_GT(b, 200);
+
+    SDL_DestroySurface(surface);
 }
 
 TEST_F(SDLTextureTest, MoveAssignmentTransfersHandleAndLeavesSourceInert)
