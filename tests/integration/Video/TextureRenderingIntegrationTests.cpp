@@ -15,7 +15,7 @@
 #include <vector>
 
 // End-to-end coverage for the texture pipeline: a real BMP file on disk,
-// decoded through ReadImage, uploaded via SDLRenderer::CreateTexture, and
+// decoded through Image::Load, uploaded via SDLRenderer::CreateTexture, and
 // drawn through every IRenderer texture variant against a real (headless)
 // SDL renderer -- the automated version of what examples/texture_demo shows
 // a human by eye. Unit-level pieces (decode correctness, SDLTexture/
@@ -25,7 +25,7 @@
 namespace
 {
 
-using asge::graphics::ReadImage;
+using asge::graphics::Image;
 using asge::graphics::RGBA_Color;
 using asge::video::SDLRenderer;
 
@@ -116,7 +116,7 @@ protected:
 
 TEST_F(TextureRenderingIntegrationTest, FullPipelineFromDiskToRenderedPixelsProducesNoErrors)
 {
-    auto imageResult = ReadImage(m_ImagePath);
+    auto imageResult = Image::Load(m_ImagePath);
     ASSERT_TRUE(imageResult.IsOk());
 
     SDLRenderer renderer(m_Window);
@@ -149,7 +149,7 @@ TEST_F(TextureRenderingIntegrationTest, FullPipelineFromDiskToRenderedPixelsProd
 
 TEST_F(TextureRenderingIntegrationTest, EveryDrawTextureVariantRunsAgainstARealDecodedTexture)
 {
-    auto imageResult = ReadImage(m_ImagePath);
+    auto imageResult = Image::Load(m_ImagePath);
     ASSERT_TRUE(imageResult.IsOk());
 
     SDLRenderer renderer(m_Window);
@@ -173,20 +173,20 @@ TEST_F(TextureRenderingIntegrationTest, EveryDrawTextureVariantRunsAgainstARealD
         << "expected no LogError output, got: " << capture.Str();
 }
 
-// Mirrors texture_demo's LoadTexture(): a failed ReadImage is expected to be
+// Mirrors texture_demo's LoadTexture(): a failed Image::Load is expected to be
 // handled by the caller (LogError + nullptr, no CreateTexture call) rather
 // than left to corrupt renderer state for whatever gets drawn afterward.
 TEST_F(TextureRenderingIntegrationTest, MissingAssetLeavesRendererUsableForSubsequentDraws)
 {
     auto missingPath = m_ImagePath;
     missingPath += ".missing";
-    auto missingResult = ReadImage(missingPath);
+    auto missingResult = Image::Load(missingPath);
     ASSERT_FALSE(missingResult.IsOk());
 
     SDLRenderer renderer(m_Window);
     ASSERT_TRUE(renderer.IsValid());
 
-    auto goodResult = ReadImage(m_ImagePath);
+    auto goodResult = Image::Load(m_ImagePath);
     ASSERT_TRUE(goodResult.IsOk());
     auto texture = renderer.CreateTexture(goodResult.Value());
     ASSERT_TRUE(texture->IsValid());

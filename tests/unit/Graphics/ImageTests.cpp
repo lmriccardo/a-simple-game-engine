@@ -95,9 +95,14 @@ void ExpectDecodedSolidRedImage(Image const& inImage)
     EXPECT_EQ(pixels[3], 255); // A
 }
 
-TEST(PixelFormatTest, BytesPerPixel_RGBA8_Is4)
+TEST(PixelFormatTest, RGBA8_IsFourBytesPerPixel)
 {
-    EXPECT_EQ(BytesPerPixel(PixelFormat::RGBA8), 4u);
+    EXPECT_EQ(PixelFormatInfoFor(PixelFormat::RGBA8).s_BytesPerPixel, 4u);
+}
+
+TEST(PixelFormatTest, A8_IsOneBytePerPixel)
+{
+    EXPECT_EQ(PixelFormatInfoFor(PixelFormat::A8).s_BytesPerPixel, 1u);
 }
 
 TEST(ImageTest, Stride_MatchesWidthTimesBytesPerPixel)
@@ -108,6 +113,16 @@ TEST(ImageTest, Stride_MatchesWidthTimesBytesPerPixel)
     EXPECT_EQ(image.Stride(), 12u);
     EXPECT_EQ(image.Dimensions().x(), 3);
     EXPECT_EQ(image.Dimensions().y(), 2);
+}
+
+TEST(ImageTest, Stride_UsesFormatSpecificBytesPerPixel_ForA8)
+{
+    // Guards Stride() actually consulting PixelFormatInfoFor per-format,
+    // rather than assuming RGBA8's 4 bytes/pixel for every format.
+    Image::data_t data(3 * 2 * 1, std::uint8_t{0});
+    Image image(3, 2, PixelFormat::A8, data);
+
+    EXPECT_EQ(image.Stride(), 3u);
 }
 
 TEST(DecodeImageTest, InvalidBytesReturnsDecodeFailedError)
@@ -154,7 +169,7 @@ protected:
 
 TEST_F(ReadImageTest, NonExistentPathReturnsError)
 {
-    auto result = ReadImage(m_ImagePath);
+    auto result = Image::Load(m_ImagePath);
     EXPECT_FALSE(result.IsOk());
 }
 
@@ -162,7 +177,7 @@ TEST_F(ReadImageTest, ValidBmpFileDecodesSuccessfully)
 {
     WriteSolidRedBmp();
 
-    auto result = ReadImage(m_ImagePath);
+    auto result = Image::Load(m_ImagePath);
 
     ASSERT_TRUE(result.IsOk());
     ExpectDecodedSolidRedImage(result.Value());

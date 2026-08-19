@@ -24,7 +24,7 @@ add_library(ASGE STATIC
     Core/Math/Geometry/Circle.cpp
 
     # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
-    Core/Graphics/PixelFormat.cpp
+    # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
     Core/Graphics/Image.cpp
 
     # Concurrency utilities

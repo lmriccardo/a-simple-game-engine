@@ -12,7 +12,7 @@ int main()
     asge::filesystem::Path const imagePath =
         std::filesystem::path(ASGE_IMAGE_INFO_ASSET_DIR) / "checker.bmp";
 
-    auto result = ReadImage(imagePath);
+    auto result = Image::Load(imagePath);
     if (!result)
     {
         result.LogError();

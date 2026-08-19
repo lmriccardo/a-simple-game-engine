@@ -22,7 +22,7 @@ std::unique_ptr<asge::video::ITexture> LoadTexture(
     // ASGE_TEXTURE_DEMO_ASSET_DIR is injected by CMakeLists.txt.
     auto const path = std::filesystem::path(ASGE_TEXTURE_DEMO_ASSET_DIR) / inFileName;
 
-    auto imageResult = asge::graphics::ReadImage(path);
+    auto imageResult = asge::graphics::Image::Load(path);
     if (!imageResult)
     {
         imageResult.LogError();
