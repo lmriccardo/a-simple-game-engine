@@ -54,7 +54,7 @@ add_library(ASGE STATIC
 add_library(ASGE::ASGE ALIAS ASGE)
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
-target_link_libraries(ASGE PRIVATE stb::image)
+target_link_libraries(ASGE PRIVATE stb::stb)
 target_include_directories(ASGE
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>"
@@ -62,7 +62,7 @@ target_include_directories(ASGE
 
 if(ASGE_INSTALL)
     install(
-        TARGETS ASGE stb_image
+        TARGETS ASGE stb
         EXPORT ASGETargets
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
