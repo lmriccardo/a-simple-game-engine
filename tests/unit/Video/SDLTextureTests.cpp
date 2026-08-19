@@ -18,6 +18,7 @@ namespace
 
 using asge::graphics::Image;
 using asge::graphics::PixelFormat;
+using asge::graphics::RGBA_Color;
 using asge::video::SDLTexture;
 
 Image MakeImage(std::size_t inW, std::size_t inH, std::uint8_t inFill = 128)
@@ -143,6 +144,53 @@ TEST_F(SDLTextureTest, A8ImageRendersAsWhiteMaskedByItsAlphaByte)
     EXPECT_GT(r, 200);
     EXPECT_GT(g, 200);
     EXPECT_GT(b, 200);
+
+    SDL_DestroySurface(surface);
+}
+
+TEST_F(SDLTextureTest, GetColorModRoundTripsWhatSetColorModWrote)
+{
+    auto image = MakeImage(2, 2);
+    SDLTexture texture(m_Renderer, image);
+    ASSERT_TRUE(texture.IsValid());
+
+    texture.SetColorMod(RGBA_Color{200, 100, 50, 25});
+
+    auto modResult = texture.GetColorMod();
+    ASSERT_TRUE(modResult.IsOk());
+    EXPECT_EQ(modResult.Value().r, 200);
+    EXPECT_EQ(modResult.Value().g, 100);
+    EXPECT_EQ(modResult.Value().b, 50);
+    EXPECT_EQ(modResult.Value().a, 25);
+}
+
+TEST_F(SDLTextureTest, SetColorModTintsSubsequentlyRenderedPixels)
+{
+    // End-to-end proof for DrawText's whole approach: it tints a shared
+    // white/alpha-only atlas via SetColorMod rather than baking color into
+    // the texture itself. A white source pixel modulated by (255,0,0)
+    // should render as pure red, not white.
+    auto image = MakeImage(2, 2, 255); // opaque white
+    SDLTexture texture(m_Renderer, image);
+    ASSERT_TRUE(texture.IsValid());
+    texture.SetColorMod(RGBA_Color{255, 0, 0, 255});
+
+    ASSERT_TRUE(SDL_SetRenderDrawColor(m_Renderer, 0, 0, 0, 255));
+    ASSERT_TRUE(SDL_RenderClear(m_Renderer));
+
+    auto* sdlTexture = static_cast<SDL_Texture*>(texture.NativeHandle());
+    SDL_FRect dst{0.0f, 0.0f, 8.0f, 8.0f};
+    ASSERT_TRUE(SDL_RenderTexture(m_Renderer, sdlTexture, nullptr, &dst));
+    ASSERT_TRUE(SDL_RenderPresent(m_Renderer));
+
+    SDL_Surface* surface = SDL_RenderReadPixels(m_Renderer, nullptr);
+    ASSERT_NE(surface, nullptr);
+
+    Uint8 r, g, b, a;
+    ASSERT_TRUE(SDL_ReadSurfacePixel(surface, 4, 4, &r, &g, &b, &a));
+    EXPECT_GT(r, 200);
+    EXPECT_LT(g, 50);
+    EXPECT_LT(b, 50);
 
     SDL_DestroySurface(surface);
 }

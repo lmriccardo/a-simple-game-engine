@@ -1,5 +1,6 @@
 add_executable(ASGE_GraphicsTests
     ImageTests.cpp
+    FontTests.cpp
 )
 
 target_link_libraries(ASGE_GraphicsTests
@@ -7,6 +8,9 @@ target_link_libraries(ASGE_GraphicsTests
         ASGE
         GTest::gtest_main
 )
+
+target_compile_definitions(ASGE_GraphicsTests
+    PRIVATE ASGE_TEST_FONTS_DIR="${CMAKE_SOURCE_DIR}/tests/support/fonts")
 
 target_compile_options(ASGE_GraphicsTests
     PRIVATE

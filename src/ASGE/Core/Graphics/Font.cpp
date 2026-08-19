@@ -32,8 +32,17 @@ asge::Result<asge::graphics::Font> asge::graphics::Font::Load(const filesystem::
 
     // Parse the font's internal tables (glyf/loca/cmap/...); only needed
     // here to query vertical metrics below -- baking below doesn't use it.
+    //
+    // stbtt_GetFontOffsetForIndex validates the first 4 bytes against known
+    // sfnt tags before anything else touches the buffer, returning -1 for
+    // non-font data -- required here, not optional: stbtt_InitFont has no
+    // buffer-length parameter and does no bounds checking of its own, so
+    // calling it with a hardcoded offset of 0 on malformed/truncated input
+    // reads past the buffer instead of failing cleanly (confirmed via a
+    // crash on garbage input before this fix).
+    int const fontOffset = stbtt_GetFontOffsetForIndex( fontData, 0 );
     stbtt_fontinfo fontInfo;
-    if ( !stbtt_InitFont( &fontInfo, fontData, 0 ) )
+    if ( fontOffset < 0 || !stbtt_InitFont( &fontInfo, fontData, fontOffset ) )
     {
         auto const ec = make_error_code(errors::FontError::InitFailed);
         return Result<Font>::Err(ec, str::ToUTF8(inPath.u8string()));
