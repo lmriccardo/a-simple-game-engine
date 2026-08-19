@@ -66,7 +66,7 @@ asge::Result<asge::graphics::Font> asge::graphics::Font::Load(const filesystem::
     }
 
     // Convert stb's per-glyph bake data into our own GlyphMetrics, keyed
-    // by codepoint so DrawText can look glyphs up directly later.
+    // by codepoint so DrawString can look glyphs up directly later.
     std::unordered_map<char32_t, GlyphMetrics> glyphs;
     glyphs.reserve(static_cast<std::size_t>(kNumChars));
 

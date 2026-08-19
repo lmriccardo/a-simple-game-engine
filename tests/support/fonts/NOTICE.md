@@ -11,5 +11,5 @@ Ahem is maintained by the W3C (http://www.w3.org) specifically for use in
 automated rendering tests: every glyph is a solid black square filling its
 character cell (with a few deliberate exceptions for specific test cases),
 which makes rendered output pixel-predictable -- exactly what's needed here
-to assert DrawText actually draws the glyphs it claims to, not just that the
+to assert DrawString actually draws the glyphs it claims to, not just that the
 calls don't crash.

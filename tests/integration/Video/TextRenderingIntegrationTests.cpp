@@ -12,11 +12,11 @@
 
 // End-to-end coverage for the text-rendering pipeline: a real TTF file on
 // disk, baked through Font::Load, its glyph atlas uploaded via
-// SDLRenderer::CreateTexture, and drawn through DrawText against a real
+// SDLRenderer::CreateTexture, and drawn through DrawString against a real
 // (headless) SDL renderer -- mirroring TextureRenderingIntegrationTests.cpp,
-// but for text. Unit-level pieces (baking correctness, DrawText's glyph
+// but for text. Unit-level pieces (baking correctness, DrawString's glyph
 // lookup/skip behavior) are covered by FontTests.cpp and
-// SDLRendererTextureTests.cpp's DrawTextTest respectively; this test only
+// SDLRendererTextureTests.cpp's DrawStringTest respectively; this test only
 // cares that the pieces work when wired together, same as its texture
 // counterpart.
 namespace
@@ -57,7 +57,7 @@ TEST_F(TextRenderingIntegrationTest, FullPipelineFromDiskToRenderedGlyphProduces
 
     asge::math::Float2 const pen{10.0f, 40.0f};
     renderer.Clear(RGBA_Color{0, 0, 0, 255});
-    renderer.DrawText("A", font, *atlasTexture, pen, RGBA_Color{0, 200, 0, 255});
+    renderer.DrawString("A", font, *atlasTexture, pen, RGBA_Color{0, 200, 0, 255});
     renderer.Present();
 
     EXPECT_TRUE(capture.Str().empty())
@@ -94,7 +94,7 @@ TEST_F(TextRenderingIntegrationTest, DrawsAWholeWordAcrossMultipleGlyphs)
 
     asge::test::CapturedStdout capture;
     renderer.Clear(RGBA_Color{0, 0, 0, 255});
-    renderer.DrawText("TEST", font, *atlasTexture, asge::math::Float2{4.0f, 12.0f}, RGBA_Color{255, 255, 255, 255});
+    renderer.DrawString("TEST", font, *atlasTexture, asge::math::Float2{4.0f, 12.0f}, RGBA_Color{255, 255, 255, 255});
     renderer.Present();
 
     EXPECT_TRUE(capture.Str().empty()) << capture.Str();

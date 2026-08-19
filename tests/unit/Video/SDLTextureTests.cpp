@@ -166,7 +166,7 @@ TEST_F(SDLTextureTest, GetColorModRoundTripsWhatSetColorModWrote)
 
 TEST_F(SDLTextureTest, SetColorModTintsSubsequentlyRenderedPixels)
 {
-    // End-to-end proof for DrawText's whole approach: it tints a shared
+    // End-to-end proof for DrawString's whole approach: it tints a shared
     // white/alpha-only atlas via SetColorMod rather than baking color into
     // the texture itself. A white source pixel modulated by (255,0,0)
     // should render as pure red, not white.

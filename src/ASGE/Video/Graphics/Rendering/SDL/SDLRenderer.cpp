@@ -214,7 +214,7 @@ void asge::video::SDLRenderer::DrawTexture9Grid(
     }
 }
 
-void asge::video::SDLRenderer::DrawText(
+void asge::video::SDLRenderer::DrawString(
     str::StringView inText, graphics::Font const &inFont, ITexture &inTexture, 
     math::Float2 const &inPosition, graphics::RGBA_Color const &inColor
 ) const noexcept

@@ -12,7 +12,7 @@
 #include <utility>
 
 // Real SDL-backed coverage for IRenderer's texture pipeline (CreateTexture +
-// the DrawTexture family, including DrawText), against SDL's dummy driver +
+// the DrawTexture family, including DrawString), against SDL's dummy driver +
 // software renderer. Pixel-readback assertions (via SDL_RenderReadPixels/
 // SDL_ReadSurfacePixel) prove these calls actually render something, not
 // just that they don't crash -- see SDLHeadlessFixture.hpp for why this is
@@ -202,13 +202,13 @@ TEST_F(SDLRendererTextureTest, EveryDrawTextureVariantLogsRenderTextureFailedFor
     }
 }
 
-// DrawText builds entirely on DrawTexture(src,dst) + SetColorMod, both
+// DrawString builds entirely on DrawTexture(src,dst) + SetColorMod, both
 // already covered above against fabricated images; these tests use a real
 // baked Font (Ahem.ttf, see tests/support/fonts/NOTICE.md) so the on-screen
 // glyph rect comes from Font::GetGlyph itself rather than being guessed --
 // robust regardless of bake size, and pixel-predictable since every Ahem
 // glyph is a solid square filling its advance width.
-class DrawTextTest : public asge::test::SDLHeadlessTest
+class DrawStringTest : public asge::test::SDLHeadlessTest
 {
 protected:
     static constexpr int kPixelHeight = 16; // keeps glyphs well inside the 64x64 window
@@ -221,7 +221,7 @@ protected:
     }
 };
 
-TEST_F(DrawTextTest, RendersGlyphPixelsTintedByRequestedColor)
+TEST_F(DrawStringTest, RendersGlyphPixelsTintedByRequestedColor)
 {
     SDLRenderer renderer(m_Window);
     ASSERT_TRUE(renderer.IsValid());
@@ -236,7 +236,7 @@ TEST_F(DrawTextTest, RendersGlyphPixelsTintedByRequestedColor)
 
     asge::math::Float2 const pen{10.0f, 40.0f}; // baseline pen position
     renderer.Clear(RGBA_Color{0, 0, 0, 255});
-    renderer.DrawText("A", font, *atlasTexture, pen, RGBA_Color{0, 200, 0, 255});
+    renderer.DrawString("A", font, *atlasTexture, pen, RGBA_Color{0, 200, 0, 255});
     renderer.Present();
 
     // Sample the center of the glyph's actual on-screen rect, derived from
@@ -258,7 +258,7 @@ TEST_F(DrawTextTest, RendersGlyphPixelsTintedByRequestedColor)
     SDL_DestroySurface(surface);
 }
 
-TEST_F(DrawTextTest, AppliesRequestedColorAsAtlasColorMod)
+TEST_F(DrawStringTest, AppliesRequestedColorAsAtlasColorMod)
 {
     SDLRenderer renderer(m_Window);
     ASSERT_TRUE(renderer.IsValid());
@@ -267,7 +267,7 @@ TEST_F(DrawTextTest, AppliesRequestedColorAsAtlasColorMod)
     auto atlasTexture = renderer.CreateTexture(font.GetAtlasImage());
     ASSERT_TRUE(atlasTexture->IsValid());
 
-    renderer.DrawText("A", font, *atlasTexture, asge::math::Float2{0.0f, 20.0f}, RGBA_Color{10, 20, 30, 40});
+    renderer.DrawString("A", font, *atlasTexture, asge::math::Float2{0.0f, 20.0f}, RGBA_Color{10, 20, 30, 40});
 
     auto modResult = atlasTexture->GetColorMod();
     ASSERT_TRUE(modResult.IsOk());
@@ -277,7 +277,7 @@ TEST_F(DrawTextTest, AppliesRequestedColorAsAtlasColorMod)
     EXPECT_EQ(modResult.Value().a, 40);
 }
 
-TEST_F(DrawTextTest, EmptyStringDrawsNothingAndLogsNoError)
+TEST_F(DrawStringTest, EmptyStringDrawsNothingAndLogsNoError)
 {
     SDLRenderer renderer(m_Window);
     ASSERT_TRUE(renderer.IsValid());
@@ -287,11 +287,11 @@ TEST_F(DrawTextTest, EmptyStringDrawsNothingAndLogsNoError)
     ASSERT_TRUE(atlasTexture->IsValid());
 
     asge::test::CapturedStdout capture;
-    renderer.DrawText("", font, *atlasTexture, asge::math::Float2{0.0f, 20.0f}, RGBA_Color{255, 255, 255, 255});
+    renderer.DrawString("", font, *atlasTexture, asge::math::Float2{0.0f, 20.0f}, RGBA_Color{255, 255, 255, 255});
     EXPECT_TRUE(capture.Str().empty()) << capture.Str();
 }
 
-TEST_F(DrawTextTest, CodepointsOutsideBakedRangeAreSkippedWithoutError)
+TEST_F(DrawStringTest, CodepointsOutsideBakedRangeAreSkippedWithoutError)
 {
     SDLRenderer renderer(m_Window);
     ASSERT_TRUE(renderer.IsValid());
@@ -301,9 +301,9 @@ TEST_F(DrawTextTest, CodepointsOutsideBakedRangeAreSkippedWithoutError)
     ASSERT_TRUE(atlasTexture->IsValid());
 
     // '\x01' is outside the baked ASCII 32-126 range; GetGlyph fails for it
-    // and DrawText is expected to skip it (see SDLRenderer::DrawText).
+    // and DrawString is expected to skip it (see SDLRenderer::DrawString).
     asge::test::CapturedStdout capture;
-    renderer.DrawText("A\x01""B", font, *atlasTexture,
+    renderer.DrawString("A\x01""B", font, *atlasTexture,
         asge::math::Float2{0.0f, 20.0f}, RGBA_Color{255, 255, 255, 255});
     EXPECT_TRUE(capture.Str().empty()) << capture.Str();
 }

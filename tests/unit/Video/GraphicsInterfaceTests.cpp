@@ -74,7 +74,7 @@ public:
     mutable int s_DrawTexture9GridCalls{0};
     mutable int s_DrawTextureTiledCalls{0};
     mutable int s_DrawTextureAffineCalls{0};
-    mutable int s_DrawTextCalls{0};
+    mutable int s_DrawStringCalls{0};
     mutable int s_CreateTextureCalls{0};
     mutable int s_PresentCalls{0};
     mutable RGBA_Color s_LastClearColor{};
@@ -141,10 +141,10 @@ public:
     // constructing a real graphics::Font needs actual TTF bytes via
     // Font::Load, which is out of scope for these no-SDL interface fakes.
     // The override existing at all is what keeps FakeRenderer instantiable.
-    void DrawText(asge::str::StringView, asge::graphics::Font const&, ITexture&,
+    void DrawString(asge::str::StringView, asge::graphics::Font const&, ITexture&,
         asge::math::Float2 const&, RGBA_Color const&) const noexcept override
     {
-        ++s_DrawTextCalls;
+        ++s_DrawStringCalls;
     }
 
     [[nodiscard]] std::unique_ptr<ITexture> CreateTexture(Image const&) const noexcept override

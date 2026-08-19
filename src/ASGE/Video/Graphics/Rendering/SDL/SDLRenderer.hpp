@@ -42,7 +42,7 @@ public:
         float inBottom, math::Rect const& inDestRect
     ) const noexcept override;
 
-    void DrawText( str::StringView inText, graphics::Font const& inFont, ITexture & inTexture, 
+    void DrawString( str::StringView inText, graphics::Font const& inFont, ITexture & inTexture, 
         math::Float2 const& inPosition, graphics::RGBA_Color const& inColor 
     ) const noexcept override;
 

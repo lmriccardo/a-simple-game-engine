@@ -134,7 +134,7 @@ public:
      * @param inPosition the baseline-relative pen start position
      * @param inColor tint applied to the (alpha-only) atlas glyphs
      */
-    virtual void DrawText( str::StringView inText, graphics::Font const& inFont,
+    virtual void DrawString( str::StringView inText, graphics::Font const& inFont,
         ITexture & inTexture, math::Float2 const& inPosition,
         graphics::RGBA_Color const& inColor ) const noexcept = 0;
 
