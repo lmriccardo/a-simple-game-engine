@@ -43,6 +43,12 @@ public:
     [[nodiscard]] asge::math::Int2 Size() const noexcept override { return { 0, 0 }; }
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const noexcept override { return false; }
+
+    void SetColorMod(RGBA_Color) noexcept override {}
+    [[nodiscard]] asge::Result<RGBA_Color> GetColorMod() const noexcept override
+    {
+        return asge::Result<RGBA_Color>::Ok(RGBA_Color{});
+    }
 };
 
 using SDLRendererTextureTest = asge::test::SDLHeadlessTest;

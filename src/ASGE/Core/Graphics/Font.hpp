@@ -27,8 +27,6 @@
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 #include "Image.hpp"
 
-#include <stb_truetype.h>
-
 namespace asge::graphics
 {
 

@@ -67,6 +67,40 @@ bool asge::video::SDLTexture::IsValid() const noexcept
     return SDL_GetTextureProperties( m_Handle ) != 0;
 }
 
+void asge::video::SDLTexture::SetColorMod(graphics::RGBA_Color inColor) noexcept
+{
+    if ( !SDL_SetTextureColorMod( m_Handle, inColor.r, inColor.g, inColor.b ) )
+    {
+        LogError( make_error_code( errors::RenderError::TextureSetColorModFailed ), SDL_GetError() );
+    }
+
+    if ( !SDL_SetTextureAlphaMod( m_Handle, inColor.a ) )
+    {
+        LogError( make_error_code( errors::RenderError::TextureSetColorModFailed ), SDL_GetError() );
+    }
+}
+
+asge::Result<asge::graphics::RGBA_Color> asge::video::SDLTexture::GetColorMod() const noexcept
+{
+    graphics::RGBA_Color outColor;
+
+    if ( !SDL_GetTextureColorMod( m_Handle, &outColor.r, &outColor.g, &outColor.b ) )
+    {
+        return Result<graphics::RGBA_Color>::Err(
+            make_error_code( errors::RenderError::TextureGetColorModFailed ), 
+            SDL_GetError());
+    }
+
+    if ( !SDL_GetTextureAlphaMod( m_Handle, &outColor.a ) )
+    {
+        return Result<graphics::RGBA_Color>::Err(
+            make_error_code( errors::RenderError::TextureGetColorModFailed ), 
+            SDL_GetError());
+    }
+
+    return Result<graphics::RGBA_Color>::Ok( outColor );
+}
+
 void asge::video::SDLTexture::Destroy()
 {
     if ( !m_Handle ) return;

@@ -43,6 +43,7 @@ class FakeTexture final : public ITexture
 private:
     asge::math::Int2 m_Size;
     bool m_Valid;
+    RGBA_Color m_ColorMod{255, 255, 255, 255};
 
 public:
     FakeTexture(asge::math::Int2 inSize = {1, 1}, bool inValid = true)
@@ -52,6 +53,12 @@ public:
     [[nodiscard]] asge::math::Int2 Size() const noexcept override { return m_Size; }
     [[nodiscard]] void* NativeHandle() const noexcept override { return const_cast<FakeTexture*>(this); }
     [[nodiscard]] bool IsValid() const noexcept override { return m_Valid; }
+
+    void SetColorMod(RGBA_Color inColor) noexcept override { m_ColorMod = inColor; }
+    [[nodiscard]] asge::Result<RGBA_Color> GetColorMod() const noexcept override
+    {
+        return asge::Result<RGBA_Color>::Ok(m_ColorMod);
+    }
 };
 
 class FakeRenderer final : public IRenderer
@@ -63,9 +70,11 @@ public:
     mutable int s_DrawCircleCalls{0};
     mutable int s_DrawTextureRectCalls{0};
     mutable int s_DrawTexturePositionCalls{0};
+    mutable int s_DrawTextureSrcDestCalls{0};
     mutable int s_DrawTexture9GridCalls{0};
     mutable int s_DrawTextureTiledCalls{0};
     mutable int s_DrawTextureAffineCalls{0};
+    mutable int s_DrawTextCalls{0};
     mutable int s_CreateTextureCalls{0};
     mutable int s_PresentCalls{0};
     mutable RGBA_Color s_LastClearColor{};
@@ -104,6 +113,11 @@ public:
         ++s_DrawTexturePositionCalls;
     }
 
+    void DrawTexture(ITexture const&, asge::math::Rect const&, asge::math::Rect const&) const noexcept override
+    {
+        ++s_DrawTextureSrcDestCalls;
+    }
+
     void DrawTexture9Grid(
         ITexture const&, float, float, float, float, asge::math::Rect const&
     ) const noexcept override
@@ -121,6 +135,16 @@ public:
     ) const noexcept override
     {
         ++s_DrawTextureAffineCalls;
+    }
+
+    // Not exercised by RendererIsUsablePolymorphicallyThroughIRenderer below:
+    // constructing a real graphics::Font needs actual TTF bytes via
+    // Font::Load, which is out of scope for these no-SDL interface fakes.
+    // The override existing at all is what keeps FakeRenderer instantiable.
+    void DrawText(asge::str::StringView, asge::graphics::Font const&, ITexture&,
+        asge::math::Float2 const&, RGBA_Color const&) const noexcept override
+    {
+        ++s_DrawTextCalls;
     }
 
     [[nodiscard]] std::unique_ptr<ITexture> CreateTexture(Image const&) const noexcept override
@@ -168,6 +192,7 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     renderer->DrawCircle(asge::math::Int2{0, 0}, 8, RGBA_Color{}, false);
     renderer->DrawTexture(*texture, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
     renderer->DrawTexture(*texture, asge::math::Float2{0.0F, 0.0F});
+    renderer->DrawTexture(*texture, asge::math::Rect{0.0F, 0.0F, 16.0F, 16.0F}, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
     renderer->DrawTexture9Grid(*texture, 4.0F, 4.0F, 4.0F, 4.0F, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
     renderer->DrawTextureTiled(*texture, 1.0F, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
     renderer->DrawTextureAffine(*texture,
@@ -182,6 +207,7 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     EXPECT_EQ(fake.s_CreateTextureCalls, 1);
     EXPECT_EQ(fake.s_DrawTextureRectCalls, 1);
     EXPECT_EQ(fake.s_DrawTexturePositionCalls, 1);
+    EXPECT_EQ(fake.s_DrawTextureSrcDestCalls, 1);
     EXPECT_EQ(fake.s_DrawTexture9GridCalls, 1);
     EXPECT_EQ(fake.s_DrawTextureTiledCalls, 1);
     EXPECT_EQ(fake.s_DrawTextureAffineCalls, 1);

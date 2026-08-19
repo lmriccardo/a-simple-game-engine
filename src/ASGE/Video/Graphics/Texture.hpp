@@ -1,6 +1,8 @@
 #pragma once
 
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
+#include <ASGE/Core/Errors.hpp>
 
 namespace asge::video
 {
@@ -18,6 +20,9 @@ public:
     [[nodiscard]] virtual math::Int2 Size() const noexcept = 0;
     [[nodiscard]] virtual void* NativeHandle() const noexcept = 0;
     [[nodiscard]] virtual bool IsValid() const noexcept = 0;
+
+    virtual void SetColorMod( graphics::RGBA_Color inColor ) noexcept = 0;
+    virtual Result<graphics::RGBA_Color> GetColorMod() const noexcept = 0;
 
 protected:
     ITexture() = default;

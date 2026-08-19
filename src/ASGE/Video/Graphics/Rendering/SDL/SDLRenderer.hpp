@@ -32,6 +32,7 @@ public:
     void DrawCircle(math::Int2 const& inCenter, int inRadius, graphics::RGBA_Color const& inColor, bool inFill) const override;
     void DrawTexture( ITexture const& inTexture, math::Rect const& inDestRect ) const noexcept override;
     void DrawTexture(ITexture const& inTexture, math::Float2 const& inPosition) const noexcept override;
+    void DrawTexture(ITexture const& inTexture, math::Rect const& inSrcRect,math::Rect const& inDestRect) const noexcept override;
     void DrawTextureTiled(ITexture const& inTexture, float inScale, math::Rect const& inDestRect) const noexcept override;
     void DrawTextureAffine(ITexture const& inTexture, math::Float2 const& inOrigin, 
         math::Float2 const& inRight, math::Float2 const& inDown) const noexcept override;
@@ -39,6 +40,10 @@ public:
     void DrawTexture9Grid(
         ITexture const& inTexture, float inLeft, float inRight, float inTop, 
         float inBottom, math::Rect const& inDestRect
+    ) const noexcept override;
+
+    void DrawText( str::StringView inText, graphics::Font const& inFont, ITexture & inTexture, 
+        math::Float2 const& inPosition, graphics::RGBA_Color const& inColor 
     ) const noexcept override;
 
     [[nodiscard]] std::unique_ptr<ITexture> CreateTexture( graphics::Image const& inImage ) const noexcept override;

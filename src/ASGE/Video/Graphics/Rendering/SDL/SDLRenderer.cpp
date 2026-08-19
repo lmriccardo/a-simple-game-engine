@@ -159,6 +159,17 @@ void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Floa
     });
 }
 
+void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Rect const &inSrcRect, math::Rect const &inDestRect) const noexcept
+{
+    auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
+    SDL_FRect src{ inSrcRect.x, inSrcRect.y, inSrcRect.w, inSrcRect.h };
+    SDL_FRect dst{ inDestRect.x, inDestRect.y, inDestRect.w, inDestRect.h };
+    if ( !SDL_RenderTexture(m_Renderer, texture, &src, &dst) )
+    {
+        LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
+    }
+}
+
 void asge::video::SDLRenderer::DrawTextureTiled(
     ITexture const & inTexture, float inScale, math::Rect const & inDestRect
 ) const noexcept
@@ -200,6 +211,33 @@ void asge::video::SDLRenderer::DrawTexture9Grid(
     if ( !r )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
+    }
+}
+
+void asge::video::SDLRenderer::DrawText(
+    str::StringView inText, graphics::Font const &inFont, ITexture &inTexture, 
+    math::Float2 const &inPosition, graphics::RGBA_Color const &inColor
+) const noexcept
+{
+    inTexture.SetColorMod( inColor );
+    float penX = inPosition.x();
+    float const penY = inPosition.y();
+
+    for ( char c : inText )
+    {
+        auto glyphResult = inFont.GetGlyph( static_cast<char32_t>(c) );
+        if ( !glyphResult ) continue; // Codepoint not baked -- skip
+
+        auto const& glyph = glyphResult.Value();
+        math::Rect const destRect{ 
+            penX + static_cast<float>( glyph.bearing.x() ),
+            penY + static_cast<float>( glyph.bearing.y() ),
+            static_cast<float>(glyph.size.x()),
+            static_cast<float>(glyph.size.y())
+        };
+
+        DrawTexture( inTexture, glyph.uv_rect, destRect );
+        penX += static_cast<float>(glyph.advance);
     }
 }
 
