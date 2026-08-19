@@ -2,6 +2,7 @@
 
 #include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Core/Graphics/Image.hpp>
+#include <ASGE/Core/Graphics/Font.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include "Texture.hpp"
@@ -57,6 +58,20 @@ public:
     virtual void DrawTexture(ITexture const& inTexture, math::Float2 const& inPosition) const noexcept = 0;
 
     /**
+     * @brief Draw a sub-region of a texture, scaled into the given destination rect
+     *
+     * Draws only the portion of inTexture within inSrcRect, stretched to fill
+     * inDestRect. Used for atlas-backed content (e.g. glyphs) where each draw
+     * call needs one small slice of a shared texture rather than the whole thing.
+     *
+     * @param inTexture the texture to draw from
+     * @param inSrcRect the source rectangle within inTexture, in pixels
+     * @param inDestRect the destination rectangle (position + size) to draw into
+     */
+    virtual void DrawTexture(ITexture const& inTexture, math::Rect const& inSrcRect,
+        math::Rect const& inDestRect) const noexcept = 0;
+
+    /**
      * @brief Draw a texture using nine-slice (9-grid) scaling
      *
      * Splits the texture into a 3x3 grid using the given margins. Corners are
@@ -104,6 +119,24 @@ public:
     virtual void DrawTextureAffine(
         ITexture const& inTexture, math::Float2 const& inOrigin, math::Float2 const& inRight, 
         math::Float2 const& inDown) const noexcept = 0;
+
+    /**
+     * @brief Draw a string of text using a baked Font and its uploaded atlas texture
+     *
+     * Renders characters from a fixed baked ASCII range (see Font::Load).
+     * Codepoints outside that range are skipped. Tints the shared atlas
+     * texture via inTexture's color mod before drawing, so all glyphs in
+     * this call share inColor.
+     *
+     * @param inFont the loaded font providing glyph metrics
+     * @param inTexture the atlas texture uploaded from inFont.GetAtlasImage()
+     * @param inText the text to draw
+     * @param inPosition the baseline-relative pen start position
+     * @param inColor tint applied to the (alpha-only) atlas glyphs
+     */
+    virtual void DrawString( str::StringView inText, graphics::Font const& inFont,
+        ITexture & inTexture, math::Float2 const& inPosition,
+        graphics::RGBA_Color const& inColor ) const noexcept = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

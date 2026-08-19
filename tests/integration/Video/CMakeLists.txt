@@ -1,5 +1,6 @@
 add_executable(ASGE_VideoIntegrationTests
     TextureRenderingIntegrationTests.cpp
+    TextRenderingIntegrationTests.cpp
 )
 
 target_link_libraries(ASGE_VideoIntegrationTests
@@ -10,6 +11,11 @@ target_link_libraries(ASGE_VideoIntegrationTests
 
 # SDLHeadlessFixture.hpp is shared with tests/unit/Video
 target_include_directories(ASGE_VideoIntegrationTests PRIVATE "${CMAKE_SOURCE_DIR}/tests/support")
+
+# Ahem.ttf (also used by tests/unit/Video and tests/unit/Graphics) -- see
+# tests/support/fonts/NOTICE.md
+target_compile_definitions(ASGE_VideoIntegrationTests
+    PRIVATE ASGE_TEST_FONTS_DIR="${CMAKE_SOURCE_DIR}/tests/support/fonts")
 
 target_compile_options(ASGE_VideoIntegrationTests
     PRIVATE

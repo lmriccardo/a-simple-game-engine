@@ -11,6 +11,7 @@ add_library(ASGE STATIC
     Video/Graphics/GraphicsFactory.cpp
     Video/Graphics/Rendering/SDL/SDLRenderer.cpp
     Video/Graphics/Rendering/SDL/SDLTexture.cpp
+    Video/Graphics/Rendering/SDL/SDLPixelFormat.cpp
     Video/Graphics/Windowing/SDL/SDLWindow.cpp
 
     # Engine Logger
@@ -24,8 +25,9 @@ add_library(ASGE STATIC
     Core/Math/Geometry/Circle.cpp
 
     # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
-    Core/Graphics/PixelFormat.cpp
+    # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
     Core/Graphics/Image.cpp
+    Core/Graphics/Font.cpp
 
     # Concurrency utilities
     Core/Concurrent/Thread.cpp
@@ -54,7 +56,7 @@ add_library(ASGE STATIC
 add_library(ASGE::ASGE ALIAS ASGE)
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
-target_link_libraries(ASGE PRIVATE stb::image)
+target_link_libraries(ASGE PRIVATE stb::stb)
 target_include_directories(ASGE
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>"
@@ -62,7 +64,7 @@ target_include_directories(ASGE
 
 if(ASGE_INSTALL)
     install(
-        TARGETS ASGE stb_image
+        TARGETS ASGE stb
         EXPORT ASGETargets
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"

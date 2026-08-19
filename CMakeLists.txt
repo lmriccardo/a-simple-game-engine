@@ -19,22 +19,29 @@ endif()
 
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3)
 
-# stb_image (single-header image loader, vendored via scripts/install-stb-image.*
-# into third-party/stb -- see that script for why it's fetched rather than
-# built like SDL). Header-only, so this is just an include path; nothing
-# breaks at configure time if it hasn't been fetched yet, only once code
-# actually includes it.
-add_library(stb_image INTERFACE)
-add_library(stb::image ALIAS stb_image)
-target_include_directories(stb_image INTERFACE
+# stb single-header libraries (image loading, font rasterization, ...),
+# vendored via scripts/install-stb.* into third-party/stb -- see that script
+# for why they're fetched rather than built like SDL. Header-only, so this is
+# just an include path; nothing breaks at configure time if they haven't been
+# fetched yet, only once code actually includes one of them.
+set(ASGE_STB_HEADERS
+    stb_image.h
+    stb_truetype.h
+)
+
+add_library(stb INTERFACE)
+add_library(stb::stb ALIAS stb)
+target_include_directories(stb INTERFACE
     "$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/third-party/stb>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 if(ASGE_INSTALL)
-    install(
-        FILES "${CMAKE_SOURCE_DIR}/third-party/stb/stb_image.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
-    )
+    foreach(stb_header IN LISTS ASGE_STB_HEADERS)
+        install(
+            FILES "${CMAKE_SOURCE_DIR}/third-party/stb/${stb_header}"
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        )
+    endforeach()
 endif()
 
 add_subdirectory(src/ASGE)

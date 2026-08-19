@@ -5,7 +5,10 @@
             "compileCommands": "${workspaceFolder}/build/compile_commands.json",
             "cppStandard": "c++23",
             "cStandard": "c17",
-            "includePath": ["${workspaceFolder}/src/"]
+            "includePath": [
+                "${workspaceFolder}/src/", 
+                "${workspaceFolder}/third-party/stb/"
+            ]
         }
     ],
     "version": 4

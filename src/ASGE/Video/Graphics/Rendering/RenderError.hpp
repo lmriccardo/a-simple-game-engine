@@ -14,6 +14,8 @@ enum class RenderError : std::uint8_t
     CreateRendererFailed = 1,
     TextureCreationFailed,
     TextureUpdateFailed,
+    TextureSetColorModFailed,
+    TextureGetColorModFailed,
     SetDrawColorFailed,
     RenderClearFailed,
     RenderPresentFailed,
@@ -37,6 +39,8 @@ inline str::String ToErrorString(RenderError e) noexcept
     case RenderError::TextureCreationFailed: return "failed to create the texture";
     case RenderError::TextureUpdateFailed: return "failed to update the texture";
     case RenderError::RenderTextureFailed: return "failed to render a texture";
+    case RenderError::TextureSetColorModFailed: return "unable to set texture color modulation";
+    case RenderError::TextureGetColorModFailed: return "unable to get texture color modulation";
     }
     return "uknown render error";
 }

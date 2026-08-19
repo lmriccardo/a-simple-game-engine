@@ -26,6 +26,9 @@ public:
     [[nodiscard]] void* NativeHandle() const noexcept override;
     [[nodiscard]] bool IsValid() const noexcept override;
 
+    void SetColorMod( graphics::RGBA_Color inColor ) noexcept override;
+    Result<graphics::RGBA_Color> GetColorMod() const noexcept override;
+
     void Destroy();
 };
 

@@ -25,7 +25,14 @@ std::uint8_t const *asge::graphics::Image::Data() const noexcept
 
 std::size_t asge::graphics::Image::Stride() const noexcept
 {
-    return m_Width * BytesPerPixel(m_Format);
+    return m_Width * PixelFormatInfoFor(m_Format).s_BytesPerPixel;
+}
+
+asge::Result<asge::graphics::Image> asge::graphics::Image::Image::Load(filesystem::Path const &inImagePath)
+{
+    auto byteResult = filesystem::ReadBinary( inImagePath );
+    if (!byteResult) return Result<Image>::Err(byteResult.Error());
+    return DecodeImage(byteResult.Value());
 }
 
 asge::Result<asge::graphics::Image> asge::graphics::DecodeImage(std::span<const std::byte> inBytes) noexcept
@@ -55,11 +62,4 @@ asge::Result<asge::graphics::Image> asge::graphics::DecodeImage(std::span<const 
     stbi_image_free(pixels);
 
     return Result<Image>::Ok(Image( width, height, PixelFormat::RGBA8, std::move(data)));
-}
-
-asge::Result<asge::graphics::Image> asge::graphics::ReadImage(filesystem::Path const &inImagePath)
-{
-    auto byteResult = filesystem::ReadBinary( inImagePath );
-    if (!byteResult) return Result<Image>::Err(byteResult.Error());
-    return DecodeImage(byteResult.Value());
 }

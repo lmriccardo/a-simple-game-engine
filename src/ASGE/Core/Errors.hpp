@@ -328,6 +328,30 @@ inline str::String ToErrorString(ImageError e) noexcept
     return "unknown image error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// FONT LOADING ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class FontError
+{
+    InitFailed = 1, // stb_truetype could not parse the font data
+    BakeFailed,     // glyph atlas baking failed (e.g. atlas too small)
+    GlyphNotFound,  // requested codepoint was not baked into the atlas
+    UnexistingCodepoint,
+};
+
+inline str::String ToErrorString(FontError e) noexcept
+{
+    switch (e)
+    {
+    case FontError::InitFailed: return "failed to parse the font data";
+    case FontError::BakeFailed: return "failed to bake the glyph atlas";
+    case FontError::GlyphNotFound: return "codepoint not found in the baked glyph range";
+    case FontError::UnexistingCodepoint: return "given codepoint does not exists";
+    }
+    return "unknown font error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
@@ -335,3 +359,4 @@ inline str::String ToErrorString(ImageError e) noexcept
 REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
 REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.graphics.image")
+REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.graphics.font")

@@ -1,11 +1,12 @@
 #include "SDLTexture.hpp"
 #include "../RenderError.hpp"
+#include "SDLPixelFormat.hpp"
 
 asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, graphics::Image const &inImage)
 {
     auto const dims = inImage.Dimensions();
     m_Handle = SDL_CreateTexture(
-        inRenderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STATIC,
+        inRenderer, MapPixelFormat(inImage.Format()), SDL_TEXTUREACCESS_STATIC,
         dims.x(), dims.y()
     );
 
@@ -14,9 +15,10 @@ asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, graphics::Image co
         LogError( make_error_code( errors::RenderError::TextureCreationFailed ), SDL_GetError() );
         return;
     }
-    
-    bool updateResult = SDL_UpdateTexture( m_Handle, nullptr, inImage.Data(),
-        static_cast<int>(inImage.Stride()) );
+
+    auto const upload = ExpandPixelsForUpload( inImage );
+    bool updateResult = SDL_UpdateTexture( m_Handle, nullptr, upload.s_Data.data(),
+        static_cast<int>(upload.s_Stride) );
 
     if ( !updateResult )
     {
@@ -63,6 +65,40 @@ bool asge::video::SDLTexture::IsValid() const noexcept
 {
     // Calls SDL_GetTextureProperties to check if it is a valid texture
     return SDL_GetTextureProperties( m_Handle ) != 0;
+}
+
+void asge::video::SDLTexture::SetColorMod(graphics::RGBA_Color inColor) noexcept
+{
+    if ( !SDL_SetTextureColorMod( m_Handle, inColor.r, inColor.g, inColor.b ) )
+    {
+        LogError( make_error_code( errors::RenderError::TextureSetColorModFailed ), SDL_GetError() );
+    }
+
+    if ( !SDL_SetTextureAlphaMod( m_Handle, inColor.a ) )
+    {
+        LogError( make_error_code( errors::RenderError::TextureSetColorModFailed ), SDL_GetError() );
+    }
+}
+
+asge::Result<asge::graphics::RGBA_Color> asge::video::SDLTexture::GetColorMod() const noexcept
+{
+    graphics::RGBA_Color outColor;
+
+    if ( !SDL_GetTextureColorMod( m_Handle, &outColor.r, &outColor.g, &outColor.b ) )
+    {
+        return Result<graphics::RGBA_Color>::Err(
+            make_error_code( errors::RenderError::TextureGetColorModFailed ), 
+            SDL_GetError());
+    }
+
+    if ( !SDL_GetTextureAlphaMod( m_Handle, &outColor.a ) )
+    {
+        return Result<graphics::RGBA_Color>::Err(
+            make_error_code( errors::RenderError::TextureGetColorModFailed ), 
+            SDL_GetError());
+    }
+
+    return Result<graphics::RGBA_Color>::Ok( outColor );
 }
 
 void asge::video::SDLTexture::Destroy()

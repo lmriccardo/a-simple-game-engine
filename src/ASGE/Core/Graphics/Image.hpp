@@ -36,6 +36,14 @@ public:
     [[nodiscard]] PixelFormat Format() const noexcept;
     [[nodiscard]] std::uint8_t const* Data() const noexcept;
     [[nodiscard]] std::size_t Stride() const noexcept;
+
+    /**
+     * @brief Reads an image file from disk and decodes it into an RGBA8 Image
+     *
+     * @param inImagePath The path to the encoded image file (PNG, JPEG, ...)
+     * @return The decoded Image, or an error if the file couldn't be read or decoded
+     */
+    static Result<Image> Load( filesystem::Path const& inImagePath );
 };
 
 /**
@@ -45,16 +53,5 @@ public:
  * @return The decoded Image, or an ImageError if the bytes couldn't be decoded
  */
 Result<Image> DecodeImage( std::span<const std::byte> inBytes ) noexcept;
-
-/**
- * @brief Reads an image file from disk and decodes it into an RGBA8 Image
- *
- * Named ReadImage, not LoadImage -- Windows headers #define LoadImage to
- * LoadImageA/W (same reason FileIO.hpp's Copy isn't named CopyFile).
- *
- * @param inImagePath The path to the encoded image file (PNG, JPEG, ...)
- * @return The decoded Image, or an error if the file couldn't be read or decoded
- */
-Result<Image> ReadImage( filesystem::Path const& inImagePath );
 
 }
