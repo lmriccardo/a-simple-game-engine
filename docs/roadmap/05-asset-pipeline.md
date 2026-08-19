@@ -1,5 +1,8 @@
 # Asset Pipeline
 
+*Priority: Tier 1 — moved up ahead of Scene Management, Basic tier only for now.
+See [README](README.md).*
+
 ## Goals
 Manage engine assets efficiently.
 

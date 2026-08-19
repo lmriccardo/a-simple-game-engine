@@ -1,5 +1,8 @@
 # UI Framework
 
+*Priority: Tier 2 — moved up from its original position; immediate-mode UI is just
+`DrawRect` + `DrawString`, both already implemented. See [README](README.md).*
+
 ## Goals
 Create runtime/editor UI system.
 

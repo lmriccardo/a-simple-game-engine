@@ -1,5 +1,7 @@
 # Physics System
 
+*Priority: Tier 2 — Basic tier only for now. See [README](README.md).*
+
 ## Goals
 Implement 2D/3D physics.
 

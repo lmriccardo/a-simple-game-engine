@@ -1,5 +1,7 @@
 # ECS (Entity Component System)
 
+*Priority: Tier 1 — next up. See [README](README.md) for the full reorder.*
+
 ## Goals
 Create scalable gameplay architecture.
 

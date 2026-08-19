@@ -1,5 +1,8 @@
 # Networking
 
+*Priority: Tier 4 — deferred. MVP is single-player; revisit only if multiplayer
+becomes an actual goal. See [README](README.md).*
+
 ## Goals
 Support multiplayer features.
 

@@ -1,5 +1,7 @@
 # Scene Management
 
+*Priority: Tier 1 — after Asset Pipeline, Phase 1 only for now. See [README](README.md).*
+
 ## Goals
 Handle game worlds and transitions.
 

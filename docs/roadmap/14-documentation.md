@@ -1,5 +1,8 @@
 # Documentation
 
+*Priority: Tier 4, but continuous — light and ongoing rather than a single pass
+bolted on at the end. See [README](README.md).*
+
 ## Goals
 Maintain clear developer docs.
 

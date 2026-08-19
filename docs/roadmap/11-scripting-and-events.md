@@ -1,5 +1,8 @@
 # Scripting & Events
 
+*Priority: Tier 3 — Phase 1 (event dispatcher) once ECS systems need decoupling.
+Managed scripting is well past MVP. See [README](README.md).*
+
 ## Goals
 Enable gameplay scripting.
 

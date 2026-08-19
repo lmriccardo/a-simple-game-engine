@@ -1,5 +1,7 @@
 # Audio System
 
+*Priority: Tier 2 — Phase 1 only for now. See [README](README.md).*
+
 ## Goals
 Create robust audio playback system.
 
