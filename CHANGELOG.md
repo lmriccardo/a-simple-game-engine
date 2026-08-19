@@ -1,7 +1,22 @@
 ## [0.1.2] - 2026-08-18
 
 
+### Bug Fixes
+
+- :bug: Renames DrawText to DrawString to dodge the Win32 DrawText macro
+
+
+
+
 ### Features
+
+- :sparkles: Adds text_demo
+
+- :sparkles: Adds DrawText, DrawTexture(src,dst), and texture color modulation
+
+- :sparkles: Adds Font loading and glyph atlas baking via stb_truetype
+
+- :sparkles: Maps PixelFormat to SDL_PixelFormat, supports A8 texture upload
 
 - :sparkles: Adds ITexture/SDLTexture and IRenderer's DrawTexture family
 
