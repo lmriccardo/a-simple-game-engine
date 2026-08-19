@@ -6,6 +6,8 @@ on:
       - main
       - master
       - mils/*
+    tags-ignore:
+      - '**'
   pull_request:
   workflow_dispatch:
 
