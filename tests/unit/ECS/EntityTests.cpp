@@ -1,4 +1,5 @@
 #include <ASGE/Core/ECS/Entity.hpp>
+#include <ASGE/Core/ECS/EntityAllocator.hpp>
 
 #include <gtest/gtest.h>
 

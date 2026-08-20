@@ -61,7 +61,7 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 2 — Component storage & queries
 
-*Status:* Not Started Yet
+*Status:* Work In Progress
 
 - Attach/detach/get/has, at minimum for `Transform` and `Sprite`
 - A minimal view/query API (entities that have a given component set) — needs to be

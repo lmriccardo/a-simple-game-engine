@@ -360,14 +360,18 @@ enum class EcsError
 {
     NoMoreEntityAvailable = 1,
     EntityIsNotAlive,
+    NoMoreComponentsAvailable,
+    EntityNotAttachedToComponent,
 };
 
 inline str::String ToErrorString(EcsError e) noexcept
 {
     switch (e)
     {
-    case EcsError::NoMoreEntityAvailable: return "no more available entities";
+    case EcsError::NoMoreEntityAvailable: return "no more available entity slots";
     case EcsError::EntityIsNotAlive: return "entity is no more alive";
+    case EcsError::NoMoreComponentsAvailable: return "no more available component slots";
+    case EcsError::EntityNotAttachedToComponent: return "entity does not have component of this type";
     }
     return "unknown ecs error";
 }
