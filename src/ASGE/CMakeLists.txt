@@ -35,7 +35,7 @@ add_library(ASGE STATIC
     Core/Concurrent/ThreadPool.cpp
 
     # Allocators utilities
-    Core/Allocators/LinearAllocator.cpp
+    Core/Memory/LinearAllocator.cpp
 
     # Configuration utilities
     Core/Configuration/TOML_Parser.cpp

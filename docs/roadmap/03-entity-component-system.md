@@ -52,7 +52,7 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 1 — Entity lifecycle
 
-*Status:* Not started — this is the actual next task per [README](README.md).
+*Status:* Work In Progress — this is the actual next task per [README](README.md).
 
 - `EntityId`: index + generation counter
 - Create/destroy, `IsAlive(id)`

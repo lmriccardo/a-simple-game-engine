@@ -1,4 +1,4 @@
-#include <ASGE/Core/Allocators/LinearAllocator.hpp>
+#include <ASGE/Core/Memory/LinearAllocator.hpp>
 
 #include <gtest/gtest.h>
 

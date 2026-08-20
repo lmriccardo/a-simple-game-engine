@@ -1,7 +1,7 @@
 add_subdirectory(Math)
 add_subdirectory(Concurrent)
 add_subdirectory(Utils)
-add_subdirectory(Allocators)
+add_subdirectory(Memory)
 add_subdirectory(Configuration)
 add_subdirectory(Video)
 add_subdirectory(Graphics)
