@@ -26,7 +26,7 @@ ECS library.
   it gets there; building a generic reflection system now would be guessing.
 
 ## Tasks
-- [ ] Entity manager (create/destroy, generation-counter ids, alive checks)
+- [x] Entity manager (create/destroy, generation-counter ids, alive checks)
 - [ ] Component storage (attach/detach/get/has, per-type)
 - [ ] Basic query/iteration (view entities that have a given set of components)
 - [ ] Systems as plain functions taking a view — no base class, no scheduler
@@ -52,7 +52,7 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 1 — Entity lifecycle
 
-*Status:* Work In Progress — this is the actual next task per [README](README.md).
+*Status:* ✅ **Done**
 
 - `EntityId`: index + generation counter
 - Create/destroy, `IsAlive(id)`
@@ -61,6 +61,8 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 2 — Component storage & queries
 
+*Status:* Not Started Yet
+
 - Attach/detach/get/has, at minimum for `Transform` and `Sprite`
 - A minimal view/query API (entities that have a given component set) — needs to be
   correct and usable first, not zero-overhead
@@ -68,6 +70,8 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
   every requested component
 
 ### Step 3 — Integration demo
+
+*Status:* Not Started Yet
 
 - Replace one existing example's hand-rolled state — e.g. `texture_demo`'s single
   sprite — with a real ECS entity (`Transform` + `Sprite`), drawn each frame by

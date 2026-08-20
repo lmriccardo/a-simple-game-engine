@@ -3,6 +3,7 @@ add_executable(ASGE_MemoryTest
     ArenaAllocatorTests.cpp
     PoolAllocatorTests.cpp
     StackAllocatorTests.cpp
+    FreeListTests.cpp
 )
 
 target_link_libraries(ASGE_MemoryTest
