@@ -68,7 +68,7 @@ public:
      * it (including inEntity) subsequently fails IsAlive().
      * @return Ok on success, or an error if inEntity is not currently alive.
      */
-    BoolResult Destroy( Entity inEntity ) noexcept
+    [[nodiscard]] BoolResult Destroy( Entity inEntity ) noexcept
     {
         if ( !IsAlive( inEntity ) )
         {

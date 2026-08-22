@@ -1,6 +1,7 @@
 add_executable(ASGE_EcsTest
     EntityTests.cpp
     ComponentPoolTests.cpp
+    RegistryTests.cpp
 )
 
 target_link_libraries(ASGE_EcsTest

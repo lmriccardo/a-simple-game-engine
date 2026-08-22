@@ -8,10 +8,21 @@
 #include <utility>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/TypeInfo.hpp>
+#include <span>
 #include "Entity.hpp"
+#include "Constant.hpp"
 
 namespace asge::ecs
 {
+
+class IComponentPool
+{
+public:
+    [[nodiscard]] virtual BoolResult Remove( Entity ) noexcept = 0;
+    [[nodiscard]] virtual bool Contains( Entity ) const noexcept = 0;
+    [[nodiscard]] virtual std::size_t Size() const noexcept = 0;
+    [[nodiscard]] virtual std::span<Entity const> Entities() const noexcept = 0;
+};
 
 /**
  * @brief Fixed-capacity sparse-set storage of one component type per Entity.
@@ -30,10 +41,9 @@ namespace asge::ecs
  * @tparam Ne Number of distinct entity indices this pool can address.
  * @tparam Nc Maximum number of components concurrently stored.
  */
-template<typename T, std::size_t Ne, std::size_t Nc>
-requires std::is_default_constructible_v<std::decay_t<T>>
-      && std::is_move_assignable_v<std::decay_t<T>>
-class ComponentPool
+template<typename T, std::size_t Nc = asge::ecs::kMaxEntities, std::size_t Ne = asge::ecs::kMaxEntities>
+requires std::is_default_constructible_v<std::decay_t<T>> && std::is_move_assignable_v<std::decay_t<T>>
+class ComponentPool final : public IComponentPool
 {
     std::array<std::size_t, Ne> m_Sparse{};         // Maps to each entity an index in the dense array
     std::array<Entity, Nc>      m_DenseEntity{};    // An array of entity that have a component in the pool
@@ -75,6 +85,11 @@ public:
         // both dense entity and dense component array
         m_Sparse.fill( Nc );
     }
+
+    ComponentPool(ComponentPool const&) = delete;
+    ComponentPool(ComponentPool&&) = default;
+    ComponentPool& operator=(ComponentPool const&) = delete;
+    ComponentPool& operator=(ComponentPool&&) = default;
 
     /**
      * @brief Attaches inEntity's component, replacing it if one already exists.
@@ -123,7 +138,7 @@ public:
     }
 
     /** @brief Checks whether inEntity currently has a component in this pool. */
-    [[nodiscard]] bool Contains( Entity inEntity ) const noexcept
+    [[nodiscard]] bool Contains( Entity inEntity ) const noexcept override
     {
         return inEntity.m_Index < m_Sparse.size() 
             && m_Sparse[inEntity.m_Index] < m_DenseEntity.size()
@@ -153,7 +168,7 @@ public:
      * packed, so iteration order may change after this call.
      * @return Ok on success, or an error if inEntity has no component here.
      */
-    [[nodiscard]] BoolResult Remove( Entity inEntity ) noexcept
+    [[nodiscard]] BoolResult Remove( Entity inEntity ) noexcept override
     {
         // At first check if the input entity is conatined into the component pool
         if ( !Contains( inEntity ) )
@@ -175,6 +190,18 @@ public:
         m_Sparse[inEntity.m_Index] = Nc;
 
         return BoolResult::Ok();
+    }
+
+    /** @brief Returns the total number of components associated with entities */
+    [[nodiscard]] std::size_t Size() const noexcept override
+    {
+        return m_FreeComponentHead;
+    }
+
+    /** @brief Returns a view over all entities in the pool */
+    std::span<Entity const> Entities() const noexcept override
+    {
+        return std::span<Entity const>( m_DenseEntity.data(), Size() );
     }
 
     /** @brief Iterates all (Entity, T&) pairs currently stored, in dense order. */

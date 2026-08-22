@@ -51,6 +51,9 @@ add_library(ASGE STATIC
 
     # Profiling utilities
     Core/Profiling/TimingProfiler.cpp
+
+    # Entity-Component-System
+    Core/ECS/Registry.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)

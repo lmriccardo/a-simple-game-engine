@@ -27,8 +27,8 @@ ECS library.
 
 ## Tasks
 - [x] Entity manager (create/destroy, generation-counter ids, alive checks)
-- [ ] Component storage (attach/detach/get/has, per-type)
-- [ ] Basic query/iteration (view entities that have a given set of components)
+- [x] Component storage (attach/detach/get/has, per-type)
+- [x] Basic query/iteration (view entities that have a given set of components)
 - [ ] Systems as plain functions taking a view — no base class, no scheduler
 - [ ] Archetypes — Phase 2, deferred until profiling justifies it
 - [ ] Serialization — deferred to 06, which will drive the actual requirements
@@ -61,7 +61,7 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 2 — Component storage & queries
 
-*Status:* Work In Progress
+*Status:* ✅ **Done**
 
 - Attach/detach/get/has, at minimum for `Transform` and `Sprite`
 - A minimal view/query API (entities that have a given component set) — needs to be

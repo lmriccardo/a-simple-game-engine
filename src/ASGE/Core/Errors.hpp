@@ -362,6 +362,7 @@ enum class EcsError
     EntityIsNotAlive,
     NoMoreComponentsAvailable,
     EntityNotAttachedToComponent,
+    InvalidComponent,
 };
 
 inline str::String ToErrorString(EcsError e) noexcept
@@ -372,6 +373,7 @@ inline str::String ToErrorString(EcsError e) noexcept
     case EcsError::EntityIsNotAlive: return "entity is no more alive";
     case EcsError::NoMoreComponentsAvailable: return "no more available component slots";
     case EcsError::EntityNotAttachedToComponent: return "entity does not have component of this type";
+    case EcsError::InvalidComponent: return "invalid component";
     }
     return "unknown ecs error";
 }

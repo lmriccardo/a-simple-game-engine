@@ -23,7 +23,7 @@ struct Position
 static constexpr std::size_t kEntityCapacity    = 8;
 static constexpr std::size_t kComponentCapacity = 4;
 
-using PositionPool = ComponentPool<Position, kEntityCapacity, kComponentCapacity>;
+using PositionPool = ComponentPool<Position, kComponentCapacity, kEntityCapacity>;
 
 Entity MakeEntity(std::size_t inIndex)
 {
