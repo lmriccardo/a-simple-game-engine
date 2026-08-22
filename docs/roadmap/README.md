@@ -70,15 +70,18 @@ has its own Phase 1 doc, it's just not scheduled.
     at. [Phase 2](phase-2/10.2-rendering-system.md) (`SDL_GPU`, shaders,
     materials) stays behind its own decision gate and may never trigger; see that
     file.
-11. **[Scripting & Events](phase-1/11.1-scripting-and-events.md)** (event
-    dispatcher) — worth doing once enough ECS systems exist that they need
-    decoupling from each other. The dispatch primitive (`asge::signals::Signal`)
-    already exists; this phase is building the game-event bus on top of it.
-    Managed scripting (Lua/C#/Python) is well past MVP.
+11. **[Scripting & Events](phase-2/11.2-scripting-and-events.md)** — not MVP (no
+    `phase-1` doc: an MVP-scoped game just calls functions directly). Phase 2
+    (event dispatcher) is worth doing once enough ECS systems exist that they
+    need decoupling from each other. The dispatch primitive
+    (`asge::signals::Signal`) already exists; this phase is building the
+    game-event bus on top of it. Managed scripting (Lua/C#/Python,
+    [Phase 3](phase-3/11.3-scripting-and-events.md)) is well past that.
 
 ### Tier 4 — Explicitly deferred
-12. **[Networking](phase-1/12.1-networking.md)** — the MVP is single-player.
-    Revisit only if multiplayer becomes an actual goal, not speculatively.
+12. **[Networking](phase-2/12.2-networking.md)** — not MVP (no `phase-1` doc: the
+    MVP is explicitly single-player). Revisit only if multiplayer becomes an
+    actual goal, not speculatively.
 13. **[Optimization](phase-1/13.1-optimization.md)** — not a terminal step to
     save for last and then do once. Basic CPU profiling is already done as part
     of Core Engine (`TimingProfiler`/`ScopedTimer`); a dedicated deep pass (job
