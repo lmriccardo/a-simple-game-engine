@@ -125,7 +125,7 @@ queryable input state so games stop hand-rolling their own key-state bookkeeping
 
 ### Step 3 — Integration demo
 
-*Status:* 🟡 **Plumbing wired, migration not done yet**
+*Status:* ✅ **Done**
 
 - `InputSystem` ([InputSystem.hpp](../../src/ASGE/Input/InputSystem.hpp)) is the piece
   `Application` actually owns — shaped like `VideoSystem`: `NewFrame()` once per loop
@@ -133,13 +133,25 @@ queryable input state so games stop hand-rolling their own key-state bookkeeping
   `Application::Run` now calls both and passes `GetState()` into `IGame::Update`, whose
   signature grew an `input::InputState const&` parameter — every example (`ecs_demo`,
   `moving_box`, `background_changer`, `shapes_demo`, `text_demo`, `texture_demo`) updated
-  to match and confirmed still building/running (`ecs_demo` smoke-tested via the
-  `run-asge` skill: launches, accepts WASD, renders).
-- **Not done yet**: `ecs_demo`'s player movement still hand-tracks
-  `m_Up`/`m_Down`/`m_Left`/`m_Right` via `OnSystemEvent` — it has the `InputState`
-  parameter available in `Update` now but doesn't read from it. Migrating that (and
-  exercising a mouse event somewhere real, since nothing does today) is what's left to
-  actually close this step.
+  to match.
+- New `examples/input_demo` ([Game.cpp](../../examples/input_demo/Game.cpp)) is the
+  actual integration proof — a small game whose `OnSystemEvent` is deliberately empty;
+  every reaction to input comes from polling `InputState` in `Update()`: `IsKeyDown`
+  (continuous WASD movement of a box, replacing the `m_Up`/`m_Down`/`m_Left`/`m_Right`
+  pattern), `IsKeyPressed` (edge-triggered SPACE background toggle),
+  `GetMousePosition`/`IsMouseButtonDown` (a cursor that fills while left-click is held),
+  `IsMouseButtonPressed` (right-click drops a mark, edge-triggered), and
+  `GetScrollDelta` (mouse wheel grows/shrinks the box).
+- Runtime-verified, not just compiled: launched via the `run-asge` skill, WASD/SPACE
+  driven through `SendKeys`, and mouse motion/left-hold/right-click/wheel driven through
+  an ad hoc `SetCursorPos`/`mouse_event` probe script (`SendKeys` has no mouse support).
+  Screenshots confirmed each behavior: box moves, background toggles, cursor fills on
+  left-hold and outlines on release, two right-clicks left marks exactly where clicked,
+  and scrolling grew the box up to its clamp.
+- `ecs_demo` itself was intentionally **not** migrated — `input_demo` is the dedicated
+  example the roadmap's "(or add a small dedicated example)" alternative called for, kept
+  separate so it stays a focused, minimal showcase rather than diluting `ecs_demo`'s ECS
+  focus.
 
 ### Phase 2 — stretch, not MVP-blocking
 
@@ -152,11 +164,12 @@ queryable input state so games stop hand-rolling their own key-state bookkeeping
 - Touch input
 
 ## Deliverables
-- Mouse events flowing end-to-end through the existing `SystemEvent`/`IGame` pipeline,
-  closing the gap called out in the README reorder
-- `InputState` polling API covering keyboard + mouse
-- At least one example driven by `InputState` instead of manual event bookkeeping
-- Unit tests for event translation and input-state transitions
+- [x] Mouse events flowing end-to-end through the existing `SystemEvent`/`IGame` pipeline,
+      closing the gap called out in the README reorder
+- [x] `InputState` polling API covering keyboard + mouse
+- [x] At least one example driven by `InputState` instead of manual event bookkeeping
+      (`examples/input_demo`)
+- [x] Unit tests for event translation and input-state transitions
 
 ## Explicitly out of scope for Phase 1
 Controller/gamepad support, input rebinding, action maps, and touch input. Each is

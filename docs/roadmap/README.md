@@ -27,7 +27,7 @@ on systems that only pay off once that MVP exists.
    `Collider`, etc. This is the biggest unblock in the whole roadmap right now. - ✅ complete
 4. **[Input](04-input-system.md)**, finish Phase 1 — keyboard is already wired through
    `SystemEvent`; `MouseEvent` is declared in the enum but missing from the event variant.
-   Small, and blocks anything interactive.
+   Small, and blocks anything interactive. - ✅ complete
 5. **[Asset Pipeline](05-asset-pipeline.md)**, Basic tier only (file importing, asset
    references) — moved ahead of Scene Management. `Image::Load`/`Font::Load` are already
    two independent ad-hoc loaders; formalize a common asset-handle concept before a third
