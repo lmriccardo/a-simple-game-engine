@@ -54,6 +54,10 @@ add_library(ASGE STATIC
 
     # Entity-Component-System
     Core/ECS/Registry.cpp
+
+    # Gameplay systems built on top of the ECS
+    Game/Systems/MovementSystem.cpp
+    Game/Systems/RenderSystem.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)

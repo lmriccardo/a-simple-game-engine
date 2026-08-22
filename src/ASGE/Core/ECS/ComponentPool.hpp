@@ -18,6 +18,11 @@ namespace asge::ecs
 class IComponentPool
 {
 public:
+    // Registry destroys concrete ComponentPool<T,...> instances through
+    // std::unique_ptr<IComponentPool>; without a virtual destructor that
+    // delete is undefined behavior (and would skip T's destructors).
+    virtual ~IComponentPool() = default;
+
     [[nodiscard]] virtual BoolResult Remove( Entity ) noexcept = 0;
     [[nodiscard]] virtual bool Contains( Entity ) const noexcept = 0;
     [[nodiscard]] virtual std::size_t Size() const noexcept = 0;
