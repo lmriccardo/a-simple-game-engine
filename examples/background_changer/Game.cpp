@@ -1,6 +1,7 @@
 #include "Game.hpp"
 
-void BackgroundChangingGame::Update([[maybe_unused]]float inDeltaTime)
+void BackgroundChangingGame::Update(
+    [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
 }
 

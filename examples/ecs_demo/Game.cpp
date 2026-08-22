@@ -114,7 +114,7 @@ void EcsDemoGame::UpdatePlayerVelocity()
     velocity.m_DY = (m_Down  ? kPlayerSpeed : 0.0f) - (m_Up   ? kPlayerSpeed : 0.0f);
 }
 
-void EcsDemoGame::Update(float inDeltaTime)
+void EcsDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     UpdatePlayerVelocity();
     asge::game::systems::MovementSystem( m_Registry, inDeltaTime );

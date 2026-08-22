@@ -5,13 +5,15 @@
 namespace asge::input
 {
 
-/* Virtual keymaps from keyboard input */
+/**
+ * @brief Virtual keymaps from keyboard input.
+ */
 enum class Keycode : std::uint32_t
 {
-    UNKNOWN,                        // 0
-    ESCAPE      = 0x0000001bu,      // 27
-    SPACE       = 0x00000020u,      // 32
-    A           = 0x00000061u,      // 97
+    UNKNOWN,
+    ESCAPE,
+    SPACE,
+    A,
     B,
     C,
     D,
@@ -36,7 +38,9 @@ enum class Keycode : std::uint32_t
     W,
     X,
     Y,
-    Z                                // 122
+    Z,
+
+    COUNT // Sentinel - the number of known keycodes, not a real key
 };
 
 enum class Keymod : std::uint16_t

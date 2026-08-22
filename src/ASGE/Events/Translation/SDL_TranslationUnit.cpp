@@ -22,6 +22,82 @@ EventType asge::event::_internal::ToEventType(std::uint32_t inType) noexcept
     }
 }
 
+asge::input::Keycode asge::event::_internal::ToKeycode(SDL_Keycode inSdlKeycode) noexcept
+{
+    switch (inSdlKeycode)
+    {
+    case SDLK_ESCAPE: return input::Keycode::ESCAPE;
+    case SDLK_SPACE:  return input::Keycode::SPACE;
+    case SDLK_A: return input::Keycode::A;
+    case SDLK_B: return input::Keycode::B;
+    case SDLK_C: return input::Keycode::C;
+    case SDLK_D: return input::Keycode::D;
+    case SDLK_E: return input::Keycode::E;
+    case SDLK_F: return input::Keycode::F;
+    case SDLK_G: return input::Keycode::G;
+    case SDLK_H: return input::Keycode::H;
+    case SDLK_I: return input::Keycode::I;
+    case SDLK_J: return input::Keycode::J;
+    case SDLK_K: return input::Keycode::K;
+    case SDLK_L: return input::Keycode::L;
+    case SDLK_M: return input::Keycode::M;
+    case SDLK_N: return input::Keycode::N;
+    case SDLK_O: return input::Keycode::O;
+    case SDLK_P: return input::Keycode::P;
+    case SDLK_Q: return input::Keycode::Q;
+    case SDLK_R: return input::Keycode::R;
+    case SDLK_S: return input::Keycode::S;
+    case SDLK_T: return input::Keycode::T;
+    case SDLK_U: return input::Keycode::U;
+    case SDLK_V: return input::Keycode::V;
+    case SDLK_W: return input::Keycode::W;
+    case SDLK_X: return input::Keycode::X;
+    case SDLK_Y: return input::Keycode::Y;
+    case SDLK_Z: return input::Keycode::Z;
+    default:
+        return input::Keycode::UNKNOWN;
+    }
+}
+
+SDL_Keycode asge::event::_internal::ToSdlKeycode(input::Keycode inKeycode) noexcept
+{
+    switch (inKeycode)
+    {
+    case input::Keycode::ESCAPE: return SDLK_ESCAPE;
+    case input::Keycode::SPACE:  return SDLK_SPACE;
+    case input::Keycode::A: return SDLK_A;
+    case input::Keycode::B: return SDLK_B;
+    case input::Keycode::C: return SDLK_C;
+    case input::Keycode::D: return SDLK_D;
+    case input::Keycode::E: return SDLK_E;
+    case input::Keycode::F: return SDLK_F;
+    case input::Keycode::G: return SDLK_G;
+    case input::Keycode::H: return SDLK_H;
+    case input::Keycode::I: return SDLK_I;
+    case input::Keycode::J: return SDLK_J;
+    case input::Keycode::K: return SDLK_K;
+    case input::Keycode::L: return SDLK_L;
+    case input::Keycode::M: return SDLK_M;
+    case input::Keycode::N: return SDLK_N;
+    case input::Keycode::O: return SDLK_O;
+    case input::Keycode::P: return SDLK_P;
+    case input::Keycode::Q: return SDLK_Q;
+    case input::Keycode::R: return SDLK_R;
+    case input::Keycode::S: return SDLK_S;
+    case input::Keycode::T: return SDLK_T;
+    case input::Keycode::U: return SDLK_U;
+    case input::Keycode::V: return SDLK_V;
+    case input::Keycode::W: return SDLK_W;
+    case input::Keycode::X: return SDLK_X;
+    case input::Keycode::Y: return SDLK_Y;
+    case input::Keycode::Z: return SDLK_Z;
+    case input::Keycode::UNKNOWN:
+    case input::Keycode::COUNT:
+    default:
+        return SDLK_UNKNOWN;
+    }
+}
+
 void asge::event::_internal::ProcessEvent_SDL(
     SystemEvent *inSysEvent, SDL_Event const &inSdlEvent) noexcept
 {
@@ -67,7 +143,7 @@ void asge::event::_internal::__processKeyboard(
 
     keyEvent.s_WindowId = inSdlEvent.key.windowID;
     keyEvent.s_KeyboardId = inSdlEvent.key.which;
-    keyEvent.s_Keycode = static_cast<input::Keycode>( inSdlEvent.key.key );
+    keyEvent.s_Keycode = ToKeycode( inSdlEvent.key.key );
     keyEvent.s_Keymod = static_cast<input::Keymod>( inSdlEvent.key.mod );
     keyEvent.s_Down = inSdlEvent.key.down;
     keyEvent.s_Repeat = inSdlEvent.key.repeat;

@@ -67,7 +67,7 @@ void TextDemoGame::EnsureFontsLoaded(asge::video::IRenderer& inRenderer)
     }
 }
 
-void TextDemoGame::Update(float inDeltaTime)
+void TextDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_HueTime += inDeltaTime * (HUE_CYCLE_SPEED / 10.0f);
 }

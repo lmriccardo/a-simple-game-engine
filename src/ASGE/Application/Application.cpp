@@ -5,6 +5,7 @@ using namespace asge;
 void Application::processEvent(SDL_Event const* inSdlEventPtr) noexcept
 {
     event::SystemEvent sysEvent = event::_internal::ProcessEvent( inSdlEventPtr );
+    m_InputSys.ProcessEvent( sysEvent );
 
     // Check if the event is a quit event
     if ( auto const* event = sysEvent.TryGet<event::QuitEvent>() )
@@ -33,13 +34,14 @@ void asge::Application::Run()
     while (m_Running)
     {
         GET_TIMESYSTEM.Tick();
+        m_InputSys.NewFrame();
 
         while (SDL_PollEvent(&event))
         {
             processEvent( &event );
         }
 
-        m_Game.Update(time::DeltaTime());
+        m_Game.Update(time::DeltaTime(), m_InputSys.GetState());
         m_Game.Render(m_VideoSys.GetRenderer());
         m_VideoSys.GetRenderer().Present();
     }

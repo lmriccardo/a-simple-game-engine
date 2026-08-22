@@ -4,8 +4,8 @@
 #include <concepts>
 #include <variant>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
-#include "Keycode.hpp"
-#include "MouseButton.hpp"
+#include <ASGE/Input/Keycode.hpp>
+#include <ASGE/Input/MouseButton.hpp>
 #include "Enums.hpp"
 
 /* #ifdef SDL_DEFINED */
@@ -132,13 +132,8 @@ public:
     }
 
     /**
-     * @brief Returns a const reference to an event.
-     * 
-     * Unsafe version of the TryGet implementation. This returns a const
-     * reference to an event. It throws an exception if the current stored
-     * event does not match the requested event type.
-     * 
-     * @tparam EventT The event type to extract
+     * @brief Unsafe accessor: returns the stored event, throws if EventT doesn't match.
+     * @tparam EventT The event type to extract.
      */
     template<_internal::IsSystemEvent EventT>
     EventT const& Get() const
@@ -146,10 +141,10 @@ public:
         return std::get<EventT>( m_Event );
     }
 
-    /* Checks if the current system event is unknown */
+    /** @brief True if this SystemEvent holds no recognized event. */
     bool IsUnknown() const noexcept;
 
-    /* Returns a const reference to an unknown event */
+    /** @brief Shared instance of the unknown/no-op event. */
     static SystemEvent const& GetUnknown() noexcept;
 };
 
@@ -158,12 +153,8 @@ namespace _internal
 {
 
 /**
- * @brief Process an input platfrom event
- * 
- * Given an input platform event (SDL event or other types of events)
- * returns the asge-based System Event.
- * 
- * @param inPlftEvent The input platform event
+ * @brief Translates a platform event (e.g. SDL) into an asge SystemEvent.
+ * @param inPlftEvent Pointer to the platform event, or nullptr.
  */
 SystemEvent ProcessEvent( void const* inPlftEvent ) noexcept;
 

@@ -70,8 +70,9 @@ queryable input state so games stop hand-rolling their own key-state bookkeeping
       (`Events.hpp`)
 - [x] SDL mouse translation (`SDL_TranslationUnit`): `ToEventType` mapping,
       `__processMouse`, `GetProcessMap` entry
-- [ ] Queryable `InputState`: `IsKeyDown`/`IsKeyPressed`/`IsKeyReleased`,
-      `IsMouseButtonDown`, `MousePosition()`
+- [x] Queryable `InputState`: `IsKeyDown`/`IsKeyPressed`/`IsKeyReleased`,
+      `IsMouseButtonDown`/`Pressed`/`Released`, `GetMousePosition`/`GetMouseDelta`/
+      `GetScrollDelta`
 - [ ] Widen `Keycode` with arrows + digits (first consumers likely need them)
 - [ ] Controller support — Phase 2
 - [ ] Input rebinding — Phase 2/3, blocked on having two schemes to map between
@@ -88,7 +89,7 @@ queryable input state so games stop hand-rolling their own key-state bookkeeping
   ([Enums.hpp](../../src/ASGE/Events/Enums.hpp)), `MouseMotionEvent` /
   `MouseButtonEvent` / `MouseWheelEvent` in the `SystemEvent` variant
   ([Events.hpp](../../src/ASGE/Events/Events.hpp)), a new `input::MouseButton` enum
-  ([MouseButton.hpp](../../src/ASGE/Events/MouseButton.hpp)) mirroring `Keycode`'s
+  ([MouseButton.hpp](../../src/ASGE/Input/MouseButton.hpp)) mirroring `Keycode`'s
   shape, and SDL translation (`__processMouse` + `GetProcessMap` entry in
   [SDL_TranslationUnit.cpp](../../src/ASGE/Events/Translation/SDL_TranslationUnit.cpp))
 - Mouse position reported in window coordinates (`math::Float2`), matching the
@@ -97,28 +98,48 @@ queryable input state so games stop hand-rolling their own key-state bookkeeping
 - Unit tests: `tests/unit/Events/MouseEventTranslationTests.cpp` — SDL mouse event →
   correct `EventType`/struct fields for motion, button down/up, and wheel, plus a
   guard that an unrelated event (quit) doesn't get misclassified as a mouse event.
-  First dedicated event-translation test suite; full suite (546 tests) still green.
+  First dedicated event-translation test suite.
+- Also reworked `Keycode` to be dense (`UNKNOWN=0, ESCAPE, SPACE, A..Z, COUNT`) instead
+  of value-matching SDL's `SDLK_*` constants, with an explicit `ToKeycode`/`ToSdlKeycode`
+  mapping in `SDL_TranslationUnit` — makes `Keycode` usable as an array index (needed by
+  Step 2's per-key state table) without depending on SDL's ASCII-derived values.
+- Moved `Keycode.hpp`/`MouseButton.hpp` out of `Events/` into a new `ASGE/Input/` module
+  — they're `asge::input` vocabulary types, not part of the event-transport pipeline.
 
 ### Step 2 — Queryable input state
 
-*Status:* ⬜ Not started
+*Status:* ✅ **Done**
 
-- `InputState` fed once per frame from the same `SystemEvent` stream
-  `Application::Run` already pumps — not a second event source
-- `IsKeyDown`/`IsKeyPressed`(edge)/`IsKeyReleased`(edge), `IsMouseButtonDown`,
-  `MousePosition()`
-- Unit tests: state transitions across a scripted sequence of synthetic events (down →
-  held → up), pressed/released edges fire exactly once per transition
+- `InputState` ([InputState.hpp](../../src/ASGE/Input/InputState.hpp)) fed via
+  `Consume(SystemEvent const&)` from the same stream `Application::Run` already pumps —
+  not a second event source — plus `NewFrame()` to roll current state into previous for
+  edge detection
+- `IsKeyDown`/`IsKeyPressed`(edge)/`IsKeyReleased`(edge), matching
+  `IsMouseButtonDown`/`Pressed`/`Released`, and `GetMousePosition`/`GetMouseDelta`
+  (since last `NewFrame()`)/`GetScrollDelta` (accumulated since last `NewFrame()`)
+- Backed by `std::array<bool, Keycode::COUNT>` / `std::array<bool, MouseButton::COUNT>`
+  current+previous frame snapshots — cheap, fixed-size, no allocation
+- Unit tests: `tests/unit/Input/InputStateTests.cpp` — down/pressed/released transitions
+  for keys and mouse buttons, mouse position/delta across `NewFrame()` boundaries, scroll
+  accumulation + reset, and unrelated events (quit) are ignored without side effects
 
 ### Step 3 — Integration demo
 
-*Status:* ⬜ Not started
+*Status:* 🟡 **Plumbing wired, migration not done yet**
 
-- Update `ecs_demo`'s player-movement handling (or add a small dedicated example) to
-  read `InputState::IsKeyDown` instead of hand-tracking `m_Up`/`m_Down`/`m_Left`/`m_Right`
-  booleans in `OnSystemEvent`, proving the polling API actually removes the duplication
-  it's meant to replace
-- Exercise a mouse event (position or click) somewhere real, since nothing does today
+- `InputSystem` ([InputSystem.hpp](../../src/ASGE/Input/InputSystem.hpp)) is the piece
+  `Application` actually owns — shaped like `VideoSystem`: `NewFrame()` once per loop
+  iteration, `ProcessEvent` for every polled `SystemEvent`, `GetState()` for read access.
+  `Application::Run` now calls both and passes `GetState()` into `IGame::Update`, whose
+  signature grew an `input::InputState const&` parameter — every example (`ecs_demo`,
+  `moving_box`, `background_changer`, `shapes_demo`, `text_demo`, `texture_demo`) updated
+  to match and confirmed still building/running (`ecs_demo` smoke-tested via the
+  `run-asge` skill: launches, accepts WASD, renders).
+- **Not done yet**: `ecs_demo`'s player movement still hand-tracks
+  `m_Up`/`m_Down`/`m_Left`/`m_Right` via `OnSystemEvent` — it has the `InputState`
+  parameter available in `Update` now but doesn't read from it. Migrating that (and
+  exercising a mouse event somewhere real, since nothing does today) is what's left to
+  actually close this step.
 
 ### Phase 2 — stretch, not MVP-blocking
 

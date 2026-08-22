@@ -53,12 +53,14 @@ enum class SystemEventType
 namespace _internal
 {
 
+/** @brief True if inType falls within the [Start, Stop) offset range. */
 template<std::uint32_t Start, std::uint32_t Stop>
 inline constexpr bool IsIncluded( std::uint32_t inType ) noexcept
 {
     return inType >= Start && inType < Stop;
 }
 
+/** @brief True if inType's numeric value belongs to Set's EventType offset range. */
 template<SystemEventType Set>
 inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
 {
@@ -76,6 +78,7 @@ inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
     }
 }
 
+/** @brief Returns SysT if inEventType belongs to it, otherwise UKNOWN. */
 template<SystemEventType SysT>
 inline SystemEventType CheckOne( EventType inEventType ) noexcept
 {
@@ -84,6 +87,7 @@ inline SystemEventType CheckOne( EventType inEventType ) noexcept
     return SystemEventType::UKNOWN;
 }
 
+/** @brief Tries each SysTypes in turn, returning the first that matches inEventType. */
 template<SystemEventType... SysTypes>
 inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
 {
@@ -101,7 +105,8 @@ inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
     return result;
 }
 
-inline SystemEventType ToSysEventType( 
+/** @brief Classifies inEventType into its owning SystemEventType (QUIT/KEYBOARD/WINDOW/MOUSE). */
+inline SystemEventType ToSysEventType(
     EventType inEventType ) noexcept
 {
     return ToSysEventTypeImpl<

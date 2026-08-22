@@ -14,7 +14,8 @@ enum class MouseButton : std::uint8_t
     MIDDLE  = 2u,
     RIGHT   = 3u,
     X1      = 4u,
-    X2      = 5u
+    X2      = 5u,
+    COUNT
 };
 
 }

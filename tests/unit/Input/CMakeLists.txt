@@ -1,15 +1,15 @@
-add_executable(ASGE_EventsTests
-    MouseEventTranslationTests.cpp
-    KeycodeTranslationTests.cpp
+add_executable(ASGE_InputTests
+    InputStateTests.cpp
+    InputSystemTests.cpp
 )
 
-target_link_libraries(ASGE_EventsTests
+target_link_libraries(ASGE_InputTests
     PRIVATE
         ASGE
         GTest::gtest_main
 )
 
-target_compile_options(ASGE_EventsTests
+target_compile_options(ASGE_InputTests
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
             -Wall -Wextra -Wpedantic
@@ -18,12 +18,12 @@ target_compile_options(ASGE_EventsTests
 )
 
 if(WIN32)
-    add_custom_command(TARGET ASGE_EventsTests POST_BUILD
+    add_custom_command(TARGET ASGE_InputTests POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             $<TARGET_FILE:SDL3::SDL3>
-            $<TARGET_FILE_DIR:ASGE_EventsTests>
+            $<TARGET_FILE_DIR:ASGE_InputTests>
     )
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(ASGE_EventsTests)
+gtest_discover_tests(ASGE_InputTests)

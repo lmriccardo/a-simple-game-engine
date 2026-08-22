@@ -6,6 +6,10 @@ add_library(ASGE STATIC
     Events/Translation/SDL_TranslationUnit.cpp
     Events/Events.cpp
 
+    # Queryable input state, built on top of the event system
+    Input/InputState.cpp
+    Input/InputSystem.cpp
+
     # Video and Graphic portion with Renderers and others
     Video/VideoSystem.cpp
     Video/Graphics/GraphicsFactory.cpp

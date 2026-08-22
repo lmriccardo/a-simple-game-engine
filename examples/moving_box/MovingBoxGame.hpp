@@ -9,7 +9,7 @@ class MovingBoxGame : public asge::game::IGame
 public:
     ~MovingBoxGame() override = default;
 
-    void Update(float inDeltaTime) override;
+    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
