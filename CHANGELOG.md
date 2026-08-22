@@ -1,3 +1,22 @@
+## [0.3.0] - 2026-08-22
+
+
+### Features
+
+- :sparkles: Add Sprite/RenderSystem and an ecs_demo example
+
+- :sparkles: Add Registry and View, plus tuple utilities
+
+- :sparkles: Add ComponentPool sparse-set storage, split EntityAllocator out
+
+- :sparkles: Add generational Entity/EntityAllocator and FreeList
+
+
+
+
+### Contributors
+
+- lmriccardo
 ## [0.1.2] - 2026-08-18
 
 
@@ -134,6 +153,7 @@
 ### Contributors
 
 - lmriccardo
+[0.3.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.2.0...v0.3.0
 [0.1.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.0...v0.1.1
 
