@@ -6,6 +6,9 @@
 #include <ASGE/Events/Events.hpp>
 #include <ASGE/Events/Keycode.hpp>
 #include <ASGE/Game/Game.hpp>
+#include <ASGE/Game/Components.hpp>
+#include <ASGE/Game/Systems.hpp>
+#include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Video/Graphics/Window.hpp>
@@ -17,7 +20,7 @@
 #include <ASGE/Core/Concurrent/Thread.hpp>
 #include <ASGE/Core/Concurrent/Context.hpp>
 #include <ASGE/Core/Concurrent/ThreadPool.hpp>
-#include <ASGE/Core/Allocators/LinearAllocator.hpp>
-#include <ASGE/Core/Allocators/PoolAllocator.hpp>
-#include <ASGE/Core/Allocators/StackAllocator.hpp>
+#include <ASGE/Core/Memory/LinearAllocator.hpp>
+#include <ASGE/Core/Memory/PoolAllocator.hpp>
+#include <ASGE/Core/Memory/StackAllocator.hpp>
 #include <ASGE/Core/Filesystem/Filesystem.hpp>

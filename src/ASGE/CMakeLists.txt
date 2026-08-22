@@ -35,7 +35,7 @@ add_library(ASGE STATIC
     Core/Concurrent/ThreadPool.cpp
 
     # Allocators utilities
-    Core/Allocators/LinearAllocator.cpp
+    Core/Memory/LinearAllocator.cpp
 
     # Configuration utilities
     Core/Configuration/TOML_Parser.cpp
@@ -51,6 +51,13 @@ add_library(ASGE STATIC
 
     # Profiling utilities
     Core/Profiling/TimingProfiler.cpp
+
+    # Entity-Component-System
+    Core/ECS/Registry.cpp
+
+    # Gameplay systems built on top of the ECS
+    Game/Systems/MovementSystem.cpp
+    Game/Systems/RenderSystem.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)

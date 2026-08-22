@@ -26,10 +26,10 @@ ECS library.
   it gets there; building a generic reflection system now would be guessing.
 
 ## Tasks
-- [ ] Entity manager (create/destroy, generation-counter ids, alive checks)
-- [ ] Component storage (attach/detach/get/has, per-type)
-- [ ] Basic query/iteration (view entities that have a given set of components)
-- [ ] Systems as plain functions taking a view — no base class, no scheduler
+- [x] Entity manager (create/destroy, generation-counter ids, alive checks)
+- [x] Component storage (attach/detach/get/has, per-type)
+- [x] Basic query/iteration (view entities that have a given set of components)
+- [x] Systems as plain functions taking a view — no base class, no scheduler
 - [ ] Archetypes — Phase 2, deferred until profiling justifies it
 - [ ] Serialization — deferred to 06, which will drive the actual requirements
 
@@ -52,7 +52,7 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 1 — Entity lifecycle
 
-*Status:* Not started — this is the actual next task per [README](README.md).
+*Status:* ✅ **Done**
 
 - `EntityId`: index + generation counter
 - Create/destroy, `IsAlive(id)`
@@ -60,6 +60,8 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
   destroyed and reused
 
 ### Step 2 — Component storage & queries
+
+*Status:* ✅ **Done**
 
 - Attach/detach/get/has, at minimum for `Transform` and `Sprite`
 - A minimal view/query API (entities that have a given component set) — needs to be
@@ -69,9 +71,12 @@ list — this engine's equivalent of "renderable" is `Sprite`, drawn through the
 
 ### Step 3 — Integration demo
 
-- Replace one existing example's hand-rolled state — e.g. `texture_demo`'s single
-  sprite — with a real ECS entity (`Transform` + `Sprite`), drawn each frame by
-  iterating the view and calling `DrawTexture`
+*Status:* ✅ **Done**
+
+- New `examples/ecs_demo`: a real `IGame` driving a `Registry` of seven entities
+  (`Transform` + `Velocity` + `Sprite`), moved each frame by `MovementSystem` and
+  drawn by iterating the view and calling `DrawTexture` (`RenderSystem`) — one
+  entity is WASD-controlled, the rest drift and wrap around the screen
 - Proves the API works end-to-end wired into a real `IGame`, not just in isolation
   under a unit test
 

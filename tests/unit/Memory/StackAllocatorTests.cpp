@@ -1,4 +1,4 @@
-#include <ASGE/Core/Allocators/StackAllocator.hpp>
+#include <ASGE/Core/Memory/StackAllocator.hpp>
 
 #include <gtest/gtest.h>
 

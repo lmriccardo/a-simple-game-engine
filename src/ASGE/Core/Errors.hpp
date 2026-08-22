@@ -352,6 +352,32 @@ inline str::String ToErrorString(FontError e) noexcept
     return "unknown font error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// ENTITY COMPONENT SYSTEM ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class EcsError
+{
+    NoMoreEntityAvailable = 1,
+    EntityIsNotAlive,
+    NoMoreComponentsAvailable,
+    EntityNotAttachedToComponent,
+    InvalidComponent,
+};
+
+inline str::String ToErrorString(EcsError e) noexcept
+{
+    switch (e)
+    {
+    case EcsError::NoMoreEntityAvailable: return "no more available entity slots";
+    case EcsError::EntityIsNotAlive: return "entity is no more alive";
+    case EcsError::NoMoreComponentsAvailable: return "no more available component slots";
+    case EcsError::EntityNotAttachedToComponent: return "entity does not have component of this type";
+    case EcsError::InvalidComponent: return "invalid component";
+    }
+    return "unknown ecs error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
@@ -360,3 +386,4 @@ REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
 REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.graphics.image")
 REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.graphics.font")
+REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
