@@ -1,0 +1,20 @@
+# Audio System — Phase 3
+
+*Priority: Later — polish, not a functional gap. See [README](../README.md).
+Other phases: [Phase 1](../phase-1/08-audio-system.md) (play sounds, volume),
+[Phase 2](../phase-2/08-audio-system.md) (spatial audio, music streaming).*
+
+## Goals
+Signal-processing effects (filters, echo) and zone-based reverb, for whenever a
+game's audio design actually calls for them.
+
+## Design notes
+Both are mixing/DSP polish on top of [Phase 2](../phase-2/08-audio-system.md)'s
+spatial audio — real value, but no example or planned feature currently needs
+either. Stays unscoped until a concrete audio-design requirement appears.
+
+## Tasks
+- [ ] Revisit once a concrete feature needs DSP effects or reverb zones
+
+## Explicitly out of scope
+Everything, until a concrete feature demands it.

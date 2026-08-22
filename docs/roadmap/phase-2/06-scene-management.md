@@ -1,0 +1,30 @@
+# Scene Management — Phase 2
+
+*Priority: Tier 2 follow-on. See [README](../README.md). Other phases:
+[Phase 1](../phase-1/06-scene-management.md) (load/save),
+[Phase 3](../phase-3/06-scene-management.md) (world streaming).*
+
+## Goals
+Reusable entity templates (prefabs), and loading more than one scene at a time
+(additive loading — e.g. a persistent HUD scene layered over a level scene).
+
+## Design notes
+- **Prefabs are a template over [Phase 1](../phase-1/06-scene-management.md)'s scene
+  format** — the same entity+component+asset-reference shape, instantiated multiple
+  times with per-instance overrides, rather than a separate concept.
+- **Additive loading** needs scenes to be independently load/unload-able without
+  tearing down the whole `Registry` — depends on Phase 1's load/save being scoped to
+  a subset of entities, not "the entire game state".
+
+## Tasks
+- [ ] Prefab format + instantiation (spawn N copies of a template, each with its own
+      `EntityId`)
+- [ ] Additive scene loading (load a second scene's entities into the same
+      `Registry` without unloading the first)
+
+## Deliverables
+- At least one example using a prefab to spawn multiple similar entities
+- At least two scenes loaded additively at once
+
+## Explicitly out of scope
+World streaming — see [Phase 3](../phase-3/06-scene-management.md).

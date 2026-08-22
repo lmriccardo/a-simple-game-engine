@@ -20,8 +20,9 @@ primary backend throughout; nothing here replaces it unless Step 3 explicitly de
 ### Step 1 — Camera & fixed-function effects
 
 *Status:* Not started. No blockers, but deprioritized behind
-[03-ECS](03-entity-component-system.md) and [04-Input](04-input-system.md) — an MVP
-needs entities and input before it needs camera zoom or a glow effect.
+[03-ECS](phase-1/03-entity-component-system.md) and
+[04-Input](phase-1/04-input-system.md) — an MVP needs entities and input before it
+needs camera zoom or a glow effect.
 
 - 2D camera: position/zoom/rotation, applied when issuing draw calls
 - Compositing helpers built on `SDL_Renderer`'s existing render-target + color-mod +

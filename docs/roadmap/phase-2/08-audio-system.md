@@ -1,0 +1,37 @@
+# Audio System — Phase 2
+
+*Priority: Tier 2 follow-on. See [README](../README.md). Other phases:
+[Phase 1](../phase-1/08-audio-system.md) (play sounds, volume),
+[Phase 3](../phase-3/08-audio-system.md) (DSP effects, reverb zones).*
+
+## Goals
+Positional audio (a sound gets quieter/pans as its source moves away from the
+listener) and streamed playback for music-length tracks instead of loading the
+whole file into memory.
+
+## Design notes
+- **Spatial audio needs a listener position** — naturally the entity holding
+  [10-Rendering System](../10-rendering-system.md) Step 1's camera, once that
+  exists; until then, spatial audio has no reference point to compute
+  attenuation/panning against.
+- **Music streaming** decodes incrementally instead of loading the whole file, the
+  same "don't block the main loop" motivation as
+  [05-Asset Pipeline Phase 2](../phase-2/05-asset-pipeline.md)'s async loading —
+  likely sharing that phase's `ThreadPool`-based approach rather than a separate
+  streaming mechanism.
+
+## Tasks
+- [ ] Listener position (tied to the active camera once
+      [10-Rendering System](../10-rendering-system.md) Step 1 lands)
+- [ ] Distance-based attenuation + stereo panning for `AudioSource`s relative to
+      the listener
+- [ ] Streamed playback for long clips, decoding incrementally rather than loading
+      the full file upfront
+
+## Deliverables
+- A sound's volume/pan changes convincingly as its source entity moves relative to
+  the listener
+- At least one example streaming a music-length track without a loading stall
+
+## Explicitly out of scope
+DSP effects, reverb zones — see [Phase 3](../phase-3/08-audio-system.md).
