@@ -24,7 +24,7 @@ on systems that only pay off once that MVP exists.
 ### Tier 1 — MVP-critical (do next, in this order)
 3. **[ECS](03-entity-component-system.md)**, Phase 1 only (create/destroy entities, attach
    components) — everything below needs somewhere to hang a `Transform`, `Sprite`,
-   `Collider`, etc. This is the biggest unblock in the whole roadmap right now.
+   `Collider`, etc. This is the biggest unblock in the whole roadmap right now. - ✅ complete
 4. **[Input](04-input-system.md)**, finish Phase 1 — keyboard is already wired through
    `SystemEvent`; `MouseEvent` is declared in the enum but missing from the event variant.
    Small, and blocks anything interactive.

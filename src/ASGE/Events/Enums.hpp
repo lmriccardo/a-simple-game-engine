@@ -46,7 +46,8 @@ enum class SystemEventType
     UKNOWN,
     QUIT,
     WINDOW,
-    KEYBOARD
+    KEYBOARD,
+    MOUSE
 };
 
 namespace _internal
@@ -68,6 +69,8 @@ inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
         return IsIncluded<Offsets::WINDOW_EVENT_START, Offsets::WINDOW_EVENT_END>(inType);
     case SystemEventType::KEYBOARD:
         return IsIncluded<Offsets::KEYBOARD_EVENT_START, Offsets::KEYBOARD_EVENT_END>(inType);
+    case SystemEventType::MOUSE:
+        return IsIncluded<Offsets::MOUSE_EVENT_START, Offsets::MOUSE_EVENT_END>(inType);
     default:
         return false;
     }
@@ -104,7 +107,8 @@ inline SystemEventType ToSysEventType(
     return ToSysEventTypeImpl<
         SystemEventType::QUIT,
         SystemEventType::KEYBOARD,
-        SystemEventType::WINDOW
+        SystemEventType::WINDOW,
+        SystemEventType::MOUSE
     >(inEventType);
 }
 

@@ -34,6 +34,7 @@ inline void __processCommonEvent_SDL(
 void __processQuit    ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
 void __processWindow  ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
 void __processKeyboard( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
+void __processMouse   ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
 
 using ProcessFn = std::function<void(SystemEvent*, SDL_Event const&)>;
 inline std::unordered_map<SystemEventType, ProcessFn> const& GetProcessMap()
@@ -42,7 +43,8 @@ inline std::unordered_map<SystemEventType, ProcessFn> const& GetProcessMap()
     {
         { SystemEventType::QUIT, &__processQuit },
         { SystemEventType::KEYBOARD, &__processKeyboard },
-        { SystemEventType::WINDOW, &__processWindow }
+        { SystemEventType::WINDOW, &__processWindow },
+        { SystemEventType::MOUSE, &__processMouse }
     };
 
     return map;

@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <concepts>
 #include <variant>
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 #include "Keycode.hpp"
+#include "MouseButton.hpp"
 #include "Enums.hpp"
 
 /* #ifdef SDL_DEFINED */
@@ -53,24 +55,55 @@ struct KeyboardEvent : public _internal::CommonEvent<SystemEventType::KEYBOARD>
     bool           s_Repeat;     // True if this is a key repeat
 };
 
+/* Handles mouse-movement events */
+struct MouseMotionEvent : public _internal::CommonEvent<SystemEventType::MOUSE>
+{
+    std::uint32_t s_WindowId; // The ID of the window
+    std::uint32_t s_MouseId;  // The ID of the mouse ( 0 if unknown, or touch-emulated )
+    math::Float2  s_Position; // Position, relative to the window
+    math::Float2  s_Delta;    // Relative motion since the last motion event
+};
+
+/* Handles mouse-button-press/release events */
+struct MouseButtonEvent : public _internal::CommonEvent<SystemEventType::MOUSE>
+{
+    std::uint32_t      s_WindowId; // The ID of the window
+    std::uint32_t      s_MouseId;  // The ID of the mouse ( 0 if unknown, or touch-emulated )
+    input::MouseButton s_Button;   // The button this event refers to
+    bool               s_Down;     // True if the button is pressed
+    std::uint8_t       s_Clicks;   // 1 for single-click, 2 for double-click, etc.
+    math::Float2       s_Position; // Position, relative to the window
+};
+
+/* Handles mouse-wheel/scroll events */
+struct MouseWheelEvent : public _internal::CommonEvent<SystemEventType::MOUSE>
+{
+    std::uint32_t s_WindowId; // The ID of the window
+    std::uint32_t s_MouseId;  // The ID of the mouse ( 0 if unknown, or touch-emulated )
+    math::Float2  s_Scroll;   // Amount scrolled ( +x right, +y away from the user )
+    math::Float2  s_Position; // Mouse position, relative to the window
+};
+
 namespace _internal
 {
 
 template<typename T, typename ...U>
 struct is_any_same : std::disjunction<
-    std::is_same<std::remove_cvref_t<T>,U>...> 
+    std::is_same<std::remove_cvref_t<T>,U>...>
 {};
 
 template<typename T, typename ...U>
 inline constexpr bool is_any_same_v = is_any_same<T, U...>::value;
 
 template<typename T>
-concept IsSystemEvent = 
-    is_any_same_v<T, UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent>;
+concept IsSystemEvent =
+    is_any_same_v<T, UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent,
+        MouseMotionEvent, MouseButtonEvent, MouseWheelEvent>;
 
 /* Variant type that comprises all possible events */
 using _SystemEvent = std::variant<
-    UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent
+    UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent,
+    MouseMotionEvent, MouseButtonEvent, MouseWheelEvent
 >;
 
 }
