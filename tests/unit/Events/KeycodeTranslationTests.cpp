@@ -38,6 +38,13 @@ constexpr std::array kKnownMappings = {
     KeycodeMapping{ Keycode::U, SDLK_U }, KeycodeMapping{ Keycode::V, SDLK_V },
     KeycodeMapping{ Keycode::W, SDLK_W }, KeycodeMapping{ Keycode::X, SDLK_X },
     KeycodeMapping{ Keycode::Y, SDLK_Y }, KeycodeMapping{ Keycode::Z, SDLK_Z },
+    KeycodeMapping{ Keycode::NUM_0, SDLK_0 }, KeycodeMapping{ Keycode::NUM_1, SDLK_1 },
+    KeycodeMapping{ Keycode::NUM_2, SDLK_2 }, KeycodeMapping{ Keycode::NUM_3, SDLK_3 },
+    KeycodeMapping{ Keycode::NUM_4, SDLK_4 }, KeycodeMapping{ Keycode::NUM_5, SDLK_5 },
+    KeycodeMapping{ Keycode::NUM_6, SDLK_6 }, KeycodeMapping{ Keycode::NUM_7, SDLK_7 },
+    KeycodeMapping{ Keycode::NUM_8, SDLK_8 }, KeycodeMapping{ Keycode::NUM_9, SDLK_9 },
+    KeycodeMapping{ Keycode::UP, SDLK_UP }, KeycodeMapping{ Keycode::DOWN, SDLK_DOWN },
+    KeycodeMapping{ Keycode::LEFT, SDLK_LEFT }, KeycodeMapping{ Keycode::RIGHT, SDLK_RIGHT },
 };
 
 // ─── Keycode is dense ───────────────────────────────────────────────────────

@@ -54,6 +54,20 @@ asge::input::Keycode asge::event::_internal::ToKeycode(SDL_Keycode inSdlKeycode)
     case SDLK_X: return input::Keycode::X;
     case SDLK_Y: return input::Keycode::Y;
     case SDLK_Z: return input::Keycode::Z;
+    case SDLK_0: return input::Keycode::NUM_0;
+    case SDLK_1: return input::Keycode::NUM_1;
+    case SDLK_2: return input::Keycode::NUM_2;
+    case SDLK_3: return input::Keycode::NUM_3;
+    case SDLK_4: return input::Keycode::NUM_4;
+    case SDLK_5: return input::Keycode::NUM_5;
+    case SDLK_6: return input::Keycode::NUM_6;
+    case SDLK_7: return input::Keycode::NUM_7;
+    case SDLK_8: return input::Keycode::NUM_8;
+    case SDLK_9: return input::Keycode::NUM_9;
+    case SDLK_UP: return input::Keycode::UP;
+    case SDLK_DOWN: return input::Keycode::DOWN;
+    case SDLK_LEFT: return input::Keycode::LEFT;
+    case SDLK_RIGHT: return input::Keycode::RIGHT;
     default:
         return input::Keycode::UNKNOWN;
     }
@@ -91,6 +105,20 @@ SDL_Keycode asge::event::_internal::ToSdlKeycode(input::Keycode inKeycode) noexc
     case input::Keycode::X: return SDLK_X;
     case input::Keycode::Y: return SDLK_Y;
     case input::Keycode::Z: return SDLK_Z;
+    case input::Keycode::NUM_0: return SDLK_0;
+    case input::Keycode::NUM_1: return SDLK_1;
+    case input::Keycode::NUM_2: return SDLK_2;
+    case input::Keycode::NUM_3: return SDLK_3;
+    case input::Keycode::NUM_4: return SDLK_4;
+    case input::Keycode::NUM_5: return SDLK_5;
+    case input::Keycode::NUM_6: return SDLK_6;
+    case input::Keycode::NUM_7: return SDLK_7;
+    case input::Keycode::NUM_8: return SDLK_8;
+    case input::Keycode::NUM_9: return SDLK_9;
+    case input::Keycode::UP: return SDLK_UP;
+    case input::Keycode::DOWN: return SDLK_DOWN;
+    case input::Keycode::LEFT: return SDLK_LEFT;
+    case input::Keycode::RIGHT: return SDLK_RIGHT;
     case input::Keycode::UNKNOWN:
     case input::Keycode::COUNT:
     default:
