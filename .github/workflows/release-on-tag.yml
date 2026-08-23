@@ -25,6 +25,10 @@ jobs:
             configure_preset: windows-package
             build_preset: windows-package
             archive: asge-${{ github.ref_name }}-windows-x64.zip
+          - os: macos-latest
+            configure_preset: macos-package
+            build_preset: macos-package
+            archive: asge-${{ github.ref_name }}-macos-arm64.tar.gz
 
     steps:
       - uses: actions/checkout@v4
@@ -35,8 +39,8 @@ jobs:
         with:
           cmake-version: "latest"
 
-      - name: Install dependencies on Linux
-        if: runner.os == 'Linux'
+      - name: Install dependencies on Linux or macOS
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: bash scripts/install-deps.sh
 
       - name: Install dependencies on Windows
@@ -53,8 +57,8 @@ jobs:
       - name: Install
         run: cmake --install build --config Release --prefix install
 
-      - name: Archive (Linux)
-        if: runner.os == 'Linux'
+      - name: Archive (Linux or macOS)
+        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: tar -czf ${{ matrix.archive }} -C install .
 
       - name: Archive (Windows)
