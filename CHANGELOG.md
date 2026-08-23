@@ -1,3 +1,22 @@
+## [0.4.0] - 2026-08-23
+
+
+### Features
+
+- :sparkles: Widen Keycode with digits and arrow keys
+
+- :sparkles: Add input_demo, closing Step 3 of the input-system roadmap
+
+- :sparkles: Add InputState/InputSystem, dense Keycode, and an ASGE/Input module
+
+- :sparkles: Wire mouse events into the SystemEvent pipeline
+
+
+
+
+### Contributors
+
+- lmriccardo
 ## [0.3.0] - 2026-08-22
 
 
@@ -153,6 +172,7 @@
 ### Contributors
 
 - lmriccardo
+[0.4.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.2.0...v0.3.0
 [0.1.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.0...v0.1.1
