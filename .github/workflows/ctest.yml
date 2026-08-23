@@ -26,16 +26,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-          include:
-            - os: ubuntu-latest
-              configure_preset: linux-ci
-              preset: linux-ci
-            - os: windows-latest
-              configure_preset: windows-ci
-              preset: windows-ci-debug
-            - os: macos-latest
-              configure_preset: macos-ci
-              preset: macos-ci
+        include:
+          - os: ubuntu-latest
+            configure_preset: linux-ci
+            preset: linux-ci
+          - os: windows-latest
+            configure_preset: windows-ci
+            preset: windows-ci-debug
+          - os: macos-latest
+            configure_preset: macos-ci
+            preset: macos-ci
 
     steps:
       - name: Checkout
