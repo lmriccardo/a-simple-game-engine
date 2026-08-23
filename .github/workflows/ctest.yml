@@ -33,6 +33,9 @@ jobs:
           - os: windows-latest
             configure_preset: windows-ci
             preset: windows-ci-debug
+          - os: macos-latest
+            configure_preset: macos-ci
+            preset: macos-ci
 
     steps:
       - name: Checkout
@@ -51,6 +54,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/install-deps.ps1
+
+      - name: Install dependencies on macOS
+        if: runner.os == 'macOS'
+        run: bash scripts/install-deps.sh
 
       - name: Configure
         run: cmake --preset ${{ matrix.configure_preset }}

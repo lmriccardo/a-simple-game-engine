@@ -431,6 +431,182 @@ asge::Result<WatcherHandler> asge::filesystem::_win32::FileWatcher::AddWatch(
     }
 }
 
+#elif defined(__APPLE__)
+
+FEventType asge::filesystem::_apple::FileWatcher::MapEvent( FSEventStreamEventFlags inFlags ) noexcept
+{
+    // FSEvents flags are cumulative, so a single write can carry
+    // kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemModified
+    // at once. Check Modified before Created so an in-place edit maps to
+    // Modified (not Created), which the consumer's event mask expects.
+    if ( inFlags & kFSEventStreamEventFlagItemModified ) return FEventType::Modified;
+    if ( inFlags & kFSEventStreamEventFlagItemCreated ) return FEventType::Created;
+    if ( inFlags & kFSEventStreamEventFlagItemRemoved ) return FEventType::Deleted;
+    return FEventType::None;
+}
+
+asge::BoolResult asge::filesystem::_apple::FileWatcher::RegisterNewWatch(path_type inPath) noexcept
+{
+    std::lock_guard<std::mutex> lock( m_WatchesMtx );
+
+    if ( m_WatchedStreams.find( inPath ) != m_WatchedStreams.end() ) return BoolResult::Ok();
+
+    std::string u8_path = str::ToUTF8( inPath.u8string() );
+    CFStringRef cfPath = CFStringCreateWithCString( kCFAllocatorDefault, u8_path.c_str(), kCFStringEncodingUTF8 );
+    if ( cfPath == nullptr ) {
+        return BoolResult::Err( MakeErrorFromErrno(), u8_path );
+    }
+
+    CFTypeRef items[1] = { cfPath };
+    CFArrayRef pathsToWatch = CFArrayCreate( kCFAllocatorDefault, items, 1, &kCFTypeArrayCallBacks );
+
+    FSEventStreamContext ctx{ 0 };
+    ctx.info = this;
+
+    FSEventStreamRef stream = FSEventStreamCreate(
+        kCFAllocatorDefault,
+        &OnFSEventStream,
+        &ctx,
+        pathsToWatch,
+        kFSEventStreamEventIdSinceNow,
+        0.0,
+        kFSEventStreamCreateFlagFileEvents
+    );
+
+    CFRelease( cfPath );
+    CFRelease( pathsToWatch );
+
+    if ( stream == nullptr ) {
+        return BoolResult::Err( MakeErrorFromErrno(), u8_path );
+    }
+
+    // FSEvents can only deliver events after the stream is scheduled
+    // on a dispatch queue or run loop; start without one silently fails.
+    dispatch_queue_t queue = dispatch_queue_create( "asge.filewatcher", DISPATCH_QUEUE_SERIAL );
+    FSEventStreamSetDispatchQueue( stream, queue );
+
+    if ( !FSEventStreamStart( stream ) )
+    {
+        FSEventStreamSetDispatchQueue( stream, nullptr );
+        ::FSEventStreamInvalidate( stream );
+        ::FSEventStreamRelease( stream );
+        dispatch_release( queue );
+        return BoolResult::Err( MakeErrorFromErrno(), u8_path );
+    }
+
+    m_WatchedStreams.emplace( inPath, FSEventEntry{ stream, queue } );
+    return BoolResult::Ok();
+}
+
+void asge::filesystem::_apple::FileWatcher::OnFSEventStream(
+    ConstFSEventStreamRef inStream,
+    void* inInfo,
+    std::size_t inNumEvents,
+    void* inEventPaths,
+    FSEventStreamEventFlags const* inEventFlags,
+    FSEventStreamEventId const* inEventIds
+)
+{
+    (void)inStream;
+    (void)inEventIds;
+
+    auto* self = static_cast< _apple::FileWatcher* >( inInfo );
+    auto const* paths = static_cast< char const* const* >( inEventPaths );
+    for ( std::size_t ii = 0; ii < inNumEvents; ++ii )
+    {
+        FEventType type = MapEvent( inEventFlags[ii] );
+        if ( type == FEventType::None ) continue;
+
+        auto const& event = FileEvent::CreateFileEvent(
+            path_type( paths[ii] ),
+            type,
+            inEventFlags[ii],
+            /* inOldPath */ ""
+        );
+        self->m_OnEvent.Emit( event );
+    }
+}
+
+void asge::filesystem::_apple::FileWatcher::Run( concurrent::context_pointer& inCtx )
+{
+    // FSEvents delivers callbacks on its own thread, so the watcher
+    // thread just has to stay alive until the caller cancels it.
+    inCtx->Wait();
+}
+
+asge::filesystem::_apple::FileWatcher::FileWatcher()
+: FileWatcher( nullptr )
+{}
+
+asge::filesystem::_apple::FileWatcher::FileWatcher( concurrent::context_pointer inCtx )
+: concurrent::Thread( "FileWatcher", inCtx )
+{}
+
+asge::filesystem::_apple::FileWatcher::~FileWatcher()
+{
+    Cancel();
+    Join();
+
+    std::lock_guard<std::mutex> lock( m_WatchesMtx );
+    for ( auto const& entry : m_WatchedStreams )
+    {
+        ::FSEventStreamSetDispatchQueue( entry.second.s_Stream, nullptr );
+        ::FSEventStreamInvalidate( entry.second.s_Stream );
+        ::FSEventStreamRelease( entry.second.s_Stream );
+        dispatch_release( entry.second.s_Queue );
+    }
+    m_WatchedStreams.clear();
+}
+
+asge::Result<WatcherHandler> asge::filesystem::_apple::FileWatcher::AddWatch(
+    path_type inPath, _internal::callback_type_cref inCallback, mask_type inMask
+)
+{
+    if ( !meta::Exists( inPath ) )
+    {
+        auto const ec = std::make_error_code( std::errc::no_such_file_or_directory );
+        return asge::Result<WatcherHandler>::Err( ec, str::ToUTF8( inPath.u8string() ) );
+    }
+
+    if ( meta::IsDirectory( inPath ) )
+    {
+        auto connector = m_OnEvent.Connect( _internal::CreateCallback( inCallback, inMask ) );
+        if ( auto result = RegisterNewWatch( inPath ); !result ) {
+            connector.Disconnect();
+            return Result<WatcherHandler>::Err( result.Error() );
+        }
+
+        LOG_INFO( "Added new watch for ", inPath, " with mask ", inMask );
+        return Result<WatcherHandler>::Ok( connector );
+    }
+
+    inPath = inPath.lexically_normal();
+    path_type parentPath = inPath.parent_path();
+
+    // FSEvents reports the canonical (symlink-resolved) path — e.g.
+    // /private/var/... for a /var/... target — so compare on canonical paths.
+    // weakly_canonical does not throw if the path no longer exists.
+    auto canonical = []( path_type const& p ) {
+        std::error_code ec;
+        return std::filesystem::weakly_canonical( p, ec );
+    };
+    path_type watchTarget = canonical( inPath );
+    auto filtered = [ inCallback, watchTarget, canonical ]( FileEvent const& e ) {
+        if ( !e.IsDir() && canonical( e.s_Path ) == watchTarget ) inCallback( e );
+    };
+
+    // Connect the listener before starting the stream so FSEvents' initial
+    // batch (delivered at start) is not lost because nothing is listening.
+    auto connector = m_OnEvent.Connect( _internal::CreateCallback( filtered, inMask ) );
+    if ( auto result = RegisterNewWatch( parentPath ); !result ) {
+        connector.Disconnect();
+        return Result<WatcherHandler>::Err( result.Error() );
+    }
+
+    LOG_INFO( "Added new watch for ", inPath, " with mask ", inMask );
+    return Result<WatcherHandler>::Ok( connector );
+}
+
 #else
 
 bool asge::filesystem::_linux::FileWatcher::isValid() const noexcept

@@ -68,6 +68,9 @@ add_library(ASGE::ASGE ALIAS ASGE)
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
 target_link_libraries(ASGE PRIVATE stb::stb)
+if(APPLE)
+    target_link_libraries(ASGE PRIVATE "-framework CoreServices")
+endif()
 target_include_directories(ASGE
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>"

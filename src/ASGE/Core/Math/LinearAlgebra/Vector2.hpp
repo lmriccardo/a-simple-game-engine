@@ -21,14 +21,21 @@ public:
     using typename base::reference;
     using typename base::const_reference;
 
-    using base::VecN; // Inherit all constructors
-
     static Vec2 Zero()
     {
         return Vec2( base::Zero() );
     }
 
-    /* Conversion constructor (Crucial for the operators below) */
+    Vec2() = default;
+
+    template<_internal::Numeric... Us>
+    requires (sizeof...(Us) == 2)
+    explicit Vec2( Us... inValues ) : base( inValues... )
+    {}
+
+    Vec2( std::initializer_list<T> inList ) : base( inList )
+    {}
+
     Vec2(const base& inBase) : base(inBase) {}
 
     reference x() { return (*this)[0]; }

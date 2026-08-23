@@ -92,6 +92,39 @@
                 "ASGE_BUILD_EXAMPLES": "OFF",
                 "ASGE_INSTALL": "ON"
             }
+        },
+        {
+            "name": "macos-base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "macos",
+            "displayName": "macOS (dev: tests + examples)",
+            "description": "Single-config generator, so CMAKE_BUILD_TYPE is fixed to Debug here for the local dev loop.",
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SDL3_DIR": "/opt/homebrew/lib/cmake/SDL3",
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "ON"
+            }
+        },
+        {
+            "name": "macos-ci",
+            "displayName": "macOS (CI parity)",
+            "description": "Mirrors a macOS CI job exactly (no explicit CMAKE_BUILD_TYPE, examples off).",
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "SDL3_DIR": "/opt/homebrew/lib/cmake/SDL3",
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -126,6 +159,14 @@
             "name": "windows-package",
             "configurePreset": "windows-package",
             "configuration": "Release"
+        },
+        {
+            "name": "macos",
+            "configurePreset": "macos"
+        },
+        {
+            "name": "macos-ci",
+            "configurePreset": "macos-ci"
         }
     ],
     "testPresets": [
@@ -155,6 +196,20 @@
         {
             "name": "linux-ci",
             "configurePreset": "linux-ci",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "macos",
+            "configurePreset": "macos",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "macos-ci",
+            "configurePreset": "macos-ci",
             "output": {
                 "outputOnFailure": true
             }

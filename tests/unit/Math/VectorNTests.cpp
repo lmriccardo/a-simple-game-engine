@@ -14,10 +14,22 @@ class TestVec3 final : public VecN<3, T, TestVec3<T>>
 {
 public:
     using base = VecN<3, T, TestVec3<T>>;
-    using base::VecN;
     using typename base::value_type;
 
-    TestVec3(base const& inBase) : base(inBase) {}
+    TestVec3() = default;
+
+    explicit TestVec3( value_type inValue ) : base( inValue )
+    {}
+
+    template<_internal::Numeric... Us>
+    requires (sizeof...(Us) == 3)
+    explicit TestVec3( Us... inValues ) : base( inValues... )
+    {}
+
+    TestVec3( std::initializer_list<T> inList ) : base( inList )
+    {}
+
+    explicit TestVec3(base const& inBase) : base(inBase) {}
 
     using base::operator+;
     using base::operator-;
