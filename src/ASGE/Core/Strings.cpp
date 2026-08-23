@@ -4,11 +4,16 @@ using namespace asge::str;
 
 StringView asge::str::Trim(StringView inSv) noexcept
 {
-    auto start = inSv.find_first_not_of(" \t\r\n");
+    return Trim( inSv, " \t\r\n" );
+}
+
+StringView asge::str::Trim(StringView inSv, StringView inCharsToTrim) noexcept
+{
+    auto start = inSv.find_first_not_of(inCharsToTrim);
     if (start == std::string_view::npos) return {};
     inSv.remove_prefix(start);
 
-    auto end = inSv.find_last_not_of(" \t\r\n");
+    auto end = inSv.find_last_not_of(inCharsToTrim);
     inSv.remove_suffix(inSv.size() - end - 1);
 
     return inSv;

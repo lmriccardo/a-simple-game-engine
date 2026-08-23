@@ -10,9 +10,13 @@ namespace asge::str
 {
 
 using String = std::string;
+using StringRef = String&;
+using StringCRef = String const&;
 using StringView = std::string_view;
+
 using WString = std::wstring;
 using WStringView = std::wstring_view;
+
 using U8String = std::u8string;
 
 /**
@@ -26,6 +30,14 @@ using U8String = std::u8string;
  * @param inSv The input string_view to be trimmed.
  */
 StringView Trim(StringView inSv) noexcept;
+
+/**
+ * @brief Removes leading and trailing characters from a custom set.
+ *
+ * Same zero-copy behaviour as the single-argument @c Trim, but strips only the
+ * characters listed in @p inCharsToTrim instead of standard whitespace.
+ */
+StringView Trim( StringView inSv, StringView inCharsToTrim ) noexcept;
 
 /**
  * @brief Splits a string_view into a vector of sub-views based on a delimiter string.
