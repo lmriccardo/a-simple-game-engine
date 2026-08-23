@@ -39,7 +39,7 @@ void TextureDemoGame::EnsureTexturesLoaded(asge::video::IRenderer& inRenderer)
     if (!m_FrameTexture)   m_FrameTexture   = LoadTexture(inRenderer, "frame.bmp");
 }
 
-void TextureDemoGame::Update(float inDeltaTime)
+void TextureDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_RotationAngle += ROTATION_SPEED * inDeltaTime;
 }

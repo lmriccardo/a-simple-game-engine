@@ -46,18 +46,21 @@ enum class SystemEventType
     UKNOWN,
     QUIT,
     WINDOW,
-    KEYBOARD
+    KEYBOARD,
+    MOUSE
 };
 
 namespace _internal
 {
 
+/** @brief True if inType falls within the [Start, Stop) offset range. */
 template<std::uint32_t Start, std::uint32_t Stop>
 inline constexpr bool IsIncluded( std::uint32_t inType ) noexcept
 {
     return inType >= Start && inType < Stop;
 }
 
+/** @brief True if inType's numeric value belongs to Set's EventType offset range. */
 template<SystemEventType Set>
 inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
 {
@@ -68,11 +71,14 @@ inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
         return IsIncluded<Offsets::WINDOW_EVENT_START, Offsets::WINDOW_EVENT_END>(inType);
     case SystemEventType::KEYBOARD:
         return IsIncluded<Offsets::KEYBOARD_EVENT_START, Offsets::KEYBOARD_EVENT_END>(inType);
+    case SystemEventType::MOUSE:
+        return IsIncluded<Offsets::MOUSE_EVENT_START, Offsets::MOUSE_EVENT_END>(inType);
     default:
         return false;
     }
 }
 
+/** @brief Returns SysT if inEventType belongs to it, otherwise UKNOWN. */
 template<SystemEventType SysT>
 inline SystemEventType CheckOne( EventType inEventType ) noexcept
 {
@@ -81,6 +87,7 @@ inline SystemEventType CheckOne( EventType inEventType ) noexcept
     return SystemEventType::UKNOWN;
 }
 
+/** @brief Tries each SysTypes in turn, returning the first that matches inEventType. */
 template<SystemEventType... SysTypes>
 inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
 {
@@ -98,13 +105,15 @@ inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
     return result;
 }
 
-inline SystemEventType ToSysEventType( 
+/** @brief Classifies inEventType into its owning SystemEventType (QUIT/KEYBOARD/WINDOW/MOUSE). */
+inline SystemEventType ToSysEventType(
     EventType inEventType ) noexcept
 {
     return ToSysEventTypeImpl<
         SystemEventType::QUIT,
         SystemEventType::KEYBOARD,
-        SystemEventType::WINDOW
+        SystemEventType::WINDOW,
+        SystemEventType::MOUSE
     >(inEventType);
 }
 

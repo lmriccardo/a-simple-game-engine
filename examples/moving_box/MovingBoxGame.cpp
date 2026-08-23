@@ -1,6 +1,6 @@
 #include "MovingBoxGame.hpp"
 
-void MovingBoxGame::Update(float inDeltaTime)
+void MovingBoxGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_Box.Update( inDeltaTime );
 }

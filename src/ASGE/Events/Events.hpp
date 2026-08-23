@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <concepts>
 #include <variant>
-#include "Keycode.hpp"
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include <ASGE/Input/Keycode.hpp>
+#include <ASGE/Input/MouseButton.hpp>
 #include "Enums.hpp"
 
 /* #ifdef SDL_DEFINED */
@@ -53,24 +55,55 @@ struct KeyboardEvent : public _internal::CommonEvent<SystemEventType::KEYBOARD>
     bool           s_Repeat;     // True if this is a key repeat
 };
 
+/* Handles mouse-movement events */
+struct MouseMotionEvent : public _internal::CommonEvent<SystemEventType::MOUSE>
+{
+    std::uint32_t s_WindowId; // The ID of the window
+    std::uint32_t s_MouseId;  // The ID of the mouse ( 0 if unknown, or touch-emulated )
+    math::Float2  s_Position; // Position, relative to the window
+    math::Float2  s_Delta;    // Relative motion since the last motion event
+};
+
+/* Handles mouse-button-press/release events */
+struct MouseButtonEvent : public _internal::CommonEvent<SystemEventType::MOUSE>
+{
+    std::uint32_t      s_WindowId; // The ID of the window
+    std::uint32_t      s_MouseId;  // The ID of the mouse ( 0 if unknown, or touch-emulated )
+    input::MouseButton s_Button;   // The button this event refers to
+    bool               s_Down;     // True if the button is pressed
+    std::uint8_t       s_Clicks;   // 1 for single-click, 2 for double-click, etc.
+    math::Float2       s_Position; // Position, relative to the window
+};
+
+/* Handles mouse-wheel/scroll events */
+struct MouseWheelEvent : public _internal::CommonEvent<SystemEventType::MOUSE>
+{
+    std::uint32_t s_WindowId; // The ID of the window
+    std::uint32_t s_MouseId;  // The ID of the mouse ( 0 if unknown, or touch-emulated )
+    math::Float2  s_Scroll;   // Amount scrolled ( +x right, +y away from the user )
+    math::Float2  s_Position; // Mouse position, relative to the window
+};
+
 namespace _internal
 {
 
 template<typename T, typename ...U>
 struct is_any_same : std::disjunction<
-    std::is_same<std::remove_cvref_t<T>,U>...> 
+    std::is_same<std::remove_cvref_t<T>,U>...>
 {};
 
 template<typename T, typename ...U>
 inline constexpr bool is_any_same_v = is_any_same<T, U...>::value;
 
 template<typename T>
-concept IsSystemEvent = 
-    is_any_same_v<T, UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent>;
+concept IsSystemEvent =
+    is_any_same_v<T, UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent,
+        MouseMotionEvent, MouseButtonEvent, MouseWheelEvent>;
 
 /* Variant type that comprises all possible events */
 using _SystemEvent = std::variant<
-    UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent
+    UnknownEvent, QuitEvent, WindowEvent, KeyboardEvent,
+    MouseMotionEvent, MouseButtonEvent, MouseWheelEvent
 >;
 
 }
@@ -99,13 +132,8 @@ public:
     }
 
     /**
-     * @brief Returns a const reference to an event.
-     * 
-     * Unsafe version of the TryGet implementation. This returns a const
-     * reference to an event. It throws an exception if the current stored
-     * event does not match the requested event type.
-     * 
-     * @tparam EventT The event type to extract
+     * @brief Unsafe accessor: returns the stored event, throws if EventT doesn't match.
+     * @tparam EventT The event type to extract.
      */
     template<_internal::IsSystemEvent EventT>
     EventT const& Get() const
@@ -113,10 +141,10 @@ public:
         return std::get<EventT>( m_Event );
     }
 
-    /* Checks if the current system event is unknown */
+    /** @brief True if this SystemEvent holds no recognized event. */
     bool IsUnknown() const noexcept;
 
-    /* Returns a const reference to an unknown event */
+    /** @brief Shared instance of the unknown/no-op event. */
     static SystemEvent const& GetUnknown() noexcept;
 };
 
@@ -125,12 +153,8 @@ namespace _internal
 {
 
 /**
- * @brief Process an input platfrom event
- * 
- * Given an input platform event (SDL event or other types of events)
- * returns the asge-based System Event.
- * 
- * @param inPlftEvent The input platform event
+ * @brief Translates a platform event (e.g. SDL) into an asge SystemEvent.
+ * @param inPlftEvent Pointer to the platform event, or nullptr.
  */
 SystemEvent ProcessEvent( void const* inPlftEvent ) noexcept;
 

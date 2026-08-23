@@ -9,7 +9,7 @@ constexpr float LINE_RADIUS      = 100.0f;
 const asge::math::Float2 LINE_ORIGIN{ 400.0f, 300.0f };
 }
 
-void ShapesDemoGame::Update(float inDeltaTime)
+void ShapesDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_LineAngle += LINE_SWEEP_SPEED * inDeltaTime;
 }

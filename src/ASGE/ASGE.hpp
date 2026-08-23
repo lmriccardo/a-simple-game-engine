@@ -4,7 +4,10 @@
 #include <ASGE/Application/ApplicationConfig.hpp>
 #include <ASGE/Events/Enums.hpp>
 #include <ASGE/Events/Events.hpp>
-#include <ASGE/Events/Keycode.hpp>
+#include <ASGE/Input/Keycode.hpp>
+#include <ASGE/Input/MouseButton.hpp>
+#include <ASGE/Input/InputState.hpp>
+#include <ASGE/Input/InputSystem.hpp>
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Systems.hpp>
