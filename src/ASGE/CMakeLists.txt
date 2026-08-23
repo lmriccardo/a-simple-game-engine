@@ -52,6 +52,7 @@ add_library(ASGE STATIC
     Core/Filesystem/FileIO.cpp
     Core/Filesystem/FileMetadata.cpp
     Core/Filesystem/FileWatcher.cpp
+    Core/Filesystem/VirtualFileSystem.cpp
 
     # Profiling utilities
     Core/Profiling/TimingProfiler.cpp
