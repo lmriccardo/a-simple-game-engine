@@ -19,7 +19,7 @@ asge::BoolResult asge::config::ConfigurationManager::ReadConfiguration( filesyst
         return BoolResult::Err( result.Error() );
     }
 
-    m_Configuration.store(std::move(result.Value()), std::memory_order_release);
+    m_Configuration = std::move(result.Value());
     return BoolResult::Ok();
 }
 
@@ -127,7 +127,7 @@ asge::BoolResult asge::config::ConfigurationManager::Save()
 {
     std::lock_guard<std::mutex> lock( m_ConfigMutex );
 
-    auto cfg = m_Configuration.load( std::memory_order_acquire );
+    auto cfg = m_Configuration;
     if ( !cfg )
     {
         return BoolResult::Err( make_error_code( errors::ConfError::ConfigurationNotLoaded ) );

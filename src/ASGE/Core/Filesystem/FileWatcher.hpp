@@ -24,6 +24,10 @@
 #ifdef _WIN32
 #include <windows.h>
 #define INVALID_FD INVALID_HANDLE_VALUE
+#elif defined(__APPLE__)
+#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
 #else
 #include <sys/inotify.h>
 #include <sys/epoll.h>
@@ -61,6 +65,8 @@ std::ostream& operator<<( std::ostream& inOss, FEventType inMask ) noexcept;
 #ifdef _WIN32
 using native_event_t = DWORD;
 using handle_t = HANDLE;
+#elif defined(__APPLE__)
+using native_event_t = std::uint32_t;
 #else
 using native_event_t = std::uint32_t;
 using handle_t = std::int32_t;
@@ -173,6 +179,55 @@ public:
 
 }
 using FileWatcher = _win32::FileWatcher;
+#elif defined(__APPLE__)
+namespace _apple
+{
+
+class FileWatcher : public concurrent::Thread
+{
+public:
+    using path_type = Path;
+    using mask_type = FEventType;
+
+private:
+    struct FSEventEntry
+    {
+        FSEventStreamRef s_Stream;
+        dispatch_queue_t s_Queue;
+    };
+
+    mutable std::mutex m_WatchesMtx;
+    std::unordered_map<path_type, FSEventEntry, PathHash> m_WatchedStreams;
+
+    signals::Signal<FileEvent const&> m_OnEvent;
+
+    static FEventType MapEvent( FSEventStreamEventFlags inFlags ) noexcept;
+    BoolResult RegisterNewWatch( path_type inPath ) noexcept;
+
+    static void OnFSEventStream(
+        ConstFSEventStreamRef inStream,
+        void* inInfo,
+        std::size_t inNumEvents,
+        void* inEventPaths,
+        FSEventStreamEventFlags const* inEventFlags,
+        FSEventStreamEventId const* inEventIds
+    );
+
+    void Run( concurrent::context_pointer& inCtx ) override;
+
+public:
+    FileWatcher();
+    FileWatcher(concurrent::context_pointer inCtx);
+    ~FileWatcher();
+
+    Result<WatcherHandler> AddWatch( path_type inPath,
+        _internal::callback_type_cref inCallback,
+        mask_type inMask = mask_type::All
+    );
+};
+
+}
+using FileWatcher = _apple::FileWatcher;
 #else
 namespace _linux
 {

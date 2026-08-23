@@ -22,7 +22,7 @@ private:
     filesystem::Path             m_ConfigPath;
     filesystem::FileWatcher      m_FileWatcher;
     filesystem::WatcherHandler   m_WatcherConnection;
-    std::atomic<table_pointer_t> m_Configuration{ nullptr };
+    table_pointer_t              m_Configuration{ nullptr };
     std::atomic<bool>            m_HotReloadEnabled{ false };
 
     // Guards Get/Set/Save against each other and against a hot-reload swap.
@@ -50,7 +50,7 @@ public:
     {
         std::lock_guard<std::mutex> lock( m_ConfigMutex );
 
-        auto cfg = m_Configuration.load( std::memory_order_acquire );
+        auto cfg = m_Configuration;
         if ( !cfg )
         {
             return Result<T>::Err( make_error_code( errors::ConfError::ConfigurationNotLoaded ) );
@@ -75,7 +75,7 @@ public:
     {
         std::lock_guard<std::mutex> lock( m_ConfigMutex );
 
-        auto cfg = m_Configuration.load( std::memory_order_acquire );
+        auto cfg = m_Configuration;
         if ( !cfg )
         {
             return BoolResult::Err( make_error_code( errors::ConfError::ConfigurationNotLoaded ) );
