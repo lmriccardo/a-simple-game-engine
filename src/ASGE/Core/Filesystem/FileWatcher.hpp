@@ -65,8 +65,6 @@ std::ostream& operator<<( std::ostream& inOss, FEventType inMask ) noexcept;
 #ifdef _WIN32
 using native_event_t = DWORD;
 using handle_t = HANDLE;
-#elif defined(__APPLE__)
-using native_event_t = std::uint32_t;
 #else
 using native_event_t = std::uint32_t;
 using handle_t = std::int32_t;
