@@ -125,6 +125,18 @@
                 "BUILD_TESTING": "ON",
                 "ASGE_BUILD_EXAMPLES": "OFF"
             }
+        },
+        {
+            "name": "macos-package",
+            "displayName": "macOS (package)",
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SDL3_DIR": "/opt/homebrew/lib/cmake/SDL3",
+                "BUILD_TESTING": "OFF",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_INSTALL": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -167,6 +179,10 @@
         {
             "name": "macos-ci",
             "configurePreset": "macos-ci"
+        },
+        {
+            "name": "macos-package",
+            "configurePreset": "macos-package"
         }
     ],
     "testPresets": [
