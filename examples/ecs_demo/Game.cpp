@@ -1,7 +1,6 @@
 #include "Game.hpp"
 
 #include <algorithm>
-#include <filesystem>
 
 namespace
 {
@@ -29,6 +28,12 @@ constexpr Drifter kDrifters[] = {
 
 EcsDemoGame::EcsDemoGame()
 {
+    // ASGE_ECS_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted once so
+    // sprites are loaded by virtual path (see EnsureSpritesAttached) instead
+    // of a hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount("textures", ASGE_ECS_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
     SpawnEntities();
 }
 
@@ -60,17 +65,15 @@ void EcsDemoGame::EnsureSpritesAttached(asge::video::IRenderer &inRenderer)
 {
     if ( m_SpritesAttached ) return;
 
-    // ASGE_ECS_DEMO_ASSET_DIR is injected by CMakeLists.txt.
-    auto const path = std::filesystem::path(ASGE_ECS_DEMO_ASSET_DIR) / "checker.bmp";
-
-    auto imageResult = asge::graphics::Image::Load(path);
-    if ( !imageResult )
+    // A virtual path resolved through m_Vfs/m_Assets, not a hardcoded OS path.
+    auto imageAsset = m_Assets.GetImage("textures/checker.bmp");
+    if ( !imageAsset )
     {
-        imageResult.LogError();
+        imageAsset.LogError();
         return;
     }
 
-    m_Texture = inRenderer.CreateTexture(imageResult.Value());
+    m_Texture = inRenderer.CreateTexture(imageAsset.Value()->Get());
     if ( !m_Texture ) return;
 
     // Components can only be attached once a texture exists, so this
