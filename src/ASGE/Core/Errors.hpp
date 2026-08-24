@@ -378,12 +378,35 @@ inline str::String ToErrorString(EcsError e) noexcept
     return "unknown ecs error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// VIRTUAL FILE SYSTEM ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class VfsError
+{
+    NotMounted = 1,
+    AlreadyMounted,
+    EmptyMounts,
+};
+
+inline str::String ToErrorString(VfsError e) noexcept
+{
+    switch (e)
+    {
+    case VfsError::NotMounted: return "mount not found in vtable";
+    case VfsError::AlreadyMounted: return "input path already mounted to the same virtual root";
+    case VfsError::EmptyMounts: return "no mounts yet defined";
+    }
+    return "unknown vfs error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
 
-REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filewatcher")
+REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filesystem.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
 REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.graphics.image")
 REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.graphics.font")
 REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
+REGISTER_ASGE_ERROR(asge::errors::VfsError, "asge.filesystem.vfs")

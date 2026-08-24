@@ -52,6 +52,7 @@ add_library(ASGE STATIC
     Core/Filesystem/FileIO.cpp
     Core/Filesystem/FileMetadata.cpp
     Core/Filesystem/FileWatcher.cpp
+    Core/Filesystem/VirtualFileSystem.cpp
 
     # Profiling utilities
     Core/Profiling/TimingProfiler.cpp
@@ -62,6 +63,9 @@ add_library(ASGE STATIC
     # Gameplay systems built on top of the ECS
     Game/Systems/MovementSystem.cpp
     Game/Systems/RenderSystem.cpp
+
+    # Asset Manager
+    Game/Assets/AssetManager.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)
