@@ -84,7 +84,8 @@ Built examples land in `bin/`.
 ## Using ASGE in your own C++ project
 
 ASGE builds a static library target and installs a CMake package config, so
-it can be consumed either as a subdirectory or as an installed package.
+it can be consumed as a subdirectory, via `FetchContent`, or as an
+installed package.
 
 ### Option 1 — `add_subdirectory`
 
@@ -98,7 +99,51 @@ add_executable(my_game main.cpp)
 target_link_libraries(my_game PRIVATE ASGE)
 ```
 
-### Option 2 — installed package
+On Windows, `my_game.exe` also needs `SDL3.dll` next to it at runtime. Since
+`add_subdirectory` never exposes ASGE's own SDL3 target back up to your
+project's directory scope, use the helper ASGE defines for exactly this
+instead of reaching for the SDL3 target directly:
+
+```cmake
+asge_copy_sdl3_runtime(my_game)
+```
+
+### Option 2 — `FetchContent`
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    asge
+    GIT_REPOSITORY https://github.com/lmriccardo/a-simple-game-engine.git
+    GIT_TAG main
+    SOURCE_DIR "${CMAKE_SOURCE_DIR}/third-party/asge"
+)
+FetchContent_MakeAvailable(asge)
+
+add_executable(my_game main.cpp)
+target_link_libraries(my_game PRIVATE ASGE)
+asge_copy_sdl3_runtime(my_game)
+```
+
+ASGE's own dependencies (SDL3, stb) aren't fetched by CMake — they're
+vendored via `scripts/install-deps.ps1`/`.sh`, run separately from the
+build (see [Building from source](#building-from-source) above). That means
+the **first** `FetchContent_MakeAvailable` call above will fail: it clones
+ASGE into `third-party/asge`, then immediately tries to configure it, and
+`find_package(SDL3)` won't find anything yet. Run ASGE's install script
+against the freshly-cloned copy once —
+
+```powershell
+./third-party/asge/scripts/install-deps.ps1     # Windows
+```
+```bash
+./third-party/asge/scripts/install-deps.sh      # Linux / macOS
+```
+
+— then reconfigure; `FetchContent` sees `third-party/asge` already
+populated and it builds normally from there on.
+
+### Option 3 — installed package
 
 Install ASGE (`cmake --install build`), then from your own project:
 
@@ -154,7 +199,12 @@ int main()
 
 More examples covering shapes, textures, text, ECS, input handling and
 configuration loading live under [examples/](examples/) and are built
-alongside the engine when `ASGE_BUILD_EXAMPLES` is `ON`.
+alongside the engine when `ASGE_BUILD_EXAMPLES` is `ON`. In particular, for
+drawing a texture and reading keyboard/mouse input — the two things a
+real game needs beyond the empty overrides above — see
+[examples/texture_demo](examples/texture_demo) (`IRenderer::DrawTexture`)
+and [examples/moving_box](examples/moving_box)
+(`InputState::IsKeyDown`/`IsKeyPressed`).
 
 ## Testing
 
