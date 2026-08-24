@@ -1,3 +1,16 @@
+## [0.4.2] - 2026-08-24
+
+
+### Bug Fixes
+
+- Fix subdirectory-consumer CMake build (CMAKE_SOURCE_DIR paths + SDL3 target visibility) (#27)
+
+
+
+
+### Contributors
+
+- La Marca Riccardo
 ## [0.4.0] - 2026-08-23
 
 
@@ -172,6 +185,7 @@
 ### Contributors
 
 - lmriccardo
+[0.4.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.1...v0.4.2
 [0.4.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.2.0...v0.3.0
 [0.1.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.1...v0.1.2
