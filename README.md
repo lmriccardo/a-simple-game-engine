@@ -26,8 +26,9 @@ ASGE is under active development, worked through a
 - ✅ Rendering primitives (shapes, textures, text)
 - ✅ Entity-Component-System (ECS)
 - ✅ Input system (keyboard, mouse)
-- 🚧 Asset pipeline, scene management, physics, audio, UI, and more —
-  see [docs/roadmap](docs/roadmap/README.md) for the full plan.
+- ✅ Asset pipeline (virtual file system, asset handles)
+- 🚧 Scene management, physics, audio, UI, and more — see
+  [docs/roadmap](docs/roadmap/README.md) for the full plan.
 
 ## Repository layout
 

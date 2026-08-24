@@ -46,7 +46,7 @@ has its own Phase 1 doc, it's just not scheduled.
    already two independent ad-hoc loaders; formalize a common asset-handle concept
    before a third (audio) shows up and triplicates the pattern, and before
    Scene/ECS need a way to reference assets by handle rather than a hardcoded path
-   per demo.
+   per demo. - ✅ complete
 6. **[Scene Management](phase-1/06.1-scene-management.md)** (load/save scenes) —
    now meaningfully assembles ECS entities + asset references into something
    bigger than one hand-written `IGame` per example.
