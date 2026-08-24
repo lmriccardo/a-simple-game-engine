@@ -1,3 +1,27 @@
+## [0.5.0] - 2026-08-24
+
+
+### Bug Fixes
+
+- :bug: Rename AssetManager::LoadImage/LoadFont to GetImage/GetFont
+
+
+
+
+### Features
+
+- :sparkles: Wire ecs_demo sprites through AssetManager/VFS
+
+- :sparkles: Add AssetPool cache and AssetManager
+
+- :sparkles: Add Asset<T> handle and AssetType tag system
+
+
+
+
+### Contributors
+
+- lmriccardo
 ## [0.4.2] - 2026-08-24
 
 
@@ -5,12 +29,23 @@
 
 - Fix subdirectory-consumer CMake build (CMAKE_SOURCE_DIR paths + SDL3 target visibility) (#27)
 
+- :bug: Make StringCRef a genuine const reference
+
+
+
+
+### Features
+
+- :sparkles: Implement Virtual File System
+
 
 
 
 ### Contributors
 
 - La Marca Riccardo
+
+- lmriccardo
 ## [0.4.0] - 2026-08-23
 
 
@@ -185,6 +220,7 @@
 ### Contributors
 
 - lmriccardo
+[0.5.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.1...v0.4.2
 [0.4.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.2.0...v0.3.0
