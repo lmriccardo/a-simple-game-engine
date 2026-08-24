@@ -13,8 +13,8 @@ namespace asge::game::asset
  * @brief Owns the per-asset-type `AssetPool`s and resolves/loads through a
  * `VirtualFileSystem` the caller keeps alive.
  *
- * The one entry point for loading assets by virtual path: `LoadImage`/
- * `LoadFont` each forward to their own `AssetPool`, which caches by virtual
+ * The one entry point for loading assets by virtual path: `GetImage`/
+ * `GetFont` each forward to their own `AssetPool`, which caches by virtual
  * path (plus, for fonts, the bake pixel height) and only calls `Image::Load`/
  * `Font::Load` on a cache miss. Does not own `inVfs` — it must outlive the
  * `AssetManager`.
@@ -40,19 +40,21 @@ public:
 
     ~AssetManager() = default;
 
+    // Named GetImage (not LoadImage) -- Windows headers #define LoadImage to
+    // LoadImageA/W, same reason FileIO's Copy isn't named CopyFile.
     /**
      * @brief Loads (or returns the cached) `Image` at a virtual path.
      * Fails if the path doesn't resolve through the VFS or fails to decode.
      */
     [[nodiscard]] Result<asset_ptr<graphics::Image>>
-    LoadImage( str::StringCRef inVirtualPath );
+    GetImage( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) `Font` baked at @p inPixelHeight.
      * A different @p inPixelHeight for the same path is a separate cache entry.
      */
     [[nodiscard]] Result<asset_ptr<graphics::Font>>
-    LoadFont(str::StringCRef inVirtualPath, int inPixelHeight );
+    GetFont(str::StringCRef inVirtualPath, int inPixelHeight );
 };
 
 }

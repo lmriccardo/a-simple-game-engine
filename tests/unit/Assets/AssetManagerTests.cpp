@@ -116,86 +116,86 @@ protected:
     }
 };
 
-// ─── LoadImage ──────────────────────────────────────────────────────────────────
+// ─── GetImage ──────────────────────────────────────────────────────────────────
 
-TEST_F(AssetManagerTest, LoadImage_ValidPathReturnsDecodedImage)
+TEST_F(AssetManagerTest, GetImage_ValidPathReturnsDecodedImage)
 {
     AssetManager mgr(m_Vfs);
 
-    auto result = mgr.LoadImage("images/hero.bmp");
+    auto result = mgr.GetImage("images/hero.bmp");
     ASSERT_TRUE(result.IsOk());
     EXPECT_EQ(result.Value()->Get().Dimensions().x(), 2);
     EXPECT_EQ(result.Value()->Get().Dimensions().y(), 2);
     EXPECT_EQ(result.Value()->VirtualPath(), "images/hero.bmp");
 }
 
-TEST_F(AssetManagerTest, LoadImage_UnresolvableVirtualPathReturnsNotMountedError)
+TEST_F(AssetManagerTest, GetImage_UnresolvableVirtualPathReturnsNotMountedError)
 {
     AssetManager mgr(m_Vfs);
 
-    auto result = mgr.LoadImage("images/missing.bmp");
+    auto result = mgr.GetImage("images/missing.bmp");
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(VfsError::NotMounted));
 }
 
-TEST_F(AssetManagerTest, LoadImage_GarbageBytesReturnsDecodeFailedError)
+TEST_F(AssetManagerTest, GetImage_GarbageBytesReturnsDecodeFailedError)
 {
     AssetManager mgr(m_Vfs);
 
-    auto result = mgr.LoadImage("images/garbage.bmp");
+    auto result = mgr.GetImage("images/garbage.bmp");
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ImageError::DecodeFailed));
 }
 
-TEST_F(AssetManagerTest, LoadImage_SamePathTwiceReturnsSameCachedAsset)
+TEST_F(AssetManagerTest, GetImage_SamePathTwiceReturnsSameCachedAsset)
 {
     AssetManager mgr(m_Vfs);
 
-    auto first = mgr.LoadImage("images/hero.bmp");
-    auto second = mgr.LoadImage("images/hero.bmp");
+    auto first = mgr.GetImage("images/hero.bmp");
+    auto second = mgr.GetImage("images/hero.bmp");
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(second.IsOk());
     EXPECT_EQ(first.Value(), second.Value());
 }
 
-// ─── LoadFont ───────────────────────────────────────────────────────────────────
+// ─── GetFont ───────────────────────────────────────────────────────────────────
 
-TEST_F(AssetManagerTest, LoadFont_ValidPathReturnsBakedFont)
+TEST_F(AssetManagerTest, GetFont_ValidPathReturnsBakedFont)
 {
     AssetManager mgr(m_Vfs);
 
-    auto result = mgr.LoadFont("fonts/Ahem.ttf", 32);
+    auto result = mgr.GetFont("fonts/Ahem.ttf", 32);
     ASSERT_TRUE(result.IsOk());
     EXPECT_GT(result.Value()->Get().GetLineHeight(), 0);
     EXPECT_EQ(result.Value()->VirtualPath(), "fonts/Ahem.ttf");
 }
 
-TEST_F(AssetManagerTest, LoadFont_NonExistentPathReturnsNotMountedError)
+TEST_F(AssetManagerTest, GetFont_NonExistentPathReturnsNotMountedError)
 {
     AssetManager mgr(m_Vfs);
 
-    auto result = mgr.LoadFont("fonts/DoesNotExist.ttf", 32);
+    auto result = mgr.GetFont("fonts/DoesNotExist.ttf", 32);
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(VfsError::NotMounted));
 }
 
-TEST_F(AssetManagerTest, LoadFont_DifferentPixelHeightsAreSeparateCacheEntries)
+TEST_F(AssetManagerTest, GetFont_DifferentPixelHeightsAreSeparateCacheEntries)
 {
     AssetManager mgr(m_Vfs);
 
-    auto small = mgr.LoadFont("fonts/Ahem.ttf", 16);
-    auto large = mgr.LoadFont("fonts/Ahem.ttf", 32);
+    auto small = mgr.GetFont("fonts/Ahem.ttf", 16);
+    auto large = mgr.GetFont("fonts/Ahem.ttf", 32);
     ASSERT_TRUE(small.IsOk());
     ASSERT_TRUE(large.IsOk());
     EXPECT_NE(small.Value(), large.Value());
 }
 
-TEST_F(AssetManagerTest, LoadFont_SamePathAndHeightTwiceReturnsSameCachedAsset)
+TEST_F(AssetManagerTest, GetFont_SamePathAndHeightTwiceReturnsSameCachedAsset)
 {
     AssetManager mgr(m_Vfs);
 
-    auto first = mgr.LoadFont("fonts/Ahem.ttf", 32);
-    auto second = mgr.LoadFont("fonts/Ahem.ttf", 32);
+    auto first = mgr.GetFont("fonts/Ahem.ttf", 32);
+    auto second = mgr.GetFont("fonts/Ahem.ttf", 32);
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(second.IsOk());
     EXPECT_EQ(first.Value(), second.Value());

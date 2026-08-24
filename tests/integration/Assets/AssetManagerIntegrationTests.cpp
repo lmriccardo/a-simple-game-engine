@@ -125,7 +125,7 @@ protected:
 TEST_F(AssetManagerIntegrationTest, FullPipelineFromVirtualPathToRenderedPixelsProducesNoErrors)
 {
     AssetManager assets(m_Vfs);
-    auto imageAsset = assets.LoadImage("images/hero.bmp");
+    auto imageAsset = assets.GetImage("images/hero.bmp");
     ASSERT_TRUE(imageAsset.IsOk());
 
     SDLRenderer renderer(m_Window);
@@ -159,7 +159,7 @@ TEST_F(AssetManagerIntegrationTest, FullPipelineFromVirtualPathToRenderedPixelsP
 TEST_F(AssetManagerIntegrationTest, FullPipelineFromVirtualPathToRenderedGlyphProducesNoErrors)
 {
     AssetManager assets(m_Vfs);
-    auto fontAsset = assets.LoadFont("fonts/Ahem.ttf", 16);
+    auto fontAsset = assets.GetFont("fonts/Ahem.ttf", 16);
     ASSERT_TRUE(fontAsset.IsOk());
 
     SDLRenderer renderer(m_Window);
@@ -208,13 +208,13 @@ TEST_F(AssetManagerIntegrationTest, MissingVirtualPathLeavesAssetManagerAndRende
 {
     AssetManager assets(m_Vfs);
 
-    auto missing = assets.LoadImage("images/does_not_exist.bmp");
+    auto missing = assets.GetImage("images/does_not_exist.bmp");
     ASSERT_FALSE(missing.IsOk());
 
     SDLRenderer renderer(m_Window);
     ASSERT_TRUE(renderer.IsValid());
 
-    auto good = assets.LoadImage("images/hero.bmp");
+    auto good = assets.GetImage("images/hero.bmp");
     ASSERT_TRUE(good.IsOk());
     auto texture = renderer.CreateTexture(good.Value()->Get());
     ASSERT_TRUE(texture->IsValid());
