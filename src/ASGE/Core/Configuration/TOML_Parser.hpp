@@ -372,6 +372,45 @@ public:
         entry->s_Info.s_ElementInfo.assign( inValues.size(), elemInfo );
         return BoolResult::Ok();
     }
+
+    /**
+     * @brief Like Set(), but creates the key with a default TOMLTypeInfo if
+     *        it doesn't exist yet, instead of failing. Only vivifies the
+     *        leaf key, not missing intermediate tables (a dotted inKey into
+     *        a missing subtable still errors) — pair with FindOrCreateTable
+     *        for that, as TOMLBuilder does.
+     */
+    template<typename T>
+    requires asge::_internal::traits::variant_contains_v<T, ValueType>
+    BoolResult SetOrCreate( std::string const& inKey, T inValue ) noexcept
+    {
+        auto result = Set<T>( inKey, inValue );
+        if ( result ) return result;
+        if ( result.Error().s_Code != make_error_code( errors::ConfError::TomlNoAttribute ) )
+        {
+            return result;
+        }
+
+        return AddKvPair( inKey, TOMLEntry{ std::move(inValue), DefaultTypeInfoFor<T>() } );
+    }
+
+    /**
+     * @brief Like SetTypedArray(), but creates the key if it doesn't exist
+     *        yet. Seeds an empty array entry with the right per-element
+     *        shape and delegates the actual fill (nested-array recursion
+     *        included) to SetTypedArray, so that logic lives in one place.
+     */
+    template<typename T>
+    BoolResult SetOrCreateTypedArray( std::string const& inKey, std::vector<T> const& inValues ) noexcept
+    {
+        if ( auto result = SetTypedArray<T>( inKey, inValues ); result ) return result;
+
+        auto seedResult = AddKvPair(
+            inKey, TOMLEntry{ std::vector<TOMLValue>{}, DefaultTypeInfoFor<std::vector<T>>() }
+        );
+        if ( !seedResult ) return seedResult;
+        return SetTypedArray<T>( inKey, inValues );
+    }
 };
 
 }

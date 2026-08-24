@@ -790,4 +790,70 @@ TEST(TOMLParserTest, SetTypedArray_FailsOnTypeMismatch)
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
 }
 
+// ─── Table::SetOrCreate ────────────────────────────────────────────────────────
+
+TEST(TOMLParserTest, SetOrCreate_CreatesMissingKey)
+{
+    auto root = ParseOk("key = 1\n");
+    ASSERT_TRUE(root->SetOrCreate<int>("count", 42).IsOk());
+    EXPECT_EQ(*GetOrNull<int>(root, "count"), 42);
+}
+
+TEST(TOMLParserTest, SetOrCreate_OverwritesExistingKey)
+{
+    auto root = ParseOk("count = 1\n");
+    ASSERT_TRUE(root->SetOrCreate<int>("count", 2).IsOk());
+    EXPECT_EQ(*GetOrNull<int>(root, "count"), 2);
+}
+
+TEST(TOMLParserTest, SetOrCreate_NewStringKeySerializesAsBasicString)
+{
+    auto root = ParseOk("key = 1\n");
+    ASSERT_TRUE(root->SetOrCreate<std::string>("name", "Alice").IsOk());
+    EXPECT_NE(DumpTable(root).find(R"(name = "Alice")"), std::string::npos);
+}
+
+TEST(TOMLParserTest, SetOrCreate_StillFailsOnTypeMismatch)
+{
+    auto root   = ParseOk("count = 1\n");
+    auto result = root->SetOrCreate<std::string>("count", "oops");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
+}
+
+TEST(TOMLParserTest, SetOrCreate_StillFailsOnMissingParentTable)
+{
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->SetOrCreate<int>("no_table.key", 2);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
+}
+
+// ─── Table::SetOrCreateTypedArray ──────────────────────────────────────────────
+
+TEST(TOMLParserTest, SetOrCreateTypedArray_CreatesMissingArray)
+{
+    auto root = ParseOk("key = 1\n");
+    ASSERT_TRUE(root->SetOrCreateTypedArray<int>("nums", std::vector<int>{1, 2, 3}).IsOk());
+    EXPECT_NE(DumpTable(root).find("nums = [1, 2, 3]"), std::string::npos);
+}
+
+TEST(TOMLParserTest, SetOrCreateTypedArray_OverwritesExistingArray)
+{
+    auto root = ParseOk("nums = [1, 2, 3]\n");
+    ASSERT_TRUE(root->SetOrCreateTypedArray<int>("nums", std::vector<int>{4, 5}).IsOk());
+    auto vec = GetArrayOrEmpty<int>(root, "nums");
+    ASSERT_EQ(vec.size(), 2u);
+    EXPECT_EQ(vec[0], 4);
+    EXPECT_EQ(vec[1], 5);
+}
+
+TEST(TOMLParserTest, SetOrCreateTypedArray_CreatesMissingNestedArray)
+{
+    auto root = ParseOk("key = 1\n");
+    std::vector<std::vector<int>> matrix{ {1, 2}, {3, 4} };
+    ASSERT_TRUE(root->SetOrCreateTypedArray<std::vector<int>>("matrix", matrix).IsOk());
+    EXPECT_NE(DumpTable(root).find("matrix = [[1, 2], [3, 4]]"), std::string::npos);
+}
+
 }
