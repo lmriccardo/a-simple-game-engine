@@ -98,6 +98,15 @@ add_executable(my_game main.cpp)
 target_link_libraries(my_game PRIVATE ASGE)
 ```
 
+On Windows, `my_game.exe` also needs `SDL3.dll` next to it at runtime. Since
+`add_subdirectory` never exposes ASGE's own SDL3 target back up to your
+project's directory scope, use the helper ASGE defines for exactly this
+instead of reaching for the SDL3 target directly:
+
+```cmake
+asge_copy_sdl3_runtime(my_game)
+```
+
 ### Option 2 — installed package
 
 Install ASGE (`cmake --install build`), then from your own project:
@@ -154,7 +163,12 @@ int main()
 
 More examples covering shapes, textures, text, ECS, input handling and
 configuration loading live under [examples/](examples/) and are built
-alongside the engine when `ASGE_BUILD_EXAMPLES` is `ON`.
+alongside the engine when `ASGE_BUILD_EXAMPLES` is `ON`. In particular, for
+drawing a texture and reading keyboard/mouse input — the two things a
+real game needs beyond the empty overrides above — see
+[examples/texture_demo](examples/texture_demo) (`IRenderer::DrawTexture`)
+and [examples/moving_box](examples/moving_box)
+(`InputState::IsKeyDown`/`IsKeyPressed`).
 
 ## Testing
 

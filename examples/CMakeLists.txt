@@ -9,13 +9,7 @@ macro(setup_example target_name)
             $<$<CXX_COMPILER_ID:MSVC>:/W4 /permissive->
     )
 
-    if(WIN32)
-        add_custom_command(TARGET ${target_name} POST_BUILD
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                $<TARGET_FILE:SDL3::SDL3>
-                $<TARGET_FILE_DIR:${target_name}>
-        )
-    endif()
+    asge_copy_sdl3_runtime(${target_name})
 endmacro()
 
 add_subdirectory(background_changer)
