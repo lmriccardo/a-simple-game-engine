@@ -97,6 +97,49 @@ TEST(TOMLBuilderTest, Table_CalledTwiceReturnsSameUnderlyingTable)
     EXPECT_NE(dump.find(R"(host = "localhost")"), std::string::npos);
 }
 
+// ─── ArrayTable() — array-of-tables scoping ────────────────────────────────────
+
+TEST(TOMLBuilderTest, ArrayTable_CalledTwiceCreatesTwoHeaders)
+{
+    TOMLBuilder builder;
+    builder.ArrayTable("entity").Set<int>("id", 0);
+    builder.ArrayTable("entity").Set<int>("id", 1);
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[[entity]]"), std::string::npos);
+    EXPECT_NE(dump.find("[[entity]]"), dump.rfind("[[entity]]")); // header appears twice
+    EXPECT_NE(dump.find("id = 0"), std::string::npos);
+    EXPECT_NE(dump.find("id = 1"), std::string::npos);
+}
+
+TEST(TOMLBuilderTest, ArrayTable_ElementsCanHaveOwnNestedSubtablesAndReparse)
+{
+    TOMLBuilder builder;
+    for ( int i = 0; i < 3; ++i )
+    {
+        auto entity = builder.ArrayTable("entity");
+        entity.Set<int>("id", i);
+        entity.Table("Transform")
+            .Set<double>("x", static_cast<double>(i))
+            .Set<double>("y", static_cast<double>(i) * 2.0);
+    }
+
+    auto parsed = _internal::toml::Parse(builder.ToString());
+    ASSERT_TRUE(parsed.IsOk());
+
+    auto root = parsed.Value();
+    ASSERT_EQ(root->GetSubTables().size(), 3u);
+
+    for ( int i = 0; i < 3; ++i )
+    {
+        auto entity = root->GetTable("entity[" + std::to_string(i) + "]");
+        ASSERT_TRUE(entity.IsOk());
+        EXPECT_EQ(*entity.Value()->Get<int>("id").Value(), i);
+        EXPECT_EQ(*entity.Value()->Get<double>("Transform.x").Value(), static_cast<double>(i));
+        EXPECT_EQ(*entity.Value()->Get<double>("Transform.y").Value(), static_cast<double>(i) * 2.0);
+    }
+}
+
 // ─── Round-trip through the parser ─────────────────────────────────────────────
 
 TEST(TOMLBuilderTest, ToString_ReparsesToTheSameValues)

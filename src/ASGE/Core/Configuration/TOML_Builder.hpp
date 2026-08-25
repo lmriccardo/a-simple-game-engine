@@ -66,6 +66,25 @@ public:
             _internal::toml::FindOrCreateTable( m_Table, inPath, _internal::toml::TableType::Standard )
         );
     }
+
+    /**
+     * @brief Appends a new element to an array-of-tables (`[[inKey]]`) under
+     *        this table and returns a view scoped to it. Unlike Table(), each
+     *        call creates a fresh sibling rather than reusing one of the same
+     *        name — the first call tags it Root, later calls Array, mirroring
+     *        how the parser distinguishes successive `[[inKey]]` blocks.
+     */
+    TOMLTableView ArrayTable( std::string const& inKey )
+    {
+        auto existing = _internal::toml::FindSubTable( m_Table, inKey );
+        auto newTable = std::make_shared<_internal::toml::Table>(
+            inKey, existing ? _internal::toml::TableType::Array : _internal::toml::TableType::Root
+        );
+
+        newTable->SetParent( m_Table );
+        m_Table->AddSubTable( newTable );
+        return TOMLTableView( newTable );
+    }
 };
 
 /**
