@@ -131,7 +131,12 @@ public:
     Worker(Worker const&) = delete;
     Worker& operator=(Worker const&) = delete;
 
-    ~Worker() override = default;
+    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
+    // @warning on Thread's class doc comment. ThreadPool::~ThreadPool()
+    // already joins every worker before this runs, so this is a no-op
+    // in that path; it only matters if a Worker is ever destroyed on
+    // its own (e.g. ThreadPool's constructor throwing partway through).
+    ~Worker() override { Cancel(); Join(); }
 };
 
 template<typename _Callable>
