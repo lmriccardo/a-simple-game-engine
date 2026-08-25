@@ -22,6 +22,10 @@ public:
     CountingThread(std::string const& inName, int inLimit, bool inDaemon = false)
         : Thread(inName, nullptr, inDaemon), limit(inLimit) {}
 
+    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
+    // @warning on Thread's class doc comment.
+    ~CountingThread() override { Cancel(); Join(); }
+
 protected:
     void Run(context_pointer& ctx) override
     {
@@ -37,6 +41,10 @@ class IdleThread final : public Thread
 public:
     IdleThread() : Thread() {}
     explicit IdleThread(std::string const& inName) : Thread(inName) {}
+
+    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
+    // @warning on Thread's class doc comment.
+    ~IdleThread() override { Cancel(); Join(); }
 
 protected:
     void Run(context_pointer&) override
@@ -173,6 +181,32 @@ TEST(Thread, DestructorCancelsAndJoins)
     SUCCEED();
 }
 
+// Regression test for issue #40: Thread::~Thread() alone can't safely stop
+// a background thread that dispatches virtual Run() calls on `this` --
+// by the time a base-class destructor runs, the vtable has already
+// reverted away from the derived override, so a worker thread still
+// mid-loop could dispatch straight into Run()'s pure-virtual slot in
+// Thread and crash ("pure virtual function called", reliably hit on
+// macOS CI). The fix moves Cancel()+Join() into each subclass's own
+// destructor instead. Repeating construct-start-destroy many times, with
+// no explicit Cancel()/Join() by the caller, maximises the chance of
+// landing in the race window that used to crash.
+TEST(Thread, RepeatedStartAndImmediateDestructionDoesNotCrash)
+{
+    constexpr int kIterations = 300;
+    for (int ii = 0; ii < kIterations; ++ii)
+    {
+        IdleThread t;
+        t.Start();
+    }
+    for (int ii = 0; ii < kIterations; ++ii)
+    {
+        CountingThread t(1);
+        t.Start();
+    }
+    SUCCEED();
+}
+
 TEST(Thread, DetachMakesDaemon)
 {
     IdleThread t;
@@ -281,6 +315,22 @@ TEST(Thread, ThreadStaticStart_ParentContextCancellationStopsThread)
     parent->Cancel();
     t->Join();
     EXPECT_GT(count.load(), 0);
+}
+
+// Same regression as Thread.RepeatedStartAndImmediateDestructionDoesNotCrash
+// (see issue #40), exercised through ThreadImpl -- the concrete class
+// backing this static factory -- rather than a hand-written subclass. The
+// returned thread_pointer is destroyed with no explicit Cancel()/Join() by
+// the caller, relying on ThreadImpl's own destructor to do it safely.
+TEST(Thread, ThreadStaticStart_RepeatedStartAndImmediateDestructionDoesNotCrash)
+{
+    constexpr int kIterations = 300;
+    auto callback = [](context_pointer&) { std::this_thread::yield(); };
+    for (int ii = 0; ii < kIterations; ++ii)
+    {
+        [[maybe_unused]] auto t = Thread::Start(false, nullptr, callback);
+    }
+    SUCCEED();
 }
 
 }
