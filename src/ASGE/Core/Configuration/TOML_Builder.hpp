@@ -44,6 +44,17 @@ public:
     }
 
     /**
+     * @brief Sets a float-valued key. TOML has no separate 32-bit float
+     *        type — it's stored as the same `double` a TOML "float" always
+     *        is — this overload just spares callers the cast at every call
+     *        site (e.g. every component field that happens to be `float`).
+     */
+    TOMLTableView& Set( std::string const& inKey, float inValue )
+    {
+        return Set<double>( inKey, static_cast<double>(inValue) );
+    }
+
+    /**
      * @brief Sets an array-valued key on this table, creating it if it
      *        doesn't exist yet. Elements may themselves be std::vector<U>
      *        for a nested TOML array.
@@ -84,6 +95,39 @@ public:
         newTable->SetParent( m_Table );
         m_Table->AddSubTable( newTable );
         return TOMLTableView( newTable );
+    }
+
+    /**
+     * @brief Reads a scalar value at inKey on this table, returning
+     *        inDefault if the key is missing or holds a different type —
+     *        the read-side counterpart to Set().
+     */
+    template<typename T>
+    requires asge::_internal::traits::variant_contains_v<T, _internal::toml::ValueType>
+    T Get( std::string const& inKey, T inDefault = T{} ) const
+    {
+        auto result = m_Table->template Get<T>( inKey );
+        return result ? *result.Value() : std::move(inDefault);
+    }
+
+    /**
+     * @brief Reads a float-valued key — the read-side counterpart to the
+     *        float overload of Set(). Stored/looked up as `double`
+     *        underneath; see that overload's doc comment for why.
+     */
+    float Get( std::string const& inKey, float inDefault = 0.0f ) const
+    {
+        return static_cast<float>( Get<double>( inKey, static_cast<double>(inDefault) ) );
+    }
+
+    /**
+     * @brief True if a subtable exists at inPath relative to this table.
+     *        Unlike Table(), never creates one — safe to probe for an
+     *        optional section before descending into it.
+     */
+    bool HasTable( std::string const& inPath ) const
+    {
+        return static_cast<bool>( m_Table->GetTable( inPath ) );
     }
 };
 

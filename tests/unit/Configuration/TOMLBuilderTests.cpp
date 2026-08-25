@@ -65,6 +65,37 @@ TEST(TOMLBuilderTest, SetArray_NestedArraySerializesCorrectly)
     EXPECT_NE(builder.ToString().find("matrix = [[1, 2], [3, 4]]"), std::string::npos);
 }
 
+// ─── Set/Get(float) — stored as TOML's double under the hood ──────────────────
+
+TEST(TOMLBuilderTest, Set_FloatKeySerializesAsTomlFloat)
+{
+    TOMLBuilder builder;
+    builder.Set("scale", 1.5f);
+    EXPECT_NE(builder.ToString().find("scale = 1.5"), std::string::npos);
+}
+
+TEST(TOMLBuilderTest, Get_FloatKeyRoundTripsThroughSet)
+{
+    TOMLBuilder builder;
+    builder.Set("scale", 1.5f);
+    EXPECT_FLOAT_EQ(builder.Get("scale", 0.0f), 1.5f);
+}
+
+TEST(TOMLBuilderTest, Get_FloatMissingKeyReturnsDefault)
+{
+    TOMLBuilder builder;
+    EXPECT_FLOAT_EQ(builder.Get("missing", 42.0f), 42.0f);
+}
+
+TEST(TOMLBuilderTest, Get_FloatKeyInteroperatesWithDoubleGet)
+{
+    // Set(float) stores the same TOML float a Set<double> would, so either
+    // accessor can read a key back regardless of which one wrote it.
+    TOMLBuilder builder;
+    builder.Set("scale", 1.5f);
+    EXPECT_DOUBLE_EQ(builder.Get<double>("scale", 0.0), 1.5);
+}
+
 // ─── Table() — subtable scoping ────────────────────────────────────────────────
 
 TEST(TOMLBuilderTest, Table_CreatesHeaderAndScopesKeys)
