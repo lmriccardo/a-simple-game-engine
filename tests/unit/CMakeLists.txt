@@ -10,4 +10,8 @@ add_subdirectory(ECS)
 add_subdirectory(Events)
 add_subdirectory(Input)
 add_subdirectory(Assets)
+<<<<<<< HEAD
 add_subdirectory(Game)
+=======
+add_subdirectory(Components)
+>>>>>>> d62d3e8 (feat(ecs): :sparkles: Complete Transform/Velocity/Sprite TOML serializers)
