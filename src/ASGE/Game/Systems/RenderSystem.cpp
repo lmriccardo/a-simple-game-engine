@@ -11,14 +11,30 @@ void asge::game::systems::RenderSystem(ecs::Registry &inRegistry, video::IRender
         if ( !texture ) continue;
 
         auto const& t = transform.get();
-        math::Int2 const texSize = texture->Size();
+        auto const& src = sprite.get().m_SourceRect;
+
+        float srcW{};
+        float srcH{};
+
+        if ( src.has_value() )
+        {
+            srcW = src->w;
+            srcH = src->h;
+        }
+        else
+        {
+            math::Int2 const texSize = texture->Size();
+            srcW = static_cast<float>(texSize.x());
+            srcH = static_cast<float>(texSize.y());
+        }
+
         math::Rect const destRect{
             t.m_X, t.m_Y,
-            static_cast<float>(texSize.x()) * t.m_ScaleX,
-            static_cast<float>(texSize.y()) * t.m_ScaleY
+            srcW * t.m_ScaleX,
+            srcH * t.m_ScaleY
         };
 
-        if ( auto const& src = sprite.get().m_SourceRect; src.has_value() )
+        if ( src.has_value() )
         {
             inRenderer.DrawTexture( *texture, *src, destRect );
         }
