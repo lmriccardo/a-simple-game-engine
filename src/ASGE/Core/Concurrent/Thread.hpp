@@ -33,6 +33,15 @@ namespace asge::concurrent
  * Each instance is assigned a unique name (defaulting to ASGE_Thread_N)
  * used for identification and debugging. Copy is disabled since a thread
  * represents a unique resource. Move is supported.
+ *
+ * @warning Every subclass MUST call Cancel() then Join() in its own
+ * destructor before returning. ~Thread() also does this, but only as a
+ * best-effort safety net — by the time a base-class destructor runs, the
+ * vtable has already reverted away from the derived override, so if the
+ * background thread is still mid-loop it can dispatch into Run()'s pure
+ * virtual slot in Thread and crash ("pure virtual function called").
+ * Joining from the most-derived destructor is the only place guaranteed
+ * to run before that vtable switch happens.
  */
 class Thread
 {
@@ -159,6 +168,10 @@ public:
     : Thread(inCtx), m_Func( std::forward<_Callable>(inFunc) ),
       m_Args( std::forward<_Args>(inArgs)... )
     {}
+
+    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
+    // @warning on Thread's class doc comment.
+    ~ThreadImpl() override { Cancel(); Join(); }
 };
 
 }
