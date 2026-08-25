@@ -219,6 +219,40 @@ TEST(Thread, DetachMakesDaemon)
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
+// Regression test for issue #42: Detach() used to gate the actual
+// std::thread::detach() call on `!m_Ctx->Done()`, so a thread whose
+// context was already cancelled by the time the caller called Detach()
+// was silently left un-detached (Daemon() stayed false, Joinable() stayed
+// true) -- exactly what CI caught on Thread.ThreadStaticStart_
+// DaemonThreadIsDetached when its fast-cancelling callback beat the
+// caller to Detach(). Cancelling first, deterministically, reproduces the
+// "loser" side of that race without depending on scheduling timing.
+TEST(Thread, Detach_AfterContextAlreadyCancelledStillDetaches)
+{
+    IdleThread t;
+    t.Start();
+    t.Cancel(); // context is Done() before Detach() is ever called
+    t.Detach();
+
+    EXPECT_TRUE(t.Daemon());
+    EXPECT_FALSE(t.Joinable());
+    // allow the (now detached) thread to observe the cancellation and
+    // exit before t is destroyed -- same convention as DetachMakesDaemon.
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+}
+
+TEST(Thread, Detach_CalledTwiceIsSafe)
+{
+    IdleThread t;
+    t.Start();
+    t.Cancel(); // give the background thread maximal time to observe this
+                // before it's detached, same reasoning as the test above
+    t.Detach();
+    EXPECT_NO_THROW(t.Detach()); // must not double-detach() an already-detached std::thread
+    EXPECT_TRUE(t.Daemon());
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+}
+
 // ─── Thread::Start (static factory) ──────────────────────────────────────────
 
 TEST(Thread, ThreadStaticStart_ReturnsNonNullPointer)

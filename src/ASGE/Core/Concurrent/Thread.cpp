@@ -54,7 +54,12 @@ void asge::concurrent::Thread::Join()
 
 void asge::concurrent::Thread::Detach()
 {
-    if ( !m_Ctx->Done() && m_Thread != nullptr )
+    // std::thread::detach() only requires joinable() -- whether the
+    // underlying function has already returned doesn't matter. Gating
+    // this on m_Ctx->Done() instead raced against fast-cancelling
+    // callables: the background thread could cancel its own context
+    // before the caller got here, silently skipping the detach.
+    if ( m_Thread != nullptr && m_Thread->joinable() && !m_Daemon )
     {
         m_Thread->detach();
         m_Daemon = true;

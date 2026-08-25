@@ -130,7 +130,17 @@ public:
     static thread_pointer Start(bool, context_pointer, _Callable&&, _Args&& ...);
 
     void Join();
+
+    /**
+     * @brief Detaches the running thread, marking it a daemon.
+     *
+     * A no-op if the thread was never started, is already detached, or has
+     * already been joined. Safe to call regardless of whether the running
+     * thread's work has finished -- detach() only requires the underlying
+     * std::thread to still be joinable, not still executing.
+     */
     void Detach();
+
     void Start();
     void Cancel();
 };
