@@ -481,6 +481,39 @@ TEST(TOMLParserTest, Parse_MultipleArrayTableEntries)
     EXPECT_EQ(*GetOrNull<int>(t1, "sku"), 2);
 }
 
+TEST(TOMLParserTest, Parse_ArrayTableElementsScopeTheirOwnNestedTable)
+{
+    // A bare [entity.Transform] header after a run of [[entity]] blocks must
+    // attach to the most recently opened entity, not always the first one.
+    auto root = ParseOk(
+        "[[entity]]\n"
+        "id = 0\n"
+        "[entity.Transform]\n"
+        "x = 0.0\n"
+        "y = 0.0\n"
+        "[[entity]]\n"
+        "id = 1\n"
+        "[entity.Transform]\n"
+        "x = 1.0\n"
+        "y = 2.0\n"
+    );
+
+    ASSERT_EQ(root->GetSubTables().size(), 2u);
+
+    auto t0 = GetTableOrNull(root, "entity[0]");
+    auto t1 = GetTableOrNull(root, "entity[1]");
+    ASSERT_NE(t0, nullptr);
+    ASSERT_NE(t1, nullptr);
+
+    EXPECT_EQ(*GetOrNull<int>(t0, "id"), 0);
+    EXPECT_EQ(*GetOrNull<double>(t0, "Transform.x"), 0.0);
+    EXPECT_EQ(*GetOrNull<double>(t0, "Transform.y"), 0.0);
+
+    EXPECT_EQ(*GetOrNull<int>(t1, "id"), 1);
+    EXPECT_EQ(*GetOrNull<double>(t1, "Transform.x"), 1.0);
+    EXPECT_EQ(*GetOrNull<double>(t1, "Transform.y"), 2.0);
+}
+
 // ─── Parse — malformed input ──────────────────────────────────────────────────
 
 TEST(TOMLParserTest, Parse_UnexpectedTokenReturnsError)
