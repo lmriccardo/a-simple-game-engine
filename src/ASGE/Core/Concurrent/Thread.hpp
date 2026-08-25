@@ -33,6 +33,15 @@ namespace asge::concurrent
  * Each instance is assigned a unique name (defaulting to ASGE_Thread_N)
  * used for identification and debugging. Copy is disabled since a thread
  * represents a unique resource. Move is supported.
+ *
+ * @warning Every subclass MUST call Cancel() then Join() in its own
+ * destructor before returning. ~Thread() also does this, but only as a
+ * best-effort safety net — by the time a base-class destructor runs, the
+ * vtable has already reverted away from the derived override, so if the
+ * background thread is still mid-loop it can dispatch into Run()'s pure
+ * virtual slot in Thread and crash ("pure virtual function called").
+ * Joining from the most-derived destructor is the only place guaranteed
+ * to run before that vtable switch happens.
  */
 class Thread
 {
@@ -121,7 +130,17 @@ public:
     static thread_pointer Start(bool, context_pointer, _Callable&&, _Args&& ...);
 
     void Join();
+
+    /**
+     * @brief Detaches the running thread, marking it a daemon.
+     *
+     * A no-op if the thread was never started, is already detached, or has
+     * already been joined. Safe to call regardless of whether the running
+     * thread's work has finished -- detach() only requires the underlying
+     * std::thread to still be joinable, not still executing.
+     */
     void Detach();
+
     void Start();
     void Cancel();
 };
@@ -159,6 +178,10 @@ public:
     : Thread(inCtx), m_Func( std::forward<_Callable>(inFunc) ),
       m_Args( std::forward<_Args>(inArgs)... )
     {}
+
+    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
+    // @warning on Thread's class doc comment.
+    ~ThreadImpl() override { Cancel(); Join(); }
 };
 
 }
