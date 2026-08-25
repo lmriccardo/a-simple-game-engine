@@ -22,6 +22,9 @@
 #include "FileMetadata.hpp"
 
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX // Prevent windows.h from defining min()/max() macros
+#endif
 #include <windows.h>
 #define INVALID_FD INVALID_HANDLE_VALUE
 #elif defined(__APPLE__)
