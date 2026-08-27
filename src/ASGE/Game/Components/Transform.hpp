@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "Serialize.hpp"
 
 namespace asge::game::components
@@ -22,10 +24,15 @@ struct Serializer<Transform>
 {
     using T = Transform;
 
+    // The subtable name ToToml/FromToml agree on — also what a generic
+    // per-entity walker checks (TOMLTableView::HasTable) to tell whether a
+    // saved entity has this component, without hardcoding the name again.
+    static constexpr std::string_view kTableName = "Transform";
+
     static void ToToml(
         Transform inTransform, asge::config::TOMLTableView inTview
     ) noexcept {
-        inTview.Table("Transform")
+        inTview.Table(std::string(kTableName))
                .Set("m_X", inTransform.m_X)
                .Set("m_Y", inTransform.m_Y)
                .Set("m_Rotation", inTransform.m_Rotation)
@@ -35,7 +42,7 @@ struct Serializer<Transform>
 
     static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
     {
-        auto table = inEnttView.Table("Transform");
+        auto table = inEnttView.Table(std::string(kTableName));
 
         Transform result{};
         result.m_X        = table.Get("m_X", result.m_X);

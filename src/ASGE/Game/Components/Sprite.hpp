@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <ASGE/Video/Graphics/Texture.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 #include "Serialize.hpp"
@@ -35,10 +36,13 @@ struct Serializer<Sprite>
 {
     using T = Sprite;
 
+    /** @brief The subtable name ToToml/FromToml agree on — see Serializer<Transform>::kTableName. */
+    static constexpr std::string_view kTableName = "Sprite";
+
     static void ToToml(
         Sprite inSprite, asge::config::TOMLTableView inTview
     ) noexcept {
-        auto sprite = inTview.Table("Sprite");
+        auto sprite = inTview.Table(std::string(kTableName));
         sprite.Set<std::string>("m_VirtualPath", inSprite.m_VirtualPath);
 
         if ( inSprite.m_SourceRect )
@@ -53,7 +57,7 @@ struct Serializer<Sprite>
 
     static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
     {
-        auto sprite = inEnttView.Table("Sprite");
+        auto sprite = inEnttView.Table(std::string(kTableName));
 
         Sprite result{};
         result.m_VirtualPath = sprite.Get<std::string>("m_VirtualPath", std::string{});

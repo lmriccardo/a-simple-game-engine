@@ -64,6 +64,20 @@ public:
     [[nodiscard]] Result<Entity> CreateEntity() noexcept;
 
     /**
+     * @brief Lists every currently-alive entity, regardless of which
+     *        components (if any) it has.
+     *
+     * Unlike View<Ts...>, which only sees entities present in a specific
+     * set of component pools, this walks the allocator directly — the
+     * only way to reach an entity with no components yet, or to visit
+     * every entity for something like scene serialization.
+     */
+    [[nodiscard]] std::vector<Entity> AllEntities() const
+    {
+        return m_Allocator.AllEntities();
+    }
+
+    /**
      * @brief Destroys an entity and strips it from every component pool.
      * @return Ok on success, or an error if inEntity is not currently alive.
      */

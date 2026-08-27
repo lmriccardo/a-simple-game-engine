@@ -11,6 +11,25 @@ namespace
 using namespace asge::game::components;
 using asge::config::TOMLBuilder;
 
+// ─── SerializableComponents / kTableName contract ──────────────────────────
+
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySprite)
+{
+    static_assert(std::tuple_size_v<SerializableComponents> == 3);
+    static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
+    static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
+    static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
+    SUCCEED();
+}
+
+TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
+{
+    // What a generic per-entity walker would check via TOMLTableView::HasTable.
+    EXPECT_EQ(Serializer<Transform>::kTableName, "Transform");
+    EXPECT_EQ(Serializer<Velocity>::kTableName, "Velocity");
+    EXPECT_EQ(Serializer<Sprite>::kTableName, "Sprite");
+}
+
 // ─── Transform ──────────────────────────────────────────────────────────────
 
 TEST(TransformSerializerTest, ToToml_WritesAllFieldsUnderTransformTable)

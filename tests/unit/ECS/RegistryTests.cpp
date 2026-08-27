@@ -189,4 +189,70 @@ TEST(RegistryTest, View_ExcludesEntityAfterDestroy)
     EXPECT_EQ(seen[0], keep.m_Index);
 }
 
+// ─── Registry::AllEntities — unfiltered by component type ─────────────────────
+
+TEST(RegistryTest, AllEntities_EmptyRegistryIsEmpty)
+{
+    Registry registry;
+    EXPECT_TRUE(registry.AllEntities().empty());
+}
+
+TEST(RegistryTest, AllEntities_IncludesEntityWithNoComponents)
+{
+    // The whole point vs. View<Ts...>: an entity with zero components is
+    // still visible here, since nothing filters by pool membership.
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], e);
+}
+
+TEST(RegistryTest, AllEntities_ListsEveryLiveEntityRegardlessOfComponents)
+{
+    Registry registry;
+    auto withPosition = registry.CreateEntity().Value();
+    auto withBoth      = registry.CreateEntity().Value();
+    auto bare          = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(withPosition, Position{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Position>(withBoth, Position{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Velocity>(withBoth, Velocity{}).IsOk());
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 3u);
+    EXPECT_NE(std::find(all.begin(), all.end(), withPosition), all.end());
+    EXPECT_NE(std::find(all.begin(), all.end(), withBoth), all.end());
+    EXPECT_NE(std::find(all.begin(), all.end(), bare), all.end());
+}
+
+TEST(RegistryTest, AllEntities_ExcludesDestroyedEntities)
+{
+    Registry registry;
+    auto keep = registry.CreateEntity().Value();
+    auto destroyed = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.DestroyEntity(destroyed).IsOk());
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], keep);
+}
+
+TEST(RegistryTest, AllEntities_RecycledSlotShowsOnlyTheNewGeneration)
+{
+    // Destroying and recreating reuses the freed slot index with a bumped
+    // generation — AllEntities must reflect the live handle, not the stale one.
+    Registry registry;
+    auto original = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.DestroyEntity(original).IsOk());
+    auto recycled = registry.CreateEntity().Value();
+
+    ASSERT_EQ(recycled.m_Index, original.m_Index);
+    ASSERT_NE(recycled.m_Generation, original.m_Generation);
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], recycled);
+}
+
 }
