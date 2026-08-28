@@ -143,6 +143,27 @@ TEST(ComponentPoolTest, Get_ReturnedReferenceIsMutable)
     EXPECT_EQ(second.Value().get().x, 42.0f);
 }
 
+TEST(ComponentPoolTest, Get_ConstPoolReturnsStoredValue)
+{
+    PositionPool pool;
+    ASSERT_TRUE(pool.Insert(MakeEntity(1), Position{ 3.0f, 4.0f }).IsOk());
+
+    PositionPool const& constPool = pool;
+    auto result = constPool.Get(MakeEntity(1));
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().get(), (Position{ 3.0f, 4.0f }));
+}
+
+TEST(ComponentPoolTest, Get_ConstPoolMissingEntityReturnsError)
+{
+    PositionPool pool;
+    PositionPool const& constPool = pool;
+
+    auto result = constPool.Get(MakeEntity(1));
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::EntityNotAttachedToComponent));
+}
+
 // ─── Remove ───────────────────────────────────────────────────────────────────
 
 TEST(ComponentPoolTest, Remove_ExistingEntitySucceeds)

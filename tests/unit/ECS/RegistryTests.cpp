@@ -189,6 +189,73 @@ TEST(RegistryTest, View_ExcludesEntityAfterDestroy)
     EXPECT_EQ(seen[0], keep.m_Index);
 }
 
+// ─── Registry::GetComponent / HasComponent — const and non-const access ───────
+
+TEST(RegistryTest, GetComponent_MutableRegistryReturnsMutableReference)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(e, Position{ 1.0f, 1.0f }).IsOk());
+
+    auto result = registry.GetComponent<Position>(e);
+    ASSERT_TRUE(result.IsOk());
+    result.Value().get().x = 42.0f; // only compiles if the overload returns a mutable reference
+
+    EXPECT_EQ(registry.GetComponent<Position>(e).Value().get().x, 42.0f);
+}
+
+TEST(RegistryTest, GetComponent_ConstRegistryReturnsStoredValue)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(e, Position{ 3.0f, 4.0f }).IsOk());
+
+    Registry const& constRegistry = registry;
+    auto result = constRegistry.GetComponent<Position>(e);
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().get(), (Position{ 3.0f, 4.0f }));
+}
+
+TEST(RegistryTest, GetComponent_ConstRegistryUnknownComponentTypeReturnsError)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    // Position's pool was never created — no entity has ever had one.
+
+    Registry const& constRegistry = registry;
+    auto result = constRegistry.GetComponent<Position>(e);
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::InvalidComponent));
+}
+
+TEST(RegistryTest, GetComponent_ConstRegistryEntityWithoutComponentReturnsError)
+{
+    Registry registry;
+    auto withPosition = registry.CreateEntity().Value();
+    auto without = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(withPosition, Position{}).IsOk());
+
+    // Position's pool exists (withPosition uses it), but without was never
+    // inserted into it — a different error than "type never used at all".
+    Registry const& constRegistry = registry;
+    auto result = constRegistry.GetComponent<Position>(without);
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::EntityNotAttachedToComponent));
+}
+
+TEST(RegistryTest, HasComponent_ConstRegistryReflectsPresenceAndAbsence)
+{
+    Registry registry;
+    auto withPosition = registry.CreateEntity().Value();
+    auto without = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(withPosition, Position{}).IsOk());
+
+    Registry const& constRegistry = registry;
+    EXPECT_TRUE(constRegistry.HasComponent<Position>(withPosition));
+    EXPECT_FALSE(constRegistry.HasComponent<Position>(without));
+    EXPECT_FALSE(constRegistry.HasComponent<Velocity>(withPosition)); // Velocity's pool was never created
+}
+
 // ─── Registry::AllEntities — unfiltered by component type ─────────────────────
 
 TEST(RegistryTest, AllEntities_EmptyRegistryIsEmpty)

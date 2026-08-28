@@ -171,6 +171,68 @@ TEST(TOMLBuilderTest, ArrayTable_ElementsCanHaveOwnNestedSubtablesAndReparse)
     }
 }
 
+// ─── GetTable() — read-only indexed descent ────────────────────────────────────
+
+TEST(TOMLBuilderTest, GetTable_ExistingPlainSubtableReturnsAReadableView)
+{
+    TOMLBuilder builder;
+    builder.Table("server").Set<int>("port", 8080);
+
+    auto view = builder.GetTable("server");
+    ASSERT_TRUE(view.IsOk());
+    EXPECT_EQ(view.Value().Get<int>("port"), 8080);
+}
+
+TEST(TOMLBuilderTest, GetTable_MissingSubtableReturnsErrorAndDoesNotCreateOne)
+{
+    TOMLBuilder builder;
+
+    auto view = builder.GetTable("missing");
+    EXPECT_FALSE(view.IsOk());
+    EXPECT_FALSE(builder.HasTable("missing")); // confirms GetTable() didn't auto-vivify it
+}
+
+TEST(TOMLBuilderTest, GetTable_IndexedSegmentResolvesTheMatchingArrayTableElement)
+{
+    TOMLBuilder builder;
+    for ( int i = 0; i < 3; ++i )
+    {
+        builder.ArrayTable("entity").Set<int>("id", i);
+    }
+
+    auto second = builder.GetTable("entity[1]");
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(second.Value().Get<int>("id"), 1);
+}
+
+TEST(TOMLBuilderTest, GetTable_IndexOutOfRangeReturnsError)
+{
+    TOMLBuilder builder;
+    builder.ArrayTable("entity").Set<int>("id", 0);
+
+    auto view = builder.GetTable("entity[5]");
+    EXPECT_FALSE(view.IsOk());
+}
+
+TEST(TOMLBuilderTest, GetTable_ReparsedIndexedArrayTableElementIsReadable)
+{
+    TOMLBuilder builder;
+    for ( int i = 0; i < 3; ++i )
+    {
+        auto entity = builder.ArrayTable("entity");
+        entity.Table("Transform").Set<double>("x", static_cast<double>(i));
+    }
+
+    auto parsed = _internal::toml::Parse(builder.ToString());
+    ASSERT_TRUE(parsed.IsOk());
+    TOMLTableView root(parsed.Value());
+
+    auto entity = root.GetTable("entity[2]");
+    ASSERT_TRUE(entity.IsOk());
+    EXPECT_TRUE(entity.Value().HasTable("Transform"));
+    EXPECT_DOUBLE_EQ(entity.Value().GetTable("Transform").Value().Get<double>("x"), 2.0);
+}
+
 // ─── Round-trip through the parser ─────────────────────────────────────────────
 
 TEST(TOMLBuilderTest, ToString_ReparsesToTheSameValues)

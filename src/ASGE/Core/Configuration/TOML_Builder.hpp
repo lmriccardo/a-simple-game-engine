@@ -70,6 +70,12 @@ public:
      * @brief Descends into a dotted subtable path relative to this table,
      *        creating any missing tables along the way, and returns a view
      *        scoped to it.
+     *
+     * @warning Unlike GetTable()/HasTable(), inPath does not understand
+     *          `[index]` segments into an array-of-tables — `"entity[0]"`
+     *          is treated as one literal (and unmatched) table name, so
+     *          this silently creates a garbage sibling instead of finding
+     *          an existing element. Use GetTable() to read one back.
      */
     TOMLTableView Table( std::string const& inPath )
     {
@@ -121,13 +127,28 @@ public:
     }
 
     /**
+     * @brief Read-only descent into an existing subtable at inPath, honoring
+     *        `[index]` segments into an array-of-tables (e.g. `"entity[1]"`)
+     *        the same way Table::GetTable does. Unlike Table(), never
+     *        creates anything — this is what a loader walking `entity[0]`,
+     *        `entity[1]`, ... array elements back out of a parsed document
+     *        needs; HasTable() is built on top of it.
+     */
+    [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath ) const
+    {
+        auto table = m_Table->GetTable( inPath );
+        if ( !table ) return Result<TOMLTableView>::Err( table.Error() );
+        return Result<TOMLTableView>::Ok( TOMLTableView( table.Value() ) );
+    }
+
+    /**
      * @brief True if a subtable exists at inPath relative to this table.
      *        Unlike Table(), never creates one — safe to probe for an
      *        optional section before descending into it.
      */
     bool HasTable( std::string const& inPath ) const
     {
-        return static_cast<bool>( m_Table->GetTable( inPath ) );
+        return static_cast<bool>( GetTable( inPath ) );
     }
 };
 

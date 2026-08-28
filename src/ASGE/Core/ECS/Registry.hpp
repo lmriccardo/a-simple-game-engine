@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <utility>
 #include <vector>
 #include <ASGE/Core/Errors.hpp>
 #include "EntityAllocator.hpp"
@@ -30,16 +31,26 @@ class Registry
     template<typename T>
     using pool_t = ComponentPool<T, component_cap_v<T>>;
 
-    // Returns T's pool, or nullptr if T has never been used.
+    // Returns T's pool, or nullptr if T has never been used (read-only).
     template <typename T>
-    [[nodiscard]] pool_t<T>* FindPool() noexcept
+    [[nodiscard]] pool_t<T> const* FindPool() const noexcept
     {
         ComponentTypeId id = GetComponentTypeId<T>();
         if ( id >= m_Pools.size() || !m_Pools[id] )
         {
             return nullptr;
         }
-        return static_cast<pool_t<T>*>( m_Pools[id].get() );
+        return static_cast<pool_t<T> const*>( m_Pools[id].get() );
+    }
+
+    // Returns T's pool, or nullptr if T has never been used. Implemented in
+    // terms of the const overload above (then const_cast-ing the pointer
+    // back to mutable) rather than duplicating the lookup — safe here
+    // because *this is genuinely non-const at the call site.
+    template <typename T>
+    [[nodiscard]] pool_t<T>* FindPool() noexcept
+    {
+        return const_cast<pool_t<T>*>( std::as_const(*this).template FindPool<T>() );
     }
 
     // Returns T's pool, creating (and registering) it on first use.
@@ -114,6 +125,25 @@ public:
     }
 
     /**
+     * @brief Looks up inEntity's component of type T (read-only).
+     * @return A const reference to the component, or an error if T has
+     *         never been used or inEntity has none.
+     */
+    template<typename T>
+    [[nodiscard]] Result<std::reference_wrapper<T const>> GetComponent( Entity inEntity ) const noexcept
+    {
+        pool_t<T> const* pool = FindPool<T>();
+        if ( !pool )
+        {
+            return Result<std::reference_wrapper<T const>>::Err(
+                make_error_code( errors::EcsError::InvalidComponent ),
+                rtti::GetDemangledName<T>()
+            );
+        }
+        return pool->Get(inEntity);
+    }
+
+    /**
      * @brief Looks up inEntity's component of type T.
      * @return A reference to the component, or an error if T has never
      *         been used or inEntity has none.
@@ -122,9 +152,9 @@ public:
     [[nodiscard]] Result<std::reference_wrapper<T>> GetComponent( Entity inEntity ) noexcept
     {
         pool_t<T>* pool = FindPool<T>();
-        if ( !pool ) 
+        if ( !pool )
         {
-            return Result<std::reference_wrapper<T>>::Err( 
+            return Result<std::reference_wrapper<T>>::Err(
                 make_error_code( errors::EcsError::InvalidComponent ),
                 rtti::GetDemangledName<T>()
             );
@@ -136,7 +166,7 @@ public:
     template <typename T>
     [[nodiscard]] bool HasComponent( Entity inEntity ) const noexcept
     {
-        pool_t<T>* pool = const_cast<Registry*>(this)->FindPool<T>();
+        pool_t<T> const* pool = FindPool<T>();
         return pool && pool->Contains( inEntity );
     }
 
