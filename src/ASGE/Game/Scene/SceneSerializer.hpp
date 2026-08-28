@@ -9,11 +9,6 @@ namespace asge::game::scene
 
 /**
  * @brief Serializes an ecs::Registry's entities to a TOML scene file.
- *
- * For each entity, walks components::SerializableComponents and asks the
- * registry which of those types the entity currently has, delegating the
- * actual per-field TOML shape to that type's Serializer<T> specialization
- * (see Components/Serialize.hpp) — this class only orchestrates the walk.
  */
 class SceneSerializer
 {
@@ -39,6 +34,14 @@ public:
      */
     BoolResult Save( ecs::Registry const& inRegistry, filesystem::Path const& inPath ) const noexcept;
 
+    /**
+     * @brief Populates dstRegistry from a scene file previously written by
+     *        Save(): one fresh CreateEntity() per `[[entity]]` block, with
+     *        every serializable component present re-added via its Serializer.
+     * @return Ok on success. On any failure, only the entities this call
+     *         itself created are rolled back — anything already in
+     *         dstRegistry before the call is never touched, win or lose.
+     */
     BoolResult Load( ecs::Registry& dstRegistry, str::String const& inVirtualPath ) const noexcept;
 };
 
