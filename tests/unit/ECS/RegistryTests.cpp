@@ -189,4 +189,137 @@ TEST(RegistryTest, View_ExcludesEntityAfterDestroy)
     EXPECT_EQ(seen[0], keep.m_Index);
 }
 
+// ─── Registry::GetComponent / HasComponent — const and non-const access ───────
+
+TEST(RegistryTest, GetComponent_MutableRegistryReturnsMutableReference)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(e, Position{ 1.0f, 1.0f }).IsOk());
+
+    auto result = registry.GetComponent<Position>(e);
+    ASSERT_TRUE(result.IsOk());
+    result.Value().get().x = 42.0f; // only compiles if the overload returns a mutable reference
+
+    EXPECT_EQ(registry.GetComponent<Position>(e).Value().get().x, 42.0f);
+}
+
+TEST(RegistryTest, GetComponent_ConstRegistryReturnsStoredValue)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(e, Position{ 3.0f, 4.0f }).IsOk());
+
+    Registry const& constRegistry = registry;
+    auto result = constRegistry.GetComponent<Position>(e);
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().get(), (Position{ 3.0f, 4.0f }));
+}
+
+TEST(RegistryTest, GetComponent_ConstRegistryUnknownComponentTypeReturnsError)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    // Position's pool was never created — no entity has ever had one.
+
+    Registry const& constRegistry = registry;
+    auto result = constRegistry.GetComponent<Position>(e);
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::InvalidComponent));
+}
+
+TEST(RegistryTest, GetComponent_ConstRegistryEntityWithoutComponentReturnsError)
+{
+    Registry registry;
+    auto withPosition = registry.CreateEntity().Value();
+    auto without = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(withPosition, Position{}).IsOk());
+
+    // Position's pool exists (withPosition uses it), but without was never
+    // inserted into it — a different error than "type never used at all".
+    Registry const& constRegistry = registry;
+    auto result = constRegistry.GetComponent<Position>(without);
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::EntityNotAttachedToComponent));
+}
+
+TEST(RegistryTest, HasComponent_ConstRegistryReflectsPresenceAndAbsence)
+{
+    Registry registry;
+    auto withPosition = registry.CreateEntity().Value();
+    auto without = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(withPosition, Position{}).IsOk());
+
+    Registry const& constRegistry = registry;
+    EXPECT_TRUE(constRegistry.HasComponent<Position>(withPosition));
+    EXPECT_FALSE(constRegistry.HasComponent<Position>(without));
+    EXPECT_FALSE(constRegistry.HasComponent<Velocity>(withPosition)); // Velocity's pool was never created
+}
+
+// ─── Registry::AllEntities — unfiltered by component type ─────────────────────
+
+TEST(RegistryTest, AllEntities_EmptyRegistryIsEmpty)
+{
+    Registry registry;
+    EXPECT_TRUE(registry.AllEntities().empty());
+}
+
+TEST(RegistryTest, AllEntities_IncludesEntityWithNoComponents)
+{
+    // The whole point vs. View<Ts...>: an entity with zero components is
+    // still visible here, since nothing filters by pool membership.
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], e);
+}
+
+TEST(RegistryTest, AllEntities_ListsEveryLiveEntityRegardlessOfComponents)
+{
+    Registry registry;
+    auto withPosition = registry.CreateEntity().Value();
+    auto withBoth      = registry.CreateEntity().Value();
+    auto bare          = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(withPosition, Position{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Position>(withBoth, Position{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Velocity>(withBoth, Velocity{}).IsOk());
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 3u);
+    EXPECT_NE(std::find(all.begin(), all.end(), withPosition), all.end());
+    EXPECT_NE(std::find(all.begin(), all.end(), withBoth), all.end());
+    EXPECT_NE(std::find(all.begin(), all.end(), bare), all.end());
+}
+
+TEST(RegistryTest, AllEntities_ExcludesDestroyedEntities)
+{
+    Registry registry;
+    auto keep = registry.CreateEntity().Value();
+    auto destroyed = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.DestroyEntity(destroyed).IsOk());
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], keep);
+}
+
+TEST(RegistryTest, AllEntities_RecycledSlotShowsOnlyTheNewGeneration)
+{
+    // Destroying and recreating reuses the freed slot index with a bumped
+    // generation — AllEntities must reflect the live handle, not the stale one.
+    Registry registry;
+    auto original = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.DestroyEntity(original).IsOk());
+    auto recycled = registry.CreateEntity().Value();
+
+    ASSERT_EQ(recycled.m_Index, original.m_Index);
+    ASSERT_NE(recycled.m_Generation, original.m_Generation);
+
+    auto all = registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], recycled);
+}
+
 }

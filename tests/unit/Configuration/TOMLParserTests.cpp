@@ -481,6 +481,39 @@ TEST(TOMLParserTest, Parse_MultipleArrayTableEntries)
     EXPECT_EQ(*GetOrNull<int>(t1, "sku"), 2);
 }
 
+TEST(TOMLParserTest, Parse_ArrayTableElementsScopeTheirOwnNestedTable)
+{
+    // A bare [entity.Transform] header after a run of [[entity]] blocks must
+    // attach to the most recently opened entity, not always the first one.
+    auto root = ParseOk(
+        "[[entity]]\n"
+        "id = 0\n"
+        "[entity.Transform]\n"
+        "x = 0.0\n"
+        "y = 0.0\n"
+        "[[entity]]\n"
+        "id = 1\n"
+        "[entity.Transform]\n"
+        "x = 1.0\n"
+        "y = 2.0\n"
+    );
+
+    ASSERT_EQ(root->GetSubTables().size(), 2u);
+
+    auto t0 = GetTableOrNull(root, "entity[0]");
+    auto t1 = GetTableOrNull(root, "entity[1]");
+    ASSERT_NE(t0, nullptr);
+    ASSERT_NE(t1, nullptr);
+
+    EXPECT_EQ(*GetOrNull<int>(t0, "id"), 0);
+    EXPECT_EQ(*GetOrNull<double>(t0, "Transform.x"), 0.0);
+    EXPECT_EQ(*GetOrNull<double>(t0, "Transform.y"), 0.0);
+
+    EXPECT_EQ(*GetOrNull<int>(t1, "id"), 1);
+    EXPECT_EQ(*GetOrNull<double>(t1, "Transform.x"), 1.0);
+    EXPECT_EQ(*GetOrNull<double>(t1, "Transform.y"), 2.0);
+}
+
 // ─── Parse — malformed input ──────────────────────────────────────────────────
 
 TEST(TOMLParserTest, Parse_UnexpectedTokenReturnsError)
@@ -788,6 +821,72 @@ TEST(TOMLParserTest, SetTypedArray_FailsOnTypeMismatch)
     auto result = root->SetTypedArray<int>("key", std::vector<int>{1});
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
+}
+
+// ─── Table::SetOrCreate ────────────────────────────────────────────────────────
+
+TEST(TOMLParserTest, SetOrCreate_CreatesMissingKey)
+{
+    auto root = ParseOk("key = 1\n");
+    ASSERT_TRUE(root->SetOrCreate<int>("count", 42).IsOk());
+    EXPECT_EQ(*GetOrNull<int>(root, "count"), 42);
+}
+
+TEST(TOMLParserTest, SetOrCreate_OverwritesExistingKey)
+{
+    auto root = ParseOk("count = 1\n");
+    ASSERT_TRUE(root->SetOrCreate<int>("count", 2).IsOk());
+    EXPECT_EQ(*GetOrNull<int>(root, "count"), 2);
+}
+
+TEST(TOMLParserTest, SetOrCreate_NewStringKeySerializesAsBasicString)
+{
+    auto root = ParseOk("key = 1\n");
+    ASSERT_TRUE(root->SetOrCreate<std::string>("name", "Alice").IsOk());
+    EXPECT_NE(DumpTable(root).find(R"(name = "Alice")"), std::string::npos);
+}
+
+TEST(TOMLParserTest, SetOrCreate_StillFailsOnTypeMismatch)
+{
+    auto root   = ParseOk("count = 1\n");
+    auto result = root->SetOrCreate<std::string>("count", "oops");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlTypeMismatch));
+}
+
+TEST(TOMLParserTest, SetOrCreate_StillFailsOnMissingParentTable)
+{
+    auto root   = ParseOk("key = 1\n");
+    auto result = root->SetOrCreate<int>("no_table.key", 2);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlNoSubtable));
+}
+
+// ─── Table::SetOrCreateTypedArray ──────────────────────────────────────────────
+
+TEST(TOMLParserTest, SetOrCreateTypedArray_CreatesMissingArray)
+{
+    auto root = ParseOk("key = 1\n");
+    ASSERT_TRUE(root->SetOrCreateTypedArray<int>("nums", std::vector<int>{1, 2, 3}).IsOk());
+    EXPECT_NE(DumpTable(root).find("nums = [1, 2, 3]"), std::string::npos);
+}
+
+TEST(TOMLParserTest, SetOrCreateTypedArray_OverwritesExistingArray)
+{
+    auto root = ParseOk("nums = [1, 2, 3]\n");
+    ASSERT_TRUE(root->SetOrCreateTypedArray<int>("nums", std::vector<int>{4, 5}).IsOk());
+    auto vec = GetArrayOrEmpty<int>(root, "nums");
+    ASSERT_EQ(vec.size(), 2u);
+    EXPECT_EQ(vec[0], 4);
+    EXPECT_EQ(vec[1], 5);
+}
+
+TEST(TOMLParserTest, SetOrCreateTypedArray_CreatesMissingNestedArray)
+{
+    auto root = ParseOk("key = 1\n");
+    std::vector<std::vector<int>> matrix{ {1, 2}, {3, 4} };
+    ASSERT_TRUE(root->SetOrCreateTypedArray<std::vector<int>>("matrix", matrix).IsOk());
+    EXPECT_NE(DumpTable(root).find("matrix = [[1, 2], [3, 4]]"), std::string::npos);
 }
 
 }

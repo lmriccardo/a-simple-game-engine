@@ -83,6 +83,7 @@ public:
     // type, so a "reference to the stored component" is expressed as a
     // std::reference_wrapper — implicitly convertible back to T&.
     using component_ref = std::reference_wrapper<T>;
+    using const_component_ref = std::reference_wrapper<T const>; // Read-only counterpart, for the const Get() overload
 
     ComponentPool()
     {
@@ -151,19 +152,34 @@ public:
     }
 
     /**
-     * @brief Looks up inEntity's component.
-     * @return A reference to the component, or an error if inEntity has none.
+     * @brief Looks up inEntity's component (read-only).
+     * @return A const reference to the component, or an error if inEntity has none.
      */
-    [[nodiscard]] Result<component_ref> Get( Entity inEntity ) noexcept
+    [[nodiscard]] Result<const_component_ref> Get( Entity inEntity ) const noexcept
     {
         // At first check if the input entity is conatined into the component pool
         if ( !Contains( inEntity ) )
         {
             auto const ec = make_error_code( errors::EcsError::EntityNotAttachedToComponent);
-            return Result<component_ref>::Err( ec, "name " + rtti::GetDemangledName<T>());
+            return Result<const_component_ref>::Err( ec, "name " + rtti::GetDemangledName<T>());
         }
 
-        return Result<component_ref>::Ok( component_ref( m_DenseComponent[m_Sparse[inEntity.m_Index]] ) );
+        return Result<const_component_ref>::Ok( const_component_ref( m_DenseComponent[m_Sparse[inEntity.m_Index]] ) );
+    }
+
+    /**
+     * @brief Looks up inEntity's component.
+     *
+     * Implemented in terms of the const overload above (then const_cast-ing
+     * the result back to mutable) rather than duplicating the lookup logic —
+     * safe here because *this is genuinely non-const at the call site.
+     * @return A reference to the component, or an error if inEntity has none.
+     */
+    [[nodiscard]] Result<component_ref> Get( Entity inEntity ) noexcept
+    {
+        auto result = std::as_const(*this).Get( inEntity );
+        if ( !result ) return Result<component_ref>::Err( result.Error() );
+        return Result<component_ref>::Ok( component_ref( const_cast<T&>( result.Value().get() ) ) );
     }
 
     /**

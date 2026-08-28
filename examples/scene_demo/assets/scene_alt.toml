@@ -1,0 +1,50 @@
+# A second, distinctly different scene -- fewer, bigger, differently placed
+# entities -- so a swap to this one via SceneManager::RequestLoad is
+# obviously visible against assets/scene.toml. Same shape/conventions as
+# scene.toml; see its comments for the details this file doesn't repeat.
+
+[[entity]]
+[entity.Transform]
+m_X = 400.0
+m_Y = 200.0
+m_Rotation = 0.0
+m_ScaleX = 1.0
+m_ScaleY = 1.0
+
+[entity.Velocity]
+m_DX = 0.0
+m_DY = 80.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+[[entity]]
+[entity.Transform]
+m_X = 200.0
+m_Y = 450.0
+m_Rotation = 0.0
+m_ScaleX = 1.0
+m_ScaleY = 1.0
+
+[entity.Velocity]
+m_DX = 80.0
+m_DY = 0.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+# The player -- last entity, per the same convention scene.toml uses.
+[[entity]]
+[entity.Transform]
+m_X = 400.0
+m_Y = 300.0
+m_Rotation = 0.0
+m_ScaleX = 0.75
+m_ScaleY = 0.75
+
+[entity.Velocity]
+m_DX = 0.0
+m_DY = 0.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"

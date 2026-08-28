@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 #include <ASGE/Core/Memory/FreeList.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include "Entity.hpp"
@@ -105,6 +106,25 @@ public:
     {
         return m_EntityFreeIds.IsUsed( inEntity.m_Index )
             && inEntity.m_Generation == m_Generations[inEntity.m_Index];
+    }
+
+    /**
+     * @brief Lists every currently-alive entity, in no particular order.
+     *
+     * A full O(N) scan over every slot — fine for an occasional operation
+     * like scene saving, not meant to be called every frame.
+     */
+    [[nodiscard]] std::vector<Entity> AllEntities() const
+    {
+        std::vector<Entity> result;
+        for ( std::size_t i = 0; i < N; ++i )
+        {
+            if ( m_EntityFreeIds.IsUsed( i ) )
+            {
+                result.push_back( Entity{ static_cast<EntityIndex>(i), m_Generations[i] } );
+            }
+        }
+        return result;
     }
 };
 

@@ -66,7 +66,10 @@ void EcsDemoGame::EnsureSpritesAttached(asge::video::IRenderer &inRenderer)
     if ( m_SpritesAttached ) return;
 
     // A virtual path resolved through m_Vfs/m_Assets, not a hardcoded OS path.
-    auto imageAsset = m_Assets.GetImage("textures/checker.bmp");
+    // Kept on the Sprite too (m_VirtualPath) so it round-trips through
+    // Serializer<Sprite> — the texture pointer itself doesn't serialize.
+    constexpr char const* kCheckerPath = "textures/checker.bmp";
+    auto imageAsset = m_Assets.GetImage(kCheckerPath);
     if ( !imageAsset )
     {
         imageAsset.LogError();
@@ -81,7 +84,8 @@ void EcsDemoGame::EnsureSpritesAttached(asge::video::IRenderer &inRenderer)
     // the constructor (same reasoning as texture_demo's own lazy load).
     for ( auto entity : m_SpriteEntities )
     {
-        auto result = m_Registry.AddComponent<Sprite>( entity, Sprite{ m_Texture.get() } );
+        auto result = m_Registry.AddComponent<Sprite>(
+            entity, Sprite{ m_Texture.get(), std::nullopt, kCheckerPath } );
         if ( !result ) result.LogError();
     }
 

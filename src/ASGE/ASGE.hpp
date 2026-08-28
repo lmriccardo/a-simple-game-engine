@@ -11,6 +11,7 @@
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Systems.hpp>
+#include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>

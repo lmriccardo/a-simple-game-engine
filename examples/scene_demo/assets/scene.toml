@@ -1,0 +1,113 @@
+# ASGE scene_demo -- hand-authored scene file, loaded by SceneSerializer::Load.
+#
+# Shape: one [[entity]] array-of-tables block per entity, each with a nested
+# subtable per component it has, named after that component's own
+# Serializer<T>::kTableName ("Transform", "Velocity", "Sprite") -- exactly
+# what SceneSerializer::Save produces too, just written by hand here instead
+# of round-tripped through it.
+#
+# Every numeric field must be a TOML float (a literal decimal point, e.g.
+# "60.0" -- not "60"): SceneSerializer reads every field as a `double`
+# internally, and a bare integer parses as TOML's separate int type, which
+# the read side would silently treat as "missing" and fall back to a
+# default for instead of erroring.
+#
+# Convention this demo uses (not an engine feature): the LAST [[entity]]
+# block is the player, controlled by WASD. There's no entity name/tag/id
+# concept in the engine yet, so Game.cpp just special-cases
+# registry.AllEntities().back().
+
+# ── Drifters: Transform + Velocity + Sprite, bounce around the screen ──────
+
+[[entity]]
+[entity.Transform]
+m_X = 100.0
+m_Y = 100.0
+m_Rotation = 0.0
+m_ScaleX = 0.5
+m_ScaleY = 0.5
+
+[entity.Velocity]
+m_DX = 60.0
+m_DY = 40.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+[[entity]]
+[entity.Transform]
+m_X = 300.0
+m_Y = 150.0
+m_Rotation = 0.0
+m_ScaleX = 0.5
+m_ScaleY = 0.5
+
+[entity.Velocity]
+m_DX = -50.0
+m_DY = 70.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+[[entity]]
+[entity.Transform]
+m_X = 500.0
+m_Y = 80.0
+m_Rotation = 0.0
+m_ScaleX = 0.5
+m_ScaleY = 0.5
+
+[entity.Velocity]
+m_DX = 30.0
+m_DY = -60.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+[[entity]]
+[entity.Transform]
+m_X = 650.0
+m_Y = 400.0
+m_Rotation = 0.0
+m_ScaleX = 0.5
+m_ScaleY = 0.5
+
+[entity.Velocity]
+m_DX = -70.0
+m_DY = -30.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+# ── A static prop: Transform + Sprite only, no Velocity -- demonstrates an ──
+# ── entity with a partial component set. MovementSystem's                 ──
+# ── View<Transform, Velocity> never matches it, so it never moves.        ──
+
+[[entity]]
+[entity.Transform]
+m_X = 20.0
+m_Y = 20.0
+m_Rotation = 0.0
+m_ScaleX = 1.5
+m_ScaleY = 1.5
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"
+
+# ── The player: last entity, per the convention noted above. Starts at ─────
+# ── rest -- Game.cpp's UpdatePlayerVelocity() drives it from WASD input. ───
+
+[[entity]]
+[entity.Transform]
+m_X = 400.0
+m_Y = 300.0
+m_Rotation = 0.0
+m_ScaleX = 0.75
+m_ScaleY = 0.75
+
+[entity.Velocity]
+m_DX = 0.0
+m_DY = 0.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/checker.bmp"

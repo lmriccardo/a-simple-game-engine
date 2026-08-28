@@ -543,9 +543,14 @@ asge::config::_internal::toml::SplitTablePath(std::string_view inTableName) noex
 asge::Result<table_pointer> asge::config::_internal::toml::FindSubTable(
     table_pointer inParent, std::string const &inName) noexcept
 {
-    for ( auto const& subTable : inParent->GetSubTables() )
+    // Search back-to-front: when inName names an array-of-tables, several
+    // subtables share it, and an unindexed lookup must resolve to the most
+    // recently defined element per TOML semantics (e.g. a bare [a.b] header
+    // right after a run of [[a]] blocks belongs to the last one).
+    auto const& subTables = inParent->GetSubTables();
+    for ( auto it = subTables.rbegin(); it != subTables.rend(); ++it )
     {
-        if ( subTable->GetName() == inName ) return Result<table_pointer>::Ok( subTable );
+        if ( (*it)->GetName() == inName ) return Result<table_pointer>::Ok( *it );
     }
     auto const ec = make_error_code( errors::ConfError::TomlNoSubtable );
     str::String detail = "name " + inName;
@@ -555,9 +560,11 @@ asge::Result<table_pointer> asge::config::_internal::toml::FindSubTable(
 asge::Result<table_pointer> asge::config::_internal::toml::FindSubTable(
     table_const_pointer inParent, std::string const &inName) noexcept
 {
-    for ( auto const& subTable : inParent->GetSubTables() )
+    // See the table_pointer overload above for why this searches back-to-front.
+    auto const& subTables = inParent->GetSubTables();
+    for ( auto it = subTables.rbegin(); it != subTables.rend(); ++it )
     {
-        if ( subTable->GetName() == inName ) return Result<table_pointer>::Ok( subTable );
+        if ( (*it)->GetName() == inName ) return Result<table_pointer>::Ok( *it );
     }
     auto const ec = make_error_code( errors::ConfError::TomlNoSubtable );
     str::String detail = "name " + inName;
