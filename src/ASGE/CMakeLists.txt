@@ -69,6 +69,7 @@ add_library(ASGE STATIC
 
     # Scene management
     Game/Scene/SceneSerializer.cpp
+    Game/Scene/SceneManager.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)

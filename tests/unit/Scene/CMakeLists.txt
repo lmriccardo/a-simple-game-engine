@@ -1,5 +1,6 @@
 add_executable(ASGE_SceneTests
     SceneSerializerTests.cpp
+    SceneManagerTests.cpp
 )
 
 target_link_libraries(ASGE_SceneTests
