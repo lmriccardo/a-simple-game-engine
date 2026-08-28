@@ -1,3 +1,49 @@
+## [0.6.0] - 2026-08-28
+
+
+### Bug Fixes
+
+- :bug: Fix SceneSerializer::Load's entity loop and give it surgical rollback
+
+- :bug: Guard FileWatcher windows.h include with NOMINMAX
+
+- :bug: Resolve array-of-tables headers to their most recently defined element
+
+- Size RenderSystem destRect from source rect when Sprite is cropped (#38)
+
+- Stop Thread::Detach() racing a fast-cancelling callable (#43)
+
+- Stop Thread subclasses from destroying via base dtor (#41)
+
+
+
+
+### Features
+
+- :sparkles: Add SceneManager for on-the-fly scene load/unload/swap
+
+- :sparkles: Add scene_demo, a scene-file-driven mini-game example
+
+- :sparkles: Add Registry::DestroyAllEntities
+
+- :sparkles: Add SceneSerializer::Load stub and fix Save's ECS/TOML groundwork
+
+- :sparkles: Complete Transform/Velocity/Sprite TOML serializers
+
+- :sparkles: Add read-side accessors and float overloads to TOMLTableView
+
+- :sparkles: Add TOMLTableView::ArrayTable for building TOML arrays of tables
+
+- :sparkles: Adds TOMLBuilder for constructing and saving fresh TOML documents
+
+
+
+
+### Contributors
+
+- lmriccardo
+
+- La Marca Riccardo
 ## [0.5.0] - 2026-08-24
 
 
@@ -220,6 +266,7 @@
 ### Contributors
 
 - lmriccardo
+[0.6.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.1...v0.4.2
 [0.4.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.3.0...v0.4.0
