@@ -83,16 +83,19 @@ public:
      * only way to reach an entity with no components yet, or to visit
      * every entity for something like scene serialization.
      */
-    [[nodiscard]] std::vector<Entity> AllEntities() const
-    {
-        return m_Allocator.AllEntities();
-    }
+    [[nodiscard]] std::vector<Entity> AllEntities() const noexcept;
 
     /**
      * @brief Destroys an entity and strips it from every component pool.
      * @return Ok on success, or an error if inEntity is not currently alive.
      */
     [[nodiscard]] BoolResult DestroyEntity( Entity inEntity ) noexcept;
+
+    /**
+     * @brief Destroys an entities and strips them from every component pool.
+     *        Logs error when it cannot remove a specific entity.
+     */
+    [[nodiscard]] void DestroyAllEntities() noexcept;
 
     /**
      * @brief Attaches inComponent to inEntity, creating T's pool on first use.

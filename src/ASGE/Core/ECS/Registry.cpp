@@ -5,6 +5,11 @@ asge::Result<asge::ecs::Entity> asge::ecs::Registry::CreateEntity() noexcept
     return m_Allocator.Create();
 }
 
+std::vector<asge::ecs::Entity> asge::ecs::Registry::AllEntities() const noexcept
+{
+    return m_Allocator.AllEntities();
+}
+
 asge::BoolResult asge::ecs::Registry::DestroyEntity(Entity inEntity) noexcept
 {
     if ( auto result = m_Allocator.Destroy( inEntity ); !result )
@@ -24,4 +29,15 @@ asge::BoolResult asge::ecs::Registry::DestroyEntity(Entity inEntity) noexcept
     }
 
     return BoolResult::Ok();
+}
+
+void asge::ecs::Registry::DestroyAllEntities() noexcept
+{
+    for ( auto entity : AllEntities() )
+    {
+        if ( auto result = DestroyEntity( entity ); !result )
+        {
+            result.LogError();
+        }
+    }
 }
