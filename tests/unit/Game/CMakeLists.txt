@@ -1,5 +1,6 @@
 add_executable(ASGE_GameTests
     RenderSystemTests.cpp
+    PhysicsSystemTests.cpp
 )
 
 target_link_libraries(ASGE_GameTests

@@ -76,6 +76,13 @@ private:
         }
 
     public:
+
+        using iterator_category = std::forward_iterator_tag;
+        using value_type        = View::value_type;
+        using difference_type   = std::ptrdiff_t;
+        using pointer           = void;
+        using reference         = value_type;
+
         Iterator( Tuple_t const& inPools, IComponentPool* inSmallestPool, std::size_t inIndex )
             : m_ActivePools( inPools ), m_SmallestPool( inSmallestPool )
             , m_Index( inIndex )
@@ -102,6 +109,7 @@ private:
         }
 
         bool operator!=(Iterator const& other) const { return m_Index != other.m_Index; }
+        bool operator==(Iterator const& other) const { return !(m_Index != other.m_Index); }
     };
 
     /** @brief Returns the smallest pool based on entity density */

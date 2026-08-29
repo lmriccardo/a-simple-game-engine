@@ -27,6 +27,7 @@ add_library(ASGE STATIC
 
     # Math utilities implementation
     Core/Math/Geometry/Circle.cpp
+    Core/Math/Geometry/Rect.cpp
 
     # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
     # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
@@ -61,7 +62,7 @@ add_library(ASGE STATIC
     Core/ECS/Registry.cpp
 
     # Gameplay systems built on top of the ECS
-    Game/Systems/MovementSystem.cpp
+    Game/Systems/PhysicsSystem.cpp
     Game/Systems/RenderSystem.cpp
 
     # Asset Manager
