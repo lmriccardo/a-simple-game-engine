@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <span>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Filesystem/FileIO.hpp>
 #include "PixelFormat.hpp"
@@ -36,6 +37,21 @@ public:
     [[nodiscard]] PixelFormat Format() const noexcept;
     [[nodiscard]] std::uint8_t const* Data() const noexcept;
     [[nodiscard]] std::size_t Stride() const noexcept;
+
+    /**
+     * @brief Tight bounding box of this image's non-transparent pixels, in
+     *        its own pixel coordinates. Scans the whole image; see the
+     *        region overload below to scan just part of it.
+     */
+    [[nodiscard]] math::Rect AlphaContentBounds() const noexcept;
+
+    /**
+     * @brief Tight bounding box of the non-transparent pixels within
+     *        inRegion (clamped to this image's own bounds), in the image's
+     *        own pixel coordinates. Falls back to the clamped region itself
+     *        if every pixel in it is fully transparent.
+     */
+    [[nodiscard]] math::Rect AlphaContentBounds( math::Rect const& inRegion ) const noexcept;
 
     /**
      * @brief Reads an image file from disk and decodes it into an RGBA8 Image
