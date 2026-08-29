@@ -15,6 +15,7 @@
 namespace
 {
 
+using asge::video::DrawTextureAnchored;
 using asge::video::IRenderer;
 using asge::video::ITexture;
 using asge::video::IWindow;
@@ -71,6 +72,8 @@ public:
     mutable int s_DrawTextureRectCalls{0};
     mutable int s_DrawTexturePositionCalls{0};
     mutable int s_DrawTextureSrcDestCalls{0};
+    mutable asge::math::Rect s_LastSrcRect{};
+    mutable asge::math::Rect s_LastDestRect{};
     mutable int s_DrawTexture9GridCalls{0};
     mutable int s_DrawTextureTiledCalls{0};
     mutable int s_DrawTextureAffineCalls{0};
@@ -113,9 +116,11 @@ public:
         ++s_DrawTexturePositionCalls;
     }
 
-    void DrawTexture(ITexture const&, asge::math::Rect const&, asge::math::Rect const&) const noexcept override
+    void DrawTexture(ITexture const&, asge::math::Rect const& inSrcRect, asge::math::Rect const& inDestRect) const noexcept override
     {
         ++s_DrawTextureSrcDestCalls;
+        s_LastSrcRect = inSrcRect;
+        s_LastDestRect = inDestRect;
     }
 
     void DrawTexture9Grid(
@@ -220,6 +225,75 @@ TEST(GraphicsInterfaceTest, InvalidRendererReportsInvalid)
 {
     FakeRenderer renderer(false);
     EXPECT_FALSE(renderer.IsValid());
+}
+
+// ─── DrawTextureAnchored ────────────────────────────────────────────────────
+
+TEST(DrawTextureAnchoredTest, DefaultAnchor_ReproducesPlainDrawTexture)
+{
+    FakeRenderer renderer(true);
+    FakeTexture texture;
+
+    asge::math::Rect const src{4.0F, 8.0F, 16.0F, 24.0F};
+    asge::math::Rect const dest{100.0F, 200.0F, 32.0F, 48.0F};
+
+    DrawTextureAnchored(renderer, texture, src, dest);
+
+    EXPECT_EQ(renderer.s_DrawTextureSrcDestCalls, 1);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.x, dest.x);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.y, dest.y);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.w, dest.w);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.h, dest.h);
+}
+
+TEST(DrawTextureAnchoredTest, CenterAnchor_OffsetsDestRectByHalfItsSize)
+{
+    FakeRenderer renderer(true);
+    FakeTexture texture;
+
+    asge::math::Rect const src{0.0F, 0.0F, 16.0F, 16.0F};
+    asge::math::Rect const dest{100.0F, 200.0F, 40.0F, 20.0F};
+
+    DrawTextureAnchored(renderer, texture, src, dest, asge::math::Float2{0.5F, 0.5F});
+
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.x, 80.0F);  // 100 - 0.5*40
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.y, 190.0F); // 200 - 0.5*20
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.w, 40.0F);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.h, 20.0F);
+}
+
+TEST(DrawTextureAnchoredTest, BottomRightAnchor_OffsetsDestRectByItsFullSize)
+{
+    FakeRenderer renderer(true);
+    FakeTexture texture;
+
+    asge::math::Rect const src{0.0F, 0.0F, 16.0F, 16.0F};
+    asge::math::Rect const dest{100.0F, 200.0F, 40.0F, 20.0F};
+
+    DrawTextureAnchored(renderer, texture, src, dest, asge::math::Float2{1.0F, 1.0F});
+
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.x, 60.0F);  // 100 - 40
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.y, 180.0F); // 200 - 20
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.w, 40.0F);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.h, 20.0F);
+}
+
+TEST(DrawTextureAnchoredTest, SrcRectIsPassedThroughUnchanged)
+{
+    // Only destRect is transformed by the anchor -- the source crop itself
+    // (e.g. a frame's tight alpha-content bounds) must reach DrawTexture as-is.
+    FakeRenderer renderer(true);
+    FakeTexture texture;
+
+    asge::math::Rect const src{4.0F, 8.0F, 16.0F, 24.0F};
+    asge::math::Rect const dest{100.0F, 200.0F, 32.0F, 48.0F};
+
+    DrawTextureAnchored(renderer, texture, src, dest, asge::math::Float2{0.5F, 1.0F});
+
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.x, src.x);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.y, src.y);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.w, src.w);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.h, src.h);
 }
 
 } // namespace
