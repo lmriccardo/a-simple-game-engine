@@ -148,4 +148,25 @@ public:
     [[nodiscard]] virtual bool IsValid() const = 0;
 };
 
+/**
+ * @brief Draws inSrcRect anchored at a normalized point within it, so that
+ *        point (not inDestRect's top-left corner) lands at inDestRect's
+ *        (x, y) — {0,0} reproduces plain DrawTexture(srcRect, destRect).
+ *        Lets one fixed anchor stay put on screen while inSrcRect's size
+ *        varies call to call (e.g. differently-cropped animation frames).
+ */
+inline void DrawTextureAnchored(
+    IRenderer const& inRenderer, ITexture const& inTexture,
+    math::Rect const& inSrcRect, math::Rect const& inDestRect,
+    math::Float2 const& inSrcAnchor = math::Float2{ 0.0f, 0.0f }
+) noexcept
+{
+    math::Rect const adjustedDest{
+        inDestRect.x - inSrcAnchor.x() * inDestRect.w,
+        inDestRect.y - inSrcAnchor.y() * inDestRect.h,
+        inDestRect.w, inDestRect.h
+    };
+    inRenderer.DrawTexture( inTexture, inSrcRect, adjustedDest );
+}
+
 } // namespace asge::video
