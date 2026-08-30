@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
+#include <ASGE/Core/Strings.hpp>
 #include "Serialize.hpp"
 
 namespace asge::game::components
@@ -22,7 +23,7 @@ template<>
 struct Serializer<Collider>
 {
     using T = Collider;
-    static constexpr std::string_view kTableName = "Collider";
+    static constexpr str::StringView kTableName = "Collider";
 
     static void ToToml( 
         Collider inCollider, asge::config::TOMLTableView inTview 

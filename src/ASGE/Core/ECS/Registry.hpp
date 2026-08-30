@@ -95,7 +95,7 @@ public:
      * @brief Destroys an entities and strips them from every component pool.
      *        Logs error when it cannot remove a specific entity.
      */
-    [[nodiscard]] void DestroyAllEntities() noexcept;
+    void DestroyAllEntities() noexcept;
 
     /**
      * @brief Attaches inComponent to inEntity, creating T's pool on first use.

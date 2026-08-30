@@ -18,12 +18,22 @@ void MovementSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
  * @brief Separates every overlapping pair of Colliders by pushing them apart.
  *
  * Naive all-pairs AABB check over every Transform+Collider entity (see
- * math::PenetrationVector). An entity without a Velocity is treated as
- * immovable (e.g. static level geometry) and never gets pushed; when both
- * overlapping entities have one, the correction is split evenly between
- * them. Zeroes velocity on whichever axis was corrected, so a resolved
- * entity doesn't immediately re-penetrate next frame.
+ * math::PenetrationVector). An entity is only pushed if it has both a
+ * Velocity and a Rigidbody; anything missing either (e.g. static level
+ * geometry) is treated as immovable. When both overlapping entities are
+ * movable, the correction is split by mass ratio — the heavier body yields
+ * less — rather than evenly. Zeroes velocity on whichever axis was
+ * corrected, so a resolved entity doesn't immediately re-penetrate next frame.
  */
 void CollisionResolution( ecs::Registry& inRegistry ) noexcept;
+
+/**
+ * @brief Accelerates every Rigidbody+Velocity entity downward by gravity.
+ *
+ * Adds kGravity * inDeltaTime to m_DY for every entity with a Rigidbody
+ * whose m_AffectedByGravity is true; entities without a Rigidbody, or with
+ * gravity disabled on it, are left untouched.
+ */
+void GravitySystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
 }

@@ -3,6 +3,7 @@
 #include "../Components/Transform.hpp"
 #include "../Components/Velocity.hpp"
 #include "../Components/Collider.hpp"
+#include "../Components/Rigidbody.hpp"
 
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 
@@ -28,6 +29,8 @@ void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& i
     if ( inDelta.x() != 0.0f ) inV.m_DX = 0.0f;
     if ( inDelta.y() != 0.0f ) inV.m_DY = 0.0f;
 }
+
+constexpr float kGravity = 980.0f; // pixel/s^2
 }
 
 void asge::game::systems::MovementSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
@@ -59,14 +62,26 @@ void asge::game::systems::CollisionResolution(ecs::Registry &inRegistry) noexcep
 
             auto vel1 = inRegistry.GetComponent<components::Velocity>( e1 );
             auto vel2 = inRegistry.GetComponent<components::Velocity>( e2 );
-            bool const movable1 = static_cast<bool>( vel1 );
-            bool const movable2 = static_cast<bool>( vel2 );
+            auto rb1  = inRegistry.GetComponent<components::Rigidbody>( e1 );
+            auto rb2  = inRegistry.GetComponent<components::Rigidbody>( e2 );
+
+            bool const movable1 = static_cast<bool>(rb1) && static_cast<bool>( vel1 );
+            bool const movable2 = static_cast<bool>(rb2) && static_cast<bool>( vel2 );
 
             if ( !movable1 && !movable2 ) continue;
 
-            float const share1 = ( movable1 && movable2 ) ? 0.5f : ( movable1 ? 1.0f : 0.0f );
-            float const share2 = ( movable1 && movable2 ) ? 0.5f : ( movable2 ? 1.0f : 0.0f );
+            float share1 = 1.0f;
+            float share2 = 1.0f;
 
+            if ( movable1 && movable2 )
+            {
+                float const m1 = rb1.Value().get().m_Mass;
+                float const m2 = rb2.Value().get().m_Mass;
+                float const totalMass = m1 + m2;
+                share1 = m2 / totalMass; // heavier body yields less
+                share2 = m1 / totalMass;
+            }
+            
             if ( movable1 )
             {
                 ApplyCorrection( t1.get(), vel1.Value().get(),
@@ -79,5 +94,15 @@ void asge::game::systems::CollisionResolution(ecs::Registry &inRegistry) noexcep
                     { -mtv->x() * share2, -mtv->y() * share2 } );
             }
         }
+    }
+}
+
+void asge::game::systems::GravitySystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
+{
+    for ( auto [e, v, r] : 
+            inRegistry.View<components::Velocity, components::Rigidbody>() )
+    {
+        if ( !r.get().m_AffectedByGravity ) continue;
+        v.get().m_DY += kGravity * inDeltaTime;
     }
 }

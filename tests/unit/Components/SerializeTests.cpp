@@ -13,12 +13,14 @@ using asge::config::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySprite)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbody)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 3);
+    static_assert(std::tuple_size_v<SerializableComponents> == 5);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
+    static_assert(std::is_same_v<std::tuple_element_t<3, SerializableComponents>, Collider>);
+    static_assert(std::is_same_v<std::tuple_element_t<4, SerializableComponents>, Rigidbody>);
     SUCCEED();
 }
 
@@ -28,6 +30,8 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Transform>::kTableName, "Transform");
     EXPECT_EQ(Serializer<Velocity>::kTableName, "Velocity");
     EXPECT_EQ(Serializer<Sprite>::kTableName, "Sprite");
+    EXPECT_EQ(Serializer<Collider>::kTableName, "Collider");
+    EXPECT_EQ(Serializer<Rigidbody>::kTableName, "Rigidbody");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
