@@ -5,20 +5,33 @@
 #include "../Components/Collider.hpp"
 #include "../Components/Rigidbody.hpp"
 
-#include <ASGE/Core/Math/Geometry/Rect.hpp>
+#include <ASGE/Core/Math/Geometry/Collision.hpp>
 
 namespace
 {
 using namespace asge::game::components;
 
-asge::math::Rect WorldBounds( Transform const& inT, Collider const& inC ) noexcept
+ColliderShape WorldBounds( Transform const& inT, Collider const& inC ) noexcept
 {
-    return {
-        inT.m_X + inC.m_LocalBounds.x,
-        inT.m_Y + inC.m_LocalBounds.y,
-        inC.m_LocalBounds.w,
-        inC.m_LocalBounds.h
-    };
+    return std::visit([&inT]( auto const& inShape ) -> ColliderShape
+    {
+        using ShapeT = std::decay_t<decltype(inShape)>;
+
+        if constexpr ( std::is_same_v<ShapeT, asge::math::Rect> )
+        {
+            return asge::math::Rect{
+                inT.m_X + inShape.x, inT.m_Y + inShape.y,
+                inShape.w, inShape.h
+            };
+        } else {
+            return asge::math::Circle{
+                asge::math::Float2{ 
+                    inT.m_X + inShape.m_Center.x(), inT.m_Y + inShape.m_Center.y() 
+                },
+                inShape.m_Radius
+            };
+        }
+    }, inC.m_LocalBounds);
 }
 
 // Applies a positional correction and zeroes velocity on whichever axis moved.
@@ -57,7 +70,11 @@ void asge::game::systems::CollisionResolution(ecs::Registry &inRegistry) noexcep
             auto const obj1 = WorldBounds( t1.get(), c1.get() );
             auto const obj2 = WorldBounds( t2.get(), c2.get() );
 
-            auto mtv = math::PenetrationVector( obj1, obj2 );
+            auto mtv = std::visit( []( auto const& shape1, auto const& shape2 )
+            {
+                return math::PenetrationVector( shape1, shape2 );
+            }, obj1, obj2);
+
             if ( !mtv ) continue;
 
             auto vel1 = inRegistry.GetComponent<components::Velocity>( e1 );

@@ -23,7 +23,7 @@ Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float
     EXPECT_TRUE(entity.IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{ .m_X = inX, .m_Y = inY }).IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(),
-        Collider{ .m_LocalBounds = { 0.0f, 0.0f, inW, inH } }).IsOk());
+        Collider{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, inW, inH } }).IsOk());
     return entity.Value();
 }
 
@@ -129,7 +129,7 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
     auto colliderOnly = registry.CreateEntity();
     ASSERT_TRUE(colliderOnly.IsOk());
     ASSERT_TRUE(registry.AddComponent(colliderOnly.Value(),
-        Collider{ .m_LocalBounds = { 0.0f, 0.0f, 10.0f, 10.0f } }).IsOk());
+        Collider{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 10.0f, 10.0f } }).IsOk());
 
     auto transformOnly = registry.CreateEntity();
     ASSERT_TRUE(transformOnly.IsOk());

@@ -1,4 +1,5 @@
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
+#include <ASGE/Core/Math/Geometry/Collision.hpp>
 
 #include <gtest/gtest.h>
 
@@ -100,6 +101,49 @@ TEST(PenetrationVectorTest, SignPointsAAwayFromB_WhenAIsOnTheOppositeSide)
     ASSERT_TRUE(mtv.has_value());
     EXPECT_FLOAT_EQ(mtv->x(), 2.0f); // a's center is right of b's -> pushed further right
     EXPECT_FLOAT_EQ(mtv->y(), 0.0f);
+}
+
+// ─── PenetrationVector — Rect vs Circle ──────────────────────────────────────
+
+TEST(PenetrationVectorTest, RectCircle_CenterOutsideRect_PushesAlongCenterToClosestPointDirection)
+{
+    // Circle's center sits just above the rect (outside), overlapping by 3.
+    Rect const rect{0.0f, 0.0f, 20.0f, 20.0f};
+    Circle const circle{Float2{10.0f, -2.0f}, 5.0f};
+
+    auto const mtv = PenetrationVector(rect, circle);
+    ASSERT_TRUE(mtv.has_value());
+    EXPECT_FLOAT_EQ(mtv->x(), 0.0f);
+    EXPECT_FLOAT_EQ(mtv->y(), 3.0f); // pushes the rect further down, away from the circle above it
+}
+
+TEST(PenetrationVectorTest, RectCircle_CenterInsideRectNearOneEdge_PushesTowardThatEdgeNotAlwaysUp)
+{
+    // Regression test: the circle's center is deep inside a large rect, close
+    // to its LEFT edge (distance 1) and far from every other edge -- the
+    // "closest point on rect" degenerates to the center itself here, which
+    // previously made this always resolve straight up regardless of which
+    // edge was actually nearest.
+    Rect const rect{0.0f, 0.0f, 20.0f, 20.0f};
+    Circle const circle{Float2{1.0f, 10.0f}, 5.0f};
+
+    auto const mtv = PenetrationVector(rect, circle);
+    ASSERT_TRUE(mtv.has_value());
+    EXPECT_FLOAT_EQ(mtv->x(), 6.0f); // (center.x - rect.x) + radius -- pushes the rect right
+    EXPECT_FLOAT_EQ(mtv->y(), 0.0f);
+}
+
+TEST(PenetrationVectorTest, CircleRect_IsTheOppositeOfRectCircle)
+{
+    Rect const rect{0.0f, 0.0f, 20.0f, 20.0f};
+    Circle const circle{Float2{1.0f, 10.0f}, 5.0f};
+
+    auto const rectPushed = PenetrationVector(rect, circle);
+    auto const circlePushed = PenetrationVector(circle, rect);
+    ASSERT_TRUE(rectPushed.has_value());
+    ASSERT_TRUE(circlePushed.has_value());
+    EXPECT_FLOAT_EQ(circlePushed->x(), -rectPushed->x());
+    EXPECT_FLOAT_EQ(circlePushed->y(), -rectPushed->y());
 }
 
 }

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <iterator>
+#include <type_traits>
 
 namespace
 {
@@ -48,7 +49,8 @@ void PhysicsDemoGame::SpawnStaticGeometry()
         if ( !entity ) { entity.LogError(); return; }
 
         m_Registry.AddComponent<Transform>( entity.Value(), Transform{ inBounds.x, inBounds.y, 0.0f, 1.0f, 1.0f } );
-        m_Registry.AddComponent<Collider>( entity.Value(), Collider{ { 0.0f, 0.0f, inBounds.w, inBounds.h } } );
+        m_Registry.AddComponent<Collider>( entity.Value(),
+            Collider{ asge::math::Rect{ 0.0f, 0.0f, inBounds.w, inBounds.h } } );
     };
 
     makeStatic({ 0.0f, kWindowHeight - kFloorHeight, kWindowWidth, kFloorHeight });      // floor
@@ -70,7 +72,7 @@ void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter)
     m_Registry.AddComponent<Transform>( entity.Value(),
         Transform{ inCenter.x() - size * 0.5f, inCenter.y() - size * 0.5f, 0.0f, 1.0f, 1.0f } );
     m_Registry.AddComponent<Velocity>( entity.Value(), Velocity{} );
-    m_Registry.AddComponent<Collider>( entity.Value(), Collider{ { 0.0f, 0.0f, size, size } } );
+    m_Registry.AddComponent<Collider>( entity.Value(), Collider{ asge::math::Rect{ 0.0f, 0.0f, size, size } } );
     m_Registry.AddComponent<Rigidbody>( entity.Value(), Rigidbody{ massDist( m_Rng ), true } );
 
     m_Boxes.push_back( entity.Value() );
@@ -152,14 +154,32 @@ void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
     {
         auto const& t = transform.get();
         auto const& c = collider.get();
-        asge::math::Rect const bounds{
-            t.m_X + c.m_LocalBounds.x, t.m_Y + c.m_LocalBounds.y,
-            c.m_LocalBounds.w, c.m_LocalBounds.h
-        };
 
         bool const isBox = m_Registry.HasComponent<Rigidbody>( entity );
         auto const color = isBox ? kBoxPalette[ entity.m_Index % std::size(kBoxPalette) ] : kStaticColor;
-        inRenderer.DrawRect( bounds, color, true );
+
+        // Every Collider this demo spawns is a Rect today, but drawing
+        // through std::visit rather than assuming .x/.y/.w/.h keeps this
+        // correct if a Circle collider ever gets spawned here too.
+        std::visit( [&]( auto const& inShape )
+        {
+            using ShapeT = std::decay_t<decltype(inShape)>;
+            if constexpr ( std::is_same_v<ShapeT, asge::math::Rect> )
+            {
+                asge::math::Rect const bounds{
+                    t.m_X + inShape.x, t.m_Y + inShape.y, inShape.w, inShape.h
+                };
+                inRenderer.DrawRect( bounds, color, true );
+            }
+            else
+            {
+                asge::math::Int2 const center{
+                    static_cast<int>( t.m_X + inShape.m_Center.x() ),
+                    static_cast<int>( t.m_Y + inShape.m_Center.y() )
+                };
+                inRenderer.DrawCircle( center, static_cast<int>( inShape.m_Radius ), color, true );
+            }
+        }, c.m_LocalBounds );
     }
 }
 

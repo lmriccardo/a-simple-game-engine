@@ -6,6 +6,12 @@
 namespace asge::math
 {
 
+struct Circle
+{
+    math::Float2 m_Center;
+    float        m_Radius;
+};
+
 /**
  * @brief Computes a circle's outline points using the midpoint circle algorithm
  *
