@@ -11,6 +11,7 @@ namespace
 {
 using namespace asge::game::components;
 
+/** @brief inC's local shape offset by inT's position, in world space — same shape kind, new coordinates. */
 ColliderShape WorldBounds( Transform const& inT, Collider const& inC ) noexcept
 {
     return std::visit([&inT]( auto const& inShape ) -> ColliderShape

@@ -17,13 +17,15 @@ void MovementSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 /**
  * @brief Separates every overlapping pair of Colliders by pushing them apart.
  *
- * Naive all-pairs AABB check over every Transform+Collider entity (see
- * math::PenetrationVector). An entity is only pushed if it has both a
- * Velocity and a Rigidbody; anything missing either (e.g. static level
- * geometry) is treated as immovable. When both overlapping entities are
- * movable, the correction is split by mass ratio — the heavier body yields
- * less — rather than evenly. Zeroes velocity on whichever axis was
- * corrected, so a resolved entity doesn't immediately re-penetrate next frame.
+ * Naive all-pairs check over every Transform+Collider entity, dispatching
+ * on each pair's actual shapes (Rect and/or Circle — see
+ * math::PenetrationVector) via std::visit. An entity is only pushed if it
+ * has both a Velocity and a Rigidbody; anything missing either (e.g.
+ * static level geometry) is treated as immovable. When both overlapping
+ * entities are movable, the correction is split by mass ratio — the
+ * heavier body yields less — rather than evenly. Zeroes velocity on
+ * whichever axis was corrected, so a resolved entity doesn't immediately
+ * re-penetrate next frame.
  */
 void CollisionResolution( ecs::Registry& inRegistry ) noexcept;
 

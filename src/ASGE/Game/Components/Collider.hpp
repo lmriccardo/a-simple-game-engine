@@ -9,22 +9,28 @@
 namespace asge::game::components
 {
 
-/**
- * @brief Axis-aligned bounding box used for collision detection.
- *
- * Independent of Sprite — an entity's hitbox doesn't have to match its
- * drawn size. The box's world position is Transform.m_X/m_Y (top-left,
- * same convention as RenderSystem) offset by m_OffsetX/m_OffsetY.
- */
+/** @brief The set of shapes a Collider can be — see AabbOverlap/PenetrationVector (Collision.hpp). */
 using ColliderShape = std::variant<math::Rect, math::Circle>;
 
+/**
+ * @brief A hitbox used for collision detection — a Rect or a Circle.
+ *
+ * Independent of Sprite — an entity's hitbox doesn't have to match its
+ * drawn size. Its world position is Transform.m_X/m_Y (top-left, same
+ * convention as RenderSystem) offset by the shape's own local origin
+ * (Rect's x/y, or Circle's m_Center).
+ */
 struct Collider
 {
-    ColliderShape m_LocalBounds{};
+    ColliderShape m_LocalBounds{}; // shape + local offset from the owning entity's Transform
 };
 
 /**
- * @brief Serializer for math::Rect shapes
+ * @brief Serializer for a Rect-shaped Collider.
+ *
+ * kShapeName is what Serializer<Collider> writes/reads as the "m_Shape"
+ * discriminator, so FromToml knows which of Rect/Circle to parse the rest
+ * of the table as.
  */
 template<>
 struct Serializer<math::Rect>
@@ -49,9 +55,7 @@ struct Serializer<math::Rect>
     }
 };
 
-/**
- * @brief Serializer for math::Circle shapes
- */
+/** @brief Serializer for a Circle-shaped Collider — see Serializer<math::Rect>::kShapeName. */
 template<>
 struct Serializer<math::Circle>
 {
@@ -95,8 +99,10 @@ struct Serializer<Collider>
     static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
     {
         auto table = inEnttView.Table(std::string(kTableName));
+        // Defaults to "Rect" so a scene file saved before Circle existed --
+        // no "m_Shape" key at all -- still parses as a Rect, unchanged.
         auto shapeKind = table.Get("m_Shape", std::string("Rect"));
-        
+
         Collider result{};
 
         if ( shapeKind == Serializer<math::Rect>::kShapeName )

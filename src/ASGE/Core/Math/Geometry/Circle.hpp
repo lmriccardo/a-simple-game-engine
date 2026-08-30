@@ -6,9 +6,13 @@
 namespace asge::math
 {
 
+/**
+ * @brief A circle, used interchangeably with Rect as a collidable shape —
+ *        see Collision.hpp's AabbOverlap/PenetrationVector family.
+ */
 struct Circle
 {
-    math::Float2 m_Center;
+    math::Float2 m_Center; // center point, in whatever space the caller is working in
     float        m_Radius;
 };
 
