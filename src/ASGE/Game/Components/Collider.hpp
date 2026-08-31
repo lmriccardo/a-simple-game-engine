@@ -13,15 +13,17 @@ namespace asge::game::components
 using ColliderShape = std::variant<math::Rect, math::Circle>;
 
 /**
- * @brief How CollisionResolution reacts to an overlap involving this Collider.
+ * @brief How DetectCollisions/ResolveCollisions react to an overlap
+ *        involving this Collider.
  *
- * See systems::CollisionResolution (PhysicsSystem.hpp) for exactly how each
- * value changes an overlapping pair's handling.
+ * See systems::DetectCollisions/ResolveCollisions/DispatchTriggerEvents
+ * (PhysicsSystem.hpp) for exactly how each value changes an overlapping
+ * pair's handling.
  */
 enum class ResolutionType
 {
-    Unknown, // Unrecognized/not-yet-configured — CollisionResolution ignores the pair entirely (no push-out, no trigger event)
-    Trigger, // Non-blocking sensor — never pushed out or pushes anything out; overlap fires events::OnTriggerOverlap instead
+    Unknown, // Unrecognized/not-yet-configured — DetectCollisions ignores the pair entirely (no push-out, no trigger event)
+    Trigger, // Non-blocking sensor — never pushed out or pushes anything out; overlap fires events::OnCollisionTriggerEnter/Stay/Exit instead
     Solid    // The default — participates in normal push-out collision response
 };
 
@@ -160,7 +162,7 @@ struct Serializer<Collider>
         // existed -- no "m_Resolution" key at all -- still parses as Solid
         // (Collider's own in-code default), not Unknown; an Unknown
         // Collider is silently excluded from all collision handling (see
-        // CollisionResolution), so a missing key must not resolve to it.
+        // DetectCollisions), so a missing key must not resolve to it.
         result.m_Resolution = details::FromString( table.Get( "m_Resolution", std::string("Solid") ) );
 
         return result;

@@ -22,7 +22,7 @@ constexpr float kMaxBoxSize    = 48.0f;
 constexpr float kMinMass       = 0.5f;
 constexpr float kMaxMass       = 3.0f;
 constexpr float kFallLimit     = kWindowHeight + 200.0f; // safety net for a box tunneling past the floor
-constexpr std::size_t kMaxBoxes = 80; // keeps the all-pairs CollisionResolution cheap
+constexpr std::size_t kMaxBoxes = 80; // keeps DetectCollisions's all-pairs check cheap
 
 // A Trigger-resolution despawn zone near the bottom-right, sitting on top
 // of the floor -- any box's Collider overlapping it is removed instead of
@@ -48,7 +48,10 @@ PhysicsDemoGame::PhysicsDemoGame()
     SpawnTriggerZone();
     SpawnInitialStack();
 
-    m_TriggerConnection = asge::game::events::OnTriggerOverlap().Connect(
+    // Enter, not Stay/Exit -- this demo only cares about the first frame a
+    // box touches the trigger zone (it gets despawned that same frame, so
+    // there's never a "still overlapping" frame after to report Stay for).
+    m_TriggerConnection = asge::game::events::OnCollisionTriggerEnter().Connect(
         [this]( asge::ecs::Entity inA, asge::ecs::Entity inB ) { HandleTriggerOverlap( inA, inB ); }
     );
 }
@@ -56,7 +59,7 @@ PhysicsDemoGame::PhysicsDemoGame()
 void PhysicsDemoGame::SpawnStaticGeometry()
 {
     // Floor and side walls: Transform + Collider only -- no Velocity or
-    // Rigidbody, so CollisionResolution treats them as immovable.
+    // Rigidbody, so ResolveCollisions treats them as immovable.
     auto makeStatic = [this]( asge::math::Rect inBounds )
     {
         auto entity = m_Registry.CreateEntity();
@@ -160,13 +163,14 @@ void PhysicsDemoGame::DespawnFallenBoxes()
 
 void PhysicsDemoGame::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
 {
-    // events::OnTriggerOverlap() fires synchronously, mid-iteration over
-    // CollisionResolution's own Transform+Collider view -- see that
-    // signal's doc comment. Destroying an entity here (Registry::
-    // DestroyEntity swap-and-pops every component pool) could invalidate
-    // that iteration, so just record which box to remove; the actual
-    // destruction happens in ProcessTriggerDespawns(), after
-    // CollisionResolution has returned for this frame.
+    // events::OnCollisionTriggerEnter() fires synchronously, from inside
+    // systems::DispatchTriggerEvents -- itself called partway through
+    // PhysicsUpdate, still iterating this frame's contact list. Destroying
+    // an entity here rather than deferring it could disturb that in-progress
+    // iteration (or any later contact in the same list still referencing this
+    // entity), so just record which box to remove; the actual destruction
+    // happens in ProcessTriggerDespawns(), after PhysicsUpdate has returned
+    // for this frame.
     asge::ecs::Entity other;
     if ( inA == m_TriggerZone )      other = inB;
     else if ( inB == m_TriggerZone ) other = inA;
@@ -205,9 +209,9 @@ void PhysicsDemoGame::Update(float inDeltaTime, asge::input::InputState const &i
 {
     HandleInput( inInput );
 
-    asge::game::systems::GravitySystem( m_Registry, inDeltaTime );
-    asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
-    asge::game::systems::CollisionResolution( m_Registry ); // may queue trigger-zone despawns via HandleTriggerOverlap
+    // May queue trigger-zone despawns via HandleTriggerOverlap (connected
+    // to events::OnCollisionTriggerEnter in the constructor).
+    asge::game::systems::PhysicsUpdate( m_Registry, m_PhysicsState, inDeltaTime );
 
     ProcessTriggerDespawns();
     DespawnFallenBoxes();

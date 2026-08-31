@@ -1,22 +1,22 @@
 #pragma once
 
 /**
- * @brief Showcase for Rigidbody, GravitySystem, mass-weighted
- *        CollisionResolution, and Trigger colliders.
+ * @brief Showcase for Rigidbody, gravity, mass-weighted collision response,
+ *        and Trigger colliders, all driven through systems::PhysicsUpdate.
  *
  * A floor and two side walls are static Solid Colliders (Transform +
- * Collider, deliberately no Velocity or Rigidbody, so PhysicsSystem treats
- * them as immovable). A yellow-outlined zone near the bottom-right is a
- * static Trigger Collider instead -- boxes fall/settle against the
+ * Collider, deliberately no Velocity or Rigidbody, so collision response
+ * treats them as immovable). A yellow-outlined zone near the bottom-right
+ * is a static Trigger Collider instead -- boxes fall/settle against the
  * Solid geometry as normal, but pass straight through the trigger zone
  * without being pushed; overlapping it despawns the box, via
- * events::OnTriggerOverlap rather than a Collider push-out.
+ * events::OnCollisionTriggerEnter rather than a Collider push-out.
  *
  * Left-click drops a new box -- Transform + Velocity + Collider + Rigidbody
- * with a randomized mass -- at the cursor; every frame runs GravitySystem,
- * then MovementSystem, then CollisionResolution, so boxes fall, land on the
- * floor/each other/the trigger zone, and settle (or get despawned). R
- * resets the scene.
+ * with a randomized mass -- at the cursor; every frame runs
+ * systems::PhysicsUpdate (gravity, movement, collision detection/response,
+ * trigger events, in that order), so boxes fall, land on the floor/each
+ * other/the trigger zone, and settle (or get despawned). R resets the scene.
  */
 
 #include <ASGE/ASGE.hpp>
@@ -28,9 +28,10 @@ class PhysicsDemoGame : public asge::game::IGame
     asge::ecs::Registry            m_Registry;
     std::vector<asge::ecs::Entity> m_Boxes; // dynamic entities only -- static geometry is never touched by Reset()
     std::mt19937                   m_Rng{ std::random_device{}() };
+    asge::game::systems::PhysicsState m_PhysicsState; // enter/exit bookkeeping for trigger pairs -- see PhysicsUpdate
 
     asge::ecs::Entity m_TriggerZone{ asge::ecs::Entity::Null() };
-    std::vector<asge::ecs::Entity> m_ConsumedByTrigger; // boxes to destroy once CollisionResolution returns -- see HandleTriggerOverlap
+    std::vector<asge::ecs::Entity> m_ConsumedByTrigger; // boxes to destroy once PhysicsUpdate returns -- see HandleTriggerOverlap
     asge::signals::Connection<asge::ecs::Entity, asge::ecs::Entity> m_TriggerConnection;
 
     void SpawnStaticGeometry();

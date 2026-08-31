@@ -214,7 +214,7 @@ TEST(ColliderSerializerTest, FromToml_MissingResolutionKeyDefaultsToSolidNotUnkn
     // A scene file saved before Trigger colliders existed has no
     // "m_Resolution" key at all -- must still behave exactly like the
     // in-code default (Solid), not silently become Unknown (which
-    // CollisionResolution ignores entirely -- see PhysicsSystem.hpp).
+    // DetectCollisions ignores entirely -- see PhysicsSystem.hpp).
     TOMLBuilder builder;
     builder.Table("Collider")
            .Set<std::string>("m_Shape", "Rect")

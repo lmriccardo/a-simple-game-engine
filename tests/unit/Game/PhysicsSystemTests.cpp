@@ -21,6 +21,7 @@ using asge::game::components::ResolutionType;
 using asge::game::components::Rigidbody;
 using asge::game::components::Transform;
 using asge::game::components::Velocity;
+using asge::game::systems::PhysicsState;
 
 Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float inH,
     ResolutionType inResolution = ResolutionType::Solid)
@@ -33,6 +34,16 @@ Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float
         .m_Resolution = inResolution
     }).IsOk());
     return entity.Value();
+}
+
+// The collision-only slice of PhysicsUpdate (no GravitySystem/MovementSystem)
+// -- detect, resolve, dispatch trigger events, in the same order PhysicsUpdate
+// runs them, for tests that want deterministic collision behavior on its own.
+void RunCollisionResolution(Registry& inRegistry, PhysicsState& inState)
+{
+    auto contacts = asge::game::systems::DetectCollisions(inRegistry);
+    asge::game::systems::ResolveCollisions(inRegistry, contacts);
+    asge::game::systems::DispatchTriggerEvents(inState, contacts);
 }
 
 // ─── CollisionResolution — both entities movable ────────────────────────────
@@ -50,7 +61,8 @@ TEST(PhysicsSystemTest, TwoOverlappingMovableEntities_PushedApartEvenlyOnLeastPe
     ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(e2, Rigidbody{}).IsOk());
 
-    asge::game::systems::CollisionResolution(registry);
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
 
     // Equal masses (Rigidbody{}'s default), so the total correction (4) is
     // split evenly, pushing each entity away from the other.
@@ -77,7 +89,8 @@ TEST(PhysicsSystemTest, MovableOverlappingStaticEntity_OnlyMovableGetsTheFullCor
     ASSERT_TRUE(registry.AddComponent(movable, Velocity{ .m_DX = 5.0f, .m_DY = 3.0f }).IsOk());
     ASSERT_TRUE(registry.AddComponent(movable, Rigidbody{}).IsOk());
 
-    asge::game::systems::CollisionResolution(registry);
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
 
     // The other side has neither a Velocity nor a Rigidbody, so the movable
     // entity absorbs the whole correction -- and the immovable one's
@@ -101,7 +114,8 @@ TEST(PhysicsSystemTest, TwoMovableNonOverlappingEntities_BothLeftUntouched)
     ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(e2, Rigidbody{}).IsOk());
 
-    asge::game::systems::CollisionResolution(registry);
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
 
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 20.0f);
@@ -117,7 +131,8 @@ TEST(PhysicsSystemTest, TwoOverlappingImmovableEntities_BothLeftUntouched)
     auto e1 = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f);
     auto e2 = MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f);
 
-    asge::game::systems::CollisionResolution(registry);
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
 
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 6.0f);
@@ -131,7 +146,7 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
 
     // Complete: participates in the view. The other two are each missing
     // one of the two components the view requires, so View<Transform,
-    // Collider> must skip them rather than CollisionResolution crashing.
+    // Collider> must skip them rather than DetectCollisions crashing.
     auto complete = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f);
 
     auto colliderOnly = registry.CreateEntity();
@@ -143,7 +158,8 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
     ASSERT_TRUE(transformOnly.IsOk());
     ASSERT_TRUE(registry.AddComponent(transformOnly.Value(), Transform{ .m_X = 5.0f }).IsOk());
 
-    EXPECT_NO_THROW(asge::game::systems::CollisionResolution(registry));
+    PhysicsState state;
+    EXPECT_NO_THROW(RunCollisionResolution(registry, state));
 
     // Only one entity actually qualifies for the view, so nothing overlaps it.
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(complete).Value().get().m_X, 0.0f);
@@ -151,20 +167,25 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
 
 // ─── CollisionResolution — Trigger colliders ────────────────────────────────
 
-// events::OnTriggerOverlap() is one process-wide signal (not per-Registry),
-// so every test here must disconnect its own listener in TearDown -- a
-// listener left connected past its test would still fire (against a
-// dangling capture) the next time any test calls CollisionResolution.
+// events::OnCollisionTriggerEnter/Stay/Exit are process-wide signals (not
+// per-Registry), so every test here must disconnect its own listeners in
+// TearDown -- a listener left connected past its test would still fire
+// (against a dangling capture) the next time any test runs collision
+// resolution. m_Overlaps only tracks Enter, matching the old single-signal
+// OnTriggerOverlap tests below (each calls RunCollisionResolution once, so
+// a first-time overlap is exactly what Enter reports); the Stay/Exit tests
+// further down use their own local connections instead.
 class TriggerCollisionTest : public ::testing::Test
 {
 protected:
     Registry m_Registry;
+    PhysicsState m_PhysicsState;
     std::vector<std::pair<Entity, Entity>> m_Overlaps;
     asge::signals::Connection<Entity, Entity> m_Connection;
 
     void SetUp() override
     {
-        m_Connection = asge::game::events::OnTriggerOverlap().Connect(
+        m_Connection = asge::game::events::OnCollisionTriggerEnter().Connect(
             [this]( Entity inA, Entity inB ) { m_Overlaps.emplace_back( inA, inB ); }
         );
     }
@@ -173,12 +194,14 @@ protected:
     {
         m_Connection.Disconnect();
     }
+
+    void RunCollisions() { RunCollisionResolution( m_Registry, m_PhysicsState ); }
 };
 
 TEST_F(TriggerCollisionTest, TwoOverlappingTriggers_FiresOnceAndAppliesNoPushOut)
 {
     // Both movable (Velocity + Rigidbody) so a push-out would be visible if
-    // CollisionResolution mistakenly applied one to a Trigger pair.
+    // ResolveCollisions mistakenly applied one to a Trigger pair.
     auto e1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
     auto e2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
     ASSERT_TRUE(m_Registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
@@ -186,7 +209,7 @@ TEST_F(TriggerCollisionTest, TwoOverlappingTriggers_FiresOnceAndAppliesNoPushOut
     ASSERT_TRUE(m_Registry.AddComponent(e1, Rigidbody{}).IsOk());
     ASSERT_TRUE(m_Registry.AddComponent(e2, Rigidbody{}).IsOk());
 
-    asge::game::systems::CollisionResolution(m_Registry);
+    RunCollisions();
 
     ASSERT_EQ(m_Overlaps.size(), 1u);
     EXPECT_EQ(m_Overlaps[0].first, e1);
@@ -205,7 +228,7 @@ TEST_F(TriggerCollisionTest, TriggerOverlappingMovableSolid_FiresTriggerFirstAnd
     ASSERT_TRUE(m_Registry.AddComponent(solid, Velocity{ .m_DX = 5.0f }).IsOk());
     ASSERT_TRUE(m_Registry.AddComponent(solid, Rigidbody{}).IsOk());
 
-    asge::game::systems::CollisionResolution(m_Registry);
+    RunCollisions();
 
     ASSERT_EQ(m_Overlaps.size(), 1u);
     EXPECT_EQ(m_Overlaps[0].first, trigger);  // the Trigger is always reported first ...
@@ -223,7 +246,7 @@ TEST_F(TriggerCollisionTest, TriggerOverlappingStaticCollider_StillFires)
     auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
     auto other = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f);
 
-    asge::game::systems::CollisionResolution(m_Registry);
+    RunCollisions();
 
     ASSERT_EQ(m_Overlaps.size(), 1u);
     EXPECT_EQ(m_Overlaps[0].first, trigger);
@@ -235,7 +258,7 @@ TEST_F(TriggerCollisionTest, NonOverlappingTriggerAndSolid_DoesNotFire)
     MakeCollider(m_Registry, 0.0f, 0.0f, 5.0f, 5.0f, ResolutionType::Trigger);
     MakeCollider(m_Registry, 50.0f, 0.0f, 5.0f, 5.0f);
 
-    asge::game::systems::CollisionResolution(m_Registry);
+    RunCollisions();
 
     EXPECT_TRUE(m_Overlaps.empty());
 }
@@ -243,18 +266,89 @@ TEST_F(TriggerCollisionTest, NonOverlappingTriggerAndSolid_DoesNotFire)
 TEST_F(TriggerCollisionTest, UnknownResolutionOnEitherSide_SkipsBothPushOutAndTrigger)
 {
     // Unknown is reachable in practice from a Collider deserialized with an
-    // unrecognized m_Resolution value -- CollisionResolution must ignore
+    // unrecognized m_Resolution value -- DetectCollisions must ignore
     // the pair entirely rather than guessing Solid or Trigger.
     auto unknown = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Unknown);
     auto movable = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f);
     ASSERT_TRUE(m_Registry.AddComponent(movable, Velocity{ .m_DX = 5.0f }).IsOk());
     ASSERT_TRUE(m_Registry.AddComponent(movable, Rigidbody{}).IsOk());
 
-    asge::game::systems::CollisionResolution(m_Registry);
+    RunCollisions();
 
     EXPECT_TRUE(m_Overlaps.empty());
     EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(movable).Value().get().m_X, 6.0f); // untouched
     EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(unknown).Value().get().m_X, 0.0f);
+}
+
+// ─── DispatchTriggerEvents — Enter/Stay/Exit across multiple frames ─────────
+
+TEST_F(TriggerCollisionTest, StillOverlappingNextCall_FiresStayNotAnotherEnter)
+{
+    std::vector<std::pair<Entity, Entity>> stays;
+    auto stayConnection = asge::game::events::OnCollisionTriggerStay().Connect(
+        [&stays]( Entity inA, Entity inB ) { stays.emplace_back( inA, inB ); }
+    );
+
+    auto e1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto e2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    RunCollisions(); // first call, new overlap -> Enter
+    RunCollisions(); // still overlapping, same PhysicsState -> Stay, not another Enter
+
+    stayConnection.Disconnect();
+
+    EXPECT_EQ(m_Overlaps.size(), 1u); // Enter fired exactly once, on the first call
+    ASSERT_EQ(stays.size(), 1u);      // Stay fired exactly once, on the second call
+    EXPECT_EQ(stays[0].first, e1);
+    EXPECT_EQ(stays[0].second, e2);
+}
+
+TEST_F(TriggerCollisionTest, NoLongerOverlappingNextCall_FiresExitOnce)
+{
+    std::vector<std::pair<Entity, Entity>> exits;
+    auto exitConnection = asge::game::events::OnCollisionTriggerExit().Connect(
+        [&exits]( Entity inA, Entity inB ) { exits.emplace_back( inA, inB ); }
+    );
+
+    auto e1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto e2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    RunCollisions(); // first call, overlapping -> Enter
+
+    // Move e2 out of range so the pair no longer overlaps on the next call.
+    m_Registry.GetComponent<Transform>(e2).Value().get().m_X = 500.0f;
+    RunCollisions(); // no longer overlapping, same PhysicsState -> Exit
+
+    exitConnection.Disconnect();
+
+    EXPECT_EQ(m_Overlaps.size(), 1u); // Enter fired once, on the first call only
+    ASSERT_EQ(exits.size(), 1u);
+    EXPECT_EQ(exits[0].first, e1);
+    EXPECT_EQ(exits[0].second, e2);
+}
+
+TEST_F(TriggerCollisionTest, DestroyedOverlappingEntity_StillFiresExit)
+{
+    // DispatchTriggerEvents' doc comment calls this out explicitly: a pair
+    // missing from this frame's contacts because one side no longer exists
+    // must still resolve to Exit, the same as if it had simply moved away.
+    std::vector<std::pair<Entity, Entity>> exits;
+    auto exitConnection = asge::game::events::OnCollisionTriggerExit().Connect(
+        [&exits]( Entity inA, Entity inB ) { exits.emplace_back( inA, inB ); }
+    );
+
+    auto e1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto e2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    RunCollisions(); // Enter
+    ASSERT_TRUE(m_Registry.DestroyEntity(e2).IsOk());
+    RunCollisions(); // e2 no longer exists -> absent from this frame's contacts -> Exit
+
+    exitConnection.Disconnect();
+
+    ASSERT_EQ(exits.size(), 1u);
+    EXPECT_EQ(exits[0].first, e1);
+    EXPECT_EQ(exits[0].second, e2);
 }
 
 }

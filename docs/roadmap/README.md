@@ -54,7 +54,7 @@ has its own Phase 1 doc, it's just not scheduled.
 ### Tier 2 — Makes it feel like a game
 7. **[Physics](phase-1/07.1-physics-system.md)** (AABB collision, gravity,
    collision response) — first system that makes gameplay feel like gameplay;
-   depends on ECS's `Transform`/`Rigidbody`/`Collider` components.
+   depends on ECS's `Transform`/`Rigidbody`/`Collider` components. - ✅ complete
 8. **[Audio](phase-1/08.1-audio-system.md)** (play sounds, volume) — low coupling
    to everything else, but wants the Asset Pipeline's loading pattern for WAV/OGG
    first.

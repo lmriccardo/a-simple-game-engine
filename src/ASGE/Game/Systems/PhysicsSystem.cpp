@@ -52,7 +52,7 @@ constexpr float kGravity = 980.0f; // pixel/s^2
 /**
  * @brief Pushes e1/e2 apart along mtv, splitting the correction by mass
  *        ratio when both are movable — the actual push-out logic for a
- *        Solid/Solid overlap. See CollisionResolution for the movable
+ *        Solid/Solid overlap. See ResolveCollisions for the movable
  *        rules (needs both Velocity and Rigidbody) this assumes were
  *        already checked to decide it should even be called.
  */
@@ -106,10 +106,12 @@ void asge::game::systems::MovementSystem(ecs::Registry &inRegistry, float inDelt
     }
 }
 
-void asge::game::systems::CollisionResolution(ecs::Registry &inRegistry) noexcept
+std::vector<asge::game::systems::CollisionContact> 
+asge::game::systems::DetectCollisions(ecs::Registry &inRegistry) noexcept
 {
+    std::vector<CollisionContact> collisions{};
+
     auto view = inRegistry.View<components::Transform, components::Collider>();
-    
     for ( auto it = view.begin(); it != view.end(); ++it )
     {
         for ( auto jt = std::next( it ); jt != view.end(); ++jt )
@@ -138,21 +140,66 @@ void asge::game::systems::CollisionResolution(ecs::Registry &inRegistry) noexcep
             bool const c1Trigger = c1.get().m_Resolution == ResolutionType::Trigger;
             bool const c2Trigger = c2.get().m_Resolution == ResolutionType::Trigger;
 
-            if ( c1Trigger || c2Trigger )
-            {
-                // Report the Trigger entity first when only one side is one
-                // -- "my trigger was entered by X" -- rather than leaving
-                // it to View's arbitrary pair-iteration order. When both
-                // sides are Triggers there's no meaningful "the" trigger,
-                // so (e1, e2) as encountered is as good as any order.
-                if ( c2Trigger && !c1Trigger ) events::OnTriggerOverlap().Emit( e2, e1 );
-                else                           events::OnTriggerOverlap().Emit( e1, e2 );
-                continue;
-            }
-
-            ResolveSolidCollision( inRegistry, e1, t1.get(), e2, t2.get(), *mtv );
+            // A Trigger is always reported as the contact's first entity,
+            // regardless of View's own pair order, so a consumer with
+            // exactly one Trigger side (the common case) can always treat
+            // m_Entity1 as "the trigger" without checking both.
+            if ( c2Trigger && !c1Trigger )
+                collisions.emplace_back( e2, e1, math::Float2{ -mtv->x(), -mtv->y() }, true );
+            else
+                collisions.emplace_back( e1, e2, *mtv, c1Trigger || c2Trigger );
         }
     }
+
+    return collisions;
+}
+
+void asge::game::systems::ResolveCollisions(
+    ecs::Registry &inRegistry, std::span<CollisionContact const> inContacts) noexcept
+{
+    for ( auto& contact : inContacts )
+    {
+        if ( contact.m_IsTrigger ) continue;
+
+        auto const e1 = contact.m_Entity1;
+        auto const e2 = contact.m_Entity2;
+
+        auto& t1 = inRegistry.GetComponent<components::Transform>( e1 ).Value().get();
+        auto& t2 = inRegistry.GetComponent<components::Transform>( e2 ).Value().get();
+
+        auto const mtv = contact.m_Penetration;
+
+        ResolveSolidCollision( inRegistry, e1, t1, e2, t2, mtv );
+    }
+}
+
+void asge::game::systems::DispatchTriggerEvents(
+    PhysicsState &inState, std::span<CollisionContact const> inContacts) noexcept
+{
+    std::set<ecs::EntityPair> currentTriggerPairs;
+
+    for ( auto& contact : inContacts )
+    {
+        if ( !contact.m_IsTrigger ) continue;
+
+        auto key = MakeCanonicalPair( contact.m_Entity1, contact.m_Entity2 );
+        currentTriggerPairs.insert( key );
+
+        if ( !inState.m_PreviousTriggerPairs.contains( key ) )
+            events::OnCollisionTriggerEnter().Emit( contact.m_Entity1, contact.m_Entity2 );
+        else
+            events::OnCollisionTriggerStay().Emit( contact.m_Entity1, contact.m_Entity2 );
+    }
+
+    // Anything overlapping last frame but absent from this frame's contact
+    // list — either it stopped overlapping, or an entity was destroyed.
+    for ( auto const& pair : inState.m_PreviousTriggerPairs )
+    {
+        if ( !currentTriggerPairs.contains( pair ) )
+            events::OnCollisionTriggerExit().Emit( pair.m_First, pair.m_Second );
+    }
+
+    inState.m_PreviousTriggerPairs = std::move( currentTriggerPairs );
 }
 
 void asge::game::systems::GravitySystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
@@ -163,4 +210,14 @@ void asge::game::systems::GravitySystem(ecs::Registry &inRegistry, float inDelta
         if ( !r.get().m_AffectedByGravity ) continue;
         v.get().m_DY += kGravity * inDeltaTime;
     }
+}
+
+void asge::game::systems::PhysicsUpdate(
+    ecs::Registry &inRegistry, PhysicsState &inState, float inDeltaTime) noexcept
+{
+    GravitySystem( inRegistry, inDeltaTime );
+    MovementSystem( inRegistry, inDeltaTime );
+    auto contacts = DetectCollisions( inRegistry );
+    ResolveCollisions( inRegistry, contacts );
+    DispatchTriggerEvents( inState, contacts );
 }
