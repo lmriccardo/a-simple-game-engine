@@ -147,4 +147,92 @@ TEST(SpriteSerializerTest, RoundTrip_WithSourceRectRestoresItsFields)
     EXPECT_FLOAT_EQ(restored.m_SourceRect->h, 8.0f);
 }
 
+// ─── Collider ─────────────────────────────────────────────────────────────
+
+TEST(ColliderSerializerTest, ToToml_WritesShapeDiscriminatorAndResolution)
+{
+    TOMLBuilder builder;
+    Collider collider{ .m_LocalBounds = asge::math::Rect{ 1.0f, 2.0f, 3.0f, 4.0f },
+                        .m_Resolution = ResolutionType::Trigger };
+    Serializer<Collider>::ToToml( collider, builder );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Collider]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Shape = "Rect")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Resolution = "Trigger")"), std::string::npos);
+    EXPECT_NE(dump.find("m_OffsetX = 1.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Width = 3.0"), std::string::npos);
+}
+
+TEST(ColliderSerializerTest, RoundTrip_RectShapeSolidResolution)
+{
+    TOMLBuilder builder;
+    Collider const original{ .m_LocalBounds = asge::math::Rect{ 1.0f, 2.0f, 3.0f, 4.0f },
+                              .m_Resolution = ResolutionType::Solid };
+    Serializer<Collider>::ToToml( original, builder );
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    ASSERT_TRUE(std::holds_alternative<asge::math::Rect>(restored.m_LocalBounds));
+    auto const& rect = std::get<asge::math::Rect>(restored.m_LocalBounds);
+    EXPECT_FLOAT_EQ(rect.x, 1.0f);
+    EXPECT_FLOAT_EQ(rect.y, 2.0f);
+    EXPECT_FLOAT_EQ(rect.w, 3.0f);
+    EXPECT_FLOAT_EQ(rect.h, 4.0f);
+    EXPECT_EQ(restored.m_Resolution, ResolutionType::Solid);
+}
+
+TEST(ColliderSerializerTest, RoundTrip_CircleShapeTriggerResolution)
+{
+    TOMLBuilder builder;
+    Collider const original{
+        .m_LocalBounds = asge::math::Circle{ asge::math::Float2{ 5.0f, 6.0f }, 7.0f },
+        .m_Resolution = ResolutionType::Trigger
+    };
+    Serializer<Collider>::ToToml( original, builder );
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    ASSERT_TRUE(std::holds_alternative<asge::math::Circle>(restored.m_LocalBounds));
+    auto const& circle = std::get<asge::math::Circle>(restored.m_LocalBounds);
+    EXPECT_FLOAT_EQ(circle.m_Center.x(), 5.0f);
+    EXPECT_FLOAT_EQ(circle.m_Center.y(), 6.0f);
+    EXPECT_FLOAT_EQ(circle.m_Radius, 7.0f);
+    EXPECT_EQ(restored.m_Resolution, ResolutionType::Trigger);
+}
+
+TEST(ColliderSerializerTest, FromToml_MissingShapeKeyDefaultsToRect)
+{
+    // A scene file saved before Circle colliders existed has no "m_Shape" key at all.
+    TOMLBuilder builder;
+    builder.Table("Collider").Set("m_Width", 3.0f).Set("m_Height", 4.0f);
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    EXPECT_TRUE(std::holds_alternative<asge::math::Rect>(restored.m_LocalBounds));
+}
+
+TEST(ColliderSerializerTest, FromToml_MissingResolutionKeyDefaultsToSolidNotUnknown)
+{
+    // A scene file saved before Trigger colliders existed has no
+    // "m_Resolution" key at all -- must still behave exactly like the
+    // in-code default (Solid), not silently become Unknown (which
+    // CollisionResolution ignores entirely -- see PhysicsSystem.hpp).
+    TOMLBuilder builder;
+    builder.Table("Collider")
+           .Set<std::string>("m_Shape", "Rect")
+           .Set("m_Width", 3.0f).Set("m_Height", 4.0f);
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    EXPECT_EQ(restored.m_Resolution, ResolutionType::Solid);
+}
+
+TEST(ColliderSerializerTest, FromToml_UnrecognizedResolutionValueBecomesUnknown)
+{
+    TOMLBuilder builder;
+    builder.Table("Collider")
+           .Set<std::string>("m_Shape", "Rect")
+           .Set<std::string>("m_Resolution", "NotARealValue");
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    EXPECT_EQ(restored.m_Resolution, ResolutionType::Unknown);
+}
+
 }

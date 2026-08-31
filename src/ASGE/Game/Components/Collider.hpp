@@ -13,6 +13,19 @@ namespace asge::game::components
 using ColliderShape = std::variant<math::Rect, math::Circle>;
 
 /**
+ * @brief How CollisionResolution reacts to an overlap involving this Collider.
+ *
+ * See systems::CollisionResolution (PhysicsSystem.hpp) for exactly how each
+ * value changes an overlapping pair's handling.
+ */
+enum class ResolutionType
+{
+    Unknown, // Unrecognized/not-yet-configured — CollisionResolution ignores the pair entirely (no push-out, no trigger event)
+    Trigger, // Non-blocking sensor — never pushed out or pushes anything out; overlap fires events::OnTriggerOverlap instead
+    Solid    // The default — participates in normal push-out collision response
+};
+
+/**
  * @brief A hitbox used for collision detection — a Rect or a Circle.
  *
  * Independent of Sprite — an entity's hitbox doesn't have to match its
@@ -22,8 +35,35 @@ using ColliderShape = std::variant<math::Rect, math::Circle>;
  */
 struct Collider
 {
-    ColliderShape m_LocalBounds{}; // shape + local offset from the owning entity's Transform
+    ColliderShape  m_LocalBounds{};                    // shape + local offset from the owning entity's Transform
+    ResolutionType m_Resolution{ ResolutionType::Solid }; // Solid (push-out) vs Trigger (sensor) vs Unknown (ignored) — see ResolutionType
 };
+
+namespace details
+{
+
+/** @brief ResolutionType -> its TOML representation — see Serializer<Collider>::ToToml. */
+inline str::String ToString( ResolutionType inResolveT ) noexcept
+{
+    switch ( inResolveT )
+    {
+    case ResolutionType::Solid   : return "Solid";
+    case ResolutionType::Trigger : return "Trigger";
+    case ResolutionType::Unknown : return "Unknown";
+    }
+    return "Unknown"; // Unreachable via a value actually named above; keeps this well-defined
+                       // if ResolutionType's underlying value ever comes from somewhere else.
+}
+
+/** @brief The read-side counterpart to ToString — any string other than "Solid"/"Trigger" maps to Unknown. */
+inline ResolutionType FromString( str::StringView inSv ) noexcept
+{
+    if ( inSv == "Solid" ) return ResolutionType::Solid;
+    if ( inSv == "Trigger" ) return ResolutionType::Trigger;
+    return ResolutionType::Unknown;
+}
+
+}
 
 /**
  * @brief Serializer for a Rect-shaped Collider.
@@ -94,6 +134,8 @@ struct Serializer<Collider>
             table.Set<str::String>( "m_Shape", str::String(Serializer<ShapeT>::kShapeName) );
             Serializer<ShapeT>::ToToml( inShape, table );
         }, inCollider.m_LocalBounds);
+
+        table.Set<str::String>( "m_Resolution", details::ToString( inCollider.m_Resolution ) );
     }
 
     static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
@@ -113,6 +155,13 @@ struct Serializer<Collider>
         {
             result.m_LocalBounds = Serializer<math::Circle>::FromToml( table );
         }
+
+        // Defaults to "Solid" so a scene file saved before m_Resolution
+        // existed -- no "m_Resolution" key at all -- still parses as Solid
+        // (Collider's own in-code default), not Unknown; an Unknown
+        // Collider is silently excluded from all collision handling (see
+        // CollisionResolution), so a missing key must not resolve to it.
+        result.m_Resolution = details::FromString( table.Get( "m_Resolution", std::string("Solid") ) );
 
         return result;
     }

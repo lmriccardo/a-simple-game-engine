@@ -8,6 +8,7 @@
 namespace
 {
 using asge::game::components::Collider;
+using asge::game::components::ResolutionType;
 using asge::game::components::Rigidbody;
 using asge::game::components::Transform;
 using asge::game::components::Velocity;
@@ -23,7 +24,15 @@ constexpr float kMaxMass       = 3.0f;
 constexpr float kFallLimit     = kWindowHeight + 200.0f; // safety net for a box tunneling past the floor
 constexpr std::size_t kMaxBoxes = 80; // keeps the all-pairs CollisionResolution cheap
 
+// A Trigger-resolution despawn zone near the bottom-right, sitting on top
+// of the floor -- any box's Collider overlapping it is removed instead of
+// being pushed out, since a Trigger never participates in solid push-out.
+constexpr float kTriggerZoneSize = 150.0f;
+constexpr float kTriggerZoneX    = kWindowWidth - kTriggerZoneSize - 30.0f;
+constexpr float kTriggerZoneY    = kWindowHeight - kFloorHeight - kTriggerZoneSize;
+
 constexpr asge::graphics::RGBA_Color kStaticColor{ 70, 70, 80, 255 };
+constexpr asge::graphics::RGBA_Color kTriggerColor{ 240, 210, 60, 255 };
 constexpr asge::graphics::RGBA_Color kBoxPalette[] = {
     { 220, 90, 90, 255 },
     { 90, 180, 220, 255 },
@@ -36,7 +45,12 @@ constexpr asge::graphics::RGBA_Color kBoxPalette[] = {
 PhysicsDemoGame::PhysicsDemoGame()
 {
     SpawnStaticGeometry();
+    SpawnTriggerZone();
     SpawnInitialStack();
+
+    m_TriggerConnection = asge::game::events::OnTriggerOverlap().Connect(
+        [this]( asge::ecs::Entity inA, asge::ecs::Entity inB ) { HandleTriggerOverlap( inA, inB ); }
+    );
 }
 
 void PhysicsDemoGame::SpawnStaticGeometry()
@@ -56,6 +70,21 @@ void PhysicsDemoGame::SpawnStaticGeometry()
     makeStatic({ 0.0f, kWindowHeight - kFloorHeight, kWindowWidth, kFloorHeight });      // floor
     makeStatic({ -kWallThickness, 0.0f, kWallThickness, kWindowHeight });                // left wall
     makeStatic({ kWindowWidth, 0.0f, kWallThickness, kWindowHeight });                   // right wall
+}
+
+void PhysicsDemoGame::SpawnTriggerZone()
+{
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) { entity.LogError(); return; }
+
+    m_Registry.AddComponent<Transform>( entity.Value(),
+        Transform{ kTriggerZoneX, kTriggerZoneY, 0.0f, 1.0f, 1.0f } );
+    m_Registry.AddComponent<Collider>( entity.Value(), Collider{
+        asge::math::Rect{ 0.0f, 0.0f, kTriggerZoneSize, kTriggerZoneSize },
+        ResolutionType::Trigger
+    } );
+
+    m_TriggerZone = entity.Value();
 }
 
 void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter)
@@ -88,6 +117,11 @@ void PhysicsDemoGame::SpawnInitialStack()
         float const xOffset = (i % 2 == 0) ? -20.0f : 20.0f;
         SpawnBox({ kWindowWidth * 0.5f + xOffset, 80.0f * float(i) });
     }
+
+    // One extra box dropped straight above the trigger zone, so the
+    // despawn-on-overlap behavior is visible immediately on startup/reset,
+    // without needing a click.
+    SpawnBox({ kTriggerZoneX + kTriggerZoneSize * 0.5f, 50.0f });
 }
 
 void PhysicsDemoGame::Reset()
@@ -97,7 +131,14 @@ void PhysicsDemoGame::Reset()
         if ( auto result = m_Registry.DestroyEntity( entity ); !result ) result.LogError();
     }
     m_Boxes.clear();
+    m_ConsumedByTrigger.clear(); // nothing pending should survive a reset
     SpawnInitialStack();
+}
+
+void PhysicsDemoGame::DestroyBox(asge::ecs::Entity inEntity)
+{
+    if ( auto result = m_Registry.DestroyEntity( inEntity ); !result ) result.LogError();
+    m_Boxes.erase( std::remove( m_Boxes.begin(), m_Boxes.end(), inEntity ), m_Boxes.end() );
 }
 
 void PhysicsDemoGame::DespawnFallenBoxes()
@@ -115,6 +156,33 @@ void PhysicsDemoGame::DespawnFallenBoxes()
         }),
         m_Boxes.end()
     );
+}
+
+void PhysicsDemoGame::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
+{
+    // events::OnTriggerOverlap() fires synchronously, mid-iteration over
+    // CollisionResolution's own Transform+Collider view -- see that
+    // signal's doc comment. Destroying an entity here (Registry::
+    // DestroyEntity swap-and-pops every component pool) could invalidate
+    // that iteration, so just record which box to remove; the actual
+    // destruction happens in ProcessTriggerDespawns(), after
+    // CollisionResolution has returned for this frame.
+    asge::ecs::Entity other;
+    if ( inA == m_TriggerZone )      other = inB;
+    else if ( inB == m_TriggerZone ) other = inA;
+    else return; // this overlap doesn't involve our despawn zone
+
+    m_ConsumedByTrigger.push_back( other );
+}
+
+void PhysicsDemoGame::ProcessTriggerDespawns()
+{
+    for ( auto entity : m_ConsumedByTrigger )
+    {
+        LOG_INFO( "[Trigger] box (entity index ", entity.m_Index, ") despawned by the trigger zone" );
+        DestroyBox( entity );
+    }
+    m_ConsumedByTrigger.clear();
 }
 
 void PhysicsDemoGame::HandleInput(asge::input::InputState const &inInput)
@@ -139,8 +207,9 @@ void PhysicsDemoGame::Update(float inDeltaTime, asge::input::InputState const &i
 
     asge::game::systems::GravitySystem( m_Registry, inDeltaTime );
     asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
-    asge::game::systems::CollisionResolution( m_Registry );
+    asge::game::systems::CollisionResolution( m_Registry ); // may queue trigger-zone despawns via HandleTriggerOverlap
 
+    ProcessTriggerDespawns();
     DespawnFallenBoxes();
 }
 
@@ -150,17 +219,23 @@ void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
 
     // No Sprite/RenderSystem here -- Colliders don't carry a texture, so
     // this demo draws each entity's world-space Collider bounds directly.
+    // Every Collider this demo spawns is a Rect today, but drawing through
+    // std::visit rather than assuming .x/.y/.w/.h keeps this correct if a
+    // Circle collider ever gets spawned here too.
     for ( auto [ entity, transform, collider ] : m_Registry.View<Transform, Collider>() )
     {
         auto const& t = transform.get();
         auto const& c = collider.get();
 
+        // Trigger geometry is drawn outlined-only in a distinct color, so
+        // it visually reads as "a zone to watch for", not solid geometry.
+        bool const isTrigger = c.m_Resolution == ResolutionType::Trigger;
         bool const isBox = m_Registry.HasComponent<Rigidbody>( entity );
-        auto const color = isBox ? kBoxPalette[ entity.m_Index % std::size(kBoxPalette) ] : kStaticColor;
+        auto const color = isTrigger ? kTriggerColor
+            : isBox ? kBoxPalette[ entity.m_Index % std::size(kBoxPalette) ]
+            : kStaticColor;
+        bool const fill = !isTrigger;
 
-        // Every Collider this demo spawns is a Rect today, but drawing
-        // through std::visit rather than assuming .x/.y/.w/.h keeps this
-        // correct if a Circle collider ever gets spawned here too.
         std::visit( [&]( auto const& inShape )
         {
             using ShapeT = std::decay_t<decltype(inShape)>;
@@ -169,7 +244,7 @@ void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
                 asge::math::Rect const bounds{
                     t.m_X + inShape.x, t.m_Y + inShape.y, inShape.w, inShape.h
                 };
-                inRenderer.DrawRect( bounds, color, true );
+                inRenderer.DrawRect( bounds, color, fill );
             }
             else
             {
@@ -177,7 +252,7 @@ void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
                     static_cast<int>( t.m_X + inShape.m_Center.x() ),
                     static_cast<int>( t.m_Y + inShape.m_Center.y() )
                 };
-                inRenderer.DrawCircle( center, static_cast<int>( inShape.m_Radius ), color, true );
+                inRenderer.DrawCircle( center, static_cast<int>( inShape.m_Radius ), color, fill );
             }
         }, c.m_LocalBounds );
     }

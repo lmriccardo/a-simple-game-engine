@@ -4,3 +4,4 @@
 #include "FileMetadata.hpp"
 #include "FileIO.hpp"
 #include "FileWatcher.hpp"
+#include "VirtualFileSystem.hpp"

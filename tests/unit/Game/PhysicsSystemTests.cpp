@@ -4,8 +4,12 @@
 #include <ASGE/Game/Components/Velocity.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Rigidbody.hpp>
+#include <ASGE/Game/Events.hpp>
 
 #include <gtest/gtest.h>
+
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -13,17 +17,21 @@ namespace
 using asge::ecs::Entity;
 using asge::ecs::Registry;
 using asge::game::components::Collider;
+using asge::game::components::ResolutionType;
 using asge::game::components::Rigidbody;
 using asge::game::components::Transform;
 using asge::game::components::Velocity;
 
-Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float inH)
+Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float inH,
+    ResolutionType inResolution = ResolutionType::Solid)
 {
     auto entity = inRegistry.CreateEntity();
     EXPECT_TRUE(entity.IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{ .m_X = inX, .m_Y = inY }).IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(),
-        Collider{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, inW, inH } }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Collider{
+        .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, inW, inH },
+        .m_Resolution = inResolution
+    }).IsOk());
     return entity.Value();
 }
 
@@ -139,6 +147,114 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
 
     // Only one entity actually qualifies for the view, so nothing overlaps it.
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(complete).Value().get().m_X, 0.0f);
+}
+
+// ─── CollisionResolution — Trigger colliders ────────────────────────────────
+
+// events::OnTriggerOverlap() is one process-wide signal (not per-Registry),
+// so every test here must disconnect its own listener in TearDown -- a
+// listener left connected past its test would still fire (against a
+// dangling capture) the next time any test calls CollisionResolution.
+class TriggerCollisionTest : public ::testing::Test
+{
+protected:
+    Registry m_Registry;
+    std::vector<std::pair<Entity, Entity>> m_Overlaps;
+    asge::signals::Connection<Entity, Entity> m_Connection;
+
+    void SetUp() override
+    {
+        m_Connection = asge::game::events::OnTriggerOverlap().Connect(
+            [this]( Entity inA, Entity inB ) { m_Overlaps.emplace_back( inA, inB ); }
+        );
+    }
+
+    void TearDown() override
+    {
+        m_Connection.Disconnect();
+    }
+};
+
+TEST_F(TriggerCollisionTest, TwoOverlappingTriggers_FiresOnceAndAppliesNoPushOut)
+{
+    // Both movable (Velocity + Rigidbody) so a push-out would be visible if
+    // CollisionResolution mistakenly applied one to a Trigger pair.
+    auto e1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto e2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    ASSERT_TRUE(m_Registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(e2, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(e1, Rigidbody{}).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(e2, Rigidbody{}).IsOk());
+
+    asge::game::systems::CollisionResolution(m_Registry);
+
+    ASSERT_EQ(m_Overlaps.size(), 1u);
+    EXPECT_EQ(m_Overlaps[0].first, e1);
+    EXPECT_EQ(m_Overlaps[0].second, e2);
+
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(e2).Value().get().m_X, 6.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Velocity>(e1).Value().get().m_DX, 5.0f); // not zeroed
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Velocity>(e2).Value().get().m_DX, 5.0f);
+}
+
+TEST_F(TriggerCollisionTest, TriggerOverlappingMovableSolid_FiresTriggerFirstAndSkipsPushOutOnBothSides)
+{
+    auto solid = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f); // default: Solid
+    auto trigger = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    ASSERT_TRUE(m_Registry.AddComponent(solid, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(solid, Rigidbody{}).IsOk());
+
+    asge::game::systems::CollisionResolution(m_Registry);
+
+    ASSERT_EQ(m_Overlaps.size(), 1u);
+    EXPECT_EQ(m_Overlaps[0].first, trigger);  // the Trigger is always reported first ...
+    EXPECT_EQ(m_Overlaps[0].second, solid);   // ... regardless of View's own pair order (solid was created first)
+
+    // The Solid side is movable, but a Trigger pair never pushes anyone out.
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(solid).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Velocity>(solid).Value().get().m_DX, 5.0f);
+}
+
+TEST_F(TriggerCollisionTest, TriggerOverlappingStaticCollider_StillFires)
+{
+    // Neither side has a Velocity/Rigidbody -- confirms the trigger event
+    // doesn't depend on either side being "movable" the way Solid does.
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto other = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f);
+
+    asge::game::systems::CollisionResolution(m_Registry);
+
+    ASSERT_EQ(m_Overlaps.size(), 1u);
+    EXPECT_EQ(m_Overlaps[0].first, trigger);
+    EXPECT_EQ(m_Overlaps[0].second, other);
+}
+
+TEST_F(TriggerCollisionTest, NonOverlappingTriggerAndSolid_DoesNotFire)
+{
+    MakeCollider(m_Registry, 0.0f, 0.0f, 5.0f, 5.0f, ResolutionType::Trigger);
+    MakeCollider(m_Registry, 50.0f, 0.0f, 5.0f, 5.0f);
+
+    asge::game::systems::CollisionResolution(m_Registry);
+
+    EXPECT_TRUE(m_Overlaps.empty());
+}
+
+TEST_F(TriggerCollisionTest, UnknownResolutionOnEitherSide_SkipsBothPushOutAndTrigger)
+{
+    // Unknown is reachable in practice from a Collider deserialized with an
+    // unrecognized m_Resolution value -- CollisionResolution must ignore
+    // the pair entirely rather than guessing Solid or Trigger.
+    auto unknown = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Unknown);
+    auto movable = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f);
+    ASSERT_TRUE(m_Registry.AddComponent(movable, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(movable, Rigidbody{}).IsOk());
+
+    asge::game::systems::CollisionResolution(m_Registry);
+
+    EXPECT_TRUE(m_Overlaps.empty());
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(movable).Value().get().m_X, 6.0f); // untouched
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(unknown).Value().get().m_X, 0.0f);
 }
 
 }
