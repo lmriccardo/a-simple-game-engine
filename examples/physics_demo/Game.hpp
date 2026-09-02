@@ -17,6 +17,13 @@
  * systems::PhysicsUpdate (gravity, movement, collision detection/response,
  * trigger events, in that order), so boxes fall, land on the floor/each
  * other/the trigger zone, and settle (or get despawned). R resets the scene.
+ *
+ * Two extra "ghost" boxes near the left wall showcase Collider::m_Layer/
+ * m_Mask: dropped at the same X, on two layers whose masks exclude each
+ * other. Both still land on the floor/walls normally (m_Mask still includes
+ * the default layer everything else uses), but the second one falls
+ * straight through the first instead of stacking on it -- see SpawnBox's
+ * inLayer/inMask parameters and components::details::LayersCanCollide.
  */
 
 #include <ASGE/ASGE.hpp>
@@ -36,7 +43,10 @@ class PhysicsDemoGame : public asge::game::IGame
 
     void SpawnStaticGeometry();
     void SpawnTriggerZone();
-    void SpawnBox( asge::math::Float2 inCenter );
+    void SpawnBox( asge::math::Float2 inCenter,
+        asge::game::components::CollisionLayer inLayer = 1u,
+        asge::game::components::CollisionLayer inMask = ~asge::game::components::CollisionLayer{0},
+        float inSize = 0.0f );
     void SpawnInitialStack();
     void Reset();
     void DestroyBox( asge::ecs::Entity inEntity );

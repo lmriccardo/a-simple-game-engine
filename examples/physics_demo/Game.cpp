@@ -8,6 +8,7 @@
 namespace
 {
 using asge::game::components::Collider;
+using asge::game::components::CollisionLayer;
 using asge::game::components::ResolutionType;
 using asge::game::components::Rigidbody;
 using asge::game::components::Transform;
@@ -40,6 +41,17 @@ constexpr asge::graphics::RGBA_Color kBoxPalette[] = {
     { 120, 200, 120, 255 },
     { 190, 120, 220, 255 },
 };
+
+constexpr CollisionLayer kLayerDefault   = 1u;
+constexpr CollisionLayer kLayerGhostRed  = 1u << 1;
+constexpr CollisionLayer kLayerGhostBlue = 1u << 2;
+constexpr CollisionLayer kMaskGhostRed   = kLayerDefault | kLayerGhostRed;
+constexpr CollisionLayer kMaskGhostBlue  = kLayerDefault | kLayerGhostBlue;
+
+constexpr float kGhostDemoRedX  = 110.0f;
+constexpr float kGhostDemoBlueX = 140.0f;
+constexpr asge::graphics::RGBA_Color kGhostRedColor{ 235, 60, 60, 255 };
+constexpr asge::graphics::RGBA_Color kGhostBlueColor{ 60, 130, 235, 255 };
 }
 
 PhysicsDemoGame::PhysicsDemoGame()
@@ -90,7 +102,7 @@ void PhysicsDemoGame::SpawnTriggerZone()
     m_TriggerZone = entity.Value();
 }
 
-void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter)
+void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter, CollisionLayer inLayer, CollisionLayer inMask, float inSize)
 {
     if ( m_Boxes.size() >= kMaxBoxes ) return;
 
@@ -99,12 +111,14 @@ void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter)
 
     std::uniform_real_distribution<float> sizeDist( kMinBoxSize, kMaxBoxSize );
     std::uniform_real_distribution<float> massDist( kMinMass, kMaxMass );
-    float const size = sizeDist( m_Rng );
+    float const size = inSize > 0.0f ? inSize : sizeDist( m_Rng );
 
     m_Registry.AddComponent<Transform>( entity.Value(),
         Transform{ inCenter.x() - size * 0.5f, inCenter.y() - size * 0.5f, 0.0f, 1.0f, 1.0f } );
     m_Registry.AddComponent<Velocity>( entity.Value(), Velocity{} );
-    m_Registry.AddComponent<Collider>( entity.Value(), Collider{ asge::math::Rect{ 0.0f, 0.0f, size, size } } );
+    m_Registry.AddComponent<Collider>( entity.Value(), Collider{
+        asge::math::Rect{ 0.0f, 0.0f, size, size }, ResolutionType::Solid, inLayer, inMask
+    } );
     m_Registry.AddComponent<Rigidbody>( entity.Value(), Rigidbody{ massDist( m_Rng ), true } );
 
     m_Boxes.push_back( entity.Value() );
@@ -125,6 +139,9 @@ void PhysicsDemoGame::SpawnInitialStack()
     // despawn-on-overlap behavior is visible immediately on startup/reset,
     // without needing a click.
     SpawnBox({ kTriggerZoneX + kTriggerZoneSize * 0.5f, 50.0f });
+
+    SpawnBox( { kGhostDemoRedX, 20.0f },   kLayerGhostRed,  kMaskGhostRed,  48.0f );
+    SpawnBox( { kGhostDemoBlueX, -80.0f }, kLayerGhostBlue, kMaskGhostBlue, 32.0f );
 }
 
 void PhysicsDemoGame::Reset()
@@ -236,6 +253,8 @@ void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
         bool const isTrigger = c.m_Resolution == ResolutionType::Trigger;
         bool const isBox = m_Registry.HasComponent<Rigidbody>( entity );
         auto const color = isTrigger ? kTriggerColor
+            : c.m_Layer == kLayerGhostRed  ? kGhostRedColor
+            : c.m_Layer == kLayerGhostBlue ? kGhostBlueColor
             : isBox ? kBoxPalette[ entity.m_Index % std::size(kBoxPalette) ]
             : kStaticColor;
         bool const fill = !isTrigger;

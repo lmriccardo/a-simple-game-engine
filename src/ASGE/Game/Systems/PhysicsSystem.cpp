@@ -119,6 +119,8 @@ asge::game::systems::DetectCollisions(ecs::Registry &inRegistry) noexcept
             auto [ e1, t1, c1 ] = (*it);
             auto [ e2, t2, c2 ] = (*jt);
 
+            if ( !details::LayersCanCollide( c1.get(), c2.get() ) ) continue;
+
             auto const obj1 = WorldBounds( t1.get(), c1.get() );
             auto const obj2 = WorldBounds( t2.get(), c2.get() );
 

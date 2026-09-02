@@ -48,9 +48,11 @@ void MovementSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
  * @brief Finds every overlapping Transform+Collider pair this frame.
  *
  * Naive all-pairs check, dispatching on each pair's actual shapes (Rect
- * and/or Circle — see math::PenetrationVector) via std::visit. A pair with
- * an Unknown ResolutionType on either side is skipped entirely — not
- * reported as a contact at all, Solid or Trigger.
+ * and/or Circle — see math::PenetrationVector) via std::visit. A pair whose
+ * Collider::m_Layer/m_Mask can't collide (components::details::
+ * LayersCanCollide) is skipped before its shapes are even looked at; a pair
+ * with an Unknown ResolutionType on either side is skipped entirely too —
+ * neither case is reported as a contact at all, Solid or Trigger.
  */
 std::vector<CollisionContact> DetectCollisions( ecs::Registry& inRegistry ) noexcept;
 

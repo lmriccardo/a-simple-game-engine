@@ -29,6 +29,14 @@ building and running them (see the "verify" section — never skip it).
   branch does, read the `.cpp` before writing the comment — a doc comment
   that's wrong about actual behavior (e.g. claiming an order/priority the
   implementation doesn't provide) is worse than none.
+- **Only document functions/types (declaration-site Doxygen) and struct
+  fields (trailing `//`, per above) — never add narrative comments inside a
+  function/method body explaining a change**, e.g. "int, not float, because
+  ..." or "CollisionLayer demo: ... so the overlap reads clearly". That kind
+  of rationale belongs in the commit message, not the code. Leave
+  implementation bodies exactly as comment-light as the surrounding code
+  already is — don't sprinkle explanatory prose through a diff just because
+  you were the one making it.
 
 ## Unit tests
 

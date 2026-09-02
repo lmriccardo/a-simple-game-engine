@@ -17,6 +17,7 @@ namespace
 using asge::ecs::Entity;
 using asge::ecs::Registry;
 using asge::game::components::Collider;
+using asge::game::components::CollisionLayer;
 using asge::game::components::ResolutionType;
 using asge::game::components::Rigidbody;
 using asge::game::components::Transform;
@@ -24,14 +25,17 @@ using asge::game::components::Velocity;
 using asge::game::systems::PhysicsState;
 
 Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float inH,
-    ResolutionType inResolution = ResolutionType::Solid)
+    ResolutionType inResolution = ResolutionType::Solid,
+    CollisionLayer inLayer = 1u, CollisionLayer inMask = ~CollisionLayer{0})
 {
     auto entity = inRegistry.CreateEntity();
     EXPECT_TRUE(entity.IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{ .m_X = inX, .m_Y = inY }).IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Collider{
         .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, inW, inH },
-        .m_Resolution = inResolution
+        .m_Resolution = inResolution,
+        .m_Layer = inLayer,
+        .m_Mask = inMask
     }).IsOk());
     return entity.Value();
 }
@@ -165,6 +169,67 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(complete).Value().get().m_X, 0.0f);
 }
 
+// ─── DetectCollisions — CollisionLayer/m_Mask filtering ─────────────────────
+
+TEST(PhysicsSystemTest, DisjointLayerAndMask_OverlappingEntitiesAreNotPushedApart)
+{
+    Registry registry;
+
+    // Same shapes/positions as the very first test in this file (would push
+    // apart on X if layers didn't exclude the pair), but layer 1 vs layer 2,
+    // and neither's mask includes the other's layer.
+    auto e1 = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 1u, 1u);
+    auto e2 = MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 2u);
+    ASSERT_TRUE(registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(e2, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(e2, Rigidbody{}).IsOk());
+
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
+
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 6.0f);
+}
+
+TEST(PhysicsSystemTest, OneSidedMaskMismatch_StillDoesNotCollide)
+{
+    Registry registry;
+
+    // e1's mask includes e2's layer, but e2's mask does NOT include e1's --
+    // LayersCanCollide requires both directions, so this must still skip
+    // the pair rather than colliding because one side "agreed".
+    auto e1 = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 1u, 3u); // layer 1, mask 1|2
+    auto e2 = MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 2u); // layer 2, mask 2 only
+    ASSERT_TRUE(registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
+
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
+
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
+}
+
+TEST(PhysicsSystemTest, OverlappingSharedLayerBit_StillCollidesNormally)
+{
+    Registry registry;
+
+    // Different layers, but each mask includes the other's layer bit --
+    // LayersCanCollide only needs the bitwise AND to be non-zero, not an
+    // exact match.
+    auto e1 = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 1u, 6u); // layer 1, mask 2|4
+    auto e2 = MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 1u); // layer 2, mask 1
+    ASSERT_TRUE(registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
+
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
+
+    // e1 is the only movable side, so it absorbs the whole correction --
+    // same shape as MovableOverlappingStaticEntity_OnlyMovableGetsTheFullCorrection.
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, -4.0f);
+}
+
 // ─── CollisionResolution — Trigger colliders ────────────────────────────────
 
 // events::OnCollisionTriggerEnter/Stay/Exit are process-wide signals (not
@@ -257,6 +322,19 @@ TEST_F(TriggerCollisionTest, NonOverlappingTriggerAndSolid_DoesNotFire)
 {
     MakeCollider(m_Registry, 0.0f, 0.0f, 5.0f, 5.0f, ResolutionType::Trigger);
     MakeCollider(m_Registry, 50.0f, 0.0f, 5.0f, 5.0f);
+
+    RunCollisions();
+
+    EXPECT_TRUE(m_Overlaps.empty());
+}
+
+TEST_F(TriggerCollisionTest, DisjointLayerAndMask_TriggerDoesNotFireEvenWhenOverlapping)
+{
+    // Layer/mask filtering happens before DetectCollisions even looks at
+    // ResolutionType, so it skips a Trigger pair just as silently as a
+    // Solid one.
+    MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger, 1u, 1u);
+    MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger, 2u, 2u);
 
     RunCollisions();
 

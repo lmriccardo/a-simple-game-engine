@@ -235,4 +235,47 @@ TEST(ColliderSerializerTest, FromToml_UnrecognizedResolutionValueBecomesUnknown)
     EXPECT_EQ(restored.m_Resolution, ResolutionType::Unknown);
 }
 
+// ─── Collider — m_Layer / m_Mask ───────────────────────────────────────────
+
+TEST(ColliderSerializerTest, RoundTrip_DefaultLayerAndMaskSurviveExactly)
+{
+    // The regression case: m_Mask's default is ~0u (every bit set). A float
+    // can't exactly hold every uint32_t -- its 24-bit mantissa rounds
+    // 4294967295u up to 2^32, which then isn't representable as uint32_t at
+    // all on the read side. Storing through `int` instead (2's-complement
+    // wraparound, well-defined since C++20) must round-trip this exactly.
+    TOMLBuilder builder;
+    Collider const original{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 1.0f, 1.0f } };
+    Serializer<Collider>::ToToml( original, builder );
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    EXPECT_EQ(restored.m_Layer, original.m_Layer);
+    EXPECT_EQ(restored.m_Mask, original.m_Mask);
+    EXPECT_EQ(restored.m_Mask, ~CollisionLayer{0});
+}
+
+TEST(ColliderSerializerTest, RoundTrip_CustomLayerAndMask)
+{
+    TOMLBuilder builder;
+    Collider const original{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 1.0f, 1.0f },
+                              .m_Layer = 1u << 2,
+                              .m_Mask = (1u << 0) | (1u << 2) };
+    Serializer<Collider>::ToToml( original, builder );
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    EXPECT_EQ(restored.m_Layer, original.m_Layer);
+    EXPECT_EQ(restored.m_Mask, original.m_Mask);
+}
+
+TEST(ColliderSerializerTest, FromToml_MissingLayerAndMaskKeysDefaultToCollideWithEverything)
+{
+    // A scene file saved before CollisionLayer existed has neither key at all.
+    TOMLBuilder builder;
+    builder.Table("Collider").Set<std::string>("m_Shape", "Rect");
+
+    Collider const restored = Serializer<Collider>::FromToml( builder );
+    EXPECT_EQ(restored.m_Layer, 1u);
+    EXPECT_EQ(restored.m_Mask, ~CollisionLayer{0});
+}
+
 }
