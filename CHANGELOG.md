@@ -1,3 +1,26 @@
+## [0.7.0] - 2026-09-02
+
+
+### Features
+
+- :sparkles: Add CollisionLayer filtering to Collider
+
+- :sparkles: Add Trigger colliders and events::OnTriggerOverlap
+
+- :sparkles: Add Circle colliders alongside Rect
+
+- :sparkles: Add physics_demo showcasing Rigidbody, gravity, and collision
+
+- :sparkles: Add Rigidbody component and mass-weighted collision resolution
+
+- :sparkles: Add AABB collision detection and resolution
+
+
+
+
+### Contributors
+
+- lmriccardo
 ## [0.6.1] - 2026-08-29
 
 
@@ -66,6 +89,8 @@
 
 - :bug: Rename AssetManager::LoadImage/LoadFont to GetImage/GetFont
 
+- :bug: Make StringCRef a genuine const reference
+
 
 
 
@@ -76,6 +101,8 @@
 - :sparkles: Add AssetPool cache and AssetManager
 
 - :sparkles: Add Asset<T> handle and AssetType tag system
+
+- :sparkles: Implement Virtual File System
 
 
 
@@ -90,23 +117,12 @@
 
 - Fix subdirectory-consumer CMake build (CMAKE_SOURCE_DIR paths + SDL3 target visibility) (#27)
 
-- :bug: Make StringCRef a genuine const reference
-
-
-
-
-### Features
-
-- :sparkles: Implement Virtual File System
-
 
 
 
 ### Contributors
 
 - La Marca Riccardo
-
-- lmriccardo
 ## [0.4.0] - 2026-08-23
 
 
@@ -145,7 +161,7 @@
 ### Contributors
 
 - lmriccardo
-## [0.1.2] - 2026-08-18
+## [0.2.0] - 2026-08-19
 
 
 ### Bug Fixes
@@ -164,6 +180,17 @@
 - :sparkles: Adds Font loading and glyph atlas baking via stb_truetype
 
 - :sparkles: Maps PixelFormat to SDL_PixelFormat, supports A8 texture upload
+
+
+
+
+### Contributors
+
+- lmriccardo
+## [0.1.2] - 2026-08-18
+
+
+### Features
 
 - :sparkles: Adds ITexture/SDLTexture and IRenderer's DrawTexture family
 
@@ -281,12 +308,14 @@
 ### Contributors
 
 - lmriccardo
+[0.7.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.4.1...v0.4.2
 [0.4.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.1.0...v0.1.1
 
