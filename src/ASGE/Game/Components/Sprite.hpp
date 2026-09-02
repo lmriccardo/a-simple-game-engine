@@ -2,7 +2,7 @@
 
 #include <optional>
 #include <string>
-#include <string_view>
+#include <ASGE/Core/Strings.hpp>
 #include <ASGE/Video/Graphics/Texture.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 #include "Serialize.hpp"
@@ -37,7 +37,7 @@ struct Serializer<Sprite>
     using T = Sprite;
 
     /** @brief The subtable name ToToml/FromToml agree on — see Serializer<Transform>::kTableName. */
-    static constexpr std::string_view kTableName = "Sprite";
+    static constexpr str::StringView kTableName = "Sprite";
 
     static void ToToml(
         Sprite inSprite, asge::config::TOMLTableView inTview

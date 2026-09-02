@@ -1,7 +1,6 @@
 #pragma once
 
-#include <string_view>
-
+#include <ASGE/Core/Strings.hpp>
 #include "Serialize.hpp"
 
 namespace asge::game::components
@@ -22,7 +21,7 @@ struct Serializer<Velocity>
     using T = Velocity;
 
     /** @brief The subtable name ToToml/FromToml agree on — see Serializer<Transform>::kTableName. */
-    static constexpr std::string_view kTableName = "Velocity";
+    static constexpr str::StringView kTableName = "Velocity";
 
     static void ToToml(
         Velocity inVelocity, asge::config::TOMLTableView inTview

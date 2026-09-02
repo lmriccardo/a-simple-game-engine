@@ -1,5 +1,8 @@
 #pragma once
 
+#include <optional>
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+
 namespace asge::math
 {
 
@@ -11,6 +14,5 @@ struct Rect
     float h; // The height of the rectangle
 };
 
-// intersection methods for rectagles and more over ...
 
 }
