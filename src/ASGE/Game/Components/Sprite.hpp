@@ -5,6 +5,7 @@
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Video/Graphics/Texture.hpp>
 #include <ASGE/Core/Math/Math.hpp>
+#include "Transform.hpp"
 #include "Serialize.hpp"
 
 namespace asge::game::components
@@ -26,10 +27,38 @@ namespace asge::game::components
  */
 struct Sprite
 {
-    video::ITexture* m_Texture{nullptr};      // Non-owning; nullptr means "not drawn"
-    std::optional<math::Rect> m_SourceRect{}; // Sub-region to draw; nullopt = whole texture
-    std::string m_VirtualPath{};              // VFS path m_Texture was (or will be) loaded from
+    video::ITexture*            m_Texture{nullptr}; // Non-owning; nullptr means "not drawn"
+    std::optional<math::Rect>   m_SourceRect{};     // Sub-region to draw; nullopt = whole texture
+    std::string                 m_VirtualPath{};    // VFS path m_Texture was (or will be) loaded from
+    int                         m_Layer{0};         // Draw-order bucket; higher layers draw on top
+    bool                        m_YSort{false};     // Opt into sorting by bottom-edge Y within the layer
 };
+
+inline std::optional<math::Rect> 
+SpriteGetDstRect( Sprite const& inSprite, Transform const& inT ) noexcept
+{
+    if ( !inSprite.m_Texture ) return std::nullopt;
+
+    auto const& texture = *inSprite.m_Texture;
+    auto const& srcRect = inSprite.m_SourceRect;
+    float srcW{}, srcH{};
+
+    if ( srcRect.has_value() )
+    {
+        srcW = srcRect->w;
+        srcH = srcRect->h;
+    }
+    else
+    {
+        math::Int2 const texSize = texture.Size();
+        srcW = static_cast<float>(texSize.x());
+        srcH = static_cast<float>(texSize.y());
+    }
+
+    return math::Rect{ 
+        inT.m_X, inT.m_Y, srcW * inT.m_ScaleX, srcH * inT.m_ScaleY
+    };
+}
 
 template<>
 struct Serializer<Sprite>
@@ -53,6 +82,9 @@ struct Serializer<Sprite>
                   .Set("w", inSprite.m_SourceRect->w)
                   .Set("h", inSprite.m_SourceRect->h);
         }
+
+        sprite.Set("m_Layer", inSprite.m_Layer);
+        sprite.Set("m_YSort", inSprite.m_YSort);
     }
 
     static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
@@ -72,6 +104,9 @@ struct Serializer<Sprite>
                 rect.Get("h", 0.0f)
             };
         }
+
+        result.m_Layer = sprite.Get( "m_Layer", int{0} );
+        result.m_YSort = sprite.Get( "m_YSort", false );
 
         return result;
     }

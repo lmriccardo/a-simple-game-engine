@@ -38,7 +38,7 @@ Nothing anywhere covers playing back a spritesheet — a walk cycle, an
 idle/attack state switch. [Rendering Primitives](phase-1/02.1-rendering-primitives.md)
 gives static textures only.
 
-## 3. Trigger/sensor colliders and collision layers
+## 3. Trigger/sensor colliders and collision layers - ✅ complete
 
 Checked all three [Physics](phase-1/07.1-physics-system.md) phase docs — CCD,
 raycasts, a character controller
