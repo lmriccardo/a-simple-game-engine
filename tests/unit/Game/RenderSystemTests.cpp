@@ -175,6 +175,153 @@ TEST(RenderSystemTest, SourceRectAndFullTextureEntities_EachDestRectComputedInde
     }
 }
 
+// ─── RenderSystem — layer ordering ──────────────────────────────────────────────
+
+TEST(RenderSystemTest, Layer_LowerLayerDrawnBeforeHigherLayer)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 10, 10 });
+    RecordingRenderer renderer;
+
+    auto high = registry.CreateEntity();
+    ASSERT_TRUE(high.IsOk());
+    ASSERT_TRUE(registry.AddComponent(high.Value(),
+        Transform{ .m_X = 100.0f, .m_Y = 0.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(high.Value(),
+        Sprite{ .m_Texture = &texture, .m_Layer = 5 }).IsOk());
+
+    auto low = registry.CreateEntity();
+    ASSERT_TRUE(low.IsOk());
+    ASSERT_TRUE(registry.AddComponent(low.Value(),
+        Transform{ .m_X = 200.0f, .m_Y = 0.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(low.Value(),
+        Sprite{ .m_Texture = &texture, .m_Layer = 1 }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    // Layer 1 (low) must draw before layer 5 (high) regardless of creation order.
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 200.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 100.0f);
+}
+
+// ─── RenderSystem — y-sort within a layer ───────────────────────────────────────
+
+TEST(RenderSystemTest, YSort_SortsByBottomEdgeWithinSameLayer)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 10, 10 }); // Fixed 10-tall, so bottom edge = y + 10
+    RecordingRenderer renderer;
+
+    auto front = registry.CreateEntity(); // Higher on screen -> lower bottom edge -> drawn first
+    ASSERT_TRUE(front.IsOk());
+    ASSERT_TRUE(registry.AddComponent(front.Value(),
+        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(front.Value(),
+        Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
+
+    auto back = registry.CreateEntity(); // Created first, but lower on screen -> drawn last
+    ASSERT_TRUE(back.IsOk());
+    ASSERT_TRUE(registry.AddComponent(back.Value(),
+        Transform{ .m_X = 1.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(back.Value(),
+        Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 2.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 1.0f);
+}
+
+TEST(RenderSystemTest, YSort_TiedBottomEdge_FallsBackToEntityIndex)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 10, 10 });
+    RecordingRenderer renderer;
+
+    auto first = registry.CreateEntity();
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(),
+        Transform{ .m_X = 1.0f, .m_Y = 10.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(),
+        Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
+
+    auto second = registry.CreateEntity();
+    ASSERT_TRUE(second.IsOk());
+    ASSERT_TRUE(registry.AddComponent(second.Value(),
+        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk()); // Same bottom edge as `first`
+    ASSERT_TRUE(registry.AddComponent(second.Value(),
+        Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    // Bottom edges tie, so creation order (entity index) decides.
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 1.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 2.0f);
+}
+
+TEST(RenderSystemTest, YSort_MixedWithNonYSortSprite_EitherOptingInSortsBothByY)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 10, 10 });
+    RecordingRenderer renderer;
+
+    // Created first, no y-sort, but sits lower on screen (larger bottom edge).
+    auto plain = registry.CreateEntity();
+    ASSERT_TRUE(plain.IsOk());
+    ASSERT_TRUE(registry.AddComponent(plain.Value(),
+        Transform{ .m_X = 1.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(plain.Value(),
+        Sprite{ .m_Texture = &texture, .m_YSort = false }).IsOk());
+
+    // Created second, opts into y-sort, and sits higher on screen.
+    auto sorted = registry.CreateEntity();
+    ASSERT_TRUE(sorted.IsOk());
+    ASSERT_TRUE(registry.AddComponent(sorted.Value(),
+        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(sorted.Value(),
+        Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    // Either side opting into y-sort is enough to order the pair by bottom
+    // edge -- creation order alone (which would put `plain` first) is not used.
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 2.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 1.0f);
+}
+
+TEST(RenderSystemTest, NoYSort_SameLayer_PreservesEntityCreationOrderRegardlessOfY)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 10, 10 });
+    RecordingRenderer renderer;
+
+    // Created first but sits lower on screen than `second` -- without
+    // y-sort, creation order must win, not vertical position.
+    auto first = registry.CreateEntity();
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(),
+        Transform{ .m_X = 1.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(),
+        Sprite{ .m_Texture = &texture }).IsOk());
+
+    auto second = registry.CreateEntity();
+    ASSERT_TRUE(second.IsOk());
+    ASSERT_TRUE(registry.AddComponent(second.Value(),
+        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(second.Value(),
+        Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 1.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 2.0f);
+}
+
 // ─── RenderSystem — null texture ────────────────────────────────────────────────
 
 TEST(RenderSystemTest, NullTexture_EntitySkipped)
