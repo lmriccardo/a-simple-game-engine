@@ -134,3 +134,26 @@ asge::Result<asge::graphics::Image> asge::graphics::DecodeImage(std::span<const 
 
     return Result<Image>::Ok(Image( width, height, PixelFormat::RGBA8, std::move(data)));
 }
+
+std::vector<asge::math::Rect> asge::graphics::MakeGridFrames(
+    math::Rect inSheetCell, std::size_t inColumns, std::size_t inCount) noexcept
+{
+    std::vector<math::Rect> frames{};
+    if ( inCount == 0 || inColumns == 0 ) return frames;
+
+    frames.reserve( inCount );
+    for ( std::size_t ii = 0; ii < inCount; ++ii )
+    {
+        std::size_t const col = ii % inColumns;
+        std::size_t const row = ii / inColumns;
+
+        frames.push_back( math::Rect{
+            inSheetCell.x + static_cast<float>(col) * inSheetCell.w,
+            inSheetCell.y + static_cast<float>(row) * inSheetCell.h,
+            inSheetCell.w,
+            inSheetCell.h
+        });
+    }
+
+    return frames;
+}

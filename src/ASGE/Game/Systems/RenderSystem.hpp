@@ -9,6 +9,20 @@ namespace asge::game::systems
 {
 
 /**
+ * @brief Advances every entity's Animation and writes the current frame
+ *        into its Sprite::m_SourceRect.
+ *
+ * Accumulates inDeltaTime into Animation::m_ElapsedTime and steps
+ * m_CurrentFrame forward once per whole m_FrameDuration elapsed (a large
+ * inDeltaTime can step multiple frames in one call). At the last frame,
+ * either wraps to 0 (m_Loop true) or clamps there and clears m_Playing
+ * (m_Loop false). Skips entities that aren't playing, have no frames, or
+ * have no texture yet; a non-positive m_FrameDuration is treated as "not
+ * animating" rather than risking an infinite advance loop.
+ */
+void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
+
+/**
  * @brief Draws every entity that has both a Transform and a Sprite.
  *
  * Transform's position is the sprite's top-left corner; scale stretches
@@ -28,5 +42,16 @@ namespace asge::game::systems
  * falls back to entity index for a stable order.
  */
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
+
+/**
+ * @brief The single per-frame entry point: AnimationSystem then RenderSystem.
+ *
+ * Convenience wrapper for callers that want animated sprites without
+ * sequencing the two systems themselves — equivalent to calling
+ * AnimationSystem(inRegistry, inDeltaTime) followed by
+ * RenderSystem(inRegistry, inRenderer).
+ */
+void RenderPipeline(
+    ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
 
 }

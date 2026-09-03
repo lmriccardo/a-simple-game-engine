@@ -70,4 +70,16 @@ public:
  */
 Result<Image> DecodeImage( std::span<const std::byte> inBytes ) noexcept;
 
+/**
+ * @brief Builds inCount evenly-spaced sub-rects (in texture pixels) across a
+ *        regular grid spritesheet, for use as components::Animation::m_Frames.
+ *
+ * inSheetCell's x/y is the top-left of frame 0 and its w/h is one cell's
+ * size; frame i sits at column (i % inColumns), row (i / inColumns) of that
+ * grid, so inCount need not fill the grid exactly (e.g. 6 frames out of an
+ * 8-cell sheet). Returns an empty vector if inColumns or inCount is 0.
+ */
+std::vector<math::Rect> MakeGridFrames(
+    math::Rect inSheetCell, std::size_t inColumns, std::size_t inCount ) noexcept;
+
 }
