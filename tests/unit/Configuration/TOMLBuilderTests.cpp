@@ -233,6 +233,30 @@ TEST(TOMLBuilderTest, GetTable_ReparsedIndexedArrayTableElementIsReadable)
     EXPECT_DOUBLE_EQ(entity.Value().GetTable("Transform").Value().Get<double>("x"), 2.0);
 }
 
+TEST(TOMLBuilderTest, GetTable_PathIndexOverloadMatchesTheEquivalentBracketPath)
+{
+    TOMLBuilder builder;
+    for ( int i = 0; i < 3; ++i )
+    {
+        builder.ArrayTable("entity").Set<int>("id", i);
+    }
+
+    auto viaIndexArg = builder.GetTable("entity", 1);
+    auto viaBracketPath = builder.GetTable("entity[1]");
+    ASSERT_TRUE(viaIndexArg.IsOk());
+    ASSERT_TRUE(viaBracketPath.IsOk());
+    EXPECT_EQ(viaIndexArg.Value().Get<int>("id"), viaBracketPath.Value().Get<int>("id"));
+    EXPECT_EQ(viaIndexArg.Value().Get<int>("id"), 1);
+}
+
+TEST(TOMLBuilderTest, GetTable_PathIndexOverloadOutOfRangeReturnsError)
+{
+    TOMLBuilder builder;
+    builder.ArrayTable("entity").Set<int>("id", 0);
+
+    EXPECT_FALSE(builder.GetTable("entity", 5).IsOk());
+}
+
 // ─── Round-trip through the parser ─────────────────────────────────────────────
 
 TEST(TOMLBuilderTest, ToString_ReparsesToTheSameValues)

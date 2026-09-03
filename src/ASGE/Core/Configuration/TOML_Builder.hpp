@@ -142,6 +142,19 @@ public:
     }
 
     /**
+     * @brief Read-only descent into element inIndex of an array-of-tables
+     *        named inPath relative to this table — equivalent to
+     *        GetTable(inPath + "[" + inIndex + "]"), for callers walking a
+     *        known count of elements (e.g. Serializer<Animation>::FromToml
+     *        over "Frame[0]", "Frame[1]", ...) without building that string
+     *        themselves.
+     */
+    [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath, int inIndex ) const
+    {
+        return GetTable( inPath + "[" + std::to_string(inIndex) + "]" );
+    }
+
+    /**
      * @brief True if a subtable exists at inPath relative to this table.
      *        Unlike Table(), never creates one — safe to probe for an
      *        optional section before descending into it.
