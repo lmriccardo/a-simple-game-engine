@@ -3,20 +3,27 @@
 /**
  * @brief Showcase for components::Animation and systems::AnimationSystem/
  *        RenderPipeline: playing back a spritesheet through per-entity
- *        frame state.
+ *        frame state, with the frame list itself loaded as a shared
+ *        asset::FrameTable rather than embedded per-entity.
  *
- * A 6-frame spritesheet (graphics::MakeGridFrames slices it into
- * components::Animation::m_Frames) drives a row of pre-spawned sprites, each
+ * A 6-frame spritesheet, described by a small `walk.toml` FrameTable
+ * meta-file (see assets/), drives a row of pre-spawned sprites, each
  * started on a different frame so they visibly play out of phase with each
- * other -- Animation is per-entity state, not shared playback. Left-click
- * spawns another animated sprite at the cursor, with its own randomized
- * frame duration and starting frame. Space toggles every sprite's Animation
- * between playing and paused (components::PlayAnimation/StopAnimation);
- * R resets back to the initial row.
+ * other -- Animation is per-entity playback state even though every sprite
+ * here shares the one loaded FrameTable asset. Left-click spawns another
+ * animated sprite at the cursor, with its own randomized frame duration.
+ * Space toggles every sprite's Animation between playing and paused
+ * (components::PlayAnimation/StopAnimation); R resets back to the initial
+ * row.
  *
- * Every frame runs systems::RenderPipeline instead of calling AnimationSystem
- * and RenderSystem separately -- the single entry point a game loop actually
- * needs once it has animated sprites.
+ * Every Render() call runs asset::AssetManager::ResolveAssets first --
+ * deferred-loading any still-unresolved Sprite::m_Texture/Animation::m_Clip
+ * in one pass, entities spawned this frame included -- then
+ * systems::RenderPipeline (AnimationSystem then RenderSystem). Spawning
+ * itself just sets Sprite::m_VirtualPath/Animation::m_ClipPath; unlike
+ * earlier examples (see ecs_demo), there's no hand-rolled "is the texture
+ * attached yet" bookkeeping to write, since ResolveAssets already re-checks
+ * per-entity every call.
  */
 
 #include <ASGE/ASGE.hpp>
@@ -35,16 +42,12 @@ class AnimationDemoGame : public asge::game::IGame
     asge::filesystem::VirtualFileSystem m_Vfs;
     asge::game::asset::AssetManager     m_Assets{ m_Vfs };
 
-    std::unique_ptr<asge::video::ITexture> m_Texture; // Lazily created on first Render (no IRenderer exists yet at construction)
-    bool m_SpriteTextureAttached{ false };
-
     std::mt19937 m_Rng{ std::random_device{}() };
     bool m_Playing{ true };
     float m_LastDeltaTime{ 0.0f }; // Captured in Update(), consumed by Render()'s RenderPipeline call
 
     void SpawnInitialRow();
     void SpawnSprite( asge::math::Float2 inPosition, std::size_t inStartFrame );
-    void EnsureTextureAttached( asge::video::IRenderer& inRenderer );
     void Reset();
     void HandleInput( asge::input::InputState const& inInput );
 
