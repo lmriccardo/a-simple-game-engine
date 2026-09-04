@@ -91,7 +91,7 @@ struct Serializer<Collider>
     static constexpr str::StringView kTableName = "Collider";
 
     static void ToToml( 
-        Collider inCollider, asge::config::TOMLTableView inTview 
+        Collider inCollider, asge::config::toml::TOMLTableView inTview 
     ) noexcept {
         auto table = inTview.Table(std::string(kTableName));
         std::visit( [&table]( auto const& inShape )
@@ -106,7 +106,7 @@ struct Serializer<Collider>
         table.Set<int>( "m_Mask",  static_cast<int>( inCollider.m_Mask ) );
     }
 
-    static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
+    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept
     {
         auto table = inEnttView.Table(std::string(kTableName));
         // Defaults to "Rect" so a scene file saved before Circle existed --

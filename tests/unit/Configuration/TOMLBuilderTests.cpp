@@ -19,21 +19,21 @@ using namespace asge::config;
 
 TEST(TOMLBuilderTest, Set_NewIntKeyAppearsInOutput)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<int>("count", 42);
     EXPECT_NE(builder.ToString().find("count = 42"), std::string::npos);
 }
 
 TEST(TOMLBuilderTest, Set_NewStringKeySerializesAsBasicString)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<std::string>("name", "Alice");
     EXPECT_NE(builder.ToString().find(R"(name = "Alice")"), std::string::npos);
 }
 
 TEST(TOMLBuilderTest, Set_SameKeyTwiceOverwritesValue)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<int>("count", 1);
     builder.Set<int>("count", 2);
     auto const dump = builder.ToString();
@@ -43,7 +43,7 @@ TEST(TOMLBuilderTest, Set_SameKeyTwiceOverwritesValue)
 
 TEST(TOMLBuilderTest, Set_ChainsAcrossMultipleKeys)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<int>("count", 1).Set<bool>("enabled", true);
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("count = 1"), std::string::npos);
@@ -52,14 +52,14 @@ TEST(TOMLBuilderTest, Set_ChainsAcrossMultipleKeys)
 
 TEST(TOMLBuilderTest, SetArray_NewKeyAppearsInOutput)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.SetArray<int>("nums", {1, 2, 3});
     EXPECT_NE(builder.ToString().find("nums = [1, 2, 3]"), std::string::npos);
 }
 
 TEST(TOMLBuilderTest, SetArray_NestedArraySerializesCorrectly)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     std::vector<std::vector<int>> matrix{ {1, 2}, {3, 4} };
     builder.SetArray<std::vector<int>>("matrix", matrix);
     EXPECT_NE(builder.ToString().find("matrix = [[1, 2], [3, 4]]"), std::string::npos);
@@ -69,21 +69,21 @@ TEST(TOMLBuilderTest, SetArray_NestedArraySerializesCorrectly)
 
 TEST(TOMLBuilderTest, Set_FloatKeySerializesAsTomlFloat)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set("scale", 1.5f);
     EXPECT_NE(builder.ToString().find("scale = 1.5"), std::string::npos);
 }
 
 TEST(TOMLBuilderTest, Get_FloatKeyRoundTripsThroughSet)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set("scale", 1.5f);
     EXPECT_FLOAT_EQ(builder.Get("scale", 0.0f), 1.5f);
 }
 
 TEST(TOMLBuilderTest, Get_FloatMissingKeyReturnsDefault)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     EXPECT_FLOAT_EQ(builder.Get("missing", 42.0f), 42.0f);
 }
 
@@ -91,7 +91,7 @@ TEST(TOMLBuilderTest, Get_FloatKeyInteroperatesWithDoubleGet)
 {
     // Set(float) stores the same TOML float a Set<double> would, so either
     // accessor can read a key back regardless of which one wrote it.
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set("scale", 1.5f);
     EXPECT_DOUBLE_EQ(builder.Get<double>("scale", 0.0), 1.5);
 }
@@ -100,7 +100,7 @@ TEST(TOMLBuilderTest, Get_FloatKeyInteroperatesWithDoubleGet)
 
 TEST(TOMLBuilderTest, Table_CreatesHeaderAndScopesKeys)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Table("server").Set<int>("port", 8080);
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[server]"), std::string::npos);
@@ -109,7 +109,7 @@ TEST(TOMLBuilderTest, Table_CreatesHeaderAndScopesKeys)
 
 TEST(TOMLBuilderTest, Table_DottedPathCreatesNestedTables)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Table("a.b").Set<int>("value", 1);
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[a.b]"), std::string::npos);
@@ -118,7 +118,7 @@ TEST(TOMLBuilderTest, Table_DottedPathCreatesNestedTables)
 
 TEST(TOMLBuilderTest, Table_CalledTwiceReturnsSameUnderlyingTable)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Table("server").Set<int>("port", 8080);
     builder.Table("server").Set<std::string>("host", "localhost");
 
@@ -132,7 +132,7 @@ TEST(TOMLBuilderTest, Table_CalledTwiceReturnsSameUnderlyingTable)
 
 TEST(TOMLBuilderTest, ArrayTable_CalledTwiceCreatesTwoHeaders)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.ArrayTable("entity").Set<int>("id", 0);
     builder.ArrayTable("entity").Set<int>("id", 1);
 
@@ -145,7 +145,7 @@ TEST(TOMLBuilderTest, ArrayTable_CalledTwiceCreatesTwoHeaders)
 
 TEST(TOMLBuilderTest, ArrayTable_ElementsCanHaveOwnNestedSubtablesAndReparse)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     for ( int i = 0; i < 3; ++i )
     {
         auto entity = builder.ArrayTable("entity");
@@ -155,7 +155,7 @@ TEST(TOMLBuilderTest, ArrayTable_ElementsCanHaveOwnNestedSubtablesAndReparse)
             .Set<double>("y", static_cast<double>(i) * 2.0);
     }
 
-    auto parsed = _internal::toml::Parse(builder.ToString());
+    auto parsed = toml::Parse(builder.ToString());
     ASSERT_TRUE(parsed.IsOk());
 
     auto root = parsed.Value();
@@ -175,7 +175,7 @@ TEST(TOMLBuilderTest, ArrayTable_ElementsCanHaveOwnNestedSubtablesAndReparse)
 
 TEST(TOMLBuilderTest, GetTable_ExistingPlainSubtableReturnsAReadableView)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Table("server").Set<int>("port", 8080);
 
     auto view = builder.GetTable("server");
@@ -185,7 +185,7 @@ TEST(TOMLBuilderTest, GetTable_ExistingPlainSubtableReturnsAReadableView)
 
 TEST(TOMLBuilderTest, GetTable_MissingSubtableReturnsErrorAndDoesNotCreateOne)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
 
     auto view = builder.GetTable("missing");
     EXPECT_FALSE(view.IsOk());
@@ -194,7 +194,7 @@ TEST(TOMLBuilderTest, GetTable_MissingSubtableReturnsErrorAndDoesNotCreateOne)
 
 TEST(TOMLBuilderTest, GetTable_IndexedSegmentResolvesTheMatchingArrayTableElement)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     for ( int i = 0; i < 3; ++i )
     {
         builder.ArrayTable("entity").Set<int>("id", i);
@@ -207,7 +207,7 @@ TEST(TOMLBuilderTest, GetTable_IndexedSegmentResolvesTheMatchingArrayTableElemen
 
 TEST(TOMLBuilderTest, GetTable_IndexOutOfRangeReturnsError)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.ArrayTable("entity").Set<int>("id", 0);
 
     auto view = builder.GetTable("entity[5]");
@@ -216,16 +216,16 @@ TEST(TOMLBuilderTest, GetTable_IndexOutOfRangeReturnsError)
 
 TEST(TOMLBuilderTest, GetTable_ReparsedIndexedArrayTableElementIsReadable)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     for ( int i = 0; i < 3; ++i )
     {
         auto entity = builder.ArrayTable("entity");
         entity.Table("Transform").Set<double>("x", static_cast<double>(i));
     }
 
-    auto parsed = _internal::toml::Parse(builder.ToString());
+    auto parsed = toml::Parse(builder.ToString());
     ASSERT_TRUE(parsed.IsOk());
-    TOMLTableView root(parsed.Value());
+    toml::TOMLTableView root(parsed.Value());
 
     auto entity = root.GetTable("entity[2]");
     ASSERT_TRUE(entity.IsOk());
@@ -235,7 +235,7 @@ TEST(TOMLBuilderTest, GetTable_ReparsedIndexedArrayTableElementIsReadable)
 
 TEST(TOMLBuilderTest, GetTable_PathIndexOverloadMatchesTheEquivalentBracketPath)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     for ( int i = 0; i < 3; ++i )
     {
         builder.ArrayTable("entity").Set<int>("id", i);
@@ -251,7 +251,7 @@ TEST(TOMLBuilderTest, GetTable_PathIndexOverloadMatchesTheEquivalentBracketPath)
 
 TEST(TOMLBuilderTest, GetTable_PathIndexOverloadOutOfRangeReturnsError)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.ArrayTable("entity").Set<int>("id", 0);
 
     EXPECT_FALSE(builder.GetTable("entity", 5).IsOk());
@@ -261,11 +261,11 @@ TEST(TOMLBuilderTest, GetTable_PathIndexOverloadOutOfRangeReturnsError)
 
 TEST(TOMLBuilderTest, ToString_ReparsesToTheSameValues)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<std::string>("title", "My Config").Set<int>("version", 1);
     builder.Table("server").Set<int>("port", 8080).SetArray<std::string>("tags", {"prod", "eu"});
 
-    auto parsed = _internal::toml::Parse(builder.ToString());
+    auto parsed = toml::Parse(builder.ToString());
     ASSERT_TRUE(parsed.IsOk());
 
     auto root = parsed.Value();
@@ -303,7 +303,7 @@ protected:
 
 TEST_F(TOMLBuilderSaveTest, SaveToFile_WritesReadableToml)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<int>("count", 7);
     builder.Table("server").Set<int>("port", 9090);
 
@@ -321,7 +321,7 @@ TEST_F(TOMLBuilderSaveTest, SaveToFile_WritesReadableToml)
 
 TEST_F(TOMLBuilderSaveTest, SaveToFile_RoundTripsThroughConfigurationManager)
 {
-    TOMLBuilder builder;
+    toml::TOMLBuilder builder;
     builder.Set<std::string>("name", "demo").Set<int>("count", 3);
     ASSERT_TRUE(builder.SaveToFile(m_TomlPath).IsOk());
 

@@ -2,7 +2,7 @@
 
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Core/Configuration/TOML_TableView.hpp>
 
 namespace asge::game::components
 {
@@ -23,13 +23,13 @@ template<typename T>
 struct Serializer
 {
     /** @brief Writes inValue's fields into inTview. Shape is up to each specialization. */
-    static void ToToml( T inValue, asge::config::TOMLTableView inTview ) noexcept
+    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
     {
         static_assert( false && "Not Implemented" );
     }
 
     /** @brief Reads a T back out of inTview, as previously written by ToToml. */
-    static T FromToml( asge::config::TOMLTableView inTview ) noexcept
+    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept
     {
         static_assert( false && "Not Implemented" );
     }
@@ -48,7 +48,7 @@ struct Serializer<math::Rect>
     static constexpr str::StringView kShapeName = "Rect";
 
     static void ToToml( 
-        math::Rect inShape, asge::config::TOMLTableView inTview 
+        math::Rect inShape, asge::config::toml::TOMLTableView inTview 
     ) noexcept  {
         inTview.Set("m_Width",   inShape.w)
                .Set("m_Height",  inShape.h)
@@ -56,7 +56,7 @@ struct Serializer<math::Rect>
                .Set("m_OffsetY", inShape.y);
     }
 
-    static math::Rect FromToml( asge::config::TOMLTableView inTview ) noexcept
+    static math::Rect FromToml( asge::config::toml::TOMLTableView inTview ) noexcept
     {
         return math::Rect{
             inTview.Get("m_OffsetX", 0.0f), inTview.Get("m_OffsetY", 0.0f),
@@ -72,14 +72,14 @@ struct Serializer<math::Circle>
     static constexpr str::StringView kShapeName = "Circle";
 
     static void ToToml( 
-        math::Circle inShape, asge::config::TOMLTableView inTview 
+        math::Circle inShape, asge::config::toml::TOMLTableView inTview 
     ) noexcept  {
         inTview.Set("m_OffsetX", inShape.m_Center.x())
                .Set("m_OffsetY", inShape.m_Center.y())
                .Set("m_Radius",  inShape.m_Radius);
     }
 
-    static math::Circle FromToml( asge::config::TOMLTableView inTview ) noexcept
+    static math::Circle FromToml( asge::config::toml::TOMLTableView inTview ) noexcept
     {
         return math::Circle{
             math::Float2{ inTview.Get("m_OffsetX", 0.0f), inTview.Get("m_OffsetY", 0.0f) },

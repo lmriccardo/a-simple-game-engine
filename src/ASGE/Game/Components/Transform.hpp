@@ -29,7 +29,7 @@ struct Serializer<Transform>
     static constexpr str::StringView kTableName = "Transform";
 
     static void ToToml(
-        Transform inTransform, asge::config::TOMLTableView inTview
+        Transform inTransform, asge::config::toml::TOMLTableView inTview
     ) noexcept {
         inTview.Table(std::string(kTableName))
                .Set("m_X", inTransform.m_X)
@@ -39,7 +39,7 @@ struct Serializer<Transform>
                .Set("m_ScaleY", inTransform.m_ScaleY);
     }
 
-    static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
+    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept
     {
         auto table = inEnttView.Table(std::string(kTableName));
 

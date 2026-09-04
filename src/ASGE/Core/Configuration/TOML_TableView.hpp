@@ -1,0 +1,166 @@
+#pragma once
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <ASGE/Core/Errors.hpp>
+
+#include "TOML_Parser.hpp"
+
+namespace asge::config::toml
+{
+
+/**
+ * @brief Fluent handle to one table node while building a TOML document.
+ *        Set()/SetArray() auto-vivify the key on this table; Table()
+ *        descends into (creating if needed) a subtable, scoping further
+ *        calls to it. Returned by TOMLBuilder::Table() — not constructed
+ *        directly by callers.
+ */
+class TOMLTableView
+{
+protected:
+    table_pointer m_Table;
+
+public:
+    explicit TOMLTableView( table_pointer inTable ) noexcept
+        : m_Table( std::move(inTable) )
+    {}
+
+    /**
+     * @brief Sets a scalar key on this table, creating it if it doesn't
+     *        exist yet. A failure (e.g. re-setting an existing key with a
+     *        different type) is logged rather than breaking the chain.
+     */
+    template<typename T>
+    requires asge::_internal::traits::variant_contains_v<T, _internal::ValueType>
+    TOMLTableView& Set( std::string const& inKey, T inValue )
+    {
+        m_Table->template SetOrCreate<T>( inKey, std::move(inValue) ).LogError();
+        return *this;
+    }
+
+    /**
+     * @brief Sets a float-valued key. TOML has no separate 32-bit float
+     *        type — it's stored as the same `double` a TOML "float" always
+     *        is — this overload just spares callers the cast at every call
+     *        site (e.g. every component field that happens to be `float`).
+     */
+    TOMLTableView& Set( std::string const& inKey, float inValue )
+    {
+        return Set<double>( inKey, static_cast<double>(inValue) );
+    }
+
+    /**
+     * @brief Sets an array-valued key on this table, creating it if it
+     *        doesn't exist yet. Elements may themselves be std::vector<U>
+     *        for a nested TOML array.
+     */
+    template<typename T>
+    TOMLTableView& SetArray( std::string const& inKey, std::vector<T> const& inValues )
+    {
+        m_Table->template SetOrCreateTypedArray<T>( inKey, inValues ).LogError();
+        return *this;
+    }
+
+    /**
+     * @brief Descends into a dotted subtable path relative to this table,
+     *        creating any missing tables along the way, and returns a view
+     *        scoped to it.
+     *
+     * @warning Unlike GetTable()/HasTable(), inPath does not understand
+     *          `[index]` segments into an array-of-tables — `"entity[0]"`
+     *          is treated as one literal (and unmatched) table name, so
+     *          this silently creates a garbage sibling instead of finding
+     *          an existing element. Use GetTable() to read one back.
+     */
+    TOMLTableView Table( std::string const& inPath )
+    {
+        return TOMLTableView(
+            _internal::FindOrCreateTable( m_Table, inPath, _internal::TableType::Standard )
+        );
+    }
+
+    /**
+     * @brief Appends a new element to an array-of-tables (`[[inKey]]`) under
+     *        this table and returns a view scoped to it. Unlike Table(), each
+     *        call creates a fresh sibling rather than reusing one of the same
+     *        name — the first call tags it Root, later calls Array, mirroring
+     *        how the parser distinguishes successive `[[inKey]]` blocks.
+     */
+    TOMLTableView ArrayTable( std::string const& inKey )
+    {
+        auto existing = _internal::FindSubTable( m_Table, inKey );
+        auto newTable = std::make_shared<_internal::Table>(
+            inKey, existing ? _internal::TableType::Array : _internal::TableType::Root
+        );
+
+        newTable->SetParent( m_Table );
+        m_Table->AddSubTable( newTable );
+        return TOMLTableView( newTable );
+    }
+
+    /**
+     * @brief Reads a scalar value at inKey on this table, returning
+     *        inDefault if the key is missing or holds a different type —
+     *        the read-side counterpart to Set().
+     */
+    template<typename T>
+    requires asge::_internal::traits::variant_contains_v<T, _internal::ValueType>
+    T Get( std::string const& inKey, T inDefault = T{} ) const
+    {
+        auto result = m_Table->template Get<T>( inKey );
+        return result ? *result.Value() : std::move(inDefault);
+    }
+
+    /**
+     * @brief Reads a float-valued key — the read-side counterpart to the
+     *        float overload of Set(). Stored/looked up as `double`
+     *        underneath; see that overload's doc comment for why.
+     */
+    float Get( std::string const& inKey, float inDefault = 0.0f ) const
+    {
+        return static_cast<float>( Get<double>( inKey, static_cast<double>(inDefault) ) );
+    }
+
+    /**
+     * @brief Read-only descent into an existing subtable at inPath, honoring
+     *        `[index]` segments into an array-of-tables (e.g. `"entity[1]"`)
+     *        the same way Table::GetTable does. Unlike Table(), never
+     *        creates anything — this is what a loader walking `entity[0]`,
+     *        `entity[1]`, ... array elements back out of a parsed document
+     *        needs; HasTable() is built on top of it.
+     */
+    [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath ) const
+    {
+        auto table = m_Table->GetTable( inPath );
+        if ( !table ) return Result<TOMLTableView>::Err( table.Error() );
+        return Result<TOMLTableView>::Ok( TOMLTableView( table.Value() ) );
+    }
+
+    /**
+     * @brief Read-only descent into element inIndex of an array-of-tables
+     *        named inPath relative to this table — equivalent to
+     *        GetTable(inPath + "[" + inIndex + "]"), for callers walking a
+     *        known count of elements (e.g. Serializer<Animation>::FromToml
+     *        over "Frame[0]", "Frame[1]", ...) without building that string
+     *        themselves.
+     */
+    [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath, int inIndex ) const
+    {
+        return GetTable( inPath + "[" + std::to_string(inIndex) + "]" );
+    }
+
+    /**
+     * @brief True if a subtable exists at inPath relative to this table.
+     *        Unlike Table(), never creates one — safe to probe for an
+     *        optional section before descending into it.
+     */
+    bool HasTable( std::string const& inPath ) const
+    {
+        return static_cast<bool>( GetTable( inPath ) );
+    }
+};
+
+}

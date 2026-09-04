@@ -16,7 +16,7 @@ namespace
 
 using namespace asge::game::scene;
 using namespace asge::game::components;
-using asge::config::TOMLTableView;
+using asge::config::toml::TOMLTableView;
 
 class SceneSerializerTest : public ::testing::Test
 {
@@ -51,7 +51,7 @@ protected:
         auto const content = asge::filesystem::ReadText( inPath );
         EXPECT_TRUE(content.IsOk());
 
-        auto table = asge::config::_internal::toml::Parse( content.Value() );
+        auto table = asge::config::toml::Parse( content.Value() );
         EXPECT_TRUE(table.IsOk());
         return TOMLTableView( table.Value() );
     }
