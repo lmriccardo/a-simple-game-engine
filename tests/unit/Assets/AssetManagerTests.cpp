@@ -196,11 +196,13 @@ TEST_F(AssetManagerTest, GetFont_DifferentPixelHeightsAreSeparateCacheEntries)
 {
     AssetManager mgr(m_Vfs);
 
-    auto small = mgr.GetFont("fonts/Ahem.ttf", 16);
-    auto large = mgr.GetFont("fonts/Ahem.ttf", 32);
-    ASSERT_TRUE(small.IsOk());
-    ASSERT_TRUE(large.IsOk());
-    EXPECT_NE(small.Value(), large.Value());
+    // Not named small/large -- <windows.h> #defines both as macros (old MIDL
+    // type aliases), which silently mangles "auto small = ..." on MSVC.
+    auto smallFont = mgr.GetFont("fonts/Ahem.ttf", 16);
+    auto largeFont = mgr.GetFont("fonts/Ahem.ttf", 32);
+    ASSERT_TRUE(smallFont.IsOk());
+    ASSERT_TRUE(largeFont.IsOk());
+    EXPECT_NE(smallFont.Value(), largeFont.Value());
 }
 
 TEST_F(AssetManagerTest, GetFont_SamePathAndHeightTwiceReturnsSameCachedAsset)

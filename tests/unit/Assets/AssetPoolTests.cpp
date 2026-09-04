@@ -125,19 +125,21 @@ TEST_F(AssetPoolTest, GetOrLoad_DifferentKeyArgsAreSeparateCacheEntries)
         return asge::Result<int>::Ok(inSize);
     });
 
-    auto small = pool.GetOrLoad(vfs, "assets/thing.dat", 16);
-    auto large = pool.GetOrLoad(vfs, "assets/thing.dat", 32);
-    ASSERT_TRUE(small.IsOk());
-    ASSERT_TRUE(large.IsOk());
-    EXPECT_EQ(small.Value()->Get(), 16);
-    EXPECT_EQ(large.Value()->Get(), 32);
-    EXPECT_NE(small.Value(), large.Value());
+    // Not named small/large -- <windows.h> #defines both as macros (old MIDL
+    // type aliases), which silently mangles "auto small = ..." on MSVC.
+    auto smallResult = pool.GetOrLoad(vfs, "assets/thing.dat", 16);
+    auto largeResult = pool.GetOrLoad(vfs, "assets/thing.dat", 32);
+    ASSERT_TRUE(smallResult.IsOk());
+    ASSERT_TRUE(largeResult.IsOk());
+    EXPECT_EQ(smallResult.Value()->Get(), 16);
+    EXPECT_EQ(largeResult.Value()->Get(), 32);
+    EXPECT_NE(smallResult.Value(), largeResult.Value());
     EXPECT_EQ(loadCount, 2);
 
     // Same path + same key arg as an earlier call -- still cached.
     auto smallAgain = pool.GetOrLoad(vfs, "assets/thing.dat", 16);
     ASSERT_TRUE(smallAgain.IsOk());
-    EXPECT_EQ(smallAgain.Value(), small.Value());
+    EXPECT_EQ(smallAgain.Value(), smallResult.Value());
     EXPECT_EQ(loadCount, 2);
 }
 
