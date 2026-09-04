@@ -1,7 +1,7 @@
 #include "SDLHeadlessFixture.hpp"
 
 #include <ASGE/Video/Graphics/Rendering/SDL/SDLTexture.hpp>
-#include <ASGE/Core/Graphics/Image.hpp>
+#include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 
 #include <gtest/gtest.h>
@@ -16,9 +16,9 @@
 namespace
 {
 
-using asge::graphics::Image;
-using asge::graphics::PixelFormat;
-using asge::graphics::RGBA_Color;
+using asge::media::Image;
+using asge::media::PixelFormat;
+using asge::media::RGBA_Color;
 using asge::video::SDLTexture;
 
 Image MakeImage(std::size_t inW, std::size_t inH, std::uint8_t inFill = 128)

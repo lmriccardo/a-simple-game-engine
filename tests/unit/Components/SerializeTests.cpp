@@ -9,18 +9,19 @@ namespace
 {
 
 using namespace asge::game::components;
-using asge::config::TOMLBuilder;
+using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbody)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimation)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 5);
+    static_assert(std::tuple_size_v<SerializableComponents> == 6);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
     static_assert(std::is_same_v<std::tuple_element_t<3, SerializableComponents>, Collider>);
     static_assert(std::is_same_v<std::tuple_element_t<4, SerializableComponents>, Rigidbody>);
+    static_assert(std::is_same_v<std::tuple_element_t<5, SerializableComponents>, Animation>);
     SUCCEED();
 }
 
@@ -32,6 +33,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Sprite>::kTableName, "Sprite");
     EXPECT_EQ(Serializer<Collider>::kTableName, "Collider");
     EXPECT_EQ(Serializer<Rigidbody>::kTableName, "Rigidbody");
+    EXPECT_EQ(Serializer<Animation>::kTableName, "Animation");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -276,6 +278,60 @@ TEST(ColliderSerializerTest, FromToml_MissingLayerAndMaskKeysDefaultToCollideWit
     Collider const restored = Serializer<Collider>::FromToml( builder );
     EXPECT_EQ(restored.m_Layer, 1u);
     EXPECT_EQ(restored.m_Mask, ~CollisionLayer{0});
+}
+
+// ─── Animation ──────────────────────────────────────────────────────────────
+
+TEST(AnimationSerializerTest, ToToml_WritesClipPathAndFrameDurationUnderAnimationTable)
+{
+    TOMLBuilder builder;
+    Animation const anim{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.2f };
+    Serializer<Animation>::ToToml( anim, builder );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Animation]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_ClipPath = "clips/walk.toml")"), std::string::npos);
+    EXPECT_NE(dump.find("m_FrameDuration = 0.2"), std::string::npos);
+}
+
+TEST(AnimationSerializerTest, RoundTrip_ClipPathAndDurationPreserved)
+{
+    TOMLBuilder builder;
+    Animation const original{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.15f };
+    Serializer<Animation>::ToToml( original, builder );
+
+    Animation const restored = Serializer<Animation>::FromToml( builder );
+    EXPECT_EQ(restored.m_ClipPath, original.m_ClipPath);
+    EXPECT_FLOAT_EQ(restored.m_FrameDuration, original.m_FrameDuration);
+}
+
+TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStructDefaults)
+{
+    // Serializer<Animation> only round-trips m_ClipPath and m_FrameDuration
+    // -- FromToml must never carry over m_Clip (a scene file can't describe
+    // a resolved asset) or playback progress, since neither is something a
+    // scene file describes at all.
+    TOMLBuilder builder;
+    Serializer<Animation>::ToToml( Animation{ .m_ClipPath = "clips/walk.toml" }, builder );
+
+    Animation const restored = Serializer<Animation>::FromToml( builder );
+    EXPECT_EQ(restored.m_Clip, nullptr);
+    EXPECT_EQ(restored.m_CurrentFrame, 0u);
+    EXPECT_FLOAT_EQ(restored.m_ElapsedTime, 0.0f);
+    EXPECT_TRUE(restored.m_Loop);
+    EXPECT_TRUE(restored.m_Playing);
+}
+
+TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
+{
+    // A hand-written or pre-Animation scene file has no "m_ClipPath" key at
+    // all -- AnimationSystem already treats an empty m_ClipPath as "not
+    // animating" (see RenderSystemTests.cpp), so this must not error.
+    TOMLBuilder builder;
+    builder.Table("Animation").Set("m_FrameDuration", 0.1f);
+
+    Animation const restored = Serializer<Animation>::FromToml( builder );
+    EXPECT_TRUE(restored.m_ClipPath.empty());
 }
 
 }

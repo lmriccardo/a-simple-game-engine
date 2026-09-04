@@ -31,8 +31,8 @@ add_library(ASGE STATIC
 
     # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
     # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
-    Core/Graphics/Image.cpp
-    Core/Graphics/Font.cpp
+    Core/Media/Image.cpp
+    Core/Media/Font.cpp
 
     # Concurrency utilities
     Core/Concurrent/Thread.cpp
@@ -67,6 +67,7 @@ add_library(ASGE STATIC
 
     # Asset Manager
     Game/Assets/AssetManager.cpp
+    Game/Assets/FrameTable.cpp
 
     # Scene management
     Game/Scene/SceneSerializer.cpp

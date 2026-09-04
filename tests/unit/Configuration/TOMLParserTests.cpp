@@ -10,7 +10,8 @@
 namespace
 {
 
-using namespace asge::config::_internal::toml;
+using namespace asge::config::toml;
+using namespace asge::config::toml::_internal;
 using asge::errors::ConfError;
 
 // ─── Result<T> helpers ────────────────────────────────────────────────────────
@@ -518,14 +519,14 @@ TEST(TOMLParserTest, Parse_ArrayTableElementsScopeTheirOwnNestedTable)
 
 TEST(TOMLParserTest, Parse_UnexpectedTokenReturnsError)
 {
-    auto result = Parse("not a valid line\n");
+    auto result = Parse(std::string("not a valid line\n"));
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlUnexpectedToken));
 }
 
 TEST(TOMLParserTest, Parse_DuplicateKeyReturnsError)
 {
-    auto result = Parse("key = 1\nkey = 2\n");
+    auto result = Parse(std::string("key = 1\nkey = 2\n"));
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlAlreadyExistingKey));
 }

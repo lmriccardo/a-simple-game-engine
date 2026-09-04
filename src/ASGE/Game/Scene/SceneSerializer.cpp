@@ -7,7 +7,7 @@
 asge::BoolResult asge::game::scene::SceneSerializer::Save(
     ecs::Registry const &inRegistry, filesystem::Path const &inPath) const noexcept
 {
-    config::TOMLBuilder builder;
+    config::toml::TOMLBuilder builder;
     for ( auto const& entity : inRegistry.AllEntities() )
     {
         auto entityTable = builder.ArrayTable( "entity" );
@@ -45,9 +45,9 @@ asge::BoolResult asge::game::scene::SceneSerializer::Load(
     if ( !readResult ) return BoolResult::Err( readResult.Error() );
 
     // Parse the TOML file to construct the TOML Table
-    auto parseResult = config::_internal::toml::Parse( readResult.Value() );
+    auto parseResult = config::toml::Parse( readResult.Value() );
     if ( !parseResult ) return BoolResult::Err( parseResult.Error() );
-    auto sceneTable = config::TOMLTableView( parseResult.Value() );
+    auto sceneTable = config::toml::TOMLTableView( parseResult.Value() );
 
     // Only entities *this call* creates get rolled back on failure --
     // whatever was already in dstRegistry before Load() was called is
@@ -81,7 +81,7 @@ asge::BoolResult asge::game::scene::SceneSerializer::Load(
             return BoolResult::Err( getResult.Error() );
         }
 
-        config::TOMLTableView entityTable = getResult.Value();
+        config::toml::TOMLTableView entityTable = getResult.Value();
         auto createResult = dstRegistry.CreateEntity();
         if ( !createResult )
         {

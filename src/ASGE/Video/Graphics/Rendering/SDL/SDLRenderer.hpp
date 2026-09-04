@@ -26,10 +26,10 @@ public:
     SDLRenderer(SDLRenderer const& inOther) = delete;
     SDLRenderer& operator=(SDLRenderer const& inOther) = delete;
 
-    void Clear(graphics::RGBA_Color const& inColor) const override;
-    void DrawRect(math::Rect const& inRect, graphics::RGBA_Color const& inColor, bool inFill) const override;
-    void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2, graphics::RGBA_Color const& inColor) const override;
-    void DrawCircle(math::Int2 const& inCenter, int inRadius, graphics::RGBA_Color const& inColor, bool inFill) const override;
+    void Clear(media::RGBA_Color const& inColor) const override;
+    void DrawRect(math::Rect const& inRect, media::RGBA_Color const& inColor, bool inFill) const override;
+    void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2, media::RGBA_Color const& inColor) const override;
+    void DrawCircle(math::Int2 const& inCenter, int inRadius, media::RGBA_Color const& inColor, bool inFill) const override;
     void DrawTexture( ITexture const& inTexture, math::Rect const& inDestRect ) const noexcept override;
     void DrawTexture(ITexture const& inTexture, math::Float2 const& inPosition) const noexcept override;
     void DrawTexture(ITexture const& inTexture, math::Rect const& inSrcRect,math::Rect const& inDestRect) const noexcept override;
@@ -42,11 +42,11 @@ public:
         float inBottom, math::Rect const& inDestRect
     ) const noexcept override;
 
-    void DrawString( str::StringView inText, graphics::Font const& inFont, ITexture & inTexture, 
-        math::Float2 const& inPosition, graphics::RGBA_Color const& inColor 
+    void DrawString( str::StringView inText, media::Font const& inFont, ITexture & inTexture, 
+        math::Float2 const& inPosition, media::RGBA_Color const& inColor 
     ) const noexcept override;
 
-    [[nodiscard]] std::unique_ptr<ITexture> CreateTexture( graphics::Image const& inImage ) const noexcept override;
+    [[nodiscard]] std::unique_ptr<ITexture> CreateTexture( media::Image const& inImage ) const noexcept override;
 
     void Present() const override;
     [[nodiscard]] bool IsValid() const override;

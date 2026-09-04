@@ -7,6 +7,7 @@
 #include "Components/Sprite.hpp"
 #include "Components/Collider.hpp"
 #include "Components/Rigidbody.hpp"
+#include "Components/Animation.hpp"
 
 namespace asge::game::components
 {
@@ -22,7 +23,7 @@ namespace asge::game::components
  * Serializer<T> specialization.
  */
 using SerializableComponents = std::tuple<
-    Transform, Velocity, Sprite, Collider, Rigidbody
+    Transform, Velocity, Sprite, Collider, Rigidbody, Animation
 >;
 
 }

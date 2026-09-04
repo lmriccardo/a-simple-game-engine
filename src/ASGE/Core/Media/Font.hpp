@@ -27,7 +27,7 @@
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 #include "Image.hpp"
 
-namespace asge::graphics
+namespace asge::media
 {
 
 /**
@@ -80,7 +80,7 @@ public:
     [[nodiscard]] static Result<Font> Load(const filesystem::Path& inPath, int inPixelHeight);
 
     [[nodiscard]] Result<GlyphMetrics> GetGlyph(char32_t inCodepoint) const;
-    [[nodiscard]] const graphics::Image& GetAtlasImage() const noexcept;
+    [[nodiscard]] const media::Image& GetAtlasImage() const noexcept;
 
     [[nodiscard]] int GetLineHeight() const noexcept;
     [[nodiscard]] int GetAscent() const noexcept;

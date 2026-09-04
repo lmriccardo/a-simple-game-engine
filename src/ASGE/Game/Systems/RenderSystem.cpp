@@ -3,6 +3,8 @@
 #include <vector>
 #include <algorithm>
 
+#include <ASGE/Game/Components/Animation.hpp>
+
 namespace
 {
 
@@ -47,6 +49,41 @@ std::optional<DrawItem> ConstructFrom(
 
 }
 
+void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
+{
+    for ( auto [ entity, sprite, animation ]
+            : inRegistry.View<components::Sprite, components::Animation>() )
+    {
+        auto& animationRef = animation.get();
+        auto& spriteRef = sprite.get();
+
+        if ( animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) continue;
+
+        std::vector<math::Rect> const& frames = animationRef.m_Clip->Get().m_Frames;
+
+        if ( !animationRef.m_Playing || frames.empty() || !spriteRef.m_Texture
+             || animationRef.m_FrameDuration <= 0.0f )
+        {
+            continue;
+        }
+
+        animationRef.m_ElapsedTime += inDeltaTime;
+        auto const nofFrames = frames.size();
+        while ( animationRef.m_ElapsedTime >= animationRef.m_FrameDuration )
+        {
+            animationRef.m_ElapsedTime -= animationRef.m_FrameDuration;
+            ++animationRef.m_CurrentFrame;
+            if ( animationRef.m_CurrentFrame >= nofFrames )
+            {
+                animationRef.m_CurrentFrame = animationRef.m_Loop ? 0 : nofFrames - 1;
+                if ( !animationRef.m_Loop ) animationRef.m_Playing = false;
+            }
+        }
+
+        spriteRef.m_SourceRect = frames[animationRef.m_CurrentFrame];
+    }
+}
+
 void asge::game::systems::RenderSystem(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer) noexcept
 {
@@ -77,4 +114,11 @@ void asge::game::systems::RenderSystem(
             inRenderer.DrawTexture( *texture, drawItem.m_DstRect );
         }
     }
+}
+
+void asge::game::systems::RenderPipeline(
+    ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
+{
+    AnimationSystem( inRegistry, inDeltaTime );
+    RenderSystem( inRegistry, inRenderer ); 
 }

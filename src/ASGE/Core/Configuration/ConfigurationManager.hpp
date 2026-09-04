@@ -17,7 +17,7 @@ namespace asge::config
 class ConfigurationManager
 {
 private:
-    using table_pointer_t = _internal::toml::table_pointer;
+    using table_pointer_t = toml::table_pointer;
 
     filesystem::Path             m_ConfigPath;
     filesystem::FileWatcher      m_FileWatcher;

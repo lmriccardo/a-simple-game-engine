@@ -15,11 +15,15 @@
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Traits.hpp>
 #include <ASGE/Core/Errors.hpp>
+#include <ASGE/Core/Filesystem/FileData.hpp>
 
 namespace asge::config
 {
 
-namespace _internal::toml
+namespace toml
+{
+
+namespace _internal
 {
 
 /**
@@ -138,8 +142,16 @@ TOMLTypeInfo DefaultTypeInfoFor() noexcept
 }
 
 class Table; // Forward declare table class
-using table_pointer = std::shared_ptr<Table>;
-using table_const_pointer = std::shared_ptr<const Table>;
+
+}
+
+/** @brief Shared handle to a parsed/built TOML table node. */
+using table_pointer = std::shared_ptr<_internal::Table>;
+
+namespace _internal
+{
+
+using table_const_pointer = std::shared_ptr<Table const>;
 
 template<ElementType EType = ElementType::Null>
 struct to_native_type { using type = void; };
@@ -159,7 +171,6 @@ using to_native_type_t = typename to_native_type<EType>::type;
 
 ElementType DetectType( std::string_view inLine ) noexcept;
 std::string_view StripComment( std::string_view inLine ) noexcept;
-Result<table_pointer> Parse(std::string const& inRaw) noexcept;
 Result<TOMLEntry> ParseValue(std::istringstream* inStream, std::string_view inLine);
 
 // ----------------------- PARSING ARRAYS -----------------------
@@ -414,4 +425,13 @@ public:
 };
 
 }
+
+/** @brief Parses a raw TOML document already in memory. */
+Result<table_pointer> Parse(std::string const& inRaw) noexcept;
+
+/** @brief Reads inPath's contents and parses them as TOML -- ReadText's error propagates as-is on a read failure. */
+Result<table_pointer> Parse(filesystem::Path const& inPath) noexcept;
+
+}
+
 }

@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <ASGE/Video/Graphics/Texture.hpp>
-#include <ASGE/Core/Graphics/Image.hpp>
+#include <ASGE/Core/Media/Image.hpp>
 
 namespace asge::video
 {
@@ -13,7 +13,7 @@ class SDLTexture final : public ITexture
 private:
     SDL_Texture* m_Handle{nullptr}; // The SDL native handle for textures
 public:
-    SDLTexture(SDL_Renderer* inRenderer, graphics::Image const& inImage);
+    SDLTexture(SDL_Renderer* inRenderer, media::Image const& inImage);
     SDLTexture(SDLTexture&& inOther);
     SDLTexture& operator=(SDLTexture&& inOther);
 
@@ -26,8 +26,8 @@ public:
     [[nodiscard]] void* NativeHandle() const noexcept override;
     [[nodiscard]] bool IsValid() const noexcept override;
 
-    void SetColorMod( graphics::RGBA_Color inColor ) noexcept override;
-    Result<graphics::RGBA_Color> GetColorMod() const noexcept override;
+    void SetColorMod( media::RGBA_Color inColor ) noexcept override;
+    Result<media::RGBA_Color> GetColorMod() const noexcept override;
 
     void Destroy();
 };

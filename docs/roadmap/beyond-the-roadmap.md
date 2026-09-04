@@ -27,16 +27,17 @@ Scene Management's own Phase 2/3 scope (prefabs, additive loading, world
 streaming) doesn't cover it either — those are still about scene *data*, not
 which screen/state is currently driving the game loop.
 
-## 2. Sprite/frame animation
+## 2. Sprite/frame animation - ✅ complete
 
-Every phase file was checked for "animation": the only hits are UI widget
+Every phase file was checked for "animation": the only hits were UI widget
 property tweening ([09.2-ui-framework](phase-2/09.2-ui-framework.md),
 position/opacity interpolation for retained-mode widgets) and a passing
 mention of "physics + AI + animation" as a hypothetical justification for ECS
 archetypes ([03.2-entity-component-system](phase-2/03.2-entity-component-system.md)).
-Nothing anywhere covers playing back a spritesheet — a walk cycle, an
-idle/attack state switch. [Rendering Primitives](phase-1/02.1-rendering-primitives.md)
-gives static textures only.
+Nothing covered playing back a spritesheet — a walk cycle, an idle/attack
+state switch — until `components::Animation` + `systems::AnimationSystem`
+landed; see [10.1-rendering-system](phase-1/10.1-rendering-system.md), which
+now tracks it alongside layer-based draw ordering.
 
 ## 3. Trigger/sensor colliders and collision layers - ✅ complete
 

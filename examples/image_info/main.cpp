@@ -1,9 +1,9 @@
 #include <iostream>
 #include <filesystem>
-#include <ASGE/Core/Graphics/Image.hpp>
+#include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Core/Filesystem/Filesystem.hpp>
 
-using namespace asge::graphics;
+using namespace asge::media;
 
 int main()
 {

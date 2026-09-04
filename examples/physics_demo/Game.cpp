@@ -32,9 +32,9 @@ constexpr float kTriggerZoneSize = 150.0f;
 constexpr float kTriggerZoneX    = kWindowWidth - kTriggerZoneSize - 30.0f;
 constexpr float kTriggerZoneY    = kWindowHeight - kFloorHeight - kTriggerZoneSize;
 
-constexpr asge::graphics::RGBA_Color kStaticColor{ 70, 70, 80, 255 };
-constexpr asge::graphics::RGBA_Color kTriggerColor{ 240, 210, 60, 255 };
-constexpr asge::graphics::RGBA_Color kBoxPalette[] = {
+constexpr asge::media::RGBA_Color kStaticColor{ 70, 70, 80, 255 };
+constexpr asge::media::RGBA_Color kTriggerColor{ 240, 210, 60, 255 };
+constexpr asge::media::RGBA_Color kBoxPalette[] = {
     { 220, 90, 90, 255 },
     { 90, 180, 220, 255 },
     { 230, 200, 90, 255 },
@@ -50,8 +50,8 @@ constexpr CollisionLayer kMaskGhostBlue  = kLayerDefault | kLayerGhostBlue;
 
 constexpr float kGhostDemoRedX  = 110.0f;
 constexpr float kGhostDemoBlueX = 140.0f;
-constexpr asge::graphics::RGBA_Color kGhostRedColor{ 235, 60, 60, 255 };
-constexpr asge::graphics::RGBA_Color kGhostBlueColor{ 60, 130, 235, 255 };
+constexpr asge::media::RGBA_Color kGhostRedColor{ 235, 60, 60, 255 };
+constexpr asge::media::RGBA_Color kGhostBlueColor{ 60, 130, 235, 255 };
 }
 
 PhysicsDemoGame::PhysicsDemoGame()

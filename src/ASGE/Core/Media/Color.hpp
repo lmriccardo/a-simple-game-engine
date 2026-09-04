@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace asge::graphics
+namespace asge::media
 {
 
 struct RGBA_Color

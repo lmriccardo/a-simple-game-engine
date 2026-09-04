@@ -75,8 +75,8 @@ void InputDemoGame::Update(float inDeltaTime, asge::input::InputState const &inI
 void InputDemoGame::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear( m_LightBackground
-        ? asge::graphics::RGBA_Color{ 225, 225, 230, 255 }
-        : asge::graphics::RGBA_Color{ 20, 20, 25, 255 } );
+        ? asge::media::RGBA_Color{ 225, 225, 230, 255 }
+        : asge::media::RGBA_Color{ 20, 20, 25, 255 } );
 
     // Marks dropped by right-click.
     for ( std::size_t i = 0; i < m_MarkCount; ++i )

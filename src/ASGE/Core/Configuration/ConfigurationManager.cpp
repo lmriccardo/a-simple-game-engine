@@ -3,7 +3,6 @@
 #include <sstream>
 
 using namespace asge::config;
-namespace toml = _internal::toml;
 
 asge::BoolResult asge::config::ConfigurationManager::ReadConfiguration( filesystem::Path const& inPath )
 {

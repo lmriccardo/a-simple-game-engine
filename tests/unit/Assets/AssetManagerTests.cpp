@@ -1,5 +1,9 @@
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
+#include <ASGE/Core/ECS/Registry.hpp>
+#include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
@@ -91,6 +95,15 @@ protected:
 
         WriteBytes(m_ImagesDir / "hero.bmp", MakeSolidRedBmp());
         WriteText(m_ImagesDir / "garbage.bmp", "not a bmp");
+        WriteText(m_ImagesDir / "walk.toml",
+            "[FrameTable]\n"
+            "x = 0.0\n"
+            "y = 0.0\n"
+            "w = 8.0\n"
+            "h = 8.0\n"
+            "columns = 2\n"
+            "count = 4\n"
+        );
 
         ASSERT_TRUE(m_Vfs.Mount("images", m_ImagesDir.string()).IsOk());
         ASSERT_TRUE(m_Vfs.Mount("fonts", std::string(ASGE_TEST_FONTS_DIR)).IsOk());
@@ -183,11 +196,13 @@ TEST_F(AssetManagerTest, GetFont_DifferentPixelHeightsAreSeparateCacheEntries)
 {
     AssetManager mgr(m_Vfs);
 
-    auto small = mgr.GetFont("fonts/Ahem.ttf", 16);
-    auto large = mgr.GetFont("fonts/Ahem.ttf", 32);
-    ASSERT_TRUE(small.IsOk());
-    ASSERT_TRUE(large.IsOk());
-    EXPECT_NE(small.Value(), large.Value());
+    // Not named small/large -- <windows.h> #defines both as macros (old MIDL
+    // type aliases), which silently mangles "auto small = ..." on MSVC.
+    auto smallFont = mgr.GetFont("fonts/Ahem.ttf", 16);
+    auto largeFont = mgr.GetFont("fonts/Ahem.ttf", 32);
+    ASSERT_TRUE(smallFont.IsOk());
+    ASSERT_TRUE(largeFont.IsOk());
+    EXPECT_NE(smallFont.Value(), largeFont.Value());
 }
 
 TEST_F(AssetManagerTest, GetFont_SamePathAndHeightTwiceReturnsSameCachedAsset)
@@ -199,6 +214,239 @@ TEST_F(AssetManagerTest, GetFont_SamePathAndHeightTwiceReturnsSameCachedAsset)
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(second.IsOk());
     EXPECT_EQ(first.Value(), second.Value());
+}
+
+// ─── GetFrameTable ───────────────────────────────────────────────────────────
+
+TEST_F(AssetManagerTest, GetFrameTable_ValidPathReturnsLoadedFrameTable)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto result = mgr.GetFrameTable("images/walk.toml");
+    ASSERT_TRUE(result.IsOk());
+    ASSERT_EQ(result.Value()->Get().m_Frames.size(), 4u);
+    EXPECT_EQ(result.Value()->VirtualPath(), "images/walk.toml");
+}
+
+TEST_F(AssetManagerTest, GetFrameTable_UnresolvableVirtualPathReturnsNotMountedError)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto result = mgr.GetFrameTable("images/missing.toml");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(VfsError::NotMounted));
+}
+
+TEST_F(AssetManagerTest, GetFrameTable_SamePathTwiceReturnsSameCachedAsset)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto first = mgr.GetFrameTable("images/walk.toml");
+    auto second = mgr.GetFrameTable("images/walk.toml");
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(first.Value(), second.Value());
+}
+
+// ─── ResolveAssets ───────────────────────────────────────────────────────────
+
+// Minimal ITexture stub tracking how many instances are currently alive, so
+// tests can assert on AssetManager actually owning (and eventually freeing)
+// what it creates -- not just that Sprite::m_Texture ends up non-null.
+class FakeTexture final : public asge::video::ITexture
+{
+public:
+    inline static int s_LiveCount = 0;
+
+    FakeTexture() noexcept { ++s_LiveCount; }
+    ~FakeTexture() override { --s_LiveCount; }
+
+    [[nodiscard]] asge::math::Int2 Size() const noexcept override { return { 8, 8 }; }
+    [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
+    [[nodiscard]] bool IsValid() const noexcept override { return true; }
+
+    void SetColorMod(asge::media::RGBA_Color) noexcept override {}
+
+    [[nodiscard]] asge::Result<asge::media::RGBA_Color> GetColorMod() const noexcept override
+    {
+        return asge::Result<asge::media::RGBA_Color>::Ok(asge::media::RGBA_Color{});
+    }
+};
+
+// Minimal IRenderer stub whose only job is CreateTexture; every draw call is
+// a no-op since ResolveAssets never issues one. m_FailCreate flips
+// CreateTexture to return nullptr, for the "texture creation itself fails"
+// path.
+class FakeRenderer final : public asge::video::IRenderer
+{
+public:
+    bool m_FailCreate{ false };
+
+    void Clear(asge::media::RGBA_Color const&) const override {}
+    void DrawRect(asge::math::Rect const&, asge::media::RGBA_Color const&, bool) const override {}
+    void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
+        asge::media::RGBA_Color const&) const override {}
+    void DrawCircle(asge::math::Int2 const&, int, asge::media::RGBA_Color const&, bool) const override {}
+    void DrawTexture(asge::video::ITexture const&, asge::math::Rect const&) const noexcept override {}
+    void DrawTexture(asge::video::ITexture const&, asge::math::Float2 const&) const noexcept override {}
+    void DrawTexture(asge::video::ITexture const&, asge::math::Rect const&,
+        asge::math::Rect const&) const noexcept override {}
+    void DrawTexture9Grid(asge::video::ITexture const&, float, float, float, float,
+        asge::math::Rect const&) const noexcept override {}
+    void DrawTextureTiled(asge::video::ITexture const&, float, asge::math::Rect const&) const noexcept override {}
+    void DrawTextureAffine(asge::video::ITexture const&, asge::math::Float2 const&,
+        asge::math::Float2 const&, asge::math::Float2 const&) const noexcept override {}
+    void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
+        asge::math::Float2 const&, asge::media::RGBA_Color const&) const noexcept override {}
+
+    void Present() const override {}
+
+    [[nodiscard]] std::unique_ptr<asge::video::ITexture> CreateTexture(
+        asge::media::Image const&) const noexcept override
+    {
+        return m_FailCreate ? nullptr : std::make_unique<FakeTexture>();
+    }
+
+    [[nodiscard]] bool IsValid() const override { return true; }
+};
+
+class ResolveAssetsTest : public AssetManagerTest
+{
+protected:
+    asge::ecs::Registry m_Registry;
+    FakeRenderer m_Renderer;
+
+    void SetUp() override
+    {
+        AssetManagerTest::SetUp();
+        FakeTexture::s_LiveCount = 0;
+    }
+};
+
+TEST_F(ResolveAssetsTest, SpriteWithVirtualPathGetsTextureAssigned)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    EXPECT_NE(sprite.m_Texture, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, SpriteAlreadyHavingATextureIsLeftUntouched)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    FakeTexture preExisting;
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_Texture = &preExisting, .m_VirtualPath = "images/hero.bmp" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    EXPECT_EQ(sprite.m_Texture, &preExisting); // Not replaced with a freshly-loaded one
+}
+
+TEST_F(ResolveAssetsTest, SpriteWithEmptyVirtualPathIsSkipped)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(entity.Value(), {}).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    EXPECT_EQ(sprite.m_Texture, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, SpriteWithUnresolvableVirtualPathLeavesTextureNullRatherThanCrashing)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/missing.bmp" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    EXPECT_EQ(sprite.m_Texture, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, TextureCreationFailureLeavesSpriteTextureNullRatherThanCrashing)
+{
+    AssetManager mgr(m_Vfs);
+    m_Renderer.m_FailCreate = true;
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    EXPECT_EQ(sprite.m_Texture, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, AnimationWithClipPathGetsClipAssigned)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
+        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& anim = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get();
+    ASSERT_NE(anim.m_Clip, nullptr);
+    EXPECT_EQ(anim.m_Clip->Get().m_Frames.size(), 4u);
+}
+
+TEST_F(ResolveAssetsTest, AnimationAlreadyHavingAClipIsLeftUntouched)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    auto preResolved = mgr.GetFrameTable("images/walk.toml");
+    ASSERT_TRUE(preResolved.IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
+        entity.Value(), { .m_ClipPath = "images/walk.toml", .m_Clip = preResolved.Value() }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& anim = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get();
+    EXPECT_EQ(anim.m_Clip, preResolved.Value());
+}
+
+TEST_F(ResolveAssetsTest, AnimationWithEmptyClipPathIsSkipped)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(entity.Value(), {}).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto const& anim = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get();
+    EXPECT_EQ(anim.m_Clip, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, CreatedTexturesAreOwnedByAssetManagerAndFreedWithIt)
+{
+    // Regression guard: ResolveAssets used to call CreateTexture().release()
+    // without storing the unique_ptr anywhere, leaking every texture it
+    // created. The live-instance count must both go up while the
+    // AssetManager holding it is alive, and back down once it's destroyed.
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+
+    {
+        AssetManager mgr(m_Vfs);
+        mgr.ResolveAssets(m_Registry, m_Renderer);
+        EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+    }
+
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
 }
 
 }

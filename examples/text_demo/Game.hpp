@@ -7,9 +7,9 @@ class TextDemoGame : public asge::game::IGame
     // Each Font is baked at one fixed pixel height, so showing multiple
     // sizes on screen means loading the font multiple times -- once per
     // size -- each with its own atlas and uploaded texture.
-    std::unique_ptr<asge::graphics::Font> m_SmallFont;
-    std::unique_ptr<asge::graphics::Font> m_MediumFont;
-    std::unique_ptr<asge::graphics::Font> m_LargeFont;
+    std::unique_ptr<asge::media::Font> m_SmallFont;
+    std::unique_ptr<asge::media::Font> m_MediumFont;
+    std::unique_ptr<asge::media::Font> m_LargeFont;
     std::unique_ptr<asge::video::ITexture> m_SmallAtlas;
     std::unique_ptr<asge::video::ITexture> m_MediumAtlas;
     std::unique_ptr<asge::video::ITexture> m_LargeAtlas;

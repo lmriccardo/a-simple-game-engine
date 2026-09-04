@@ -24,14 +24,14 @@ struct Serializer<Velocity>
     static constexpr str::StringView kTableName = "Velocity";
 
     static void ToToml(
-        Velocity inVelocity, asge::config::TOMLTableView inTview
+        Velocity inVelocity, asge::config::toml::TOMLTableView inTview
     ) noexcept {
         inTview.Table(std::string(kTableName))
                .Set("m_DX", inVelocity.m_DX)
                .Set("m_DY", inVelocity.m_DY);
     }
 
-    static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
+    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept
     {
         auto componentTable = inEnttView.Table(std::string(kTableName));
 

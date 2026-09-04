@@ -2,7 +2,7 @@
 #include "../RenderError.hpp"
 #include "SDLPixelFormat.hpp"
 
-asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, graphics::Image const &inImage)
+asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, media::Image const &inImage)
 {
     auto const dims = inImage.Dimensions();
     m_Handle = SDL_CreateTexture(
@@ -67,7 +67,7 @@ bool asge::video::SDLTexture::IsValid() const noexcept
     return SDL_GetTextureProperties( m_Handle ) != 0;
 }
 
-void asge::video::SDLTexture::SetColorMod(graphics::RGBA_Color inColor) noexcept
+void asge::video::SDLTexture::SetColorMod(media::RGBA_Color inColor) noexcept
 {
     if ( !SDL_SetTextureColorMod( m_Handle, inColor.r, inColor.g, inColor.b ) )
     {
@@ -80,25 +80,25 @@ void asge::video::SDLTexture::SetColorMod(graphics::RGBA_Color inColor) noexcept
     }
 }
 
-asge::Result<asge::graphics::RGBA_Color> asge::video::SDLTexture::GetColorMod() const noexcept
+asge::Result<asge::media::RGBA_Color> asge::video::SDLTexture::GetColorMod() const noexcept
 {
-    graphics::RGBA_Color outColor;
+    media::RGBA_Color outColor;
 
     if ( !SDL_GetTextureColorMod( m_Handle, &outColor.r, &outColor.g, &outColor.b ) )
     {
-        return Result<graphics::RGBA_Color>::Err(
+        return Result<media::RGBA_Color>::Err(
             make_error_code( errors::RenderError::TextureGetColorModFailed ), 
             SDL_GetError());
     }
 
     if ( !SDL_GetTextureAlphaMod( m_Handle, &outColor.a ) )
     {
-        return Result<graphics::RGBA_Color>::Err(
+        return Result<media::RGBA_Color>::Err(
             make_error_code( errors::RenderError::TextureGetColorModFailed ), 
             SDL_GetError());
     }
 
-    return Result<graphics::RGBA_Color>::Ok( outColor );
+    return Result<media::RGBA_Color>::Ok( outColor );
 }
 
 void asge::video::SDLTexture::Destroy()

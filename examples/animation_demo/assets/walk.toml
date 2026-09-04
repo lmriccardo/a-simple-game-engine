@@ -1,0 +1,9 @@
+# asset::FrameTable meta-file describing spritesheet.bmp's grid: 6 columns,
+# 1 row, each cell 32x32 pixels, all 6 cells used as animation frames.
+[FrameTable]
+x = 0.0
+y = 0.0
+w = 32.0
+h = 32.0
+columns = 6
+count = 6

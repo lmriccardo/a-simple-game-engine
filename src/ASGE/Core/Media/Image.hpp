@@ -10,7 +10,7 @@
 #include <ASGE/Core/Filesystem/FileIO.hpp>
 #include "PixelFormat.hpp"
 
-namespace asge::graphics
+namespace asge::media
 {
 
 class Image
