@@ -15,15 +15,16 @@ namespace asge::game::components
  * @brief A drawable texture reference, drawn each frame via RenderSystem.
  *
  * Non-owning: m_Texture must outlive every entity holding a Sprite that
- * points to it (typically owned by the IGame itself, since a renderer —
- * and so a texture — cannot be created before one exists).
+ * points to it — in practice asset::AssetManager, since a renderer (and so
+ * a texture) can't be created before one exists, so nothing can own the
+ * texture at component-construction time. asset::AssetManager::
+ * ResolveAssets is what actually creates it and keeps it alive.
  *
  * m_VirtualPath is what actually round-trips through TOML — m_Texture is a
  * runtime-only pointer that can't be serialized, so ToToml/FromToml carry
  * the path it was loaded from instead. FromToml leaves m_Texture null;
- * resolving it back into a live texture (via AssetManager + IRenderer) is
- * the caller's job, the same deferred-load step ecs_demo already does for
- * freshly-spawned sprites.
+ * asset::AssetManager::ResolveAssets is what resolves m_VirtualPath back
+ * into a live texture for every Sprite that still needs one.
  */
 struct Sprite
 {
@@ -69,7 +70,7 @@ struct Serializer<Sprite>
     static constexpr str::StringView kTableName = "Sprite";
 
     static void ToToml(
-        Sprite inSprite, asge::config::TOMLTableView inTview
+        Sprite inSprite, asge::config::toml::TOMLTableView inTview
     ) noexcept {
         auto sprite = inTview.Table(std::string(kTableName));
         sprite.Set<std::string>("m_VirtualPath", inSprite.m_VirtualPath);
@@ -87,7 +88,7 @@ struct Serializer<Sprite>
         sprite.Set("m_YSort", inSprite.m_YSort);
     }
 
-    static T FromToml( asge::config::TOMLTableView inEnttView ) noexcept
+    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept
     {
         auto sprite = inEnttView.Table(std::string(kTableName));
 

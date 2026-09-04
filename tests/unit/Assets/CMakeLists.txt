@@ -1,6 +1,7 @@
 add_executable(ASGE_AssetsTests
     AssetPoolTests.cpp
     AssetManagerTests.cpp
+    FrameTableTests.cpp
 )
 
 target_link_libraries(ASGE_AssetsTests

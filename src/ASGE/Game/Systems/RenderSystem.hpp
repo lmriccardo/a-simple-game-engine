@@ -12,13 +12,16 @@ namespace asge::game::systems
  * @brief Advances every entity's Animation and writes the current frame
  *        into its Sprite::m_SourceRect.
  *
- * Accumulates inDeltaTime into Animation::m_ElapsedTime and steps
- * m_CurrentFrame forward once per whole m_FrameDuration elapsed (a large
- * inDeltaTime can step multiple frames in one call). At the last frame,
- * either wraps to 0 (m_Loop true) or clamps there and clears m_Playing
- * (m_Loop false). Skips entities that aren't playing, have no frames, or
- * have no texture yet; a non-positive m_FrameDuration is treated as "not
- * animating" rather than risking an infinite advance loop.
+ * Skipped entirely until Animation::m_Clip is resolved (see
+ * asset::AssetManager::ResolveAssets) — an entity whose clip hasn't loaded
+ * yet, or has no Sprite::m_Texture yet either, is left untouched rather
+ * than animated against an empty frame list. Once resolved, accumulates
+ * inDeltaTime into Animation::m_ElapsedTime and steps m_CurrentFrame
+ * forward once per whole m_FrameDuration elapsed (a large inDeltaTime can
+ * step multiple frames in one call). At the last frame, either wraps to 0
+ * (m_Loop true) or clamps there and clears m_Playing (m_Loop false). A
+ * non-positive m_FrameDuration is treated as "not animating" rather than
+ * risking an infinite advance loop.
  */
 void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

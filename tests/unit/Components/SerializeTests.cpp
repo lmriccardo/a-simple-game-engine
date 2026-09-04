@@ -9,7 +9,7 @@ namespace
 {
 
 using namespace asge::game::components;
-using asge::config::TOMLBuilder;
+using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
@@ -282,85 +282,56 @@ TEST(ColliderSerializerTest, FromToml_MissingLayerAndMaskKeysDefaultToCollideWit
 
 // ─── Animation ──────────────────────────────────────────────────────────────
 
-TEST(AnimationSerializerTest, ToToml_WritesFrameDurationAndFrameCountUnderAnimationTable)
+TEST(AnimationSerializerTest, ToToml_WritesClipPathAndFrameDurationUnderAnimationTable)
 {
     TOMLBuilder builder;
-    Animation const anim{
-        .m_Frames = { asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } },
-        .m_FrameDuration = 0.2f
-    };
+    Animation const anim{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.2f };
     Serializer<Animation>::ToToml( anim, builder );
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Animation]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_ClipPath = "clips/walk.toml")"), std::string::npos);
     EXPECT_NE(dump.find("m_FrameDuration = 0.2"), std::string::npos);
-    EXPECT_NE(dump.find("m_NofFrames = 2"), std::string::npos);
-    EXPECT_NE(dump.find("[[Animation.Frame]]"), std::string::npos);
 }
 
-TEST(AnimationSerializerTest, RoundTrip_FramesAndDurationPreservedInOrder)
+TEST(AnimationSerializerTest, RoundTrip_ClipPathAndDurationPreserved)
 {
     TOMLBuilder builder;
-    Animation const original{
-        .m_Frames = {
-            asge::math::Rect{ 0.0f, 0.0f, 16.0f, 16.0f },
-            asge::math::Rect{ 16.0f, 0.0f, 16.0f, 16.0f },
-            asge::math::Rect{ 32.0f, 0.0f, 16.0f, 16.0f }
-        },
-        .m_FrameDuration = 0.15f
-    };
+    Animation const original{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.15f };
     Serializer<Animation>::ToToml( original, builder );
 
     Animation const restored = Serializer<Animation>::FromToml( builder );
+    EXPECT_EQ(restored.m_ClipPath, original.m_ClipPath);
     EXPECT_FLOAT_EQ(restored.m_FrameDuration, original.m_FrameDuration);
-    ASSERT_EQ(restored.m_Frames.size(), original.m_Frames.size());
-    for ( std::size_t ii = 0; ii < original.m_Frames.size(); ++ii )
-    {
-        EXPECT_FLOAT_EQ(restored.m_Frames[ii].x, original.m_Frames[ii].x);
-        EXPECT_FLOAT_EQ(restored.m_Frames[ii].y, original.m_Frames[ii].y);
-        EXPECT_FLOAT_EQ(restored.m_Frames[ii].w, original.m_Frames[ii].w);
-        EXPECT_FLOAT_EQ(restored.m_Frames[ii].h, original.m_Frames[ii].h);
-    }
 }
 
-TEST(AnimationSerializerTest, FromToml_PlaybackStateAlwaysResetsToStructDefaults)
+TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStructDefaults)
 {
-    // Serializer<Animation> only round-trips the animation's definition
-    // (frames + duration) -- FromToml must never carry over playback
-    // progress from the table, since scene files don't describe it at all.
+    // Serializer<Animation> only round-trips m_ClipPath and m_FrameDuration
+    // -- FromToml must never carry over m_Clip (a scene file can't describe
+    // a resolved asset) or playback progress, since neither is something a
+    // scene file describes at all.
     TOMLBuilder builder;
-    Serializer<Animation>::ToToml( Animation{ .m_Frames = { asge::math::Rect{} } }, builder );
+    Serializer<Animation>::ToToml( Animation{ .m_ClipPath = "clips/walk.toml" }, builder );
 
     Animation const restored = Serializer<Animation>::FromToml( builder );
+    EXPECT_EQ(restored.m_Clip, nullptr);
     EXPECT_EQ(restored.m_CurrentFrame, 0u);
     EXPECT_FLOAT_EQ(restored.m_ElapsedTime, 0.0f);
     EXPECT_TRUE(restored.m_Loop);
     EXPECT_TRUE(restored.m_Playing);
 }
 
-TEST(AnimationSerializerTest, FromToml_MissingNofFramesKeyDefaultsToZeroFrames)
+TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
 {
-    // A hand-written or pre-Animation scene file has no "m_NofFrames" key at all.
+    // A hand-written or pre-Animation scene file has no "m_ClipPath" key at
+    // all -- AnimationSystem already treats an empty m_ClipPath as "not
+    // animating" (see RenderSystemTests.cpp), so this must not error.
     TOMLBuilder builder;
     builder.Table("Animation").Set("m_FrameDuration", 0.1f);
 
     Animation const restored = Serializer<Animation>::FromToml( builder );
-    EXPECT_TRUE(restored.m_Frames.empty());
-}
-
-TEST(AnimationSerializerTest, FromToml_NofFramesExceedingWrittenFrameTablesStopsEarlyRatherThanCrashing)
-{
-    // m_NofFrames claims more frames than were actually written -- FromToml
-    // must stop at the first missing "Frame[i]" instead of indexing past it.
-    TOMLBuilder builder;
-    auto table = builder.Table("Animation");
-    table.Set("m_NofFrames", 5);
-    table.ArrayTable("Frame")
-         .Set("m_OffsetX", 0.0f).Set("m_OffsetY", 0.0f)
-         .Set("m_Width", 4.0f).Set("m_Height", 4.0f);
-
-    Animation const restored = Serializer<Animation>::FromToml( builder );
-    EXPECT_EQ(restored.m_Frames.size(), 1u);
+    EXPECT_TRUE(restored.m_ClipPath.empty());
 }
 
 }

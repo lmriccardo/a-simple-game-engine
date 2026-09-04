@@ -57,14 +57,18 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
         auto& animationRef = animation.get();
         auto& spriteRef = sprite.get();
 
-        if ( !animationRef.m_Playing || animationRef.m_Frames.empty() || !spriteRef.m_Texture
+        if ( animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) continue;
+
+        std::vector<math::Rect> const& frames = animationRef.m_Clip->Get().m_Frames;
+
+        if ( !animationRef.m_Playing || frames.empty() || !spriteRef.m_Texture
              || animationRef.m_FrameDuration <= 0.0f )
         {
             continue;
         }
 
         animationRef.m_ElapsedTime += inDeltaTime;
-        auto const nofFrames = animationRef.m_Frames.size();
+        auto const nofFrames = frames.size();
         while ( animationRef.m_ElapsedTime >= animationRef.m_FrameDuration )
         {
             animationRef.m_ElapsedTime -= animationRef.m_FrameDuration;
@@ -76,7 +80,7 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
             }
         }
 
-        spriteRef.m_SourceRect = animationRef.m_Frames[animationRef.m_CurrentFrame];
+        spriteRef.m_SourceRect = frames[animationRef.m_CurrentFrame];
     }
 }
 

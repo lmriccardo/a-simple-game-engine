@@ -1,7 +1,8 @@
 #pragma once
 
-#include <ASGE/Core/Graphics/Image.hpp>
-#include <ASGE/Core/Graphics/Font.hpp>
+#include <ASGE/Core/Media/Image.hpp>
+#include <ASGE/Core/Media/Font.hpp>
+#include "FrameTable.hpp"
 
 namespace asge::game::asset
 {
@@ -13,7 +14,7 @@ namespace asge::game::asset
  * itself) branch on what kind of asset it's looking at — e.g. a future
  * heterogeneous asset registry/cache keyed by this tag.
  */
-enum class AssetType { Unknown, Image, Font };
+enum class AssetType { Unknown, Image, Font, FrameTable };
 
 /**
  * @brief Maps a loaded-asset type `T` to its `AssetType` tag at compile time.
@@ -36,8 +37,9 @@ template<typename T> struct GetAssetType
         static constexpr AssetType type = AssetType::Tag;      \
     }
 
-DEFINE_ASSET_TYPE(graphics::Image, Image);
-DEFINE_ASSET_TYPE(graphics::Font, Font);
+DEFINE_ASSET_TYPE(media::Image, Image);
+DEFINE_ASSET_TYPE(media::Font, Font);
+DEFINE_ASSET_TYPE(FrameTable, FrameTable);
 
 #undef DEFINE_ASSET_TYPE
 
