@@ -1,8 +1,8 @@
 #include "SDLHeadlessFixture.hpp"
 
 #include <ASGE/Video/Graphics/Rendering/SDL/SDLRenderer.hpp>
-#include <ASGE/Core/Graphics/Image.hpp>
-#include <ASGE/Core/Graphics/Color.hpp>
+#include <ASGE/Core/Media/Image.hpp>
+#include <ASGE/Core/Media/Color.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 
 #include <gtest/gtest.h>
@@ -25,8 +25,8 @@
 namespace
 {
 
-using asge::graphics::Image;
-using asge::graphics::RGBA_Color;
+using asge::media::Image;
+using asge::media::RGBA_Color;
 using asge::video::SDLRenderer;
 
 // A hand-built, minimal 2x2 solid-blue 24bpp BMP -- same construction as

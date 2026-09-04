@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-namespace asge::graphics
+namespace asge::media
 {
 
 struct PixelFormatInfo 

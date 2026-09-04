@@ -11,7 +11,7 @@ constexpr int kAtlasW    = 512;
 constexpr int kAtlasH    = 512;
 }
 
-asge::graphics::Font::Font(
+asge::media::Font::Font(
     std::unordered_map<char32_t, GlyphMetrics> inGlyphs, Image inAtlasImage, 
     int inLineHeight, int inAscent, int inDescent
 ) noexcept
@@ -22,7 +22,7 @@ asge::graphics::Font::Font(
 , m_Descent(inDescent)
 {}
 
-asge::Result<asge::graphics::Font> asge::graphics::Font::Load(const filesystem::Path &inPath, int inPixelHeight)
+asge::Result<asge::media::Font> asge::media::Font::Load(const filesystem::Path &inPath, int inPixelHeight)
 {
     auto binBuffer = filesystem::ReadBinary( inPath );
     if ( !binBuffer ) return Result<Font>::Err(binBuffer.Error());
@@ -110,7 +110,7 @@ asge::Result<asge::graphics::Font> asge::graphics::Font::Load(const filesystem::
     );
 }
 
-asge::Result<asge::graphics::GlyphMetrics> asge::graphics::Font::GetGlyph(char32_t inCodepoint) const
+asge::Result<asge::media::GlyphMetrics> asge::media::Font::GetGlyph(char32_t inCodepoint) const
 {
     auto it = m_Glyphs.find( inCodepoint );
     if ( it == m_Glyphs.end() ) return Result<GlyphMetrics>::Err(
@@ -121,22 +121,22 @@ asge::Result<asge::graphics::GlyphMetrics> asge::graphics::Font::GetGlyph(char32
     return Result<GlyphMetrics>::Ok( it->second );
 }
 
-const asge::graphics::Image &asge::graphics::Font::GetAtlasImage() const noexcept
+const asge::media::Image &asge::media::Font::GetAtlasImage() const noexcept
 {
     return m_AtlasImage;
 }
 
-int asge::graphics::Font::GetLineHeight() const noexcept
+int asge::media::Font::GetLineHeight() const noexcept
 {
     return m_LineHeight;
 }
 
-int asge::graphics::Font::GetAscent() const noexcept
+int asge::media::Font::GetAscent() const noexcept
 {
     return m_Ascent;
 }
 
-int asge::graphics::Font::GetDescent() const noexcept
+int asge::media::Font::GetDescent() const noexcept
 {
     return m_Descent;
 }

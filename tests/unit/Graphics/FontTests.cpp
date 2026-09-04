@@ -1,4 +1,4 @@
-#include <ASGE/Core/Graphics/Font.hpp>
+#include <ASGE/Core/Media/Font.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
@@ -20,7 +20,7 @@
 namespace
 {
 
-using namespace asge::graphics;
+using namespace asge::media;
 using asge::errors::FontError;
 
 std::filesystem::path AhemPath()

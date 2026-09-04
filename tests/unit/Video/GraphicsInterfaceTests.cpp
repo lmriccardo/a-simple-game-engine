@@ -1,7 +1,7 @@
 #include <ASGE/Video/Graphics/Window.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Video/Graphics/Texture.hpp>
-#include <ASGE/Core/Graphics/Image.hpp>
+#include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 
 #include <gtest/gtest.h>
@@ -19,9 +19,9 @@ using asge::video::DrawTextureAnchored;
 using asge::video::IRenderer;
 using asge::video::ITexture;
 using asge::video::IWindow;
-using asge::graphics::Image;
-using asge::graphics::PixelFormat;
-using asge::graphics::RGBA_Color;
+using asge::media::Image;
+using asge::media::PixelFormat;
+using asge::media::RGBA_Color;
 
 class FakeWindow final : public IWindow
 {
@@ -146,7 +146,7 @@ public:
     // constructing a real graphics::Font needs actual TTF bytes via
     // Font::Load, which is out of scope for these no-SDL interface fakes.
     // The override existing at all is what keeps FakeRenderer instantiable.
-    void DrawString(asge::str::StringView, asge::graphics::Font const&, ITexture&,
+    void DrawString(asge::str::StringView, asge::media::Font const&, ITexture&,
         asge::math::Float2 const&, RGBA_Color const&) const noexcept override
     {
         ++s_DrawStringCalls;

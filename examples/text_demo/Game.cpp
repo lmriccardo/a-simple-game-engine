@@ -9,7 +9,7 @@ constexpr float HUE_CYCLE_SPEED = 0.6f; // full cycles per ~10 seconds
 
 // Cheap HSV(hue in turns, full sat/value) -> RGB, just enough to cycle the
 // headline's color smoothly without needing a real color-space library.
-asge::graphics::RGBA_Color HueToColor(float inHueTurns)
+asge::media::RGBA_Color HueToColor(float inHueTurns)
 {
     float const h = (inHueTurns - std::floor(inHueTurns)) * 6.0f;
     float const x = 1.0f - std::fabs(std::fmod(h, 2.0f) - 1.0f);
@@ -30,19 +30,19 @@ asge::graphics::RGBA_Color HueToColor(float inHueTurns)
     };
 }
 
-std::unique_ptr<asge::graphics::Font> LoadFont(int inPixelHeight)
+std::unique_ptr<asge::media::Font> LoadFont(int inPixelHeight)
 {
     // ASGE_TEXT_DEMO_ASSET_DIR is injected by CMakeLists.txt.
     auto const path = std::filesystem::path(ASGE_TEXT_DEMO_ASSET_DIR) / "PTSans-Regular.ttf";
 
-    auto fontResult = asge::graphics::Font::Load(path, inPixelHeight);
+    auto fontResult = asge::media::Font::Load(path, inPixelHeight);
     if (!fontResult)
     {
         fontResult.LogError();
         return nullptr;
     }
 
-    return std::make_unique<asge::graphics::Font>(std::move(fontResult).Value());
+    return std::make_unique<asge::media::Font>(std::move(fontResult).Value());
 }
 }
 

@@ -1,17 +1,17 @@
 #include "SDLPixelFormat.hpp"
 
-SDL_PixelFormat asge::video::MapPixelFormat( graphics::PixelFormat inFormat ) noexcept
+SDL_PixelFormat asge::video::MapPixelFormat( media::PixelFormat inFormat ) noexcept
 {
     switch (inFormat)
     {
-    case graphics::PixelFormat::RGBA8: return SDL_PIXELFORMAT_RGBA32;
-    case graphics::PixelFormat::A8:    return SDL_PIXELFORMAT_RGBA32; // expanded, see ExpandPixelsForUpload
+    case media::PixelFormat::RGBA8: return SDL_PIXELFORMAT_RGBA32;
+    case media::PixelFormat::A8:    return SDL_PIXELFORMAT_RGBA32; // expanded, see ExpandPixelsForUpload
     }
 
     return SDL_PIXELFORMAT_UNKNOWN;
 }
 
-asge::video::SDLUploadBuffer asge::video::ExpandPixelsForUpload( graphics::Image const &inImage )
+asge::video::SDLUploadBuffer asge::video::ExpandPixelsForUpload( media::Image const &inImage )
 {
     auto const dims = inImage.Dimensions();
     auto const width = dims.x() > 0 ? static_cast<std::size_t>(dims.x()) : 0;
@@ -20,12 +20,12 @@ asge::video::SDLUploadBuffer asge::video::ExpandPixelsForUpload( graphics::Image
 
     switch (inImage.Format())
     {
-    case graphics::PixelFormat::RGBA8:
+    case media::PixelFormat::RGBA8:
     {
         auto const stride = inImage.Stride();
         return { std::vector<std::uint8_t>(src, src + stride * height), stride };
     }
-    case graphics::PixelFormat::A8:
+    case media::PixelFormat::A8:
     {
         std::vector<std::uint8_t> data(width * height * 4);
         for (std::size_t i = 0; i < width * height; ++i)

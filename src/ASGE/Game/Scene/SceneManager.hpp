@@ -91,11 +91,13 @@ public:
 
     /** @brief The Registry backing every resident scene, not just the active one — see ActiveEntities(). */
     [[nodiscard]] ecs::Registry& GetRegistry() noexcept { return m_Registry; }
+    
     /** @brief Read-only access to the shared Registry — see GetRegistry(). */
     [[nodiscard]] ecs::Registry const& GetRegistry() const noexcept { return m_Registry; }
 
     /** @brief Virtual path the active scene was loaded from, or nullopt if none. */
-    [[nodiscard]] std::optional<str::String> const& CurrentScenePath() const noexcept { return m_CurrentScenePath; }
+    [[nodiscard]] std::optional<str::String> const& CurrentScenePath() const noexcept 
+    { return m_CurrentScenePath; }
 };
 
 }

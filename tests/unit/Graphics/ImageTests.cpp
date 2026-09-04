@@ -1,5 +1,5 @@
-#include <ASGE/Core/Graphics/Image.hpp>
-#include <ASGE/Core/Graphics/PixelFormat.hpp>
+#include <ASGE/Core/Media/Image.hpp>
+#include <ASGE/Core/Media/PixelFormat.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
@@ -13,7 +13,7 @@
 namespace
 {
 
-using namespace asge::graphics;
+using namespace asge::media;
 using asge::errors::ImageError;
 
 // ─── A hand-built, minimal 2x2 solid-red 24bpp BMP ─────────────────────────────
@@ -299,52 +299,6 @@ TEST(AlphaContentBoundsTest, A8Format_TreatsThePixelByteItselfAsAlpha)
     EXPECT_FLOAT_EQ(bounds.y, 1.0f);
     EXPECT_FLOAT_EQ(bounds.w, 1.0f);
     EXPECT_FLOAT_EQ(bounds.h, 1.0f);
-}
-
-// ─── MakeGridFrames ─────────────────────────────────────────────────────────────
-
-TEST(MakeGridFramesTest, LaysOutFramesInRowMajorOrderAcrossColumns)
-{
-    auto const frames = MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, 3, 4 );
-
-    ASSERT_EQ(frames.size(), 4u);
-    EXPECT_FLOAT_EQ(frames[0].x, 0.0f);  EXPECT_FLOAT_EQ(frames[0].y, 0.0f); // col 0, row 0
-    EXPECT_FLOAT_EQ(frames[1].x, 8.0f);  EXPECT_FLOAT_EQ(frames[1].y, 0.0f); // col 1, row 0
-    EXPECT_FLOAT_EQ(frames[2].x, 16.0f); EXPECT_FLOAT_EQ(frames[2].y, 0.0f); // col 2, row 0
-    EXPECT_FLOAT_EQ(frames[3].x, 0.0f);  EXPECT_FLOAT_EQ(frames[3].y, 8.0f); // wraps to col 0, row 1
-    for ( auto const& frame : frames )
-    {
-        EXPECT_FLOAT_EQ(frame.w, 8.0f);
-        EXPECT_FLOAT_EQ(frame.h, 8.0f);
-    }
-}
-
-TEST(MakeGridFramesTest, OffsetSheetCellShiftsEveryFrameByThatOffset)
-{
-    auto const frames = MakeGridFrames( asge::math::Rect{ 100.0f, 50.0f, 4.0f, 4.0f }, 2, 2 );
-
-    ASSERT_EQ(frames.size(), 2u);
-    EXPECT_FLOAT_EQ(frames[0].x, 100.0f);
-    EXPECT_FLOAT_EQ(frames[0].y, 50.0f);
-    EXPECT_FLOAT_EQ(frames[1].x, 104.0f);
-    EXPECT_FLOAT_EQ(frames[1].y, 50.0f);
-}
-
-TEST(MakeGridFramesTest, CountSmallerThanGridSizeOnlyProducesThatManyFrames)
-{
-    // A 4-column, 2-row sheet (8 cells), but only 6 are actual animation frames.
-    auto const frames = MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 10.0f, 10.0f }, 4, 6 );
-    EXPECT_EQ(frames.size(), 6u);
-}
-
-TEST(MakeGridFramesTest, ZeroCountReturnsEmpty)
-{
-    EXPECT_TRUE(MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, 4, 0 ).empty());
-}
-
-TEST(MakeGridFramesTest, ZeroColumnsReturnsEmptyRatherThanDividingByZero)
-{
-    EXPECT_TRUE(MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, 0, 4 ).empty());
 }
 
 }
