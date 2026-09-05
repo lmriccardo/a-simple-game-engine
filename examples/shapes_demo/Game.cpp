@@ -9,12 +9,14 @@ constexpr float LINE_RADIUS      = 100.0f;
 const asge::math::Float2 LINE_ORIGIN{ 400.0f, 300.0f };
 }
 
-void ShapesDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
+std::optional<asge::game::state::Transition<int>>
+ShapesDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_LineAngle += LINE_SWEEP_SPEED * inDeltaTime;
+    return std::nullopt;
 }
 
-void ShapesDemoGame::Render(asge::video::IRenderer &inRenderer)
+void ShapesDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 20, 20, 20, 255 });
 
@@ -54,6 +56,17 @@ void ShapesDemoGame::Render(asge::video::IRenderer &inRenderer)
     );
 }
 
-void ShapesDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
+void ShapesDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
 {
+}
+
+ShapesDemoGame::ShapesDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr<ShapesDemoGame::StateType> ShapesDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<ShapesDemoState>();
 }

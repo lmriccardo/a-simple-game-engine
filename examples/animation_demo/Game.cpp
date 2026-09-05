@@ -21,19 +21,14 @@ constexpr char const* kSheetPath = "textures/spritesheet.bmp";
 constexpr char const* kClipPath  = "textures/walk.toml"; // asset::FrameTable meta-file -- see assets/
 }
 
-AnimationDemoGame::AnimationDemoGame()
+AnimationDemoState::AnimationDemoState(
+    asge::ecs::Registry& inRegistry, asge::game::asset::AssetManager& inAssets)
+: m_Registry(inRegistry), m_Assets(inAssets)
 {
-    // ASGE_ANIMATION_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted
-    // once so both the sheet and its FrameTable meta-file are loaded by
-    // virtual path (see Render()'s ResolveAssets call) instead of a
-    // hardcoded OS path baked into this demo.
-    auto mountResult = m_Vfs.Mount("textures", ASGE_ANIMATION_DEMO_ASSET_DIR);
-    if ( !mountResult ) mountResult.LogError();
-
     SpawnInitialRow();
 }
 
-void AnimationDemoGame::SpawnInitialRow()
+void AnimationDemoState::SpawnInitialRow()
 {
     // Every sprite plays the same clip, but each starts on a different
     // frame -- makes it visually obvious that Animation is per-entity
@@ -46,7 +41,7 @@ void AnimationDemoGame::SpawnInitialRow()
     }
 }
 
-void AnimationDemoGame::SpawnSprite( asge::math::Float2 inPosition, std::size_t inStartFrame )
+void AnimationDemoState::SpawnSprite( asge::math::Float2 inPosition, std::size_t inStartFrame )
 {
     auto entity = m_Registry.CreateEntity();
     if ( !entity ) { entity.LogError(); return; }
@@ -70,7 +65,7 @@ void AnimationDemoGame::SpawnSprite( asge::math::Float2 inPosition, std::size_t 
     m_SpriteEntities.push_back( entity.Value() );
 }
 
-void AnimationDemoGame::Reset()
+void AnimationDemoState::Reset()
 {
     for ( auto entity : m_SpriteEntities )
     {
@@ -81,7 +76,7 @@ void AnimationDemoGame::Reset()
     SpawnInitialRow();
 }
 
-void AnimationDemoGame::HandleInput(asge::input::InputState const &inInput)
+void AnimationDemoState::HandleInput(asge::input::InputState const &inInput)
 {
     using asge::input::Keycode;
     using asge::input::MouseButton;
@@ -113,16 +108,18 @@ void AnimationDemoGame::HandleInput(asge::input::InputState const &inInput)
     }
 }
 
-void AnimationDemoGame::Update(float inDeltaTime, asge::input::InputState const &inInput)
+std::optional<asge::game::state::Transition<int>>
+AnimationDemoState::Update(float inDeltaTime, asge::input::InputState const &inInput)
 {
     HandleInput( inInput );
     // AnimationSystem itself runs inside RenderPipeline (see Render()) --
     // Application::Run() calls Update() then Render() back-to-back once per
     // frame, so this frame's real inDeltaTime carries over unchanged.
     m_LastDeltaTime = inDeltaTime;
+    return std::nullopt;
 }
 
-void AnimationDemoGame::Render(asge::video::IRenderer &inRenderer)
+void AnimationDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 15, 15, 20, 255 });
 
@@ -138,7 +135,25 @@ void AnimationDemoGame::Render(asge::video::IRenderer &inRenderer)
     asge::game::systems::RenderPipeline( m_Registry, inRenderer, m_LastDeltaTime );
 }
 
-void AnimationDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
+void AnimationDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
 {
     // Everything here is driven by polling InputState in Update() instead.
+}
+
+AnimationDemoGame::AnimationDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    // ASGE_ANIMATION_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted
+    // once so both the sheet and its FrameTable meta-file are loaded by
+    // virtual path (see Render()'s ResolveAssets call) instead of a
+    // hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount("textures", ASGE_ANIMATION_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr<AnimationDemoGame::StateType> AnimationDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<AnimationDemoState>( m_SceneManager.GetRegistry(), m_Assets );
 }

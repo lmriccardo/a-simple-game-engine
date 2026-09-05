@@ -33,18 +33,20 @@ std::unique_ptr<asge::video::ITexture> LoadTexture(
 }
 }
 
-void TextureDemoGame::EnsureTexturesLoaded(asge::video::IRenderer& inRenderer)
+void TextureDemoState::EnsureTexturesLoaded(asge::video::IRenderer& inRenderer)
 {
     if (!m_CheckerTexture) m_CheckerTexture = LoadTexture(inRenderer, "checker.bmp");
     if (!m_FrameTexture)   m_FrameTexture   = LoadTexture(inRenderer, "frame.bmp");
 }
 
-void TextureDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
+std::optional<asge::game::state::Transition<int>>
+TextureDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_RotationAngle += ROTATION_SPEED * inDeltaTime;
+    return std::nullopt;
 }
 
-void TextureDemoGame::Render(asge::video::IRenderer &inRenderer)
+void TextureDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 20, 20, 20, 255 });
 
@@ -80,6 +82,17 @@ void TextureDemoGame::Render(asge::video::IRenderer &inRenderer)
     }
 }
 
-void TextureDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
+void TextureDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
 {
+}
+
+TextureDemoGame::TextureDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr<TextureDemoGame::StateType> TextureDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<TextureDemoState>();
 }

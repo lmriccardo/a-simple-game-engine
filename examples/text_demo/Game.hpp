@@ -2,7 +2,7 @@
 
 #include <ASGE/ASGE.hpp>
 
-class TextDemoGame : public asge::game::IGame
+class TextDemoState final : public asge::game::state::IGameState<int>
 {
     // Each Font is baked at one fixed pixel height, so showing multiple
     // sizes on screen means loading the font multiple times -- once per
@@ -19,9 +19,17 @@ class TextDemoGame : public asge::game::IGame
     void EnsureFontsLoaded(asge::video::IRenderer& inRenderer);
 
 public:
-    ~TextDemoGame() override = default;
-
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
+    [[nodiscard]] std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
+};
+
+class TextDemoGame final : public asge::game::Game<int>
+{
+public:
+    explicit TextDemoGame(asge::video::IRenderer& inRenderer);
+
+protected:
+    [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;
 };

@@ -1,9 +1,6 @@
 #pragma once
 
 #include <ASGE/ASGE.hpp>
-#include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
-#include <ASGE/Game/Assets/AssetManager.hpp>
-#include <ASGE/Game/Scene/SceneManager.hpp>
 
 #include <memory>
 #include <string>
@@ -36,22 +33,17 @@
  * stand-ins scoped to SceneManager::ActiveEntities() instead — teaching the
  * shared systems to be scene-aware for real is future work, not this demo's.
  */
-class SceneDemoGame : public asge::game::IGame
+class SceneDemoState final : public asge::game::state::IGameState<int>
 {
-    // m_Vfs must outlive m_Assets/m_SceneManager (both only borrow it) --
-    // declared first so member init order guarantees that regardless of
-    // ctor-list order.
-    asge::filesystem::VirtualFileSystem m_Vfs;
-    asge::game::asset::AssetManager     m_Assets{ m_Vfs };
-    asge::game::scene::SceneManager     m_SceneManager{ m_Vfs };
+    asge::game::scene::SceneManager& m_SceneManager;
+    asge::game::asset::AssetManager& m_Assets;
 
     asge::ecs::Entity m_Player{ asge::ecs::Entity::Null() };
 
-    // Textures are created lazily on first Render (no IRenderer exists yet
-    // at construction) and cached by the virtual path each Sprite names, so
-    // several entities sharing one texture only create it once -- and so a
-    // scene swap's freshly-loaded sprites still resolve against the same
-    // cache instead of recreating a texture already loaded once.
+    // Textures are cached by the virtual path each Sprite names, so several
+    // entities sharing one texture only create it once -- and so a scene
+    // swap's freshly-loaded sprites still resolve against the same cache
+    // instead of recreating a texture already loaded once.
     std::unordered_map<std::string, std::unique_ptr<asge::video::ITexture>> m_Textures;
 
     void ResolveSpriteTextures( asge::video::IRenderer& inRenderer );
@@ -63,10 +55,20 @@ class SceneDemoGame : public asge::game::IGame
     void RefreshPlayerReference(); // re-finds "the player" after any (re)load
 
 public:
-    SceneDemoGame();
-    ~SceneDemoGame() override = default;
+    SceneDemoState(
+        asge::game::scene::SceneManager& inSceneManager, asge::game::asset::AssetManager& inAssets );
 
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
+    [[nodiscard]] std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
+};
+
+class SceneDemoGame final : public asge::game::Game<int>
+{
+public:
+    explicit SceneDemoGame(asge::video::IRenderer& inRenderer);
+
+protected:
+    [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;
 };

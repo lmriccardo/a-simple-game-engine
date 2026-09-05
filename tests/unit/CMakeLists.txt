@@ -1,3 +1,4 @@
+add_subdirectory(Application)
 add_subdirectory(Math)
 add_subdirectory(Concurrent)
 add_subdirectory(Utils)

@@ -1,17 +1,14 @@
-add_executable(ASGE_GameTests
-    RenderSystemTests.cpp
-    PhysicsSystemTests.cpp
-    GameStateStackTests.cpp
-    GameTests.cpp
+add_executable(ASGE_ApplicationTests
+    ApplicationTests.cpp
 )
 
-target_link_libraries(ASGE_GameTests
+target_link_libraries(ASGE_ApplicationTests
     PRIVATE
         ASGE
         GTest::gtest_main
 )
 
-target_compile_options(ASGE_GameTests
+target_compile_options(ASGE_ApplicationTests
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
             -Wall -Wextra -Wpedantic
@@ -20,12 +17,12 @@ target_compile_options(ASGE_GameTests
 )
 
 if(WIN32)
-    add_custom_command(TARGET ASGE_GameTests POST_BUILD
+    add_custom_command(TARGET ASGE_ApplicationTests POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_if_different
             $<TARGET_FILE:SDL3::SDL3>
-            $<TARGET_FILE_DIR:ASGE_GameTests>
+            $<TARGET_FILE_DIR:ASGE_ApplicationTests>
     )
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(ASGE_GameTests)
+gtest_discover_tests(ASGE_ApplicationTests)

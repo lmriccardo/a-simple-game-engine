@@ -1,7 +1,4 @@
 add_library(ASGE STATIC
-    # Core components of the Engine
-    Application/Application.cpp
-
     # Event system components of the Engine
     Events/Translation/SDL_TranslationUnit.cpp
     Events/Events.cpp

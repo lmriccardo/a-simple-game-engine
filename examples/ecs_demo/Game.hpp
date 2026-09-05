@@ -1,22 +1,17 @@
 #pragma once
 
 #include <ASGE/ASGE.hpp>
-#include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
-#include <ASGE/Game/Assets/AssetManager.hpp>
 #include <vector>
 
-class EcsDemoGame : public asge::game::IGame
+class EcsDemoState final : public asge::game::state::IGameState<int>
 {
-    asge::ecs::Registry             m_Registry;
+    asge::ecs::Registry&             m_Registry;
+    asge::game::asset::AssetManager& m_Assets;
+
     std::vector<asge::ecs::Entity>  m_SpriteEntities; // every entity that gets a Sprite once loaded
     asge::ecs::Entity               m_Player{ asge::ecs::Entity::Null() };
 
-    // m_Vfs must outlive m_Assets (AssetManager only borrows it) -- declared
-    // first so member init order guarantees that regardless of ctor-list order.
-    asge::filesystem::VirtualFileSystem m_Vfs;
-    asge::game::asset::AssetManager     m_Assets{ m_Vfs };
-
-    std::unique_ptr<asge::video::ITexture> m_Texture; // Lazily created on first Render (no IRenderer exists yet at construction)
+    std::unique_ptr<asge::video::ITexture> m_Texture; // Lazily created on first Render
     bool m_SpritesAttached{ false };
 
     bool m_Up{ false };
@@ -30,10 +25,19 @@ class EcsDemoGame : public asge::game::IGame
     void UpdatePlayerVelocity();
 
 public:
-    EcsDemoGame();
-    ~EcsDemoGame() override = default;
+    EcsDemoState(asge::ecs::Registry& inRegistry, asge::game::asset::AssetManager& inAssets);
 
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
+    [[nodiscard]] std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
+};
+
+class EcsDemoGame final : public asge::game::Game<int>
+{
+public:
+    explicit EcsDemoGame(asge::video::IRenderer& inRenderer);
+
+protected:
+    [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;
 };
