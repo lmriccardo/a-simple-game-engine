@@ -28,7 +28,8 @@ ASGE is under active development, worked through a
 - ✅ Input system (keyboard, mouse)
 - ✅ Asset pipeline (virtual file system, asset handles)
 - ✅ Scene management
-- 🚧 Physics, audio, UI, and more — see
+- ✅ Physics
+- 🚧 Audio, UI, and more — see
   [docs/roadmap](docs/roadmap/README.md) for the full plan.
 
 ## Repository layout
@@ -164,19 +165,24 @@ Either way, pull in the whole engine through the umbrella header:
 
 ## Example
 
-A minimal game that just opens a window and runs the game loop
-(see [examples/moving_box](examples/moving_box) for a complete, playable
+A game is a `Game<TStateId>` subclass driving a stack of `IGameState`s —
+`TStateId` is whatever identifies a screen (an `enum class`, a plain `int`
+if there's only one, ...). A minimal game with a single state that just
+opens a window and runs the game loop (see
+[examples/moving_box](examples/moving_box) for a complete, playable
 example with input and rendering):
 
 ```cpp
 #include <ASGE/ASGE.hpp>
 
-class MyGame : public asge::game::IGame
+class MyGameState : public asge::game::state::IGameState<int>
 {
 public:
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override
+    std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override
     {
         // Game logic goes here
+        return std::nullopt; // engaged instead: push/pop/replace to another state
     }
 
     void Render(asge::video::IRenderer& inRenderer) override
@@ -190,20 +196,39 @@ public:
     }
 };
 
+class MyGame : public asge::game::Game<int>
+{
+public:
+    explicit MyGame(asge::video::IRenderer& inRenderer) : Game(inRenderer)
+    {
+        SetInitialState(0);
+    }
+
+protected:
+    std::unique_ptr<StateType> CreateState(int inId) override
+    {
+        return std::make_unique<MyGameState>();
+    }
+};
+
 int main()
 {
-    MyGame game;
-    asge::Application app(game, asge::ApplicationConfig{});
+    asge::Application<MyGame> app(asge::ApplicationConfig{});
     app.Run();
     return 0;
 }
 ```
 
-More examples covering shapes, textures, text, ECS, input handling and
-configuration loading live under [examples/](examples/) and are built
-alongside the engine when `ASGE_BUILD_EXAMPLES` is `ON`. In particular, for
-drawing a texture and reading keyboard/mouse input — the two things a
-real game needs beyond the empty overrides above — see
+`Application<TGame>` owns `TGame`, constructing it from its own `IRenderer`
+(plus any extra arguments forwarded through `Application`'s constructor)
+once the window/video system is up — `TGame` never needs to defer
+renderer-dependent setup the way `IGame` implementations once did.
+
+More examples covering shapes, textures, text, ECS, input handling,
+scenes and configuration loading live under [examples/](examples/) and are
+built alongside the engine when `ASGE_BUILD_EXAMPLES` is `ON`. In
+particular, for drawing a texture and reading keyboard/mouse input — the
+two things a real game needs beyond the empty overrides above — see
 [examples/texture_demo](examples/texture_demo) (`IRenderer::DrawTexture`)
 and [examples/moving_box](examples/moving_box)
 (`InputState::IsKeyDown`/`IsKeyPressed`).
