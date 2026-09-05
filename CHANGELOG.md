@@ -1,3 +1,20 @@
+## [0.7.1] - 2026-09-05
+
+
+### Features
+
+- ✨ Add a Game<TStateId> state stack, make Application own TGame, and port every example (#59)
+
+- ✨ Add spritesheet frame animation via a shared FrameTable asset (#58)
+
+- :sparkles: Add layer-based draw ordering to RenderSystem (#57)
+
+
+
+
+### Contributors
+
+- La Marca Riccardo
 ## [0.7.0] - 2026-09-02
 
 
@@ -308,6 +325,7 @@
 ### Contributors
 
 - lmriccardo
+[0.7.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.5.0...v0.6.0
