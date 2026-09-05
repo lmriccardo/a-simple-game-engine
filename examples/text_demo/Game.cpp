@@ -46,7 +46,7 @@ std::unique_ptr<asge::media::Font> LoadFont(int inPixelHeight)
 }
 }
 
-void TextDemoGame::EnsureFontsLoaded(asge::video::IRenderer& inRenderer)
+void TextDemoState::EnsureFontsLoaded(asge::video::IRenderer& inRenderer)
 {
     if (!m_SmallFont)
     {
@@ -67,12 +67,14 @@ void TextDemoGame::EnsureFontsLoaded(asge::video::IRenderer& inRenderer)
     }
 }
 
-void TextDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
+std::optional<asge::game::state::Transition<int>>
+TextDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     m_HueTime += inDeltaTime * (HUE_CYCLE_SPEED / 10.0f);
+    return std::nullopt;
 }
 
-void TextDemoGame::Render(asge::video::IRenderer &inRenderer)
+void TextDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 20, 20, 25, 255 });
 
@@ -110,6 +112,17 @@ void TextDemoGame::Render(asge::video::IRenderer &inRenderer)
     }
 }
 
-void TextDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
+void TextDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
 {
+}
+
+TextDemoGame::TextDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr<TextDemoGame::StateType> TextDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<TextDemoState>();
 }

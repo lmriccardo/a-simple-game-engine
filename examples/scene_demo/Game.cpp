@@ -14,21 +14,14 @@ constexpr float kWindowHeight = 600.0f;
 constexpr float kPlayerSpeed  = 220.0f;
 }
 
-SceneDemoGame::SceneDemoGame()
+SceneDemoState::SceneDemoState(
+    asge::game::scene::SceneManager& inSceneManager, asge::game::asset::AssetManager& inAssets)
+: m_SceneManager(inSceneManager), m_Assets(inAssets)
 {
-    // ASGE_SCENE_DEMO_ASSET_DIR is injected by CMakeLists.txt -- mounted
-    // once so both scene files and every Sprite's texture inside them are
-    // resolved by virtual path, not a hardcoded OS path baked into this demo.
-    auto mountResult = m_Vfs.Mount("assets", ASGE_SCENE_DEMO_ASSET_DIR);
-    if ( !mountResult ) { mountResult.LogError(); return; }
-
-    auto loadResult = m_SceneManager.LoadScene("assets/scene.toml");
-    if ( !loadResult ) { loadResult.LogError(); return; }
-
     RefreshPlayerReference();
 }
 
-void SceneDemoGame::RefreshPlayerReference()
+void SceneDemoState::RefreshPlayerReference()
 {
     // The active scene's last entity is the player, by convention -- see
     // scene.toml's own comments for why (no entity name/tag/id concept
@@ -42,7 +35,7 @@ void SceneDemoGame::RefreshPlayerReference()
     m_Player = active.empty() ? asge::ecs::Entity::Null() : active.back();
 }
 
-void SceneDemoGame::ResolveSpriteTextures(asge::video::IRenderer &inRenderer)
+void SceneDemoState::ResolveSpriteTextures(asge::video::IRenderer &inRenderer)
 {
     for ( auto entity : m_SceneManager.ActiveEntities() )
     {
@@ -77,7 +70,7 @@ void SceneDemoGame::ResolveSpriteTextures(asge::video::IRenderer &inRenderer)
     }
 }
 
-void SceneDemoGame::MoveActiveEntities(float inDeltaTime)
+void SceneDemoState::MoveActiveEntities(float inDeltaTime)
 {
     // Same logic as asge::game::systems::MovementSystem, just scoped to
     // ActiveEntities() instead of View<Transform, Velocity>() over the
@@ -94,7 +87,7 @@ void SceneDemoGame::MoveActiveEntities(float inDeltaTime)
     }
 }
 
-void SceneDemoGame::RenderActiveEntities(asge::video::IRenderer &inRenderer)
+void SceneDemoState::RenderActiveEntities(asge::video::IRenderer &inRenderer)
 {
     // Same logic as asge::game::systems::RenderSystem, scoped the same way
     // MoveActiveEntities() is -- see this class's doc comment.
@@ -136,7 +129,7 @@ void SceneDemoGame::RenderActiveEntities(asge::video::IRenderer &inRenderer)
     }
 }
 
-void SceneDemoGame::WrapAroundScreen()
+void SceneDemoState::WrapAroundScreen()
 {
     // Demo-specific dressing (not part of the shared Game/Systems library):
     // keeps drifting entities on screen by teleporting them across once
@@ -159,7 +152,7 @@ void SceneDemoGame::WrapAroundScreen()
     }
 }
 
-void SceneDemoGame::UpdatePlayerVelocity(asge::input::InputState const& inInput)
+void SceneDemoState::UpdatePlayerVelocity(asge::input::InputState const& inInput)
 {
     if ( m_Player == asge::ecs::Entity::Null() ) return;
 
@@ -176,7 +169,7 @@ void SceneDemoGame::UpdatePlayerVelocity(asge::input::InputState const& inInput)
                   - (inInput.IsKeyDown(asge::input::Keycode::W) ? kPlayerSpeed : 0.0f);
 }
 
-void SceneDemoGame::SaveSceneSnapshot() const
+void SceneDemoState::SaveSceneSnapshot() const
 {
     // Written next to the temp dir, not back over the checked-in
     // assets/scene*.toml -- this demo's point is that the *live*, moved
@@ -189,7 +182,8 @@ void SceneDemoGame::SaveSceneSnapshot() const
     LOG_INFO("Scene snapshot saved to ", path.string());
 }
 
-void SceneDemoGame::Update(float inDeltaTime, asge::input::InputState const& inInput)
+std::optional<asge::game::state::Transition<int>>
+SceneDemoState::Update(float inDeltaTime, asge::input::InputState const& inInput)
 {
     UpdatePlayerVelocity(inInput);
     MoveActiveEntities(inDeltaTime);
@@ -216,20 +210,49 @@ void SceneDemoGame::Update(float inDeltaTime, asge::input::InputState const& inI
     if ( m_SceneManager.HasPendingTransition() )
     {
         auto result = m_SceneManager.ApplyPendingTransition();
-        if ( !result ) { result.LogError(); return; }
+        if ( !result ) { result.LogError(); return std::nullopt; }
         RefreshPlayerReference(); // the new active scene's "last entity" is a different one
     }
+
+    return std::nullopt;
 }
 
-void SceneDemoGame::Render(asge::video::IRenderer &inRenderer)
+void SceneDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 15, 15, 20, 255 });
     ResolveSpriteTextures(inRenderer); // cheap no-op for sprites that already have a texture
     RenderActiveEntities(inRenderer);
 }
 
-void SceneDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
+void SceneDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
 {
     // Deliberately empty -- every reaction to input in this example comes
     // from polling InputState in Update() instead (see input_demo).
+}
+
+SceneDemoGame::SceneDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    // ASGE_SCENE_DEMO_ASSET_DIR is injected by CMakeLists.txt -- mounted
+    // once so both scene files and every Sprite's texture inside them are
+    // resolved by virtual path, not a hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount("assets", ASGE_SCENE_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
+    // m_SceneManager.LoadScene() directly, not the Game::LoadScene()
+    // convenience wrapper -- that wrapper also runs AssetManager::
+    // ResolveAssets, which would resolve sprites through a texture cache
+    // separate from this demo's own m_Textures (see SceneDemoState), and a
+    // later scene swap (see Update()'s L-key handling) goes through
+    // m_SceneManager directly too, so every load stays on one resolution
+    // path instead of two.
+    auto loadResult = m_SceneManager.LoadScene("assets/scene.toml");
+    if ( !loadResult ) loadResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr<SceneDemoGame::StateType> SceneDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<SceneDemoState>( m_SceneManager, m_Assets );
 }

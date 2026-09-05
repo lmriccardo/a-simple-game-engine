@@ -4,8 +4,7 @@ int main(int, char**)
 {
     LOG_INSTANCE().SetLogLevel(asge::logger::LogLevel::Debug);
 
-    TextureDemoGame game;
-    asge::Application app(game, asge::ApplicationConfig{});
+    asge::Application<TextureDemoGame> app(asge::ApplicationConfig{});
     app.Run();
     return 0;
 }

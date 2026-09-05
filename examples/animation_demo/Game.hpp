@@ -27,20 +27,15 @@
  */
 
 #include <ASGE/ASGE.hpp>
-#include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
-#include <ASGE/Game/Assets/AssetManager.hpp>
 #include <random>
 #include <vector>
 
-class AnimationDemoGame : public asge::game::IGame
+class AnimationDemoState final : public asge::game::state::IGameState<int>
 {
-    asge::ecs::Registry            m_Registry;
-    std::vector<asge::ecs::Entity> m_SpriteEntities; // every entity spawned so far, in spawn order
+    asge::ecs::Registry&             m_Registry;
+    asge::game::asset::AssetManager& m_Assets;
 
-    // m_Vfs must outlive m_Assets (AssetManager only borrows it) -- declared
-    // first so member init order guarantees that regardless of ctor-list order.
-    asge::filesystem::VirtualFileSystem m_Vfs;
-    asge::game::asset::AssetManager     m_Assets{ m_Vfs };
+    std::vector<asge::ecs::Entity> m_SpriteEntities; // every entity spawned so far, in spawn order
 
     std::mt19937 m_Rng{ std::random_device{}() };
     bool m_Playing{ true };
@@ -52,10 +47,19 @@ class AnimationDemoGame : public asge::game::IGame
     void HandleInput( asge::input::InputState const& inInput );
 
 public:
-    AnimationDemoGame();
-    ~AnimationDemoGame() override = default;
+    AnimationDemoState(asge::ecs::Registry& inRegistry, asge::game::asset::AssetManager& inAssets);
 
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
+    [[nodiscard]] std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
+};
+
+class AnimationDemoGame final : public asge::game::Game<int>
+{
+public:
+    explicit AnimationDemoGame(asge::video::IRenderer& inRenderer);
+
+protected:
+    [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;
 };

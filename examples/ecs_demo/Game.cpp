@@ -26,18 +26,13 @@ constexpr Drifter kDrifters[] = {
 };
 }
 
-EcsDemoGame::EcsDemoGame()
+EcsDemoState::EcsDemoState(asge::ecs::Registry& inRegistry, asge::game::asset::AssetManager& inAssets)
+: m_Registry(inRegistry), m_Assets(inAssets)
 {
-    // ASGE_ECS_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted once so
-    // sprites are loaded by virtual path (see EnsureSpritesAttached) instead
-    // of a hardcoded OS path baked into this demo.
-    auto mountResult = m_Vfs.Mount("textures", ASGE_ECS_DEMO_ASSET_DIR);
-    if ( !mountResult ) mountResult.LogError();
-
     SpawnEntities();
 }
 
-void EcsDemoGame::SpawnEntities()
+void EcsDemoState::SpawnEntities()
 {
     for ( auto const& d : kDrifters )
     {
@@ -61,13 +56,14 @@ void EcsDemoGame::SpawnEntities()
     m_SpriteEntities.push_back( m_Player );
 }
 
-void EcsDemoGame::EnsureSpritesAttached(asge::video::IRenderer &inRenderer)
+void EcsDemoState::EnsureSpritesAttached(asge::video::IRenderer &inRenderer)
 {
     if ( m_SpritesAttached ) return;
 
-    // A virtual path resolved through m_Vfs/m_Assets, not a hardcoded OS path.
-    // Kept on the Sprite too (m_VirtualPath) so it round-trips through
-    // Serializer<Sprite> — the texture pointer itself doesn't serialize.
+    // A virtual path resolved through the AssetManager's VFS, not a
+    // hardcoded OS path. Kept on the Sprite too (m_VirtualPath) so it
+    // round-trips through Serializer<Sprite> -- the texture pointer itself
+    // doesn't serialize.
     constexpr char const* kCheckerPath = "textures/checker.bmp";
     auto imageAsset = m_Assets.GetImage(kCheckerPath);
     if ( !imageAsset )
@@ -92,7 +88,7 @@ void EcsDemoGame::EnsureSpritesAttached(asge::video::IRenderer &inRenderer)
     m_SpritesAttached = true;
 }
 
-void EcsDemoGame::WrapAroundScreen()
+void EcsDemoState::WrapAroundScreen()
 {
     // Demo-specific dressing (not part of the shared Game/Systems library):
     // keeps drifting entities on screen by teleporting them across once
@@ -111,7 +107,7 @@ void EcsDemoGame::WrapAroundScreen()
     }
 }
 
-void EcsDemoGame::UpdatePlayerVelocity()
+void EcsDemoState::UpdatePlayerVelocity()
 {
     auto result = m_Registry.GetComponent<Velocity>( m_Player );
     if ( !result ) return;
@@ -121,21 +117,23 @@ void EcsDemoGame::UpdatePlayerVelocity()
     velocity.m_DY = (m_Down  ? kPlayerSpeed : 0.0f) - (m_Up   ? kPlayerSpeed : 0.0f);
 }
 
-void EcsDemoGame::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
+std::optional<asge::game::state::Transition<int>>
+EcsDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     UpdatePlayerVelocity();
     asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
     WrapAroundScreen();
+    return std::nullopt;
 }
 
-void EcsDemoGame::Render(asge::video::IRenderer &inRenderer)
+void EcsDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 15, 15, 20, 255 });
     EnsureSpritesAttached(inRenderer);
     asge::game::systems::RenderSystem( m_Registry, inRenderer );
 }
 
-void EcsDemoGame::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)
+void EcsDemoState::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)
 {
     auto const* keyEvent = inSysEvent.TryGet<asge::event::KeyboardEvent>();
     if ( !keyEvent ) return;
@@ -149,4 +147,21 @@ void EcsDemoGame::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)
     case asge::input::Keycode::D: m_Right = pressed; break;
     default: break;
     }
+}
+
+EcsDemoGame::EcsDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    // ASGE_ECS_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted once so
+    // sprites are loaded by virtual path (see EnsureSpritesAttached) instead
+    // of a hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount("textures", ASGE_ECS_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr<EcsDemoGame::StateType> EcsDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<EcsDemoState>( m_SceneManager.GetRegistry(), m_Assets );
 }

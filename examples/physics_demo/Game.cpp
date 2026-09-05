@@ -54,7 +54,8 @@ constexpr asge::media::RGBA_Color kGhostRedColor{ 235, 60, 60, 255 };
 constexpr asge::media::RGBA_Color kGhostBlueColor{ 60, 130, 235, 255 };
 }
 
-PhysicsDemoGame::PhysicsDemoGame()
+PhysicsDemoState::PhysicsDemoState(asge::ecs::Registry& inRegistry)
+: m_Registry(inRegistry)
 {
     SpawnStaticGeometry();
     SpawnTriggerZone();
@@ -68,7 +69,7 @@ PhysicsDemoGame::PhysicsDemoGame()
     );
 }
 
-void PhysicsDemoGame::SpawnStaticGeometry()
+void PhysicsDemoState::SpawnStaticGeometry()
 {
     // Floor and side walls: Transform + Collider only -- no Velocity or
     // Rigidbody, so ResolveCollisions treats them as immovable.
@@ -87,7 +88,7 @@ void PhysicsDemoGame::SpawnStaticGeometry()
     makeStatic({ kWindowWidth, 0.0f, kWallThickness, kWindowHeight });                   // right wall
 }
 
-void PhysicsDemoGame::SpawnTriggerZone()
+void PhysicsDemoState::SpawnTriggerZone()
 {
     auto entity = m_Registry.CreateEntity();
     if ( !entity ) { entity.LogError(); return; }
@@ -102,7 +103,7 @@ void PhysicsDemoGame::SpawnTriggerZone()
     m_TriggerZone = entity.Value();
 }
 
-void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter, CollisionLayer inLayer, CollisionLayer inMask, float inSize)
+void PhysicsDemoState::SpawnBox(asge::math::Float2 inCenter, CollisionLayer inLayer, CollisionLayer inMask, float inSize)
 {
     if ( m_Boxes.size() >= kMaxBoxes ) return;
 
@@ -124,7 +125,7 @@ void PhysicsDemoGame::SpawnBox(asge::math::Float2 inCenter, CollisionLayer inLay
     m_Boxes.push_back( entity.Value() );
 }
 
-void PhysicsDemoGame::SpawnInitialStack()
+void PhysicsDemoState::SpawnInitialStack()
 {
     // A staggered column dropped from above the floor, so gravity and
     // mass-weighted collision resolution have something to settle right
@@ -144,7 +145,7 @@ void PhysicsDemoGame::SpawnInitialStack()
     SpawnBox( { kGhostDemoBlueX, -80.0f }, kLayerGhostBlue, kMaskGhostBlue, 32.0f );
 }
 
-void PhysicsDemoGame::Reset()
+void PhysicsDemoState::Reset()
 {
     for ( auto entity : m_Boxes )
     {
@@ -155,13 +156,13 @@ void PhysicsDemoGame::Reset()
     SpawnInitialStack();
 }
 
-void PhysicsDemoGame::DestroyBox(asge::ecs::Entity inEntity)
+void PhysicsDemoState::DestroyBox(asge::ecs::Entity inEntity)
 {
     if ( auto result = m_Registry.DestroyEntity( inEntity ); !result ) result.LogError();
     m_Boxes.erase( std::remove( m_Boxes.begin(), m_Boxes.end(), inEntity ), m_Boxes.end() );
 }
 
-void PhysicsDemoGame::DespawnFallenBoxes()
+void PhysicsDemoState::DespawnFallenBoxes()
 {
     m_Boxes.erase(
         std::remove_if( m_Boxes.begin(), m_Boxes.end(), [this]( asge::ecs::Entity inEntity )
@@ -178,7 +179,7 @@ void PhysicsDemoGame::DespawnFallenBoxes()
     );
 }
 
-void PhysicsDemoGame::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
+void PhysicsDemoState::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
 {
     // events::OnCollisionTriggerEnter() fires synchronously, from inside
     // systems::DispatchTriggerEvents -- itself called partway through
@@ -196,7 +197,7 @@ void PhysicsDemoGame::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Ent
     m_ConsumedByTrigger.push_back( other );
 }
 
-void PhysicsDemoGame::ProcessTriggerDespawns()
+void PhysicsDemoState::ProcessTriggerDespawns()
 {
     for ( auto entity : m_ConsumedByTrigger )
     {
@@ -206,7 +207,7 @@ void PhysicsDemoGame::ProcessTriggerDespawns()
     m_ConsumedByTrigger.clear();
 }
 
-void PhysicsDemoGame::HandleInput(asge::input::InputState const &inInput)
+void PhysicsDemoState::HandleInput(asge::input::InputState const &inInput)
 {
     using asge::input::Keycode;
     using asge::input::MouseButton;
@@ -222,7 +223,8 @@ void PhysicsDemoGame::HandleInput(asge::input::InputState const &inInput)
     }
 }
 
-void PhysicsDemoGame::Update(float inDeltaTime, asge::input::InputState const &inInput)
+std::optional<asge::game::state::Transition<int>>
+PhysicsDemoState::Update(float inDeltaTime, asge::input::InputState const &inInput)
 {
     HandleInput( inInput );
 
@@ -232,9 +234,10 @@ void PhysicsDemoGame::Update(float inDeltaTime, asge::input::InputState const &i
 
     ProcessTriggerDespawns();
     DespawnFallenBoxes();
+    return std::nullopt;
 }
 
-void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
+void PhysicsDemoState::Render(asge::video::IRenderer &inRenderer)
 {
     inRenderer.Clear({ 18, 18, 24, 255 });
 
@@ -281,7 +284,18 @@ void PhysicsDemoGame::Render(asge::video::IRenderer &inRenderer)
     }
 }
 
-void PhysicsDemoGame::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
+void PhysicsDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
 {
     // Everything here is driven by polling InputState in Update() instead.
+}
+
+PhysicsDemoGame::PhysicsDemoGame(asge::video::IRenderer& inRenderer)
+: Game(inRenderer)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr<PhysicsDemoGame::StateType> PhysicsDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique<PhysicsDemoState>( m_SceneManager.GetRegistry() );
 }

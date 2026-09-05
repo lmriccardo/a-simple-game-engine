@@ -11,7 +11,7 @@
  * (edge-triggered) and scroll -- with OnSystemEvent left empty, proving the polling
  * API is enough on its own for a real game loop.
  */
-class InputDemoGame : public asge::game::IGame
+class InputDemoState final : public asge::game::state::IGameState<int>
 {
     static constexpr std::size_t kMaxMarks = 24;
 
@@ -35,9 +35,17 @@ class InputDemoGame : public asge::game::IGame
     void UpdateMarks(asge::input::InputState const& inInput);
 
 public:
-    ~InputDemoGame() override = default;
-
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
+    [[nodiscard]] std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
+};
+
+class InputDemoGame final : public asge::game::Game<int>
+{
+public:
+    explicit InputDemoGame(asge::video::IRenderer& inRenderer);
+
+protected:
+    [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;
 };

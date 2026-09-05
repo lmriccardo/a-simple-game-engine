@@ -30,11 +30,11 @@
 #include <random>
 #include <vector>
 
-class PhysicsDemoGame : public asge::game::IGame
+class PhysicsDemoState final : public asge::game::state::IGameState<int>
 {
-    asge::ecs::Registry            m_Registry;
-    std::vector<asge::ecs::Entity> m_Boxes; // dynamic entities only -- static geometry is never touched by Reset()
-    std::mt19937                   m_Rng{ std::random_device{}() };
+    asge::ecs::Registry&              m_Registry;
+    std::vector<asge::ecs::Entity>    m_Boxes; // dynamic entities only -- static geometry is never touched by Reset()
+    std::mt19937                      m_Rng{ std::random_device{}() };
     asge::game::systems::PhysicsState m_PhysicsState; // enter/exit bookkeeping for trigger pairs -- see PhysicsUpdate
 
     asge::ecs::Entity m_TriggerZone{ asge::ecs::Entity::Null() };
@@ -56,10 +56,19 @@ class PhysicsDemoGame : public asge::game::IGame
     void HandleInput( asge::input::InputState const& inInput );
 
 public:
-    PhysicsDemoGame();
-    ~PhysicsDemoGame() override = default;
+    explicit PhysicsDemoState(asge::ecs::Registry& inRegistry);
 
-    void Update(float inDeltaTime, asge::input::InputState const& inInput) override;
+    [[nodiscard]] std::optional<asge::game::state::Transition<int>>
+    Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
+};
+
+class PhysicsDemoGame final : public asge::game::Game<int>
+{
+public:
+    explicit PhysicsDemoGame(asge::video::IRenderer& inRenderer);
+
+protected:
+    [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;
 };
