@@ -12,7 +12,7 @@ against every phase file that could plausibly own it before being listed
 here, so this doc only holds things that are genuinely untracked, not things
 that are merely unbuilt.
 
-## 1. Game-state / screen flow
+## 1. Game-state / screen flow - ✅ complete
 
 [`Application`](../../src/ASGE/Application/Application.hpp) holds exactly one
 `game::IGame&` for its entire run — there's no way to swap it or stack it.
