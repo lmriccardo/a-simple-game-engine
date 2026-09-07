@@ -60,6 +60,7 @@ add_library(ASGE STATIC
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp
+    Game/Systems/PhysicsDebugSystem.cpp
     Game/Systems/RenderSystem.cpp
 
     # Asset Manager

@@ -50,6 +50,37 @@ void RunCollisionResolution(Registry& inRegistry, PhysicsState& inState)
     asge::game::systems::DispatchTriggerEvents(inState, contacts);
 }
 
+// ─── WorldBounds ─────────────────────────────────────────────────────────────
+
+TEST(PhysicsSystemTest, WorldBounds_RectCollider_OffsetByTransformPosition)
+{
+    Transform t{ .m_X = 10.0f, .m_Y = 20.0f };
+    Collider c{ .m_LocalBounds = asge::math::Rect{ 5.0f, 6.0f, 30.0f, 40.0f } };
+
+    auto bounds = asge::game::systems::WorldBounds( t, c );
+
+    ASSERT_TRUE( std::holds_alternative<asge::math::Rect>( bounds ) );
+    auto const& rect = std::get<asge::math::Rect>( bounds );
+    EXPECT_FLOAT_EQ( rect.x, 15.0f ); // 10 + 5
+    EXPECT_FLOAT_EQ( rect.y, 26.0f ); // 20 + 6
+    EXPECT_FLOAT_EQ( rect.w, 30.0f ); // shape size is untouched
+    EXPECT_FLOAT_EQ( rect.h, 40.0f );
+}
+
+TEST(PhysicsSystemTest, WorldBounds_CircleCollider_CenterOffsetByTransformPosition)
+{
+    Transform t{ .m_X = 10.0f, .m_Y = 20.0f };
+    Collider c{ .m_LocalBounds = asge::math::Circle{ asge::math::Float2{ 5.0f, 6.0f }, 8.0f } };
+
+    auto bounds = asge::game::systems::WorldBounds( t, c );
+
+    ASSERT_TRUE( std::holds_alternative<asge::math::Circle>( bounds ) );
+    auto const& circle = std::get<asge::math::Circle>( bounds );
+    EXPECT_FLOAT_EQ( circle.m_Center.x(), 15.0f ); // 10 + 5
+    EXPECT_FLOAT_EQ( circle.m_Center.y(), 26.0f ); // 20 + 6
+    EXPECT_FLOAT_EQ( circle.m_Radius, 8.0f );      // radius is untouched
+}
+
 // ─── CollisionResolution — both entities movable ────────────────────────────
 
 TEST(PhysicsSystemTest, TwoOverlappingMovableEntities_PushedApartEvenlyOnLeastPenetrationAxis)
