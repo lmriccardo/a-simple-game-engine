@@ -1,6 +1,7 @@
 add_executable(ASGE_GameTests
     RenderSystemTests.cpp
     PhysicsSystemTests.cpp
+    PhysicsDebugSystemTests.cpp
     GameStateStackTests.cpp
     GameTests.cpp
 )

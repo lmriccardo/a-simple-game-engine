@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <set>
 #include <vector>
@@ -6,9 +6,18 @@
 #include <ASGE/Core/ECS/Entity.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Math/Math.hpp>
+#include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Game/Components/Collider.hpp>
 
 namespace asge::game::systems
 {
+
+/**
+ * @brief inCollider's local shape offset by inTransform's position, in
+ *        world space — same shape kind, new coordinates.
+ */
+components::ColliderShape WorldBounds(
+    components::Transform const& inTransform, components::Collider const& inCollider ) noexcept;
 
 /**
  * @brief Cross-frame bookkeeping PhysicsUpdate needs — currently just which

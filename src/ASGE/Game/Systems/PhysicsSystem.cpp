@@ -14,30 +14,6 @@ using namespace asge::game::components;
 using namespace asge::ecs;
 using namespace asge::math;
 
-/** @brief inC's local shape offset by inT's position, in world space — same shape kind, new coordinates. */
-ColliderShape WorldBounds( Transform const& inT, Collider const& inC ) noexcept
-{
-    return std::visit([&inT]( auto const& inShape ) -> ColliderShape
-    {
-        using ShapeT = std::decay_t<decltype(inShape)>;
-
-        if constexpr ( std::is_same_v<ShapeT, asge::math::Rect> )
-        {
-            return asge::math::Rect{
-                inT.m_X + inShape.x, inT.m_Y + inShape.y,
-                inShape.w, inShape.h
-            };
-        } else {
-            return asge::math::Circle{
-                asge::math::Float2{ 
-                    inT.m_X + inShape.m_Center.x(), inT.m_Y + inShape.m_Center.y() 
-                },
-                inShape.m_Radius
-            };
-        }
-    }, inC.m_LocalBounds);
-}
-
 // Applies a positional correction and zeroes velocity on whichever axis moved.
 void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& inDelta ) noexcept
 {
@@ -94,6 +70,30 @@ void ResolveSolidCollision(
             t2, vel2.Value().get(), { -mtv.x() * share2, -mtv.y() * share2 } );
     }
 }
+}
+
+asge::game::components::ColliderShape asge::game::systems::WorldBounds(
+    components::Transform const& inTransform, components::Collider const& inCollider ) noexcept
+{
+    return std::visit([&inTransform]( auto const& inShape ) -> components::ColliderShape
+    {
+        using ShapeT = std::decay_t<decltype(inShape)>;
+
+        if constexpr ( std::is_same_v<ShapeT, math::Rect> )
+        {
+            return math::Rect{
+                inTransform.m_X + inShape.x, inTransform.m_Y + inShape.y,
+                inShape.w, inShape.h
+            };
+        } else {
+            return math::Circle{
+                math::Float2{
+                    inTransform.m_X + inShape.m_Center.x(), inTransform.m_Y + inShape.m_Center.y()
+                },
+                inShape.m_Radius
+            };
+        }
+    }, inCollider.m_LocalBounds);
 }
 
 void asge::game::systems::MovementSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
