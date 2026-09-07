@@ -30,6 +30,7 @@ add_library(ASGE STATIC
     # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
     Core/Media/Image.cpp
     Core/Media/Font.cpp
+    Core/Media/AudioClip.cpp
 
     # Concurrency utilities
     Core/Concurrent/Thread.cpp
@@ -79,6 +80,8 @@ add_library(ASGE::ASGE ALIAS ASGE)
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
 target_link_libraries(ASGE PRIVATE stb::stb)
+target_link_libraries(ASGE PRIVATE stb::stb_vorbis)
+
 if(APPLE)
     target_link_libraries(ASGE PRIVATE "-framework CoreServices")
 endif()
@@ -89,7 +92,7 @@ target_include_directories(ASGE
 
 if(ASGE_INSTALL)
     install(
-        TARGETS ASGE stb
+        TARGETS ASGE stb stb_vorbis
         EXPORT ASGETargets
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"

@@ -400,13 +400,34 @@ inline str::String ToErrorString(VfsError e) noexcept
     return "unknown vfs error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// AUDIO ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class AudioError
+{
+    InvalidFormat = 1,
+    DecodeFailed,
+};
+
+inline str::String ToErrorString(AudioError e) noexcept
+{
+    switch (e)
+    {
+    case AudioError::InvalidFormat: return "currently supported audio format .wav .ogg";
+    case AudioError::DecodeFailed: return "audio decode has failed";
+    }
+    return "unknown audio error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
 
 REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filesystem.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
-REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.graphics.image")
-REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.graphics.font")
+REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.media.image")
+REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.media.font")
 REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
 REGISTER_ASGE_ERROR(asge::errors::VfsError, "asge.filesystem.vfs")
+REGISTER_ASGE_ERROR(asge::errors::AudioError, "asge.media.audio")
