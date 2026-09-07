@@ -96,6 +96,30 @@ TEST(TOMLBuilderTest, Get_FloatKeyInteroperatesWithDoubleGet)
     EXPECT_DOUBLE_EQ(builder.Get<double>("scale", 0.0), 1.5);
 }
 
+TEST(TOMLBuilderTest, Get_FloatKeyReadsIntTypedValue)
+{
+    // Regression for #61: a bare integer literal (`y = 528`, no decimal
+    // point) parses into the int alternative, not double -- Get(key, float)
+    // must still find it instead of silently falling back to inDefault.
+    toml::TOMLBuilder builder;
+    builder.Set<int>("y", 528);
+    EXPECT_FLOAT_EQ(builder.Get("y", 0.0f), 528.0f);
+}
+
+TEST(TOMLBuilderTest, Get_FloatKeyBoolTypedValueReturnsDefault)
+{
+    toml::TOMLBuilder builder;
+    builder.Set<bool>("flag", true);
+    EXPECT_FLOAT_EQ(builder.Get("flag", 9.0f), 9.0f);
+}
+
+TEST(TOMLBuilderTest, Get_FloatKeyStringTypedValueReturnsDefault)
+{
+    toml::TOMLBuilder builder;
+    builder.Set<std::string>("name", "Alice");
+    EXPECT_FLOAT_EQ(builder.Get("name", 9.0f), 9.0f);
+}
+
 // ─── Table() — subtable scoping ────────────────────────────────────────────────
 
 TEST(TOMLBuilderTest, Table_CreatesHeaderAndScopesKeys)

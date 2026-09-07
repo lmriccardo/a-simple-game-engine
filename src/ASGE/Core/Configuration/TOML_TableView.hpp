@@ -117,11 +117,22 @@ public:
     /**
      * @brief Reads a float-valued key — the read-side counterpart to the
      *        float overload of Set(). Stored/looked up as `double`
-     *        underneath; see that overload's doc comment for why.
+     *        underneath; see that overload's doc comment for why. Falls
+     *        back to an int-typed value (coerced to double) before giving
+     *        up to inDefault: a bare TOML integer literal (`y = 528`) and
+     *        a float literal (`y = 528.0`) are numerically interchangeable
+     *        wherever a float is being read, and requiring the latter is a
+     *        silent-zero footgun for hand-authored files.
      */
     float Get( std::string const& inKey, float inDefault = 0.0f ) const
     {
-        return static_cast<float>( Get<double>( inKey, static_cast<double>(inDefault) ) );
+        if ( auto asDouble = m_Table->template Get<double>( inKey ) )
+            return static_cast<float>( *asDouble.Value() );
+
+        if ( auto asInt = m_Table->template Get<int>( inKey ) )
+            return static_cast<float>( *asInt.Value() );
+
+        return inDefault;
     }
 
     /**
