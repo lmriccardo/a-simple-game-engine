@@ -8,6 +8,7 @@
 #include <ASGE/Video/VideoSystem.hpp>
 #include <ASGE/Input/InputSystem.hpp>
 #include <ASGE/Core/Time/Time.hpp>
+#include <ASGE/Audio/AudioDevice.hpp>
 
 #include "ApplicationConfig.hpp"
 
@@ -31,6 +32,7 @@ class Application
 private:
     video::VideoSystem       m_VideoSys;       // The video system that manages the render and window
     input::InputSystem       m_InputSys;       // Queryable keyboard/mouse state, fed from the event stream
+    audio::AudioDevice       m_AudioDev;       // Audio device for playing music
     bool                     m_Running{false}; // The actual running state of the application
     ApplicationConfig const& m_Config;         // The application configuration
     std::optional<TGame>     m_Game;           // The owned game instance; empty if video init failed
@@ -61,7 +63,12 @@ public:
     explicit Application(ApplicationConfig const& inConfig, Args&& ... inGameArgs)
         : m_Config(inConfig)
     {
+        // Initialize the Video subsystem
         auto initResult = m_VideoSys.Initialize( inConfig.s_Title, inConfig.s_Width, inConfig.s_Height );
+        if ( !initResult ) { initResult.LogError(); return; }
+
+        // Initialize the audio subsystem
+        initResult = m_AudioDev.Initialize();
         if ( !initResult ) { initResult.LogError(); return; }
 
         time::TargetFPS( m_Config.s_TargetFps );
@@ -75,7 +82,11 @@ public:
      */
     void Run()
     {
-        if ( !m_Game ) { LOG_ERROR("Application failed to initialize -- video system init failed"); return; }
+        if ( !m_Game ) 
+        { 
+            LOG_ERROR("Application failed to initialize -- video / audio system init failed");
+            return; 
+        }
 
         m_Running = true;
         SDL_Event event;

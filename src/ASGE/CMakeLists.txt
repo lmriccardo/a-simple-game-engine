@@ -15,6 +15,9 @@ add_library(ASGE STATIC
     Video/Graphics/Rendering/SDL/SDLPixelFormat.cpp
     Video/Graphics/Windowing/SDL/SDLWindow.cpp
 
+    # Audio Device initialization
+    Audio/AudioDevice.cpp
+
     # Engine Logger
     Core/Logger/Logger.cpp
 
