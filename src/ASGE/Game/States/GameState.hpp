@@ -8,14 +8,21 @@
 namespace asge::game::state
 {
 
-/** @brief What a state Update() is asking GameStateStack to do to the stack. */
-enum class TransitionKind { None, Push, Pop, Replace };
+/**
+ * @brief What a state Update() is asking for -- a stack change, or a clean
+ *        application shutdown.
+ *
+ * Quit isn't a stack operation: GameStateStack forwards it through
+ * unmodified, and Game<TStateId>::ApplyTransition is what actually acts on
+ * it, by flagging the request for Application to observe via QuitRequested().
+ */
+enum class TransitionKind { None, Push, Pop, Replace, Quit };
 
-/** @brief One requested stack change: push/replace a new state, or pop the current one. */
+/** @brief One requested stack change (or quit): push/replace a new state, or pop/quit the current one. */
 template<typename TStateId>
 struct Transition
 {
-    TStateId        m_TargetId; // Ignored when m_Kind == Pop
+    TStateId        m_TargetId; // Ignored when m_Kind == Pop or Quit
     TransitionKind  m_Kind;
 };
 

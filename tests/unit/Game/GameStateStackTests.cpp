@@ -184,6 +184,17 @@ TEST_F(GameStateStackTest, Update_NonBlockingTopState_LowerStatesTransitionIsUse
     EXPECT_EQ(m_B.m_UpdateCount, 1);
 }
 
+TEST_F(GameStateStackTest, Update_QuitTransition_ForwardedUnmodified)
+{
+    m_A.m_NextTransition = Transition<int>{ 0, TransitionKind::Quit };
+    m_Stack.PushRaw(&m_A);
+
+    auto result = m_Stack.Update(0.016f, m_Input);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->m_Kind, TransitionKind::Quit);
+}
+
 // ─── Render ──────────────────────────────────────────────────────────────────
 
 TEST_F(GameStateStackTest, Render_EmptyStack_NoStatesRendered)

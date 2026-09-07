@@ -33,6 +33,9 @@ public:
 
     /** @brief Called for every system event Application's loop pumps. */
     virtual void OnSystemEvent(event::SystemEvent const& inSysEvent) = 0;
+
+    /** @brief True once a state has requested a clean shutdown via TransitionKind::Quit. */
+    [[nodiscard]] virtual bool QuitRequested() const noexcept = 0;
 };
 
 }
@@ -64,6 +67,7 @@ protected:
 private:
     state::GameStateStack<TStateId>                          m_States;
     std::unordered_map<TStateId, std::unique_ptr<StateType>> m_StateCache;
+    bool                                                      m_QuitRequested{false};
 
     /** @brief Returns inId's cached state, creating it via CreateState() on first use. */
     StateType& GetOrCreateState( TStateId inId )
@@ -76,7 +80,10 @@ private:
         return *it->second;
     }
 
-    /** @brief Applies one state's requested Push/Pop/Replace to m_States; TransitionKind::None is a no-op. */
+    /**
+     * @brief Applies one state's requested Push/Pop/Replace to m_States, or
+     *        flags a Quit for QuitRequested(); TransitionKind::None is a no-op.
+     */
     void ApplyTransition( Transition const& inTransition )
     {
         switch ( inTransition.m_Kind )
@@ -87,6 +94,8 @@ private:
 
         case state::TransitionKind::Replace:
             m_States.ReplaceRaw( &GetOrCreateState( inTransition.m_TargetId ) ); return;
+
+        case state::TransitionKind::Quit: m_QuitRequested = true; return;
 
         default: return;
         }
@@ -137,6 +146,8 @@ public:
     {
         m_States.OnSystemEvent( inSysEvent );
     }
+
+    [[nodiscard]] bool QuitRequested() const noexcept override { return m_QuitRequested; }
 };
 
 /** @brief Detects (via derived-to-base conversion) whether TDerived derives from some Game<T>. */
