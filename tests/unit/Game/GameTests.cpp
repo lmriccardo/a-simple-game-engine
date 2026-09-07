@@ -167,6 +167,39 @@ TEST_F(GameTest, Update_ReplaceTransition_ExitsOldEntersNewAtSameDepth)
     EXPECT_EQ(m_Game.m_Created[0]->m_EventCount, 0);
 }
 
+// ─── QuitRequested ────────────────────────────────────────────────────────────
+
+TEST_F(GameTest, QuitRequested_FreshGame_IsFalse)
+{
+    EXPECT_FALSE(m_Game.QuitRequested());
+}
+
+TEST_F(GameTest, Update_QuitTransition_SetsQuitRequestedTrue)
+{
+    m_Game.SetInitialState(0);
+    m_Game.m_Created[0]->m_NextTransition = Transition<int>{ 0, TransitionKind::Quit };
+
+    m_Game.Update(0.016f, m_Input);
+
+    EXPECT_TRUE(m_Game.QuitRequested());
+}
+
+TEST_F(GameTest, NonQuitTransitions_NeverSetQuitRequested)
+{
+    m_Game.SetInitialState(0);
+    m_Game.m_Created[0]->m_NextTransition = Transition<int>{ 1, TransitionKind::Push };
+    m_Game.Update(0.016f, m_Input);
+    EXPECT_FALSE(m_Game.QuitRequested());
+
+    m_Game.m_Created[1]->m_NextTransition = Transition<int>{ 2, TransitionKind::Replace };
+    m_Game.Update(0.016f, m_Input);
+    EXPECT_FALSE(m_Game.QuitRequested());
+
+    m_Game.m_Created[2]->m_NextTransition = Transition<int>{ 0, TransitionKind::Pop };
+    m_Game.Update(0.016f, m_Input);
+    EXPECT_FALSE(m_Game.QuitRequested());
+}
+
 // ─── State caching ────────────────────────────────────────────────────────────
 
 TEST_F(GameTest, GetOrCreateState_SameIdReusedAcrossPopAndPushAgain)

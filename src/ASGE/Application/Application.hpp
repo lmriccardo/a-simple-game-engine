@@ -68,7 +68,11 @@ public:
         m_Game.emplace( m_VideoSys.GetRenderer(), std::forward<Args>(inGameArgs)... );
     }
 
-    /** @brief Runs the main loop (poll events, update, render, present) until a quit event arrives. */
+    /**
+     * @brief Runs the main loop (poll events, update, render, present) until
+     *        an OS quit event arrives or a state requests one via
+     *        TransitionKind::Quit.
+     */
     void Run()
     {
         if ( !m_Game ) { LOG_ERROR("Application failed to initialize -- video system init failed"); return; }
@@ -87,6 +91,13 @@ public:
             }
 
             m_Game->Update( time::DeltaTime(), m_InputSys.GetState() );
+
+            if ( m_Game->QuitRequested() )
+            {
+                LOG_DEBUG("Application quit requested by game state");
+                m_Running = false;
+            }
+
             m_Game->Render( m_VideoSys.GetRenderer() );
             m_VideoSys.GetRenderer().Present();
         }
