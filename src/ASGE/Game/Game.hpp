@@ -5,6 +5,7 @@
 #include <type_traits>
 
 #include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Audio/AudioDevice.hpp>
 #include <ASGE/Events/Events.hpp>
 #include <ASGE/Input/InputState.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
@@ -63,10 +64,11 @@ protected:
     asset::AssetManager           m_Assets{ m_Vfs };
     scene::SceneManager           m_SceneManager{ m_Vfs };
     video::IRenderer&             m_Renderer;
+    audio::AudioDevice&           m_AudioDev;
 
 private:
-    state::GameStateStack<TStateId>                          m_States;
-    std::unordered_map<TStateId, std::unique_ptr<StateType>> m_StateCache;
+    state::GameStateStack<TStateId>                           m_States;
+    std::unordered_map<TStateId, std::unique_ptr<StateType>>  m_StateCache;
     bool                                                      m_QuitRequested{false};
 
     /** @brief Returns inId's cached state, creating it via CreateState() on first use. */
@@ -118,8 +120,8 @@ protected:
     }
 
 public:
-    explicit Game( video::IRenderer& inRenderer ) noexcept
-    : m_Renderer( inRenderer )
+    explicit Game( video::IRenderer& inRenderer, audio::AudioDevice& inAudioDev ) noexcept
+    : m_Renderer( inRenderer ), m_AudioDev( inAudioDev )
     {}
 
     /** @brief Loads inPath as the active scene and resolves its Sprite/Animation assets through m_Renderer. */

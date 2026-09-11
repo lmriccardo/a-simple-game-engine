@@ -409,7 +409,9 @@ enum class AudioError
     InvalidFormat = 1,
     DecodeFailed,
     SubsystemInitFailed,
+    SubsystemNotInitialized,
     DeviceOpenFailed,
+    StreamCreationFailed,
 };
 
 inline str::String ToErrorString(AudioError e) noexcept
@@ -419,7 +421,9 @@ inline str::String ToErrorString(AudioError e) noexcept
     case AudioError::InvalidFormat: return "currently supported audio format .wav .ogg";
     case AudioError::DecodeFailed: return "audio decode has failed";
     case AudioError::SubsystemInitFailed: return "audio SDL subsystem initialization failed";
+    case AudioError::SubsystemNotInitialized: return "SDL audio subsystem not initialized";
     case AudioError::DeviceOpenFailed: return "SDL failed to open a new audio device";
+    case AudioError::StreamCreationFailed: return "failed to create a new audio stream";
     }
     return "unknown audio error";
 }

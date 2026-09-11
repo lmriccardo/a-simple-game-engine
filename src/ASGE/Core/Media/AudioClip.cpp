@@ -3,6 +3,7 @@
 #include <span>
 #include <stb_vorbis.c>
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_init.h>
 #include <ASGE/Core/Filesystem/FileIO.hpp>
 #include <ASGE/Core/Strings.hpp>
 
@@ -86,4 +87,47 @@ asge::media::AudioClip::Load(filesystem::Path const &inPath) noexcept
         make_error_code( errors::AudioError::InvalidFormat ),
         str::ToUTF8( inPath.extension().u8string() )
     );
+}
+
+bool asge::media::IsAudioSystemInitialized() noexcept
+{
+    return ( SDL_WasInit( SDL_INIT_AUDIO ) & SDL_INIT_AUDIO ) == 1;
+}
+
+asge::BoolResult asge::media::InitializeAudioSystem() noexcept
+{
+    // Check If the audio subsystem was already initialized
+    if ( !IsAudioSystemInitialized() )
+    {
+        if ( !SDL_Init( SDL_INIT_AUDIO ) )
+        {
+            return BoolResult::Err( 
+                make_error_code( errors::AudioError::SubsystemInitFailed ),
+                SDL_GetError()
+            );
+        }
+    }
+
+    return BoolResult::Ok();
+}
+
+asge::Result<SDL_AudioDeviceID> asge::media::OpenNewAudioDevice() noexcept
+{
+    if ( !IsAudioSystemInitialized() )
+    {
+        return Result<SDL_AudioDeviceID>::Err(
+            make_error_code( errors::AudioError::SubsystemNotInitialized )
+        );
+    }
+
+    auto result = SDL_OpenAudioDevice( SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr );
+    if ( !result ) 
+    {
+        return Result<SDL_AudioDeviceID>::Err(
+            make_error_code( errors::AudioError::DeviceOpenFailed ),
+            SDL_GetError()
+        );
+    }
+
+    return Result<SDL_AudioDeviceID>::Ok( result );
 }

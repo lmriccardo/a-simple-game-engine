@@ -49,8 +49,11 @@ public:
      * @brief Reads an audio file from disk and decodes it (WAV or OGG,
      * dispatched by extension) into raw PCM.
      */
-    [[nodiscard]] static Result<AudioClip>
-    Load( filesystem::Path const& inPath ) noexcept;
+    [[nodiscard]] static Result<AudioClip> Load( filesystem::Path const& inPath ) noexcept;
 };
+
+[[nodiscard]] bool IsAudioSystemInitialized() noexcept;
+[[nodiscard]] BoolResult InitializeAudioSystem() noexcept;
+[[nodiscard]] Result<SDL_AudioDeviceID> OpenNewAudioDevice() noexcept;
 
 }

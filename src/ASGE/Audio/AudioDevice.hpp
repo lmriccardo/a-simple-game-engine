@@ -1,39 +1,37 @@
 #pragma once
 
+#include <cstdint>
+#include <memory>
 #include <SDL3/SDL_audio.h>
 #include <ASGE/Core/Errors.hpp>
+#include <ASGE/Core/Media/AudioClip.hpp>
 
 namespace asge::audio
 {
 
-/**
- * @brief Owns SDL's audio subsystem and a single default-playback stream.
- *
- * Mirrors VideoSystem's shape: Initialize() brings up SDL_INIT_AUDIO and
- * opens a stereo 48kHz float stream on the default playback device,
- * Shutdown() (also run from the destructor) tears both back down. Stream()
- * exposes the raw SDL_AudioStream for higher-level playback code to feed.
- */
 class AudioDevice
 {
+public:
+    using stream     = std::shared_ptr<SDL_AudioStream>;
+    using stream_tag = std::weak_ptr<SDL_AudioStream>;
+
 private:
-    SDL_AudioStream* m_Stream{nullptr};          // The opened default-playback audio stream
-    bool m_BackendInitialized{false};            // Whether SDL_INIT_AUDIO is up
+    static constexpr std::size_t kMaxNofStreams = 32;
+    std::array<stream, kMaxNofStreams> m_Streams;
+
+    SDL_AudioDeviceID   m_DeviceId{0};
+    bool                m_BackendInitialized{false};
+    std::size_t         m_LastIndex{0};
 public:
     inline ~AudioDevice() { Shutdown(); }
 
-    /**
-     * @brief Initializes the SDL audio subsystem and opens a default
-     *        playback stream (stereo, 48kHz, float samples), resumed
-     *        and ready to receive audio immediately.
-     */
     BoolResult Initialize();
-
-    // Destroys the audio stream and shuts down the SDL audio subsystem, if either is up
     void Shutdown();
-
-    // Returns the underlying default-playback audio stream, or nullptr if not initialized
-    [[nodiscard]] SDL_AudioStream* Stream() const noexcept;
+    
+    [[nodiscard]] std::size_t Size() const noexcept;
+    [[nodiscard]] SDL_AudioDeviceID Id() const noexcept;
+    [[nodiscard]] Result<stream_tag> 
+    CreateStream( media::AudioClip& inAudioClip ) noexcept;
 };
 
 }

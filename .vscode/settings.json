@@ -17,6 +17,7 @@
         "rendering",
         "workflows",
         "graphics",
-        "build"
+        "build",
+        "audio"
     ]
 }
