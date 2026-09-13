@@ -1,4 +1,5 @@
 #include <ASGE/Game/Game.hpp>
+#include <ASGE/Audio/AudioDevice.hpp>
 
 #include <gtest/gtest.h>
 
@@ -96,8 +97,9 @@ protected:
 class GameTest : public ::testing::Test
 {
 protected:
-    NullRenderer m_Renderer;
-    TestGame     m_Game{ m_Renderer };
+    NullRenderer            m_Renderer;
+    asge::audio::AudioDevice m_AudioDev; // never Initialize()'d -- Game doesn't need a live device to be tested
+    TestGame                m_Game{ m_Renderer, m_AudioDev };
     asge::input::InputState m_Input;
 };
 

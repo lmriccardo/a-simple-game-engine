@@ -149,8 +149,8 @@ void EcsDemoState::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)
     }
 }
 
-EcsDemoGame::EcsDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+EcsDemoGame::EcsDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     // ASGE_ECS_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted once so
     // sprites are loaded by virtual path (see EnsureSpritesAttached) instead

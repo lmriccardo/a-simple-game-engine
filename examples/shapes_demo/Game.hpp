@@ -16,7 +16,7 @@ public:
 class ShapesDemoGame final : public asge::game::Game<int>
 {
 public:
-    explicit ShapesDemoGame(asge::video::IRenderer& inRenderer);
+    explicit ShapesDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev);
 
 protected:
     [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;

@@ -140,8 +140,8 @@ void AnimationDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent
     // Everything here is driven by polling InputState in Update() instead.
 }
 
-AnimationDemoGame::AnimationDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+AnimationDemoGame::AnimationDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     // ASGE_ANIMATION_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted
     // once so both the sheet and its FrameTable meta-file are loaded by

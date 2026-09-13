@@ -20,7 +20,7 @@ public:
 class TextureDemoGame final : public asge::game::Game<int>
 {
 public:
-    explicit TextureDemoGame(asge::video::IRenderer& inRenderer);
+    explicit TextureDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev);
 
 protected:
     [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;

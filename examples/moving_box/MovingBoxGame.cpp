@@ -20,8 +20,8 @@ void MovingBoxState::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)
     m_Box.OnKeyboardEvent( *keyEvent );
 }
 
-MovingBoxGame::MovingBoxGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+MovingBoxGame::MovingBoxGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }

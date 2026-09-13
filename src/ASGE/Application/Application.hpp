@@ -72,7 +72,7 @@ public:
         if ( !initResult ) { initResult.LogError(); return; }
 
         time::TargetFPS( m_Config.s_TargetFps );
-        m_Game.emplace( m_VideoSys.GetRenderer(), std::forward<Args>(inGameArgs)... );
+        m_Game.emplace( m_VideoSys.GetRenderer(), m_AudioDev, std::forward<Args>(inGameArgs)... );
     }
 
     /**

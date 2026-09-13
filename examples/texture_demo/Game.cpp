@@ -86,8 +86,8 @@ void TextureDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent c
 {
 }
 
-TextureDemoGame::TextureDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+TextureDemoGame::TextureDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }

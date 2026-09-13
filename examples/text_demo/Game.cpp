@@ -116,8 +116,8 @@ void TextDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent cons
 {
 }
 
-TextDemoGame::TextDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+TextDemoGame::TextDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }

@@ -289,8 +289,8 @@ void PhysicsDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent c
     // Everything here is driven by polling InputState in Update() instead.
 }
 
-PhysicsDemoGame::PhysicsDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+PhysicsDemoGame::PhysicsDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }
