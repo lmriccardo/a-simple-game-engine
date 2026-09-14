@@ -216,7 +216,8 @@ TEST_F(SceneSerializerTest, Load_ValidSceneFile_RecreatesEntitiesWithSavedCompon
 
     ASSERT_TRUE(loaded.HasComponent<Transform>(all[0]));
     EXPECT_FALSE(loaded.HasComponent<Velocity>(all[0]));
-    Transform const& restoredTransform = loaded.GetComponent<Transform>(all[0]).Value().get();
+    auto restoredTransformResult = loaded.GetComponent<Transform>(all[0]);
+    Transform const& restoredTransform = restoredTransformResult.Value().get();
     EXPECT_FLOAT_EQ(restoredTransform.m_X, transform.m_X);
     EXPECT_FLOAT_EQ(restoredTransform.m_Y, transform.m_Y);
     EXPECT_FLOAT_EQ(restoredTransform.m_Rotation, transform.m_Rotation);
@@ -224,7 +225,8 @@ TEST_F(SceneSerializerTest, Load_ValidSceneFile_RecreatesEntitiesWithSavedCompon
     EXPECT_FLOAT_EQ(restoredTransform.m_ScaleY, transform.m_ScaleY);
 
     ASSERT_TRUE(loaded.HasComponent<Velocity>(all[1]));
-    Velocity const& restoredVelocity = loaded.GetComponent<Velocity>(all[1]).Value().get();
+    auto restoredVelocityResult = loaded.GetComponent<Velocity>(all[1]);
+    Velocity const& restoredVelocity = restoredVelocityResult.Value().get();
     EXPECT_FLOAT_EQ(restoredVelocity.m_DX, velocity.m_DX);
     EXPECT_FLOAT_EQ(restoredVelocity.m_DY, velocity.m_DY);
 
@@ -254,7 +256,8 @@ TEST_F(SceneSerializerTest, Load_SpriteComponent_RestoresPathAndSourceRectButLea
     ASSERT_EQ(all.size(), 1u);
     ASSERT_TRUE(loaded.HasComponent<Sprite>(all[0]));
 
-    Sprite const& restored = loaded.GetComponent<Sprite>(all[0]).Value().get();
+    auto restoredResult = loaded.GetComponent<Sprite>(all[0]);
+    Sprite const& restored = restoredResult.Value().get();
     EXPECT_EQ(restored.m_VirtualPath, "textures/checker.bmp");
     EXPECT_EQ(restored.m_Texture, nullptr); // resolving it is the caller's job, not Load's
     ASSERT_TRUE(restored.m_SourceRect.has_value());

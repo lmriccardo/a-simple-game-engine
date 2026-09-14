@@ -373,9 +373,11 @@ TEST(AnimationSystemTest, AdvancesToNextFrameOnceFrameDurationElapses)
 
     asge::game::systems::AnimationSystem(registry, 0.1f);
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 1u);
-    auto const& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
+    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     ASSERT_TRUE(sprite.m_SourceRect.has_value());
     EXPECT_FLOAT_EQ(sprite.m_SourceRect->x, 8.0f);
 }
@@ -398,7 +400,8 @@ TEST(AnimationSystemTest, LoopingAnimationWrapsToFrameZeroPastTheLastFrame)
     // Two full frame-durations from frame 0 lands back on frame 0.
     asge::game::systems::AnimationSystem(registry, 0.2f);
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 0u);
     EXPECT_TRUE(anim.m_Playing);
 }
@@ -420,7 +423,8 @@ TEST(AnimationSystemTest, NonLoopingAnimationClampsOnLastFrameAndStopsPlaying)
 
     asge::game::systems::AnimationSystem(registry, 0.5f); // Well past the end.
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 1u); // Clamped to the last frame, not wrapped.
     EXPECT_FALSE(anim.m_Playing);
 }
@@ -442,7 +446,8 @@ TEST(AnimationSystemTest, NotPlayingAnimationIsNotAdvanced)
 
     asge::game::systems::AnimationSystem(registry, 10.0f);
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 0u);
     EXPECT_FLOAT_EQ(anim.m_ElapsedTime, 0.0f);
 }
@@ -461,7 +466,8 @@ TEST(AnimationSystemTest, EmptyFramesListIsSkippedRatherThanCrashing)
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
 
-    auto const& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
+    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_FALSE(sprite.m_SourceRect.has_value());
 }
 
@@ -482,7 +488,8 @@ TEST(AnimationSystemTest, UnresolvedClipIsSkippedRatherThanCrashing)
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
 
-    auto const& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
+    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_FALSE(sprite.m_SourceRect.has_value());
 }
 
@@ -501,7 +508,8 @@ TEST(AnimationSystemTest, NullTextureIsSkipped)
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 0u);
 }
 
@@ -524,7 +532,8 @@ TEST(AnimationSystemTest, NonPositiveFrameDurationIsSkippedRatherThanLoopingFore
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 0u);
 }
 
@@ -550,7 +559,8 @@ TEST(AnimationSystemTest, LargeDeltaTimeStepsThroughMultipleFramesInOneCall)
     // 0.35s / 0.1s per frame = 3 whole steps -> frame (0 + 3) % 3 == 0, 0.05s left over.
     asge::game::systems::AnimationSystem(registry, 0.35f);
 
-    auto const& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_CurrentFrame, 0u);
     EXPECT_NEAR(anim.m_ElapsedTime, 0.05f, 1e-5f);
 }
