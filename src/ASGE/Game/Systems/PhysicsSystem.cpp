@@ -82,8 +82,8 @@ asge::game::components::ColliderShape asge::game::systems::WorldBounds(
         if constexpr ( std::is_same_v<ShapeT, math::Rect> )
         {
             return math::Rect{
-                inTransform.m_X + inShape.x, inTransform.m_Y + inShape.y,
-                inShape.w, inShape.h
+                inTransform.m_X + inShape.m_X, inTransform.m_Y + inShape.m_Y,
+                inShape.m_Width, inShape.m_Height
             };
         } else {
             return math::Circle{

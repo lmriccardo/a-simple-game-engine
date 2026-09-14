@@ -105,10 +105,10 @@ TEST(RenderSystemTest, NoSourceRect_DestRectSizedFromFullTextureScaled)
     ASSERT_EQ(renderer.m_Calls.size(), 1u);
     EXPECT_FALSE(renderer.m_Calls[0].m_HadSourceRect);
     auto const& destRect = renderer.m_Calls[0].m_DestRect;
-    EXPECT_FLOAT_EQ(destRect.x, 10.0f);
-    EXPECT_FLOAT_EQ(destRect.y, 20.0f);
-    EXPECT_FLOAT_EQ(destRect.w, 128.0f); // 64 * 2
-    EXPECT_FLOAT_EQ(destRect.h, 96.0f);  // 32 * 3
+    EXPECT_FLOAT_EQ(destRect.m_X, 10.0f);
+    EXPECT_FLOAT_EQ(destRect.m_Y, 20.0f);
+    EXPECT_FLOAT_EQ(destRect.m_Width, 128.0f); // 64 * 2
+    EXPECT_FLOAT_EQ(destRect.m_Height, 96.0f);  // 32 * 3
 }
 
 // ─── RenderSystem — cropped sprites (source rect set) ───────────────────────────
@@ -135,11 +135,11 @@ TEST(RenderSystemTest, SourceRectSet_DestRectSizedFromSourceRectNotFullTexture)
     ASSERT_EQ(renderer.m_Calls.size(), 1u);
     EXPECT_TRUE(renderer.m_Calls[0].m_HadSourceRect);
     auto const& destRect = renderer.m_Calls[0].m_DestRect;
-    EXPECT_FLOAT_EQ(destRect.x, 5.0f);
-    EXPECT_FLOAT_EQ(destRect.y, 5.0f);
+    EXPECT_FLOAT_EQ(destRect.m_X, 5.0f);
+    EXPECT_FLOAT_EQ(destRect.m_Y, 5.0f);
     // Must come from the 32x32 source cell * scale, not the 256x256 sheet.
-    EXPECT_FLOAT_EQ(destRect.w, 64.0f); // 32 * 2
-    EXPECT_FLOAT_EQ(destRect.h, 64.0f); // 32 * 2
+    EXPECT_FLOAT_EQ(destRect.m_Width, 64.0f); // 32 * 2
+    EXPECT_FLOAT_EQ(destRect.m_Height, 64.0f); // 32 * 2
 }
 
 TEST(RenderSystemTest, SourceRectAndFullTextureEntities_EachDestRectComputedIndependently)
@@ -172,8 +172,8 @@ TEST(RenderSystemTest, SourceRectAndFullTextureEntities_EachDestRectComputedInde
         // Cropped entity's 32x32 source cell must not leak its size onto
         // the uncropped entity's destRect (or vice versa).
         float const expected = call.m_HadSourceRect ? 32.0f : 16.0f;
-        EXPECT_FLOAT_EQ(call.m_DestRect.w, expected);
-        EXPECT_FLOAT_EQ(call.m_DestRect.h, expected);
+        EXPECT_FLOAT_EQ(call.m_DestRect.m_Width, expected);
+        EXPECT_FLOAT_EQ(call.m_DestRect.m_Height, expected);
     }
 }
 
@@ -203,8 +203,8 @@ TEST(RenderSystemTest, Layer_LowerLayerDrawnBeforeHigherLayer)
 
     ASSERT_EQ(renderer.m_Calls.size(), 2u);
     // Layer 1 (low) must draw before layer 5 (high) regardless of creation order.
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 200.0f);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 100.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 200.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 100.0f);
 }
 
 // ─── RenderSystem — y-sort within a layer ───────────────────────────────────────
@@ -232,8 +232,8 @@ TEST(RenderSystemTest, YSort_SortsByBottomEdgeWithinSameLayer)
     asge::game::systems::RenderSystem(registry, renderer);
 
     ASSERT_EQ(renderer.m_Calls.size(), 2u);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 2.0f);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 1.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 2.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 1.0f);
 }
 
 TEST(RenderSystemTest, YSort_TiedBottomEdge_FallsBackToEntityIndex)
@@ -260,8 +260,8 @@ TEST(RenderSystemTest, YSort_TiedBottomEdge_FallsBackToEntityIndex)
 
     ASSERT_EQ(renderer.m_Calls.size(), 2u);
     // Bottom edges tie, so creation order (entity index) decides.
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 1.0f);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 2.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 1.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 2.0f);
 }
 
 TEST(RenderSystemTest, YSort_MixedWithNonYSortSprite_EitherOptingInSortsBothByY)
@@ -291,8 +291,8 @@ TEST(RenderSystemTest, YSort_MixedWithNonYSortSprite_EitherOptingInSortsBothByY)
     ASSERT_EQ(renderer.m_Calls.size(), 2u);
     // Either side opting into y-sort is enough to order the pair by bottom
     // edge -- creation order alone (which would put `plain` first) is not used.
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 2.0f);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 1.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 2.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 1.0f);
 }
 
 TEST(RenderSystemTest, NoYSort_SameLayer_PreservesEntityCreationOrderRegardlessOfY)
@@ -320,8 +320,8 @@ TEST(RenderSystemTest, NoYSort_SameLayer_PreservesEntityCreationOrderRegardlessO
     asge::game::systems::RenderSystem(registry, renderer);
 
     ASSERT_EQ(renderer.m_Calls.size(), 2u);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.x, 1.0f);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.x, 2.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 1.0f);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 2.0f);
 }
 
 // ─── RenderSystem — null texture ────────────────────────────────────────────────
@@ -379,7 +379,7 @@ TEST(AnimationSystemTest, AdvancesToNextFrameOnceFrameDurationElapses)
     auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
     auto const& sprite = spriteResult.Value().get();
     ASSERT_TRUE(sprite.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->x, 8.0f);
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f);
 }
 
 TEST(AnimationSystemTest, LoopingAnimationWrapsToFrameZeroPastTheLastFrame)
@@ -587,7 +587,7 @@ TEST(RenderPipelineTest, AdvancesAnimationThenDrawsTheUpdatedFrame)
 
     ASSERT_EQ(renderer.m_Calls.size(), 1u);
     EXPECT_TRUE(renderer.m_Calls[0].m_HadSourceRect);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.w, 8.0f); // The 2nd (advanced-to) frame's width.
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_Width, 8.0f); // The 2nd (advanced-to) frame's width.
 }
 
 }

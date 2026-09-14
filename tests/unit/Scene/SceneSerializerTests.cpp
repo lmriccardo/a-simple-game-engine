@@ -261,10 +261,10 @@ TEST_F(SceneSerializerTest, Load_SpriteComponent_RestoresPathAndSourceRectButLea
     EXPECT_EQ(restored.m_VirtualPath, "textures/checker.bmp");
     EXPECT_EQ(restored.m_Texture, nullptr); // resolving it is the caller's job, not Load's
     ASSERT_TRUE(restored.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->x, 1.0f);
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->y, 2.0f);
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->w, 3.0f);
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->h, 4.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_X, 1.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Y, 2.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Width, 3.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Height, 4.0f);
 }
 
 TEST_F(SceneSerializerTest, Load_EmptySceneFile_ResultsInEmptyRegistry)

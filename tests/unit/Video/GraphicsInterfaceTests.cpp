@@ -240,10 +240,10 @@ TEST(DrawTextureAnchoredTest, DefaultAnchor_ReproducesPlainDrawTexture)
     DrawTextureAnchored(renderer, texture, src, dest);
 
     EXPECT_EQ(renderer.s_DrawTextureSrcDestCalls, 1);
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.x, dest.x);
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.y, dest.y);
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.w, dest.w);
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.h, dest.h);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_X, dest.m_X);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Y, dest.m_Y);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Width, dest.m_Width);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Height, dest.m_Height);
 }
 
 TEST(DrawTextureAnchoredTest, CenterAnchor_OffsetsDestRectByHalfItsSize)
@@ -256,10 +256,10 @@ TEST(DrawTextureAnchoredTest, CenterAnchor_OffsetsDestRectByHalfItsSize)
 
     DrawTextureAnchored(renderer, texture, src, dest, asge::math::Float2{0.5F, 0.5F});
 
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.x, 80.0F);  // 100 - 0.5*40
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.y, 190.0F); // 200 - 0.5*20
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.w, 40.0F);
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.h, 20.0F);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_X, 80.0F);  // 100 - 0.5*40
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Y, 190.0F); // 200 - 0.5*20
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Width, 40.0F);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Height, 20.0F);
 }
 
 TEST(DrawTextureAnchoredTest, BottomRightAnchor_OffsetsDestRectByItsFullSize)
@@ -272,10 +272,10 @@ TEST(DrawTextureAnchoredTest, BottomRightAnchor_OffsetsDestRectByItsFullSize)
 
     DrawTextureAnchored(renderer, texture, src, dest, asge::math::Float2{1.0F, 1.0F});
 
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.x, 60.0F);  // 100 - 40
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.y, 180.0F); // 200 - 20
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.w, 40.0F);
-    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.h, 20.0F);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_X, 60.0F);  // 100 - 40
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Y, 180.0F); // 200 - 20
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Width, 40.0F);
+    EXPECT_FLOAT_EQ(renderer.s_LastDestRect.m_Height, 20.0F);
 }
 
 TEST(DrawTextureAnchoredTest, SrcRectIsPassedThroughUnchanged)
@@ -290,10 +290,10 @@ TEST(DrawTextureAnchoredTest, SrcRectIsPassedThroughUnchanged)
 
     DrawTextureAnchored(renderer, texture, src, dest, asge::math::Float2{0.5F, 1.0F});
 
-    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.x, src.x);
-    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.y, src.y);
-    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.w, src.w);
-    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.h, src.h);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.m_X, src.m_X);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.m_Y, src.m_Y);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.m_Width, src.m_Width);
+    EXPECT_FLOAT_EQ(renderer.s_LastSrcRect.m_Height, src.m_Height);
 }
 
 } // namespace

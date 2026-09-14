@@ -61,10 +61,10 @@ TEST(PhysicsSystemTest, WorldBounds_RectCollider_OffsetByTransformPosition)
 
     ASSERT_TRUE( std::holds_alternative<asge::math::Rect>( bounds ) );
     auto const& rect = std::get<asge::math::Rect>( bounds );
-    EXPECT_FLOAT_EQ( rect.x, 15.0f ); // 10 + 5
-    EXPECT_FLOAT_EQ( rect.y, 26.0f ); // 20 + 6
-    EXPECT_FLOAT_EQ( rect.w, 30.0f ); // shape size is untouched
-    EXPECT_FLOAT_EQ( rect.h, 40.0f );
+    EXPECT_FLOAT_EQ( rect.m_X, 15.0f ); // 10 + 5
+    EXPECT_FLOAT_EQ( rect.m_Y, 26.0f ); // 20 + 6
+    EXPECT_FLOAT_EQ( rect.m_Width, 30.0f ); // shape size is untouched
+    EXPECT_FLOAT_EQ( rect.m_Height, 40.0f );
 }
 
 TEST(PhysicsSystemTest, WorldBounds_CircleCollider_CenterOffsetByTransformPosition)

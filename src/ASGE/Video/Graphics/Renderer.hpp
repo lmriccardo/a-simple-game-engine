@@ -162,9 +162,9 @@ inline void DrawTextureAnchored(
 ) noexcept
 {
     math::Rect const adjustedDest{
-        inDestRect.x - inSrcAnchor.x() * inDestRect.w,
-        inDestRect.y - inSrcAnchor.y() * inDestRect.h,
-        inDestRect.w, inDestRect.h
+        inDestRect.m_X - inSrcAnchor.x() * inDestRect.m_Width,
+        inDestRect.m_Y - inSrcAnchor.y() * inDestRect.m_Height,
+        inDestRect.m_Width, inDestRect.m_Height
     };
     inRenderer.DrawTexture( inTexture, inSrcRect, adjustedDest );
 }

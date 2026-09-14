@@ -89,10 +89,10 @@ TEST(PhysicsDebugSystemTest, RectCollider_DrawsUnfilledRectAtWorldOffsetBounds)
     EXPECT_TRUE(renderer.m_CircleCalls.empty());
     auto const& call = renderer.m_RectCalls[0];
     EXPECT_FALSE(call.m_Fill);
-    EXPECT_FLOAT_EQ(call.m_Rect.x, 15.0f); // 10 + 5
-    EXPECT_FLOAT_EQ(call.m_Rect.y, 26.0f); // 20 + 6
-    EXPECT_FLOAT_EQ(call.m_Rect.w, 30.0f);
-    EXPECT_FLOAT_EQ(call.m_Rect.h, 40.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_X, 15.0f); // 10 + 5
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Y, 26.0f); // 20 + 6
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Width, 30.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Height, 40.0f);
 }
 
 TEST(PhysicsDebugSystemTest, CircleCollider_DrawsUnfilledCircleAtWorldOffsetCenter)

@@ -78,9 +78,9 @@ void PhysicsDemoState::SpawnStaticGeometry()
         auto entity = m_Registry.CreateEntity();
         if ( !entity ) { entity.LogError(); return; }
 
-        m_Registry.AddComponent<Transform>( entity.Value(), Transform{ inBounds.x, inBounds.y, 0.0f, 1.0f, 1.0f } );
+        m_Registry.AddComponent<Transform>( entity.Value(), Transform{ inBounds.m_X, inBounds.m_Y, 0.0f, 1.0f, 1.0f } );
         m_Registry.AddComponent<Collider>( entity.Value(),
-            Collider{ asge::math::Rect{ 0.0f, 0.0f, inBounds.w, inBounds.h } } );
+            Collider{ asge::math::Rect{ 0.0f, 0.0f, inBounds.m_Width, inBounds.m_Height } } );
     };
 
     makeStatic({ 0.0f, kWindowHeight - kFloorHeight, kWindowWidth, kFloorHeight });      // floor
@@ -268,7 +268,7 @@ void PhysicsDemoState::Render(asge::video::IRenderer &inRenderer)
             if constexpr ( std::is_same_v<ShapeT, asge::math::Rect> )
             {
                 asge::math::Rect const bounds{
-                    t.m_X + inShape.x, t.m_Y + inShape.y, inShape.w, inShape.h
+                    t.m_X + inShape.m_X, t.m_Y + inShape.m_Y, inShape.m_Width, inShape.m_Height
                 };
                 inRenderer.DrawRect( bounds, color, fill );
             }

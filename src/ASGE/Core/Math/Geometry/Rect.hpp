@@ -8,10 +8,10 @@ namespace asge::math
 
 struct Rect
 {
-    float x; // The x coordinate position
-    float y; // The y coordinate position
-    float w; // The width of the rectangle
-    float h; // The height of the rectangle
+    float m_X;      // the x coordinate position
+    float m_Y;      // the y coordinate position
+    float m_Width;  // the width of the rectangle
+    float m_Height; // the height of the rectangle
 };
 
 

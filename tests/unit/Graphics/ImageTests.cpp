@@ -223,10 +223,10 @@ TEST(AlphaContentBoundsTest, FullyOpaqueImage_ReturnsWholeImage)
 
     auto const bounds = image.AlphaContentBounds();
 
-    EXPECT_FLOAT_EQ(bounds.x, 0.0f);
-    EXPECT_FLOAT_EQ(bounds.y, 0.0f);
-    EXPECT_FLOAT_EQ(bounds.w, 4.0f);
-    EXPECT_FLOAT_EQ(bounds.h, 3.0f);
+    EXPECT_FLOAT_EQ(bounds.m_X, 0.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Y, 0.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Width, 4.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Height, 3.0f);
 }
 
 TEST(AlphaContentBoundsTest, PaddedSprite_ReturnsTightBoundsSmallerThanCanvas)
@@ -239,10 +239,10 @@ TEST(AlphaContentBoundsTest, PaddedSprite_ReturnsTightBoundsSmallerThanCanvas)
 
     auto const bounds = image.AlphaContentBounds();
 
-    EXPECT_FLOAT_EQ(bounds.x, 2.0f);
-    EXPECT_FLOAT_EQ(bounds.y, 2.0f);
-    EXPECT_FLOAT_EQ(bounds.w, 2.0f);
-    EXPECT_FLOAT_EQ(bounds.h, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_X, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Y, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Width, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Height, 2.0f);
 }
 
 TEST(AlphaContentBoundsTest, RegionOverload_OnlyConsidersPixelsInsideRegion)
@@ -255,10 +255,10 @@ TEST(AlphaContentBoundsTest, RegionOverload_OnlyConsidersPixelsInsideRegion)
 
     auto const bounds = image.AlphaContentBounds(asge::math::Rect{ 4.0f, 4.0f, 4.0f, 4.0f });
 
-    EXPECT_FLOAT_EQ(bounds.x, 5.0f);
-    EXPECT_FLOAT_EQ(bounds.y, 5.0f);
-    EXPECT_FLOAT_EQ(bounds.w, 1.0f);
-    EXPECT_FLOAT_EQ(bounds.h, 1.0f);
+    EXPECT_FLOAT_EQ(bounds.m_X, 5.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Y, 5.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Width, 1.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Height, 1.0f);
 }
 
 TEST(AlphaContentBoundsTest, RegionExtendingPastImageBounds_IsClamped)
@@ -267,10 +267,10 @@ TEST(AlphaContentBoundsTest, RegionExtendingPastImageBounds_IsClamped)
 
     auto const bounds = image.AlphaContentBounds(asge::math::Rect{ 2.0f, 2.0f, 100.0f, 100.0f });
 
-    EXPECT_FLOAT_EQ(bounds.x, 2.0f);
-    EXPECT_FLOAT_EQ(bounds.y, 2.0f);
-    EXPECT_FLOAT_EQ(bounds.w, 2.0f); // clamped: image width(4) - region x(2)
-    EXPECT_FLOAT_EQ(bounds.h, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_X, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Y, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Width, 2.0f); // clamped: image width(4) - region x(2)
+    EXPECT_FLOAT_EQ(bounds.m_Height, 2.0f);
 }
 
 TEST(AlphaContentBoundsTest, EntirelyTransparentRegion_FallsBackToClampedRegion)
@@ -281,10 +281,10 @@ TEST(AlphaContentBoundsTest, EntirelyTransparentRegion_FallsBackToClampedRegion)
 
     // Falls back to the region itself, but still clamped -- h shrinks from
     // 100 to what actually fits (image height 10 - region y 3 = 7).
-    EXPECT_FLOAT_EQ(bounds.x, 2.0f);
-    EXPECT_FLOAT_EQ(bounds.y, 3.0f);
-    EXPECT_FLOAT_EQ(bounds.w, 5.0f);
-    EXPECT_FLOAT_EQ(bounds.h, 7.0f);
+    EXPECT_FLOAT_EQ(bounds.m_X, 2.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Y, 3.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Width, 5.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Height, 7.0f);
 }
 
 TEST(AlphaContentBoundsTest, A8Format_TreatsThePixelByteItselfAsAlpha)
@@ -295,10 +295,10 @@ TEST(AlphaContentBoundsTest, A8Format_TreatsThePixelByteItselfAsAlpha)
 
     auto const bounds = image.AlphaContentBounds();
 
-    EXPECT_FLOAT_EQ(bounds.x, 1.0f);
-    EXPECT_FLOAT_EQ(bounds.y, 1.0f);
-    EXPECT_FLOAT_EQ(bounds.w, 1.0f);
-    EXPECT_FLOAT_EQ(bounds.h, 1.0f);
+    EXPECT_FLOAT_EQ(bounds.m_X, 1.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Y, 1.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Width, 1.0f);
+    EXPECT_FLOAT_EQ(bounds.m_Height, 1.0f);
 }
 
 }

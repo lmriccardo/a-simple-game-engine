@@ -5,8 +5,8 @@
 
 bool asge::math::AabbOverlap(Rect const &inA, Rect const &inB) noexcept
 {
-    return inA.x < inB.x + inB.w && inA.x + inA.w > inB.x
-        && inA.y < inB.y + inB.h && inA.y + inA.h > inB.y;
+    return inA.m_X < inB.m_X + inB.m_Width && inA.m_X + inA.m_Width > inB.m_X
+        && inA.m_Y < inB.m_Y + inB.m_Height && inA.m_Y + inA.m_Height > inB.m_Y;
 }
 
 bool asge::math::CircleOverlap(Circle const &inA, Circle const &inB) noexcept
@@ -35,8 +35,8 @@ std::optional<asge::math::Float2> asge::math::PenetrationVector(Circle const &in
 
 std::optional<asge::math::Float2> asge::math::PenetrationVector(Rect const &inRect, Circle const &inCircle) noexcept
 {
-    float const closestX = std::clamp( inCircle.m_Center.x(), inRect.x, inRect.x + inRect.w );
-    float const closestY = std::clamp( inCircle.m_Center.y(), inRect.y, inRect.y + inRect.h );
+    float const closestX = std::clamp( inCircle.m_Center.x(), inRect.m_X, inRect.m_X + inRect.m_Width );
+    float const closestY = std::clamp( inCircle.m_Center.y(), inRect.m_Y, inRect.m_Y + inRect.m_Height );
 
     float const dx = inCircle.m_Center.x() - closestX;
     float const dy = inCircle.m_Center.y() - closestY;
@@ -58,10 +58,10 @@ std::optional<asge::math::Float2> asge::math::PenetrationVector(Rect const &inRe
     // to the center itself, so the direction above is undefined. Push the
     // rect away along whichever of its four edges is nearest to the
     // center, rather than assuming "up".
-    float const leftPen   = ( inCircle.m_Center.x() - inRect.x ) + inCircle.m_Radius;
-    float const rightPen  = ( inRect.x + inRect.w - inCircle.m_Center.x() ) + inCircle.m_Radius;
-    float const topPen    = ( inCircle.m_Center.y() - inRect.y ) + inCircle.m_Radius;
-    float const bottomPen = ( inRect.y + inRect.h - inCircle.m_Center.y() ) + inCircle.m_Radius;
+    float const leftPen   = ( inCircle.m_Center.x() - inRect.m_X ) + inCircle.m_Radius;
+    float const rightPen  = ( inRect.m_X + inRect.m_Width - inCircle.m_Center.x() ) + inCircle.m_Radius;
+    float const topPen    = ( inCircle.m_Center.y() - inRect.m_Y ) + inCircle.m_Radius;
+    float const bottomPen = ( inRect.m_Y + inRect.m_Height - inCircle.m_Center.y() ) + inCircle.m_Radius;
 
     float const minPen = std::min( { leftPen, rightPen, topPen, bottomPen } );
 
@@ -82,13 +82,13 @@ std::optional<asge::math::Float2> asge::math::PenetrationVector(Rect const &inA,
 {
     if ( !AabbOverlap( inA, inB ) ) return std::nullopt;
 
-    float const overlapX = std::min( inA.x + inA.w, inB.x + inB.w ) - std::max( inA.x, inB.x );
-    float const overlapY = std::min( inA.y + inA.h, inB.y + inB.h ) - std::max( inA.y, inB.y );
+    float const overlapX = std::min( inA.m_X + inA.m_Width, inB.m_X + inB.m_Width ) - std::max( inA.m_X, inB.m_X );
+    float const overlapY = std::min( inA.m_Y + inA.m_Height, inB.m_Y + inB.m_Height ) - std::max( inA.m_Y, inB.m_Y );
 
-    float const aCenterX = inA.x + inA.w * 0.5f;
-    float const bCenterX = inB.x + inB.w * 0.5f;
-    float const aCenterY = inA.y + inA.h * 0.5f;
-    float const bCenterY = inB.y + inB.h * 0.5f;
+    float const aCenterX = inA.m_X + inA.m_Width * 0.5f;
+    float const bCenterX = inB.m_X + inB.m_Width * 0.5f;
+    float const aCenterY = inA.m_Y + inA.m_Height * 0.5f;
+    float const bCenterY = inB.m_Y + inB.m_Height * 0.5f;
 
     if ( overlapX < overlapY )
     {

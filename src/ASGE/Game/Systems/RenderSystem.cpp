@@ -42,7 +42,7 @@ std::optional<DrawItem> ConstructFrom(
     if ( !result.has_value() ) return std::nullopt;
     return DrawItem
     {
-        inE, &inT, &inS, inS.m_Layer, inT.m_Y + (*result).h,
+        inE, &inT, &inS, inS.m_Layer, inT.m_Y + (*result).m_Height,
         inS.m_YSort, *result
     };
 }

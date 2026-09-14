@@ -145,10 +145,10 @@ TEST(SpriteSerializerTest, RoundTrip_WithSourceRectRestoresItsFields)
 
     Sprite const restored = Serializer<Sprite>::FromToml( builder );
     ASSERT_TRUE(restored.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->x, 16.0f);
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->y, 32.0f);
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->w, 8.0f);
-    EXPECT_FLOAT_EQ(restored.m_SourceRect->h, 8.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_X, 16.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Y, 32.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Width, 8.0f);
+    EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Height, 8.0f);
 }
 
 // ─── Collider ─────────────────────────────────────────────────────────────
@@ -178,10 +178,10 @@ TEST(ColliderSerializerTest, RoundTrip_RectShapeSolidResolution)
     Collider const restored = Serializer<Collider>::FromToml( builder );
     ASSERT_TRUE(std::holds_alternative<asge::math::Rect>(restored.m_LocalBounds));
     auto const& rect = std::get<asge::math::Rect>(restored.m_LocalBounds);
-    EXPECT_FLOAT_EQ(rect.x, 1.0f);
-    EXPECT_FLOAT_EQ(rect.y, 2.0f);
-    EXPECT_FLOAT_EQ(rect.w, 3.0f);
-    EXPECT_FLOAT_EQ(rect.h, 4.0f);
+    EXPECT_FLOAT_EQ(rect.m_X, 1.0f);
+    EXPECT_FLOAT_EQ(rect.m_Y, 2.0f);
+    EXPECT_FLOAT_EQ(rect.m_Width, 3.0f);
+    EXPECT_FLOAT_EQ(rect.m_Height, 4.0f);
     EXPECT_EQ(restored.m_Resolution, ResolutionType::Solid);
 }
 

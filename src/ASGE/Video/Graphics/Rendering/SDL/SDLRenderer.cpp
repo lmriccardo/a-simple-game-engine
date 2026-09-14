@@ -59,7 +59,7 @@ void asge::video::SDLRenderer::DrawRect(
         LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
     }
 
-    SDL_FRect rect{ inRect.x, inRect.y, inRect.w, inRect.h };
+    SDL_FRect rect{ inRect.m_X, inRect.m_Y, inRect.m_Width, inRect.m_Height };
     bool renderResult;
 
     if ( !inFill ) {
@@ -144,7 +144,7 @@ void asge::video::SDLRenderer::DrawCircle(
 void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Rect const &inDestRect) const noexcept
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
-    SDL_FRect dst{ inDestRect.x, inDestRect.y, inDestRect.w, inDestRect.h };
+    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
     if ( !SDL_RenderTexture(m_Renderer, texture, nullptr, &dst) )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
@@ -162,8 +162,8 @@ void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Floa
 void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Rect const &inSrcRect, math::Rect const &inDestRect) const noexcept
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
-    SDL_FRect src{ inSrcRect.x, inSrcRect.y, inSrcRect.w, inSrcRect.h };
-    SDL_FRect dst{ inDestRect.x, inDestRect.y, inDestRect.w, inDestRect.h };
+    SDL_FRect src{ inSrcRect.m_X, inSrcRect.m_Y, inSrcRect.m_Width, inSrcRect.m_Height };
+    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
     if ( !SDL_RenderTexture(m_Renderer, texture, &src, &dst) )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
@@ -176,7 +176,7 @@ void asge::video::SDLRenderer::DrawTextureTiled(
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
 
-    SDL_FRect dst{ inDestRect.x, inDestRect.y, inDestRect.w, inDestRect.h };
+    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
     if ( !SDL_RenderTextureTiled(m_Renderer, texture, nullptr, inScale, &dst) )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
@@ -206,7 +206,7 @@ void asge::video::SDLRenderer::DrawTexture9Grid(
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
 
-    SDL_FRect dst{ inDestRect.x, inDestRect.y, inDestRect.w, inDestRect.h };
+    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
     auto r = SDL_RenderTexture9Grid(m_Renderer, texture, nullptr,inLeft, inRight, inTop, inBottom, 1.0F, &dst);
     if ( !r )
     {
