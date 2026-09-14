@@ -1,3 +1,45 @@
+## [0.8.0] - 2026-09-14
+
+
+### Bug Fixes
+
+- :bug: Back stream pool with shared_ptr and stop Shutdown segfaulting on empty slots
+
+- :bug: Fix AudioSystem/AudioDevice bugs, document and test the audio pipeline
+
+- :bug: Pass AudioDevice through to Game<TStateId> at every construction site
+
+- :bug: Coerce int-typed TOML values in Get(key, float) (#75)
+
+
+
+
+### Features
+
+- :sparkles: Add master volume and stream detaching to audio_demo
+
+- :sparkles: Document/test per-stream and device gain, add DetachAudioSource
+
+- :sparkles: Add audio_demo showcasing AudioSource/AudioSystem
+
+- :construction: Implements Audio device streams for audio source systems
+
+- :sparkles: Add AudioDevice to own SDL audio subsystem init and the default playback stream
+
+- :sparkles: Add AudioClip for loading WAV/OGG audio into raw PCM
+
+- :sparkles: Add DebugDrawColliders for visualizing Collider bounds (#76)
+
+- :sparkles: Let a game state request a clean Application quit (#74)
+
+
+
+
+### Contributors
+
+- lmriccardo
+
+- La Marca Riccardo
 ## [0.7.1] - 2026-09-05
 
 
@@ -325,6 +367,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.0...v0.6.1
