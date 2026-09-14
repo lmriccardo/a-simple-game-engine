@@ -73,6 +73,7 @@ add_library(ASGE STATIC
     Game/Components/Sprite.cpp
     Game/Components/Animation.cpp
     Game/Components/AudioSource.cpp
+    Game/Components/Camera.cpp
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp
