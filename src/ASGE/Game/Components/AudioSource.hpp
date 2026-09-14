@@ -84,6 +84,12 @@ inline BoolResult DetachAudioSource( audio::AudioDevice& inDevice, AudioSource& 
     return BoolResult::Ok();
 }
 
+/** @brief Set the audio source gain/volume */
+inline void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept
+{
+    inAudioSource.m_Volume = inVolume;
+}
+
 /**
  * @brief Round-trips m_VirtualClipPath only — which clip to play, not the
  *        live playback state. FromToml leaves m_Clip null (resolved later

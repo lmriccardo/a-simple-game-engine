@@ -1,11 +1,14 @@
 #include "Game.hpp"
 
+#include <algorithm>
+
 namespace
 {
 using namespace asge::game::components;
 
 constexpr char const* kAmbientPath = "audio/ambient.ogg";
 constexpr char const* kBlipPath    = "audio/blip.ogg";
+constexpr float kVolumeStep = 0.1f;
 }
 
 AudioDemoState::AudioDemoState(
@@ -49,6 +52,13 @@ void AudioDemoState::SpawnSources()
     if ( !addedBlip ) addedBlip.LogError();
 }
 
+void AudioDemoState::AdjustMasterVolume(float inDelta)
+{
+    m_MasterVolume = std::clamp(m_MasterVolume + inDelta, 0.0f, 1.0f);
+    auto result = m_AudioDev.SetGain(m_MasterVolume);
+    if ( !result ) result.LogError();
+}
+
 std::optional<asge::game::state::Transition<int>>
 AudioDemoState::Update(
     [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
@@ -79,10 +89,28 @@ void AudioDemoState::Render(asge::video::IRenderer &inRenderer)
         true
     );
 
-    // "BLIP" indicator (right) -- lit while its stream still has data queued.
+    // "BLIP" indicator (right) -- lit while its stream still has data queued,
+    // dark red once D has detached it (SPACE then creates a fresh stream).
+    bool blipDetached = true;
+    if ( auto blip = m_Registry.GetComponent<AudioSource>(m_Blip) )
+        blipDetached = blip.Value().get().m_Stream == nullptr;
+
     inRenderer.DrawRect(
         asge::math::Rect{ 480.0f, 220.0f, 200.0f, 160.0f },
-        blipSounding ? asge::media::RGBA_Color{ 240, 200, 60, 255 } : asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        blipSounding      ? asge::media::RGBA_Color{ 240, 200, 60, 255 } :
+        blipDetached      ? asge::media::RGBA_Color{ 90, 40, 40, 255 }  :
+                             asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        true
+    );
+
+    // Master volume bar (bottom): outline is the full 0..1 range, the fill
+    // tracks m_MasterVolume -- both driven by AudioDevice::SetGain via
+    // AdjustMasterVolume, not a separate progress animation.
+    asge::math::Rect const volumeTrack{ 120.0f, 440.0f, 560.0f, 24.0f };
+    inRenderer.DrawRect(volumeTrack, asge::media::RGBA_Color{ 90, 90, 100, 255 }, false);
+    inRenderer.DrawRect(
+        asge::math::Rect{ volumeTrack.x, volumeTrack.y, volumeTrack.w * m_MasterVolume, volumeTrack.h },
+        asge::media::RGBA_Color{ 100, 170, 240, 255 },
         true
     );
 }
@@ -107,6 +135,22 @@ void AudioDemoState::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)
         auto& source = ambient.Value().get();
         if ( source.m_Playing ) StopAudioSource( source );
         else PlayAudioSource( source, /*inLoop=*/true );
+    }
+    else if ( keyEvent->s_Keycode == asge::input::Keycode::UP )
+    {
+        AdjustMasterVolume( kVolumeStep );
+    }
+    else if ( keyEvent->s_Keycode == asge::input::Keycode::DOWN )
+    {
+        AdjustMasterVolume( -kVolumeStep );
+    }
+    else if ( keyEvent->s_Keycode == asge::input::Keycode::D )
+    {
+        auto blip = m_Registry.GetComponent<AudioSource>(m_Blip);
+        if ( !blip ) return;
+
+        auto result = DetachAudioSource( m_AudioDev, blip.Value().get() );
+        if ( !result ) result.LogError();
     }
 }
 
