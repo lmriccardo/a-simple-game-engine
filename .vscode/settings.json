@@ -18,6 +18,7 @@
         "workflows",
         "graphics",
         "build",
-        "audio"
+        "audio",
+        "versioning"
     ]
 }
