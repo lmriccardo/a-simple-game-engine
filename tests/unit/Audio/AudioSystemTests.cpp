@@ -229,4 +229,47 @@ TEST_F(AudioSystemTest, Tick_StoppedSourceClearsItsQueuedData)
     EXPECT_FALSE(Source().m_Stream->IsDataAvailable());
 }
 
+// ─── Detaching ──────────────────────────────────────────────────────────────
+
+TEST_F(AudioSystemTest, DetachAudioSource_WithNoStreamIsANoOp)
+{
+    auto result = DetachAudioSource( m_Device, Source() );
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(Source().m_Stream, nullptr);
+}
+
+TEST_F(AudioSystemTest, DetachAudioSource_ReleasesTheStreamAndClearsIt)
+{
+    Source().m_Clip = MakeClipAsset(64);
+    PlayAudioSource( Source() );
+    Tick(); // creates the stream
+    ASSERT_NE(Source().m_Stream, nullptr);
+    ASSERT_EQ(m_Device.Size(), 1u);
+
+    auto result = DetachAudioSource( m_Device, Source() );
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(Source().m_Stream, nullptr);
+    EXPECT_FALSE(Source().m_Playing);
+    EXPECT_EQ(m_Device.Size(), 0u); // slot given back to the pool
+}
+
+TEST_F(AudioSystemTest, DetachAudioSource_ThenReplayCreatesAFreshStream)
+{
+    Source().m_Clip = MakeClipAsset(64);
+    PlayAudioSource( Source() );
+    Tick();
+    auto originalStream = Source().m_Stream;
+    ASSERT_TRUE(DetachAudioSource( m_Device, Source() ).IsOk());
+
+    PlayAudioSource( Source() );
+    Tick();
+
+    ASSERT_NE(Source().m_Stream, nullptr);
+    EXPECT_TRUE(Source().m_Stream->IsValid());
+    EXPECT_NE(Source().m_Stream, originalStream); // a new stream, not the detached one
+    EXPECT_EQ(m_Device.Size(), 1u);
+}
+
 }

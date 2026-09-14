@@ -17,13 +17,13 @@ namespace asge::audio
  *        fixed pool of up to 32 AudioStreams bound to it.
  *
  * Initialize() brings up SDL_INIT_AUDIO and opens the default playback
- * device; CreateStream() then hands out a stream per AudioSource wanting to
- * play a clip, backed by a slot in the fixed m_Streams array. Callers keep
- * the returned AudioStream* for as long as that slot is theirs (see
- * AudioSystem) — the pool never relocates a slot still in use, so that
- * pointer stays valid until the matching DetachStream() call. Shutdown()
- * (also run from the destructor) tears both the streams and the device back
- * down.
+ * device; CreateStream() then hands out a shared_ptr<AudioStream> per
+ * AudioSource wanting to play a clip, backed by a slot in the fixed
+ * m_Streams array. Callers keep that shared_ptr for as long as they're
+ * playing (see AudioSystem) — it stays valid regardless of which slot
+ * backs it, even across a DetachStream() call elsewhere that swap-removes
+ * and relocates a slot still in use. Shutdown() (also run from the
+ * destructor) tears both the streams and the device back down.
  */
 class AudioDevice
 {
@@ -43,14 +43,7 @@ public:
     // Unbinds and resets every stream, closes the device and shuts down the SDL audio subsystem, if either is up
     void Shutdown();
 
-    /**
-     * @brief Count of stream slots handed out so far via CreateStream().
-     *
-     * Not necessarily the number of currently-playing streams: detaching a
-     * slot other than the most recently created one frees its underlying
-     * SDL resources but can't shrink this count without invalidating some
-     * other AudioSource's still-held AudioStream* (see DetachStream).
-     */
+    /** @brief Count of stream slots currently handed out (grows on CreateStream, shrinks on DetachStream). */
     [[nodiscard]] std::size_t Size() const noexcept;
 
     // Returns the id of the opened playback device, or 0 if not initialized
@@ -58,18 +51,23 @@ public:
 
     /**
      * @brief Creates a new AudioStream matching inAudioClip's format, binds
-     *        it to this device, and returns a pointer into this device's
-     *        stream pool that stays valid until DetachStream() releases it.
+     *        it to this device, and returns a shared handle into this
+     *        device's stream pool that stays valid until DetachStream()
+     *        releases it.
      */
-    [[nodiscard]] Result<std::shared_ptr<AudioStream>> 
+    [[nodiscard]] Result<std::shared_ptr<AudioStream>>
     CreateStream( media::AudioClip& inAudioClip ) noexcept;
 
     /**
      * @brief Unbinds and releases a stream previously returned by
-     *        CreateStream(), freeing its slot only if it was the most
-     *        recently created one still in use (see Size()'s doc comment).
+     *        CreateStream(), swap-removing its slot (relocating the
+     *        trailing stream into it, if it wasn't already the trailing
+     *        one) so the pool stays compact.
      */
     [[nodiscard]] BoolResult DetachStream( AudioStream& inStream ) noexcept;
+
+    /** @brief Sets the master playback gain for every stream on this device (1.0 = unchanged, 0.0 = silent). */
+    BoolResult SetGain( float inVolume ) noexcept;
 };
 
 }

@@ -44,6 +44,11 @@ asge::BoolResult asge::audio::AudioStream::ClearData() noexcept
 
 asge::BoolResult asge::audio::AudioStream::PutData(media::AudioClip &inClip) noexcept
 {
+    if ( !IsValid() )
+    {
+        return BoolResult::Err( make_error_code( errors::AudioError::InvalidStream ) );
+    }
+
     if ( !SDL_PutAudioStreamData( Get(), inClip.Data(), static_cast<int>(inClip.Size()) ) )
     {
         return BoolResult::Err(
@@ -65,4 +70,22 @@ bool asge::audio::AudioStream::IsDataAvailable() const noexcept
 {
     if ( !IsValid() ) return false;
     return SDL_GetAudioStreamAvailable( Get() ) != 0;
+}
+
+asge::BoolResult asge::audio::AudioStream::SetAudioGain(float inVolume) noexcept
+{
+    if ( !IsValid() )
+    {
+        return BoolResult::Err( make_error_code( errors::AudioError::InvalidStream ) );
+    }
+
+    if ( !SDL_SetAudioStreamGain( Get(), inVolume ) )
+    {
+        return BoolResult::Err( 
+            make_error_code( errors::AudioError::InvalidStream ),
+            SDL_GetError()
+        );
+    }
+
+    return BoolResult::Ok();
 }

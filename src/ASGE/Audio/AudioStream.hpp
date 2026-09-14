@@ -58,6 +58,9 @@ public:
 
     /** @brief True if this stream still has queued PCM data the device hasn't consumed yet. */
     bool IsDataAvailable() const noexcept;
+
+    /** @brief Sets this stream's own playback gain (1.0 = unchanged, 0.0 = silent), independent of the device's master gain. */
+    BoolResult SetAudioGain( float inVolume ) noexcept;
 };
 
 }

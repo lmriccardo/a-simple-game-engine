@@ -92,6 +92,13 @@ asge::audio::AudioDevice::CreateStream( media::AudioClip& inAudioClip ) noexcept
 
 asge::BoolResult asge::audio::AudioDevice::DetachStream(AudioStream& inStream) noexcept
 {
+    if ( !m_BackendInitialized )
+    {
+        // First we need to check that the backend audio system is initialized
+        return BoolResult::Err(
+            make_error_code( errors::AudioError::SubsystemNotInitialized ));
+    }
+
     // First we need to check that the input stream is still valid
     if ( !inStream.IsValid() || inStream.Index() >= m_LastIndex )
     {
@@ -113,11 +120,37 @@ asge::BoolResult asge::audio::AudioDevice::DetachStream(AudioStream& inStream) n
     inStream.Reset();
     inStream.Index( static_cast<std::size_t>(-1) );
 
-    // Since we have swapped the last element into the current index
-    // we also need to decrement the last index position
+    // Swap-remove: move the trailing slot into the freed one (a no-op if
+    // currIndex was already the trailing slot) and shrink by one. Whoever
+    // holds the relocated stream keeps the same shared_ptr<AudioStream>
+    // regardless of which array slot backs it, but its own bookkeeping still
+    // needs to know its new slot -- otherwise a later DetachStream() call on
+    // it would compare its stale Index() against the shrunk m_LastIndex and
+    // wrongly report it as already detached.
     m_Streams[currIndex] = std::move( m_Streams[m_LastIndex - 1] );
     m_Streams[m_LastIndex - 1] = nullptr;
     --m_LastIndex;
+
+    if ( m_Streams[currIndex] ) m_Streams[currIndex]->Index( currIndex );
+
+    return BoolResult::Ok();
+}
+
+asge::BoolResult asge::audio::AudioDevice::SetGain(float inVolume) noexcept
+{
+    if ( !m_BackendInitialized )
+    {
+        // First we need to check that the backend audio system is initialized
+        return BoolResult::Err(make_error_code( errors::AudioError::SubsystemNotInitialized ));
+    }
+
+    if ( !SDL_SetAudioDeviceGain( m_DeviceId, inVolume ) )
+    {
+        return BoolResult::Err(
+            make_error_code( errors::AudioError::InvalidDevice ),
+            SDL_GetError()
+        );
+    }
 
     return BoolResult::Ok();
 }

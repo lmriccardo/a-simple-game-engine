@@ -22,6 +22,7 @@ void StartOrReplaySource( AudioDevice &inDevice, AudioSource& inSource )
     // Check for stream validity
     if ( !inSource.m_Stream->IsValid() ) return;
     inSource.m_Stream->ClearData();
+    inSource.m_Stream->SetAudioGain( inSource.m_Volume );
     inSource.m_Stream->PutData( inSource.m_Clip->Get() );
 }
 

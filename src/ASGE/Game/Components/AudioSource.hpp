@@ -20,9 +20,10 @@ namespace asge::game::components
  * audio::AudioDevice's stream pool and stays valid for this source's
  * lifetime (see AudioDevice's doc comment); replaying it (see
  * PlayAudioSource) always reuses that same stream rather than creating a
- * new one. Use PlayAudioSource/StopAudioSource rather than setting
- * m_Playing directly, so m_Loop and m_Restart stay in sync with the
- * request.
+ * new one, until DetachAudioSource releases it back to the pool. Use
+ * PlayAudioSource/StopAudioSource/DetachAudioSource rather than touching
+ * m_Playing/m_Stream directly, so m_Loop and m_Restart stay in sync with
+ * the request.
  */
 struct AudioSource
 {
@@ -35,7 +36,7 @@ struct AudioSource
     bool                m_Playing           { false };   // whether AudioSystem should be advancing playback
     bool                m_Loop              { false };   // whether AudioSystem restarts the clip when it runs out
     bool                m_Restart           { false };   // set by PlayAudioSource; consumed once by AudioSystem to force an immediate (re)start, independent of m_Loop or how much data is still queued
-    float               m_Volume            { 1.0f };    // playback gain; not yet applied by AudioSystem
+    float               m_Volume            { 1.0f };    // this source's own playback gain; applied to m_Stream via SetAudioGain whenever AudioSystem (re)starts it
 };
 
 /**
@@ -59,6 +60,28 @@ inline void PlayAudioSource( AudioSource& inAudioSource, bool inLoop = true ) no
 inline void StopAudioSource( AudioSource& inAudioSource ) noexcept
 {
     inAudioSource.m_Playing = false;
+}
+
+/**
+ * @brief Releases inAudioSource's stream back to inDevice's pool and clears
+ *        m_Stream, so a later PlayAudioSource creates a fresh one instead of
+ *        reusing it.
+ *
+ * A no-op returning BoolResult::Ok() if inAudioSource has no stream yet.
+ * Unlike StopAudioSource, this actually frees the underlying pool slot for
+ * other sources to use -- reach for it when a source is done for good (e.g.
+ * its entity is being destroyed), not just paused.
+ */
+inline BoolResult DetachAudioSource( audio::AudioDevice& inDevice, AudioSource& inAudioSource ) noexcept
+{
+    if ( !inAudioSource.m_Stream ) return BoolResult::Ok();
+
+    auto result = inDevice.DetachStream( *inAudioSource.m_Stream );
+    if ( !result ) return result;
+
+    inAudioSource.m_Stream = nullptr;
+    inAudioSource.m_Playing = false;
+    return BoolResult::Ok();
 }
 
 /**

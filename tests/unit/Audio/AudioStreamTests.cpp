@@ -78,6 +78,16 @@ TEST(AudioStreamTest, IsDataAvailable_OnInvalidStreamIsFalse)
     EXPECT_FALSE(stream.IsDataAvailable());
 }
 
+TEST(AudioStreamTest, SetAudioGain_OnInvalidStreamReturnsInvalidStreamError)
+{
+    AudioStream stream;
+
+    auto result = stream.SetAudioGain(0.5f);
+
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(AudioError::InvalidStream));
+}
+
 // ─── ClearData / PutData / IsDataAvailable (real, bound stream) ─────────────
 
 class BoundAudioStreamTest : public ::testing::Test
@@ -118,6 +128,16 @@ TEST_F(BoundAudioStreamTest, ClearData_OnValidStreamEmptiesTheQueue)
 
     ASSERT_TRUE(result.IsOk());
     EXPECT_FALSE(stream->IsDataAvailable());
+}
+
+TEST_F(BoundAudioStreamTest, SetAudioGain_OnValidStreamSucceeds)
+{
+    auto clip = MakeTestClip();
+    auto stream = m_Device.CreateStream(clip).Value();
+
+    auto result = stream->SetAudioGain(0.5f);
+
+    ASSERT_TRUE(result.IsOk());
 }
 
 }

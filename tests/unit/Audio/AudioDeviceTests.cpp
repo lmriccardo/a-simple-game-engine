@@ -179,13 +179,15 @@ TEST_F(AudioDeviceTest, DetachStream_AlreadyDetachedReturnsInvalidStreamError)
     EXPECT_EQ(result.Code(), make_error_code(AudioError::InvalidStream));
 }
 
-TEST_F(AudioDeviceTest, DetachStream_MiddleSlotDoesNotDisturbOtherLiveStreams)
+TEST_F(AudioDeviceTest, DetachStream_MiddleSlotRelocatesTrailingStreamWithoutInvalidatingIt)
 {
-    // Regression test: detaching a non-trailing slot used to swap the
-    // trailing stream into its place -- silently repointing whoever held
-    // *that* stream's AudioStream* at a slot that no longer held their
-    // stream, and marking their own now-relocated stream invalid, purely as
-    // a side effect of some other, unrelated source being detached.
+    // Detaching a non-trailing slot swap-removes it: the trailing stream
+    // moves into the freed slot rather than leaving a hole. Streams are
+    // shared_ptr<AudioStream> now, so whoever holds streamC keeps pointing
+    // at the same live object either way -- but DetachStream must also
+    // update *that object's own* Index() to match its new slot, or a later
+    // DetachStream(*streamC) would compare its stale old index against the
+    // now-shrunk pool size and wrongly report it as already detached.
     ASSERT_TRUE(m_Device.Initialize().IsOk());
     auto clipA = MakeTestClip();
     auto clipB = MakeTestClip();
@@ -194,7 +196,7 @@ TEST_F(AudioDeviceTest, DetachStream_MiddleSlotDoesNotDisturbOtherLiveStreams)
     auto streamA = m_Device.CreateStream(clipA).Value();
     auto streamB = m_Device.CreateStream(clipB).Value();
     auto streamC = m_Device.CreateStream(clipC).Value();
-    std::size_t const cIndexBefore = streamC->Index();
+    std::size_t const bIndexBefore = streamB->Index();
 
     auto result = m_Device.DetachStream(*streamB);
 
@@ -202,7 +204,30 @@ TEST_F(AudioDeviceTest, DetachStream_MiddleSlotDoesNotDisturbOtherLiveStreams)
     EXPECT_TRUE(streamA->IsValid());
     EXPECT_EQ(streamA->Index(), 0u);
     EXPECT_TRUE(streamC->IsValid());
-    EXPECT_EQ(streamC->Index(), cIndexBefore);
+    EXPECT_EQ(streamC->Index(), bIndexBefore); // relocated into B's old slot
+    EXPECT_EQ(m_Device.Size(), 2u);
+
+    // The relocated stream's updated Index() must actually be usable again.
+    EXPECT_TRUE(m_Device.DetachStream(*streamC).IsOk());
+}
+
+// ─── SetGain ────────────────────────────────────────────────────────────────
+
+TEST_F(AudioDeviceTest, SetGain_BeforeInitializeReturnsSubsystemNotInitializedError)
+{
+    auto result = m_Device.SetGain(0.5f);
+
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(AudioError::SubsystemNotInitialized));
+}
+
+TEST_F(AudioDeviceTest, SetGain_AfterInitializeSucceeds)
+{
+    ASSERT_TRUE(m_Device.Initialize().IsOk());
+
+    auto result = m_Device.SetGain(0.5f);
+
+    ASSERT_TRUE(result.IsOk());
 }
 
 }

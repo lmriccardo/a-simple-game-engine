@@ -413,6 +413,7 @@ enum class AudioError
     DeviceOpenFailed,
     StreamCreationFailed,
     InvalidStream,
+    InvalidDevice,
     StreamDetachFailed,
 };
 
@@ -427,6 +428,7 @@ inline str::String ToErrorString(AudioError e) noexcept
     case AudioError::DeviceOpenFailed: return "SDL failed to open a new audio device";
     case AudioError::StreamCreationFailed: return "failed to create a new audio stream";
     case AudioError::InvalidStream: return "invalid or expired stream";
+    case AudioError::InvalidDevice: return "invalid device";
     case AudioError::StreamDetachFailed: return "stream detaching failed";
     }
     return "unknown audio error";
