@@ -36,7 +36,7 @@ public:
 class EcsDemoGame final : public asge::game::Game<int>
 {
 public:
-    explicit EcsDemoGame(asge::video::IRenderer& inRenderer);
+    explicit EcsDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev);
 
 protected:
     [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;

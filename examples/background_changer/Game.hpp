@@ -17,7 +17,7 @@ public:
 class BackgroundChangingGame final : public asge::game::Game<int>
 {
 public:
-    explicit BackgroundChangingGame(asge::video::IRenderer& inRenderer);
+    explicit BackgroundChangingGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev);
 
 protected:
     [[nodiscard]] std::unique_ptr<StateType> CreateState(int inId) override;

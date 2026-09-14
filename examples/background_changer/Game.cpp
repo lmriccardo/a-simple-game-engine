@@ -22,8 +22,8 @@ void BackgroundChangingState::OnSystemEvent(asge::event::SystemEvent const &inSy
     }
 }
 
-BackgroundChangingGame::BackgroundChangingGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+BackgroundChangingGame::BackgroundChangingGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }

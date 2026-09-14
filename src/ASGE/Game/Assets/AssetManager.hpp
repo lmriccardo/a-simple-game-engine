@@ -5,6 +5,7 @@
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Core/Media/Font.hpp>
+#include <ASGE/Core/Media/AudioClip.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include "Asset.hpp"
@@ -30,9 +31,10 @@ class AssetManager
 {
     filesystem::VirtualFileSystem const& m_Vfs;
 
-    AssetPool<media::Image>      m_ImagePool  { &media::Image::Load };
-    AssetPool<media::Font, int>  m_FontPool   { &media::Font::Load  };
-    AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load   };
+    AssetPool<media::Image>      m_ImagePool  { &media::Image::Load     };
+    AssetPool<media::Font, int>  m_FontPool   { &media::Font::Load      };
+    AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load       };
+    AssetPool<media::AudioClip>  m_AudioPool  { &media::AudioClip::Load };
 
     // GPU textures ResolveAssets() creates from a resolved Image, keyed by
     // nothing -- Sprite::m_Texture only ever points into here, so these must
@@ -72,6 +74,8 @@ public:
      * the meta-file a `components::Animation::m_ClipPath` points at.
      */
     [[nodiscard]] Result<asset_ptr<FrameTable>> GetFrameTable( str::StringCRef inVirtualPath );
+
+    [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
 
     /**
      * @brief Deferred-loads every unresolved Sprite texture and Animation

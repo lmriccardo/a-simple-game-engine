@@ -15,6 +15,10 @@ add_library(ASGE STATIC
     Video/Graphics/Rendering/SDL/SDLPixelFormat.cpp
     Video/Graphics/Windowing/SDL/SDLWindow.cpp
 
+    # Audio Device initialization
+    Audio/AudioStream.cpp
+    Audio/AudioDevice.cpp
+
     # Engine Logger
     Core/Logger/Logger.cpp
 
@@ -30,6 +34,7 @@ add_library(ASGE STATIC
     # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
     Core/Media/Image.cpp
     Core/Media/Font.cpp
+    Core/Media/AudioClip.cpp
 
     # Concurrency utilities
     Core/Concurrent/Thread.cpp
@@ -58,10 +63,21 @@ add_library(ASGE STATIC
     # Entity-Component-System
     Core/ECS/Registry.cpp
 
+    # ECS components and their TOML (de)serialization
+    Game/Components/Serialize.cpp
+    Game/Components/Transform.cpp
+    Game/Components/Velocity.cpp
+    Game/Components/Rigidbody.cpp
+    Game/Components/Collider.cpp
+    Game/Components/Sprite.cpp
+    Game/Components/Animation.cpp
+    Game/Components/AudioSource.cpp
+
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp
     Game/Systems/PhysicsDebugSystem.cpp
     Game/Systems/RenderSystem.cpp
+    Game/Systems/AudioSystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp
@@ -79,6 +95,8 @@ add_library(ASGE::ASGE ALIAS ASGE)
 
 target_link_libraries(ASGE PUBLIC SDL3::SDL3)
 target_link_libraries(ASGE PRIVATE stb::stb)
+target_link_libraries(ASGE PRIVATE stb::stb_vorbis)
+
 if(APPLE)
     target_link_libraries(ASGE PRIVATE "-framework CoreServices")
 endif()
@@ -89,7 +107,7 @@ target_include_directories(ASGE
 
 if(ASGE_INSTALL)
     install(
-        TARGETS ASGE stb
+        TARGETS ASGE stb stb_vorbis
         EXPORT ASGETargets
         LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"

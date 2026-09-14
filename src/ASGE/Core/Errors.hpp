@@ -400,13 +400,48 @@ inline str::String ToErrorString(VfsError e) noexcept
     return "unknown vfs error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// AUDIO ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class AudioError
+{
+    InvalidFormat = 1,
+    DecodeFailed,
+    SubsystemInitFailed,
+    SubsystemNotInitialized,
+    DeviceOpenFailed,
+    StreamCreationFailed,
+    InvalidStream,
+    InvalidDevice,
+    StreamDetachFailed,
+};
+
+inline str::String ToErrorString(AudioError e) noexcept
+{
+    switch (e)
+    {
+    case AudioError::InvalidFormat: return "currently supported audio format .wav .ogg";
+    case AudioError::DecodeFailed: return "audio decode has failed";
+    case AudioError::SubsystemInitFailed: return "audio SDL subsystem initialization failed";
+    case AudioError::SubsystemNotInitialized: return "SDL audio subsystem not initialized";
+    case AudioError::DeviceOpenFailed: return "SDL failed to open a new audio device";
+    case AudioError::StreamCreationFailed: return "failed to create a new audio stream";
+    case AudioError::InvalidStream: return "invalid or expired stream";
+    case AudioError::InvalidDevice: return "invalid device";
+    case AudioError::StreamDetachFailed: return "stream detaching failed";
+    }
+    return "unknown audio error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
 
 REGISTER_ASGE_ERROR(asge::errors::FileWatcherError, "asge.filesystem.filewatcher")
 REGISTER_ASGE_ERROR(asge::errors::ConfError, "asge.configuration")
-REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.graphics.image")
-REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.graphics.font")
+REGISTER_ASGE_ERROR(asge::errors::ImageError, "asge.media.image")
+REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.media.font")
 REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
 REGISTER_ASGE_ERROR(asge::errors::VfsError, "asge.filesystem.vfs")
+REGISTER_ASGE_ERROR(asge::errors::AudioError, "asge.media.audio")

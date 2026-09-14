@@ -230,8 +230,8 @@ void SceneDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent con
     // from polling InputState in Update() instead (see input_demo).
 }
 
-SceneDemoGame::SceneDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+SceneDemoGame::SceneDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     // ASGE_SCENE_DEMO_ASSET_DIR is injected by CMakeLists.txt -- mounted
     // once so both scene files and every Sprite's texture inside them are

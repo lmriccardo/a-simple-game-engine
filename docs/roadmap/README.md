@@ -57,7 +57,7 @@ has its own Phase 1 doc, it's just not scheduled.
    depends on ECS's `Transform`/`Rigidbody`/`Collider` components. - ✅ complete
 8. **[Audio](phase-1/08.1-audio-system.md)** (play sounds, volume) — low coupling
    to everything else, but wants the Asset Pipeline's loading pattern for WAV/OGG
-   first.
+   first. — ✅ complete
 9. **[UI Framework](phase-1/09.1-ui-framework.md)** (immediate-mode UI, debug
    overlays) — moved up from its original position. This is nearly free right now:
    immediate-mode UI is just `DrawRect` + `DrawString`, both of which already

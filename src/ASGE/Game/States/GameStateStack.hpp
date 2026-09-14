@@ -19,8 +19,7 @@ template<typename TStateId>
 class GameStateStack
 {
 public:
-    using StateType  = IGameState<TStateId>;
-    using Transition = Transition<TStateId>;
+    using StateType = IGameState<TStateId>;
 
 private:
     std::vector<StateType*> m_States; // Non-owning, states are owned by the game itself
@@ -52,10 +51,10 @@ public:
      * @brief Updates states top-down, stopping after the first whose
      *        BlocksUpdateBelow() is true; the topmost requested transition wins.
      */
-    [[nodiscard]] std::optional<Transition> Update(
+    [[nodiscard]] std::optional<Transition<TStateId>> Update(
         float inDeltaTime, input::InputState const& inInput ) noexcept
     {
-        std::optional<Transition> result;
+        std::optional<Transition<TStateId>> result;
         for ( auto it = m_States.rbegin(); it != m_States.rend(); ++it )
         {
             auto requested = (*it)->Update( inDeltaTime, inInput );

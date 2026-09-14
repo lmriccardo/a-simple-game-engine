@@ -2,6 +2,7 @@
 
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Components/AudioSource.hpp>
 
 asge::Result<asge::game::asset::AssetManager::asset_ptr<asge::media::Image>>
 asge::game::asset::AssetManager::GetImage(str::StringCRef inVirtualPath)
@@ -19,6 +20,12 @@ asge::Result<asge::game::asset::AssetManager::asset_ptr<asge::game::asset::Frame
 asge::game::asset::AssetManager::GetFrameTable(str::StringCRef inVirtualPath)
 {
     return m_FrameTables.GetOrLoad( m_Vfs, inVirtualPath );
+}
+
+asge::Result<asge::game::asset::AssetManager::asset_ptr<asge::media::AudioClip>> 
+asge::game::asset::AssetManager::GetAudio(str::StringCRef inVirtualPath)
+{
+    return m_AudioPool.GetOrLoad( m_Vfs, inVirtualPath );
 }
 
 void asge::game::asset::AssetManager::ResolveAssets(ecs::Registry &inRegistry, video::IRenderer &inRenderer)
@@ -46,5 +53,15 @@ void asge::game::asset::AssetManager::ResolveAssets(ecs::Registry &inRegistry, v
         auto frameTable = GetFrameTable( a.m_ClipPath );
         if ( !frameTable ) { frameTable.LogError(); continue; }
         a.m_Clip = frameTable.Value();
+    }
+
+    // Resolve audio source components by linking the AudioClip asset
+    for ( auto [ _, audiosrc ] : inRegistry.View<components::AudioSource>() )
+    {
+        auto& asrc = audiosrc.get();
+        if ( asrc.m_Clip || asrc.m_VirtualClipPath.empty() ) continue;
+        auto audioclip = GetAudio( asrc.m_VirtualClipPath );
+        if ( !audioclip ) { audioclip.LogError(); continue; }
+        asrc.m_Clip = audioclip.Value();
     }
 }

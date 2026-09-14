@@ -60,8 +60,8 @@ void ShapesDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent co
 {
 }
 
-ShapesDemoGame::ShapesDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+ShapesDemoGame::ShapesDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }

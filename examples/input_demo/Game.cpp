@@ -106,8 +106,8 @@ void InputDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent con
     // polling InputState in Update() instead.
 }
 
-InputDemoGame::InputDemoGame(asge::video::IRenderer& inRenderer)
-: Game(inRenderer)
+InputDemoGame::InputDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
+: Game(inRenderer, inAudioDev)
 {
     SetInitialState(0);
 }

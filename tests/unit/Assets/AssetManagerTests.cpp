@@ -332,7 +332,8 @@ TEST_F(ResolveAssetsTest, SpriteWithVirtualPathGetsTextureAssigned)
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_NE(sprite.m_Texture, nullptr);
 }
 
@@ -346,7 +347,8 @@ TEST_F(ResolveAssetsTest, SpriteAlreadyHavingATextureIsLeftUntouched)
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_EQ(sprite.m_Texture, &preExisting); // Not replaced with a freshly-loaded one
 }
 
@@ -358,7 +360,8 @@ TEST_F(ResolveAssetsTest, SpriteWithEmptyVirtualPathIsSkipped)
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_EQ(sprite.m_Texture, nullptr);
 }
 
@@ -371,7 +374,8 @@ TEST_F(ResolveAssetsTest, SpriteWithUnresolvableVirtualPathLeavesTextureNullRath
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_EQ(sprite.m_Texture, nullptr);
 }
 
@@ -385,7 +389,8 @@ TEST_F(ResolveAssetsTest, TextureCreationFailureLeavesSpriteTextureNullRatherTha
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
     EXPECT_EQ(sprite.m_Texture, nullptr);
 }
 
@@ -398,7 +403,8 @@ TEST_F(ResolveAssetsTest, AnimationWithClipPathGetsClipAssigned)
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& anim = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get();
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     ASSERT_NE(anim.m_Clip, nullptr);
     EXPECT_EQ(anim.m_Clip->Get().m_Frames.size(), 4u);
 }
@@ -414,7 +420,8 @@ TEST_F(ResolveAssetsTest, AnimationAlreadyHavingAClipIsLeftUntouched)
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& anim = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get();
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_Clip, preResolved.Value());
 }
 
@@ -426,7 +433,8 @@ TEST_F(ResolveAssetsTest, AnimationWithEmptyClipPathIsSkipped)
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto const& anim = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get();
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_Clip, nullptr);
 }
 

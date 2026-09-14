@@ -23,22 +23,8 @@ struct Serializer<Rigidbody>
     using T = Rigidbody;
     static constexpr str::StringView kTableName = "Rigidbody";
 
-    static void ToToml( 
-        Rigidbody inRigidbody, asge::config::toml::TOMLTableView inTview 
-    ) noexcept {
-        inTview.Table(std::string(kTableName))
-               .Set("m_Mass", inRigidbody.m_Mass)
-               .Set("m_AffectedByGravity", inRigidbody.m_AffectedByGravity);
-    }
-
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept
-    {
-        auto table = inEnttView.Table(std::string(kTableName));
-        Rigidbody result{};
-        result.m_Mass = table.Get("m_Mass", result.m_Mass);
-        result.m_AffectedByGravity = table.Get("m_AffectedByGravity", result.m_AffectedByGravity);
-        return result;
-    }
+    static void ToToml( Rigidbody inRigidbody, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
 };
 
 }

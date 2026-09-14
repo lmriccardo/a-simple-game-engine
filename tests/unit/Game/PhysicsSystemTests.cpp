@@ -231,7 +231,7 @@ TEST(PhysicsSystemTest, OneSidedMaskMismatch_StillDoesNotCollide)
     // LayersCanCollide requires both directions, so this must still skip
     // the pair rather than colliding because one side "agreed".
     auto e1 = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 1u, 3u); // layer 1, mask 1|2
-    auto e2 = MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 2u); // layer 2, mask 2 only
+    MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 2u); // layer 2, mask 2 only
     ASSERT_TRUE(registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
     ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
 
@@ -249,7 +249,7 @@ TEST(PhysicsSystemTest, OverlappingSharedLayerBit_StillCollidesNormally)
     // LayersCanCollide only needs the bitwise AND to be non-zero, not an
     // exact match.
     auto e1 = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 1u, 6u); // layer 1, mask 2|4
-    auto e2 = MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 1u); // layer 2, mask 1
+    MakeCollider(registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid, 2u, 1u); // layer 2, mask 1
     ASSERT_TRUE(registry.AddComponent(e1, Velocity{ .m_DX = 5.0f }).IsOk());
     ASSERT_TRUE(registry.AddComponent(e1, Rigidbody{}).IsOk());
 

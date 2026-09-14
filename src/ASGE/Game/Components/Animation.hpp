@@ -42,17 +42,10 @@ struct Animation
  *        m_CurrentFrame or m_ElapsedTime, so calling this on an already
  *        in-progress Animation continues rather than restarts it.
  */
-inline void PlayAnimation( Animation& inAnim, bool inLoop = true ) noexcept
-{
-    inAnim.m_Playing = true;
-    inAnim.m_Loop = inLoop;
-}
+void PlayAnimation( Animation& inAnim, bool inLoop = true ) noexcept;
 
 /** @brief Pauses playback in place; AnimationSystem stops advancing this Animation until PlayAnimation is called again. */
-inline void StopAnimation( Animation& inAnim ) noexcept
-{
-    inAnim.m_Playing = false;
-}
+void StopAnimation( Animation& inAnim ) noexcept;
 
 /**
  * @brief Round-trips m_ClipPath and m_FrameDuration only — which clip to
@@ -70,22 +63,8 @@ struct Serializer<Animation>
 
     using T = Animation;
 
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
-    {
-        inTview.Table(std::string(kTableName))
-               .Set<std::string>("m_ClipPath", inValue.m_ClipPath)
-               .Set("m_FrameDuration", inValue.m_FrameDuration);
-    }
-
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept
-    {
-        auto table = inTview.Table(std::string(kTableName));
-
-        Animation result{};
-        result.m_ClipPath      = table.Get<std::string>("m_ClipPath", std::string{});
-        result.m_FrameDuration = table.Get("m_FrameDuration", result.m_FrameDuration);
-        return result;
-    }
+    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
 };
 
 }

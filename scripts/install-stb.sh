@@ -14,6 +14,7 @@ cmake -E make_directory third-party/stb
 stb_headers=(
     stb_image.h
     stb_truetype.h
+    stb_vorbis.c
 )
 
 for header in "${stb_headers[@]}"; do

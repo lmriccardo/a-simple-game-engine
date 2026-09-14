@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31.0)
-project(asge VERSION 0.7.1 LANGUAGES C CXX)
+project(asge VERSION 0.8.0 LANGUAGES C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
@@ -81,6 +81,11 @@ if(ASGE_INSTALL)
         )
     endforeach()
 endif()
+
+add_library(stb_vorbis STATIC ${CMAKE_CURRENT_SOURCE_DIR}/third-party/stb/stb_vorbis.c)
+add_library(stb::stb_vorbis ALIAS stb_vorbis)
+target_include_directories(stb_vorbis PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/stb>")
 
 add_subdirectory(src/ASGE)
 

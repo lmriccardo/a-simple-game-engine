@@ -12,7 +12,8 @@ New-Item -ItemType Directory -Force -Path third-party/stb | Out-Null
 
 $StbHeaders = @(
     "stb_image.h",
-    "stb_truetype.h"
+    "stb_truetype.h",
+    "stb_vorbis.c"
 )
 
 foreach ($Header in $StbHeaders) {
