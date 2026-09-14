@@ -35,31 +35,8 @@ struct Sprite
     bool                        m_YSort{false};     // Opt into sorting by bottom-edge Y within the layer
 };
 
-inline std::optional<math::Rect> 
-SpriteGetDstRect( Sprite const& inSprite, Transform const& inT ) noexcept
-{
-    if ( !inSprite.m_Texture ) return std::nullopt;
-
-    auto const& texture = *inSprite.m_Texture;
-    auto const& srcRect = inSprite.m_SourceRect;
-    float srcW{}, srcH{};
-
-    if ( srcRect.has_value() )
-    {
-        srcW = srcRect->w;
-        srcH = srcRect->h;
-    }
-    else
-    {
-        math::Int2 const texSize = texture.Size();
-        srcW = static_cast<float>(texSize.x());
-        srcH = static_cast<float>(texSize.y());
-    }
-
-    return math::Rect{ 
-        inT.m_X, inT.m_Y, srcW * inT.m_ScaleX, srcH * inT.m_ScaleY
-    };
-}
+/** @brief inSprite's on-screen destination rect at inT's position/scale, or nullopt if it has no texture yet. */
+std::optional<math::Rect> SpriteGetDstRect( Sprite const& inSprite, Transform const& inT ) noexcept;
 
 template<>
 struct Serializer<Sprite>
@@ -69,48 +46,8 @@ struct Serializer<Sprite>
     /** @brief The subtable name ToToml/FromToml agree on — see Serializer<Transform>::kTableName. */
     static constexpr str::StringView kTableName = "Sprite";
 
-    static void ToToml(
-        Sprite inSprite, asge::config::toml::TOMLTableView inTview
-    ) noexcept {
-        auto sprite = inTview.Table(std::string(kTableName));
-        sprite.Set<std::string>("m_VirtualPath", inSprite.m_VirtualPath);
-
-        if ( inSprite.m_SourceRect )
-        {
-            sprite.Table("SourceRect")
-                  .Set("x", inSprite.m_SourceRect->x)
-                  .Set("y", inSprite.m_SourceRect->y)
-                  .Set("w", inSprite.m_SourceRect->w)
-                  .Set("h", inSprite.m_SourceRect->h);
-        }
-
-        sprite.Set("m_Layer", inSprite.m_Layer);
-        sprite.Set("m_YSort", inSprite.m_YSort);
-    }
-
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept
-    {
-        auto sprite = inEnttView.Table(std::string(kTableName));
-
-        Sprite result{};
-        result.m_VirtualPath = sprite.Get<std::string>("m_VirtualPath", std::string{});
-
-        if ( sprite.HasTable("SourceRect") )
-        {
-            auto rect = sprite.Table("SourceRect");
-            result.m_SourceRect = math::Rect{
-                rect.Get("x", 0.0f),
-                rect.Get("y", 0.0f),
-                rect.Get("w", 0.0f),
-                rect.Get("h", 0.0f)
-            };
-        }
-
-        result.m_Layer = sprite.Get( "m_Layer", int{0} );
-        result.m_YSort = sprite.Get( "m_YSort", false );
-
-        return result;
-    }
+    static void ToToml( Sprite inSprite, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
 };
 
 }

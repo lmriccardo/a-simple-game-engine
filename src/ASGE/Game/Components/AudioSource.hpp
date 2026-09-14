@@ -49,18 +49,10 @@ struct AudioSource
  * rather than creating a new one. inLoop only governs what happens if this
  * playthrough runs out on its own; it plays independently of it either way.
  */
-inline void PlayAudioSource( AudioSource& inAudioSource, bool inLoop = true ) noexcept
-{
-    inAudioSource.m_Playing = true;
-    inAudioSource.m_Loop = inLoop;
-    inAudioSource.m_Restart = true;
-}
+void PlayAudioSource( AudioSource& inAudioSource, bool inLoop = true ) noexcept;
 
 /** @brief Marks inAudioSource to stop; AudioSystem clears its queued audio on the next pass. */
-inline void StopAudioSource( AudioSource& inAudioSource ) noexcept
-{
-    inAudioSource.m_Playing = false;
-}
+void StopAudioSource( AudioSource& inAudioSource ) noexcept;
 
 /**
  * @brief Releases inAudioSource's stream back to inDevice's pool and clears
@@ -72,23 +64,10 @@ inline void StopAudioSource( AudioSource& inAudioSource ) noexcept
  * other sources to use -- reach for it when a source is done for good (e.g.
  * its entity is being destroyed), not just paused.
  */
-inline BoolResult DetachAudioSource( audio::AudioDevice& inDevice, AudioSource& inAudioSource ) noexcept
-{
-    if ( !inAudioSource.m_Stream ) return BoolResult::Ok();
-
-    auto result = inDevice.DetachStream( *inAudioSource.m_Stream );
-    if ( !result ) return result;
-
-    inAudioSource.m_Stream = nullptr;
-    inAudioSource.m_Playing = false;
-    return BoolResult::Ok();
-}
+BoolResult DetachAudioSource( audio::AudioDevice& inDevice, AudioSource& inAudioSource ) noexcept;
 
 /** @brief Set the audio source gain/volume */
-inline void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept
-{
-    inAudioSource.m_Volume = inVolume;
-}
+void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept;
 
 /**
  * @brief Round-trips m_VirtualClipPath only — which clip to play, not the
@@ -105,19 +84,8 @@ struct Serializer<AudioSource>
 
     using T = AudioSource;
 
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
-    {
-        inTview.Table( str::String( kTableName ) )
-               .Set<str::String>( "m_VirtualClipPath", inValue.m_VirtualClipPath );
-    }
-
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept
-    {
-        auto table = inTview.Table( str::String( kTableName ) );
-        AudioSource result;
-        result.m_VirtualClipPath = table.Get("m_VirtualClipPath", str::String{});
-        return result;
-    }
+    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
 };
 
 }
