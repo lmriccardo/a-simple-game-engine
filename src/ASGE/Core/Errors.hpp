@@ -363,6 +363,7 @@ enum class EcsError
     NoMoreComponentsAvailable,
     EntityNotAttachedToComponent,
     InvalidComponent,
+    ResourceNotSet,
 };
 
 inline str::String ToErrorString(EcsError e) noexcept
@@ -374,6 +375,7 @@ inline str::String ToErrorString(EcsError e) noexcept
     case EcsError::NoMoreComponentsAvailable: return "no more available component slots";
     case EcsError::EntityNotAttachedToComponent: return "entity does not have component of this type";
     case EcsError::InvalidComponent: return "invalid component";
+    case EcsError::ResourceNotSet: return "resource not set";
     }
     return "unknown ecs error";
 }

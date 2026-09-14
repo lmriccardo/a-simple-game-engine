@@ -28,6 +28,20 @@ struct Velocity
     friend bool operator==(Velocity const&, Velocity const&) = default;
 };
 
+struct GameSettings
+{
+    int m_MaxPlayers{ 4 };
+
+    friend bool operator==(GameSettings const&, GameSettings const&) = default;
+};
+
+struct GameSpeed
+{
+    float m_Multiplier{ 1.0f };
+
+    friend bool operator==(GameSpeed const&, GameSpeed const&) = default;
+};
+
 // ─── Registry::View — emptiness ────────────────────────────────────────────────
 
 TEST(RegistryTest, View_EmptyRegistryYieldsEmptyView)
@@ -320,6 +334,77 @@ TEST(RegistryTest, AllEntities_RecycledSlotShowsOnlyTheNewGeneration)
     auto all = registry.AllEntities();
     ASSERT_EQ(all.size(), 1u);
     EXPECT_EQ(all[0], recycled);
+}
+
+// ─── Registry::SetResource / GetResource ───────────────────────────────────────
+
+TEST(RegistryTest, GetResource_NeverSetReturnsError)
+{
+    Registry registry;
+
+    auto result = registry.GetResource<GameSettings>();
+
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::ResourceNotSet));
+}
+
+TEST(RegistryTest, SetResource_ThenGetResourceReturnsIt)
+{
+    Registry registry;
+    registry.SetResource(GameSettings{ .m_MaxPlayers = 8 });
+
+    auto result = registry.GetResource<GameSettings>();
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().get(), (GameSettings{ .m_MaxPlayers = 8 }));
+}
+
+TEST(RegistryTest, SetResource_CalledAgainReplacesThePreviousValue)
+{
+    Registry registry;
+    registry.SetResource(GameSettings{ .m_MaxPlayers = 8 });
+    registry.SetResource(GameSettings{ .m_MaxPlayers = 2 });
+
+    auto result = registry.GetResource<GameSettings>();
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().get().m_MaxPlayers, 2);
+}
+
+TEST(RegistryTest, GetResource_ReturnsAMutableReferenceIntoTheStoredValue)
+{
+    Registry registry;
+    registry.SetResource(GameSettings{ .m_MaxPlayers = 4 });
+
+    registry.GetResource<GameSettings>().Value().get().m_MaxPlayers = 16;
+
+    EXPECT_EQ(registry.GetResource<GameSettings>().Value().get().m_MaxPlayers, 16);
+}
+
+TEST(RegistryTest, SetResource_DifferentTypesAreIndependent)
+{
+    Registry registry;
+    registry.SetResource(GameSettings{ .m_MaxPlayers = 8 });
+    registry.SetResource(GameSpeed{ .m_Multiplier = 2.0f });
+
+    EXPECT_EQ(registry.GetResource<GameSettings>().Value().get().m_MaxPlayers, 8);
+    EXPECT_FLOAT_EQ(registry.GetResource<GameSpeed>().Value().get().m_Multiplier, 2.0f);
+}
+
+TEST(RegistryTest, GetResource_UnsetOnOneRegistryIsUnaffectedByAnotherRegistrySettingIt)
+{
+    // Resource ids are assigned from a counter shared across every Registry
+    // instance, but storage (m_Resources) is per-instance -- setting T on
+    // one registry must not make a *different*, fresh registry believe T is
+    // set too just because T already has an id by the time it runs.
+    Registry withSetting;
+    withSetting.SetResource(GameSettings{ .m_MaxPlayers = 8 });
+
+    Registry withoutSetting;
+    auto result = withoutSetting.GetResource<GameSettings>();
+
+    EXPECT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::EcsError::ResourceNotSet));
 }
 
 }
