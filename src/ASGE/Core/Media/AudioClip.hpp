@@ -52,8 +52,17 @@ public:
     [[nodiscard]] static Result<AudioClip> Load( filesystem::Path const& inPath ) noexcept;
 };
 
+/** @brief True if SDL's audio subsystem (SDL_INIT_AUDIO) is already up. */
 [[nodiscard]] bool IsAudioSystemInitialized() noexcept;
+
+/** @brief Initializes SDL's audio subsystem; a no-op success if already up. */
 [[nodiscard]] BoolResult InitializeAudioSystem() noexcept;
+
+/**
+ * @brief Opens the default playback device. Fails with
+ *        AudioError::SubsystemNotInitialized if the audio subsystem
+ *        (see InitializeAudioSystem) isn't up yet.
+ */
 [[nodiscard]] Result<SDL_AudioDeviceID> OpenNewAudioDevice() noexcept;
 
 }

@@ -1,6 +1,9 @@
 #include <ASGE/Core/Media/AudioClip.hpp>
 #include <ASGE/Core/Errors.hpp>
 
+#include <SDL3/SDL_hints.h>
+#include <SDL3/SDL_init.h>
+
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -177,6 +180,59 @@ TEST(AudioClipLoadOggFixtureTest, Load_ValidOggFileDecodesSuccessfully)
     EXPECT_EQ( clip.Spec().freq, 8000 );
     EXPECT_GT( clip.Size(), 0u );
     ASSERT_NE( clip.Data(), nullptr );
+}
+
+// ─── Audio subsystem init ───────────────────────────────────────────────────
+
+// Forces SDL's "dummy" audio driver (see AudioDeviceTests.cpp) so this is
+// safe to run unmodified on any CI runner.
+class AudioSubsystemTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        SDL_SetHint( SDL_HINT_AUDIO_DRIVER, "dummy" );
+    }
+
+    void TearDown() override
+    {
+        if ( IsAudioSystemInitialized() ) SDL_QuitSubSystem( SDL_INIT_AUDIO );
+    }
+};
+
+TEST_F(AudioSubsystemTest, InitializeAudioSystem_ActuallyInitializesTheSubsystem)
+{
+    // Regression test: IsAudioSystemInitialized compared SDL_WasInit's
+    // bitmask return against 1 instead of against SDL_INIT_AUDIO (0x10),
+    // so it always returned false -- which made InitializeAudioSystem look
+    // like it succeeded while OpenNewAudioDevice, checking the same
+    // (always-false) predicate, then unconditionally failed with
+    // SubsystemNotInitialized. AudioDevice::Initialize could never succeed.
+    ASSERT_FALSE(IsAudioSystemInitialized());
+
+    auto result = InitializeAudioSystem();
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(IsAudioSystemInitialized());
+}
+
+TEST_F(AudioSubsystemTest, OpenNewAudioDevice_AfterInitializeSucceeds)
+{
+    ASSERT_TRUE(InitializeAudioSystem().IsOk());
+
+    auto result = OpenNewAudioDevice();
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_NE(result.Value(), 0u);
+    SDL_CloseAudioDevice(result.Value());
+}
+
+TEST_F(AudioSubsystemTest, OpenNewAudioDevice_BeforeInitializeReturnsSubsystemNotInitializedError)
+{
+    auto result = OpenNewAudioDevice();
+
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(AudioError::SubsystemNotInitialized));
 }
 
 }

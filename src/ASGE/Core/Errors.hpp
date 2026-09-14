@@ -412,6 +412,8 @@ enum class AudioError
     SubsystemNotInitialized,
     DeviceOpenFailed,
     StreamCreationFailed,
+    InvalidStream,
+    StreamDetachFailed,
 };
 
 inline str::String ToErrorString(AudioError e) noexcept
@@ -424,6 +426,8 @@ inline str::String ToErrorString(AudioError e) noexcept
     case AudioError::SubsystemNotInitialized: return "SDL audio subsystem not initialized";
     case AudioError::DeviceOpenFailed: return "SDL failed to open a new audio device";
     case AudioError::StreamCreationFailed: return "failed to create a new audio stream";
+    case AudioError::InvalidStream: return "invalid or expired stream";
+    case AudioError::StreamDetachFailed: return "stream detaching failed";
     }
     return "unknown audio error";
 }

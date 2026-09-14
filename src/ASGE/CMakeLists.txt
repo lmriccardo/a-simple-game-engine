@@ -16,6 +16,7 @@ add_library(ASGE STATIC
     Video/Graphics/Windowing/SDL/SDLWindow.cpp
 
     # Audio Device initialization
+    Audio/AudioStream.cpp
     Audio/AudioDevice.cpp
 
     # Engine Logger
@@ -66,6 +67,7 @@ add_library(ASGE STATIC
     Game/Systems/PhysicsSystem.cpp
     Game/Systems/PhysicsDebugSystem.cpp
     Game/Systems/RenderSystem.cpp
+    Game/Systems/AudioSystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp

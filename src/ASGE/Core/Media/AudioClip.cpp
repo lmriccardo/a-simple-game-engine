@@ -91,7 +91,7 @@ asge::media::AudioClip::Load(filesystem::Path const &inPath) noexcept
 
 bool asge::media::IsAudioSystemInitialized() noexcept
 {
-    return ( SDL_WasInit( SDL_INIT_AUDIO ) & SDL_INIT_AUDIO ) == 1;
+    return ( SDL_WasInit( SDL_INIT_AUDIO ) & SDL_INIT_AUDIO ) != 0;
 }
 
 asge::BoolResult asge::media::InitializeAudioSystem() noexcept

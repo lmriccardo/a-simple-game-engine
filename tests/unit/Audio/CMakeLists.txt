@@ -1,5 +1,8 @@
 add_executable(ASGE_AudioTests
     AudioClipTests.cpp
+    AudioDeviceTests.cpp
+    AudioStreamTests.cpp
+    AudioSystemTests.cpp
 )
 
 target_link_libraries(ASGE_AudioTests

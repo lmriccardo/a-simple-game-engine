@@ -14,27 +14,29 @@ asge::BoolResult asge::audio::AudioDevice::Initialize()
     m_DeviceId = devResult.Value();
 
     SDL_ResumeAudioDevice( m_DeviceId );
+    LOG_DEBUG( "New audio device ", SDL_GetAudioDeviceName(m_DeviceId), " opened" );
     return BoolResult::Ok();
 }
 
 void asge::audio::AudioDevice::Shutdown()
 {
     // First we need to destroy all streams
-    for ( auto i_stream : m_Streams )
+    for ( auto& i_stream : m_Streams )
     {
         // Unbind from the audio device
-        SDL_UnbindAudioStream( i_stream.get() );
+        SDL_UnbindAudioStream( i_stream.Get() );
 
         // We need to reset the shared pointer, this method will also
         // calls the destructor of the pointer itself
-        i_stream.reset();
+        i_stream.Reset();
     }
+    m_LastIndex = 0;
 
-    if ( m_DeviceId ) SDL_CloseAudioDevice( m_DeviceId ); 
+    if ( m_DeviceId ) SDL_CloseAudioDevice( m_DeviceId );
     if ( m_BackendInitialized )
-    { 
-        SDL_QuitSubSystem(SDL_INIT_AUDIO); 
-        m_BackendInitialized = false; 
+    {
+        SDL_QuitSubSystem(SDL_INIT_AUDIO);
+        m_BackendInitialized = false;
     }
     m_DeviceId = 0;
 }
@@ -49,18 +51,18 @@ SDL_AudioDeviceID asge::audio::AudioDevice::Id() const noexcept
     return m_DeviceId;
 }
 
-asge::Result<asge::audio::AudioDevice::stream_tag> 
+asge::Result<asge::audio::AudioStream*> 
 asge::audio::AudioDevice::CreateStream( media::AudioClip& inAudioClip ) noexcept
 {
     if ( !m_BackendInitialized )
     {
         // First we need to check that the backend audio system is initialized
-        return Result<stream_tag>::Err(make_error_code( errors::AudioError::SubsystemNotInitialized ));
+        return Result<AudioStream*>::Err(make_error_code( errors::AudioError::SubsystemNotInitialized ));
     }
 
     if ( m_LastIndex == kMaxNofStreams )
     {
-        return Result<stream_tag>::Err(
+        return Result<AudioStream*>::Err(
             make_error_code( errors::AudioError::StreamCreationFailed ),
             "no more space for new streams for device ID " + 
             std::to_string( m_DeviceId )
@@ -71,13 +73,50 @@ asge::audio::AudioDevice::CreateStream( media::AudioClip& inAudioClip ) noexcept
     SDL_AudioStream* currStream = SDL_CreateAudioStream( &clipSpec, nullptr );
     if ( !currStream || !SDL_BindAudioStream( m_DeviceId, currStream ) )
     {
-        return Result<stream_tag>::Err(
+        return Result<AudioStream*>::Err(
             make_error_code( errors::AudioError::StreamCreationFailed ),
             SDL_GetError()
         );
     }
 
-    m_Streams[m_LastIndex++] = AudioDevice::stream(currStream, SDL_DestroyAudioStream);
+    auto stream = std::shared_ptr<SDL_AudioStream>( currStream, SDL_DestroyAudioStream );
+    std::size_t const index = m_LastIndex++;
+    m_Streams[index] = AudioStream( std::move(stream), index );
+
     SDL_FlushAudioStream( currStream );
-    return Result<stream_tag>::Ok( m_Streams.at( m_LastIndex - 1 ) );
+    return Result<AudioStream*>::Ok( &m_Streams[index] );
+}
+
+asge::BoolResult asge::audio::AudioDevice::DetachStream(AudioStream& inStream) noexcept
+{
+    // First we need to check that the input stream is still valid
+    if ( !inStream.IsValid() || inStream.Index() >= m_LastIndex )
+    {
+        return BoolResult::Err( make_error_code( errors::AudioError::InvalidStream ) );
+    }
+
+    // First we need to check that the stream is on this device
+    if ( auto devId = SDL_GetAudioStreamDevice( inStream.Get() ); devId != m_DeviceId )
+    {
+        return BoolResult::Err( 
+            make_error_code( errors::AudioError::InvalidStream ),
+            "stream not bind to device " + std::to_string( m_DeviceId )
+        );
+    }
+
+    // Unbind the audio stream from the device and reset its pointer
+    std::size_t const currIndex = inStream.Index();
+    SDL_UnbindAudioStream( inStream.Get() );
+    inStream.Reset();
+    inStream.Index( static_cast<std::size_t>(-1) );
+
+    // Only the trailing slot can be reclaimed here: every other AudioSource
+    // holds a raw AudioStream* straight into this array, so relocating
+    // whichever stream currently sits at m_LastIndex-1 into currIndex (as a
+    // swap-remove normally would) would silently repoint that other source's
+    // pointer at a stream that isn't its own -- see AudioSystem for how that
+    // pointer gets handed out and kept.
+    if ( currIndex == m_LastIndex - 1 ) --m_LastIndex;
+
+    return BoolResult::Ok();
 }

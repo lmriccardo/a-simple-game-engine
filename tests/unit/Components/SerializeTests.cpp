@@ -13,15 +13,16 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimation)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSource)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 6);
+    static_assert(std::tuple_size_v<SerializableComponents> == 7);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
     static_assert(std::is_same_v<std::tuple_element_t<3, SerializableComponents>, Collider>);
     static_assert(std::is_same_v<std::tuple_element_t<4, SerializableComponents>, Rigidbody>);
     static_assert(std::is_same_v<std::tuple_element_t<5, SerializableComponents>, Animation>);
+    static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, AudioSource>);
     SUCCEED();
 }
 
@@ -34,6 +35,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Collider>::kTableName, "Collider");
     EXPECT_EQ(Serializer<Rigidbody>::kTableName, "Rigidbody");
     EXPECT_EQ(Serializer<Animation>::kTableName, "Animation");
+    EXPECT_EQ(Serializer<AudioSource>::kTableName, "AudioSource");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -332,6 +334,62 @@ TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
 
     Animation const restored = Serializer<Animation>::FromToml( builder );
     EXPECT_TRUE(restored.m_ClipPath.empty());
+}
+
+// ─── AudioSource ────────────────────────────────────────────────────────────
+
+TEST(AudioSourceSerializerTest, ToToml_WritesVirtualClipPathUnderAudioSourceTable)
+{
+    TOMLBuilder builder;
+    AudioSource source{};
+    source.m_VirtualClipPath = "audio/theme.ogg";
+    Serializer<AudioSource>::ToToml( source, builder );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[AudioSource]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_VirtualClipPath = "audio/theme.ogg")"), std::string::npos);
+}
+
+TEST(AudioSourceSerializerTest, RoundTrip_VirtualClipPathPreserved)
+{
+    TOMLBuilder builder;
+    AudioSource source{};
+    source.m_VirtualClipPath = "audio/theme.ogg";
+    Serializer<AudioSource>::ToToml( source, builder );
+
+    AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
+    EXPECT_EQ(restored.m_VirtualClipPath, "audio/theme.ogg");
+}
+
+TEST(AudioSourceSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStructDefaults)
+{
+    // Serializer<AudioSource> only round-trips m_VirtualClipPath -- FromToml
+    // must never carry over m_Clip/m_Stream (a scene file can't describe a
+    // resolved asset or a live device stream) or playback flags, since
+    // neither is something a scene file describes at all.
+    TOMLBuilder builder;
+    AudioSource source{};
+    source.m_VirtualClipPath = "audio/theme.ogg";
+    Serializer<AudioSource>::ToToml( source, builder );
+
+    AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
+    EXPECT_EQ(restored.m_Clip, nullptr);
+    EXPECT_EQ(restored.m_Stream, nullptr);
+    EXPECT_FALSE(restored.m_Playing);
+    EXPECT_FALSE(restored.m_Loop);
+    EXPECT_FLOAT_EQ(restored.m_Volume, 1.0f);
+}
+
+TEST(AudioSourceSerializerTest, FromToml_MissingVirtualClipPathKeyDefaultsToEmptyString)
+{
+    // A hand-written or pre-AudioSource scene file has no "m_VirtualClipPath"
+    // key at all -- AssetManager::ResolveAssets already treats an empty path
+    // as "nothing to resolve", so this must not error.
+    TOMLBuilder builder;
+    builder.Table("AudioSource");
+
+    AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
+    EXPECT_TRUE(restored.m_VirtualClipPath.empty());
 }
 
 }

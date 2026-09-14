@@ -4,33 +4,70 @@
 #include <ASGE/Game/Assets/Asset.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Media/AudioClip.hpp>
+#include <ASGE/Audio/AudioDevice.hpp>
 #include "Serialize.hpp"
 
 namespace asge::game::components
 {
 
+/**
+ * @brief An entity's audio clip plus its current playback state.
+ *
+ * m_VirtualClipPath (set directly or via scene deserialization) is resolved
+ * to m_Clip by asset::AssetManager::ResolveAssets, same as Sprite/Animation
+ * resolve their own paths. m_Stream is left null until systems::AudioSystem
+ * first plays this source -- once assigned, it points into the owning
+ * audio::AudioDevice's stream pool and stays valid for this source's
+ * lifetime (see AudioDevice's doc comment); replaying it (see
+ * PlayAudioSource) always reuses that same stream rather than creating a
+ * new one. Use PlayAudioSource/StopAudioSource rather than setting
+ * m_Playing directly, so m_Loop and m_Restart stay in sync with the
+ * request.
+ */
 struct AudioSource
 {
     using audio_clip_asset = std::shared_ptr<asset::Asset<media::AudioClip>>;
 
-    audio_clip_asset    m_Clip              { nullptr };
-    str::String         m_VirtualClipPath   {};
-    bool                m_Playing           { false };
-    bool                m_Loop              { false };
-    float               m_Volume            { 1.0f };
+    audio_clip_asset    m_Clip              { nullptr }; // resolved clip asset, or null until ResolveAssets runs
+    audio::AudioStream* m_Stream            { nullptr }; // this source's slot in the AudioDevice pool, once played
+    str::String         m_VirtualClipPath   {};          // VFS path resolved into m_Clip
+    bool                m_Playing           { false };   // whether AudioSystem should be advancing playback
+    bool                m_Loop              { false };   // whether AudioSystem restarts the clip when it runs out
+    bool                m_Restart           { false };   // set by PlayAudioSource; consumed once by AudioSystem to force an immediate (re)start, independent of m_Loop or how much data is still queued
+    float               m_Volume            { 1.0f };    // playback gain; not yet applied by AudioSystem
 };
 
+/**
+ * @brief Marks inAudioSource to (re)start playing right away, looping per
+ *        inLoop once it runs out of queued audio.
+ *
+ * Safe to call whether inAudioSource is stopped, already playing, or still
+ * mid-loop -- AudioSystem always honors the request on its next pass by
+ * restarting from the beginning of the clip, reusing the existing stream
+ * rather than creating a new one. inLoop only governs what happens if this
+ * playthrough runs out on its own; it plays independently of it either way.
+ */
 inline void PlayAudioSource( AudioSource& inAudioSource, bool inLoop = true ) noexcept
 {
     inAudioSource.m_Playing = true;
     inAudioSource.m_Loop = inLoop;
+    inAudioSource.m_Restart = true;
 }
 
+/** @brief Marks inAudioSource to stop; AudioSystem clears its queued audio on the next pass. */
 inline void StopAudioSource( AudioSource& inAudioSource ) noexcept
 {
     inAudioSource.m_Playing = false;
 }
 
+/**
+ * @brief Round-trips m_VirtualClipPath only — which clip to play, not the
+ *        live playback state. FromToml leaves m_Clip null (resolved later
+ *        by AssetManager::ResolveAssets, same as Sprite::m_Texture) and
+ *        m_Stream/m_Playing/m_Loop/m_Volume at AudioSource's in-code
+ *        defaults; a scene file describes what an entity plays, not
+ *        whether a previous run happened to be mid-playback.
+ */
 template<>
 struct Serializer<AudioSource>
 {
