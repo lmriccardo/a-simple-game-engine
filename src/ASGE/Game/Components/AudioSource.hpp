@@ -27,9 +27,10 @@ namespace asge::game::components
 struct AudioSource
 {
     using audio_clip_asset = std::shared_ptr<asset::Asset<media::AudioClip>>;
+    using stream = std::shared_ptr<audio::AudioStream>;
 
     audio_clip_asset    m_Clip              { nullptr }; // resolved clip asset, or null until ResolveAssets runs
-    audio::AudioStream* m_Stream            { nullptr }; // this source's slot in the AudioDevice pool, once played
+    stream              m_Stream            { nullptr }; // this source's slot in the AudioDevice pool, once played
     str::String         m_VirtualClipPath   {};          // VFS path resolved into m_Clip
     bool                m_Playing           { false };   // whether AudioSystem should be advancing playback
     bool                m_Loop              { false };   // whether AudioSystem restarts the clip when it runs out

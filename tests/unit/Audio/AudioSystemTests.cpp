@@ -131,7 +131,7 @@ TEST_F(AudioSystemTest, Tick_SubsequentTicksReuseTheSameStreamInstance)
     Source().m_Clip = MakeClipAsset(64);
     PlayAudioSource( Source() );
     Tick();
-    auto* firstStream = Source().m_Stream;
+    auto firstStream = Source().m_Stream;
 
     Tick();
     Tick();
@@ -185,7 +185,7 @@ TEST_F(AudioSystemTest, Tick_ReplayingANonLoopingStoppedSourceRestartsImmediatel
     Source().m_Stream->ClearData(); // ran out naturally
     Tick();
     ASSERT_FALSE(Source().m_Playing);
-    auto* originalStream = Source().m_Stream;
+    auto originalStream = Source().m_Stream;
 
     PlayAudioSource( Source(), /*inLoop=*/false );
     Tick();

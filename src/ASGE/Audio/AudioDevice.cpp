@@ -23,12 +23,14 @@ void asge::audio::AudioDevice::Shutdown()
     // First we need to destroy all streams
     for ( auto& i_stream : m_Streams )
     {
+        if ( !i_stream ) continue; // unused slot, nothing bound yet
+
         // Unbind from the audio device
-        SDL_UnbindAudioStream( i_stream.Get() );
+        SDL_UnbindAudioStream( i_stream->Get() );
 
         // We need to reset the shared pointer, this method will also
         // calls the destructor of the pointer itself
-        i_stream.Reset();
+        i_stream->Reset();
     }
     m_LastIndex = 0;
 
@@ -51,18 +53,19 @@ SDL_AudioDeviceID asge::audio::AudioDevice::Id() const noexcept
     return m_DeviceId;
 }
 
-asge::Result<asge::audio::AudioStream*> 
+asge::Result<std::shared_ptr<asge::audio::AudioStream>> 
 asge::audio::AudioDevice::CreateStream( media::AudioClip& inAudioClip ) noexcept
 {
     if ( !m_BackendInitialized )
     {
         // First we need to check that the backend audio system is initialized
-        return Result<AudioStream*>::Err(make_error_code( errors::AudioError::SubsystemNotInitialized ));
+        return Result<std::shared_ptr<asge::audio::AudioStream>>::Err(
+            make_error_code( errors::AudioError::SubsystemNotInitialized ));
     }
 
     if ( m_LastIndex == kMaxNofStreams )
     {
-        return Result<AudioStream*>::Err(
+        return Result<std::shared_ptr<asge::audio::AudioStream>>::Err(
             make_error_code( errors::AudioError::StreamCreationFailed ),
             "no more space for new streams for device ID " + 
             std::to_string( m_DeviceId )
@@ -73,7 +76,7 @@ asge::audio::AudioDevice::CreateStream( media::AudioClip& inAudioClip ) noexcept
     SDL_AudioStream* currStream = SDL_CreateAudioStream( &clipSpec, nullptr );
     if ( !currStream || !SDL_BindAudioStream( m_DeviceId, currStream ) )
     {
-        return Result<AudioStream*>::Err(
+        return Result<std::shared_ptr<asge::audio::AudioStream>>::Err(
             make_error_code( errors::AudioError::StreamCreationFailed ),
             SDL_GetError()
         );
@@ -81,10 +84,10 @@ asge::audio::AudioDevice::CreateStream( media::AudioClip& inAudioClip ) noexcept
 
     auto stream = std::shared_ptr<SDL_AudioStream>( currStream, SDL_DestroyAudioStream );
     std::size_t const index = m_LastIndex++;
-    m_Streams[index] = AudioStream( std::move(stream), index );
+    m_Streams[index] = std::make_shared<AudioStream>(std::move(stream), index);
 
     SDL_FlushAudioStream( currStream );
-    return Result<AudioStream*>::Ok( &m_Streams[index] );
+    return Result<std::shared_ptr<asge::audio::AudioStream>>::Ok( m_Streams[index] );
 }
 
 asge::BoolResult asge::audio::AudioDevice::DetachStream(AudioStream& inStream) noexcept
@@ -110,13 +113,11 @@ asge::BoolResult asge::audio::AudioDevice::DetachStream(AudioStream& inStream) n
     inStream.Reset();
     inStream.Index( static_cast<std::size_t>(-1) );
 
-    // Only the trailing slot can be reclaimed here: every other AudioSource
-    // holds a raw AudioStream* straight into this array, so relocating
-    // whichever stream currently sits at m_LastIndex-1 into currIndex (as a
-    // swap-remove normally would) would silently repoint that other source's
-    // pointer at a stream that isn't its own -- see AudioSystem for how that
-    // pointer gets handed out and kept.
-    if ( currIndex == m_LastIndex - 1 ) --m_LastIndex;
+    // Since we have swapped the last element into the current index
+    // we also need to decrement the last index position
+    m_Streams[currIndex] = std::move( m_Streams[m_LastIndex - 1] );
+    m_Streams[m_LastIndex - 1] = nullptr;
+    --m_LastIndex;
 
     return BoolResult::Ok();
 }

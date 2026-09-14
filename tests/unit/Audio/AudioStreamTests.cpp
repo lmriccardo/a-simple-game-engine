@@ -98,7 +98,7 @@ protected:
 TEST_F(BoundAudioStreamTest, PutData_QueuesTheClipsWholeBuffer)
 {
     auto clip = MakeTestClip();
-    auto* stream = m_Device.CreateStream(clip).Value();
+    auto stream = m_Device.CreateStream(clip).Value();
 
     auto result = stream->PutData(clip);
 
@@ -110,7 +110,7 @@ TEST_F(BoundAudioStreamTest, PutData_QueuesTheClipsWholeBuffer)
 TEST_F(BoundAudioStreamTest, ClearData_OnValidStreamEmptiesTheQueue)
 {
     auto clip = MakeTestClip();
-    auto* stream = m_Device.CreateStream(clip).Value();
+    auto stream = m_Device.CreateStream(clip).Value();
     ASSERT_TRUE(stream->PutData(clip).IsOk());
     ASSERT_TRUE(stream->IsDataAvailable());
 

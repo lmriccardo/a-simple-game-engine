@@ -29,7 +29,7 @@ class AudioDevice
 {
 private:
     static constexpr std::size_t kMaxNofStreams = 32;
-    std::array<AudioStream, kMaxNofStreams> m_Streams; // fixed pool of streams bound to m_DeviceId
+    std::array<std::shared_ptr<AudioStream>, kMaxNofStreams> m_Streams; // fixed pool of streams bound to m_DeviceId
 
     SDL_AudioDeviceID   m_DeviceId{0};           // the opened default-playback device, or 0 if not initialized
     bool                m_BackendInitialized{false}; // whether SDL_INIT_AUDIO is up
@@ -61,7 +61,8 @@ public:
      *        it to this device, and returns a pointer into this device's
      *        stream pool that stays valid until DetachStream() releases it.
      */
-    [[nodiscard]] Result<AudioStream*> CreateStream( media::AudioClip& inAudioClip ) noexcept;
+    [[nodiscard]] Result<std::shared_ptr<AudioStream>> 
+    CreateStream( media::AudioClip& inAudioClip ) noexcept;
 
     /**
      * @brief Unbinds and releases a stream previously returned by

@@ -97,7 +97,7 @@ TEST_F(AudioDeviceTest, CreateStream_AfterInitializeReturnsValidStreamAndGrowsSi
     auto result = m_Device.CreateStream(clip);
 
     ASSERT_TRUE(result.IsOk());
-    auto* stream = result.Value();
+    auto stream = result.Value();
     ASSERT_NE(stream, nullptr);
     EXPECT_TRUE(stream->IsValid());
     EXPECT_EQ(stream->Index(), 0u);
@@ -110,8 +110,8 @@ TEST_F(AudioDeviceTest, CreateStream_MultipleCallsReturnDistinctSlots)
     auto clipA = MakeTestClip();
     auto clipB = MakeTestClip();
 
-    auto* streamA = m_Device.CreateStream(clipA).Value();
-    auto* streamB = m_Device.CreateStream(clipB).Value();
+    auto streamA = m_Device.CreateStream(clipA).Value();
+    auto streamB = m_Device.CreateStream(clipB).Value();
 
     EXPECT_NE(streamA, streamB);
     EXPECT_EQ(streamA->Index(), 0u);
@@ -157,7 +157,7 @@ TEST_F(AudioDeviceTest, DetachStream_TrailingSlotShrinksSize)
 {
     ASSERT_TRUE(m_Device.Initialize().IsOk());
     auto clip = MakeTestClip();
-    auto* stream = m_Device.CreateStream(clip).Value();
+    auto stream = m_Device.CreateStream(clip).Value();
 
     auto result = m_Device.DetachStream(*stream);
 
@@ -170,7 +170,7 @@ TEST_F(AudioDeviceTest, DetachStream_AlreadyDetachedReturnsInvalidStreamError)
 {
     ASSERT_TRUE(m_Device.Initialize().IsOk());
     auto clip = MakeTestClip();
-    auto* stream = m_Device.CreateStream(clip).Value();
+    auto stream = m_Device.CreateStream(clip).Value();
     ASSERT_TRUE(m_Device.DetachStream(*stream).IsOk());
 
     auto result = m_Device.DetachStream(*stream);
@@ -191,9 +191,9 @@ TEST_F(AudioDeviceTest, DetachStream_MiddleSlotDoesNotDisturbOtherLiveStreams)
     auto clipB = MakeTestClip();
     auto clipC = MakeTestClip();
 
-    auto* streamA = m_Device.CreateStream(clipA).Value();
-    auto* streamB = m_Device.CreateStream(clipB).Value();
-    auto* streamC = m_Device.CreateStream(clipC).Value();
+    auto streamA = m_Device.CreateStream(clipA).Value();
+    auto streamB = m_Device.CreateStream(clipB).Value();
+    auto streamC = m_Device.CreateStream(clipC).Value();
     std::size_t const cIndexBefore = streamC->Index();
 
     auto result = m_Device.DetachStream(*streamB);
