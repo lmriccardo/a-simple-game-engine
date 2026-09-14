@@ -3,6 +3,8 @@ add_executable(ASGE_VideoTests
     GraphicsInterfaceTests.cpp
     SDLTextureTests.cpp
     SDLRendererTextureTests.cpp
+    CameraTests.cpp
+    SDLRendererCameraTests.cpp
 )
 
 target_link_libraries(ASGE_VideoTests

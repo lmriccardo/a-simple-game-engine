@@ -59,14 +59,11 @@ void asge::video::SDLRenderer::DrawRect(
         LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
     }
 
-    SDL_FRect rect{ inRect.m_X, inRect.m_Y, inRect.m_Width, inRect.m_Height };
-    bool renderResult;
-
-    if ( !inFill ) {
-        renderResult = SDL_RenderRect(m_Renderer, &rect);
-    } else {
-        renderResult = SDL_RenderFillRect(m_Renderer, &rect);
-    }
+    math::Rect const screen = TransformRect(m_Camera, inRect);
+    SDL_FRect const rect{ screen.m_X, screen.m_Y, screen.m_Width, screen.m_Height };
+    bool const renderResult = inFill
+        ? SDL_RenderFillRect(m_Renderer, &rect)
+        : SDL_RenderRect(m_Renderer, &rect);
 
     if (!renderResult)
     {
@@ -82,7 +79,10 @@ void asge::video::SDLRenderer::DrawLine(
         LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
     }
 
-    if ( !SDL_RenderLine( m_Renderer, inC1.x(), inC1.y(), inC2.x(), inC2.y() ) )
+    math::Float2 const p1 = WorldToScreen(m_Camera, inC1);
+    math::Float2 const p2 = WorldToScreen(m_Camera, inC2);
+
+    if ( !SDL_RenderLine( m_Renderer, p1.x(), p1.y(), p2.x(), p2.y() ) )
     {
         LogError( make_error_code( errors::RenderError::RenderLineFailed ), SDL_GetError() );
     }
@@ -96,7 +96,17 @@ void asge::video::SDLRenderer::DrawCircle(
         LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
     }
 
-    auto const points = math::MidpointCirclePoints(inCenter, inRadius);
+    math::Float2 const center = WorldToScreen(
+        m_Camera,
+        { static_cast<float>(inCenter.x()), static_cast<float>(inCenter.y()) }
+    );
+
+    int const radius = static_cast<int>(std::lround(inRadius * m_Camera.m_Zoom));
+    math::Int2 const screenCenter{
+        static_cast<int>(std::lround(center.x())), static_cast<int>(std::lround(center.y()))
+    };
+
+    auto const points = math::MidpointCirclePoints(screenCenter, radius);
     bool renderResult;
 
     if ( !inFill )
@@ -144,7 +154,8 @@ void asge::video::SDLRenderer::DrawCircle(
 void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Rect const &inDestRect) const noexcept
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
-    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
+    math::Rect const screen = TransformRect(m_Camera, inDestRect);
+    SDL_FRect dst{ screen.m_X, screen.m_Y, screen.m_Width, screen.m_Height };
     if ( !SDL_RenderTexture(m_Renderer, texture, nullptr, &dst) )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
@@ -162,8 +173,9 @@ void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Floa
 void asge::video::SDLRenderer::DrawTexture(ITexture const &inTexture, math::Rect const &inSrcRect, math::Rect const &inDestRect) const noexcept
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
+    math::Rect const screenDest = TransformRect(m_Camera, inDestRect);
     SDL_FRect src{ inSrcRect.m_X, inSrcRect.m_Y, inSrcRect.m_Width, inSrcRect.m_Height };
-    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
+    SDL_FRect dst{ screenDest.m_X, screenDest.m_Y, screenDest.m_Width, screenDest.m_Height };
     if ( !SDL_RenderTexture(m_Renderer, texture, &src, &dst) )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
@@ -176,8 +188,11 @@ void asge::video::SDLRenderer::DrawTextureTiled(
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
 
-    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
-    if ( !SDL_RenderTextureTiled(m_Renderer, texture, nullptr, inScale, &dst) )
+    math::Rect const screenDest = TransformRect(m_Camera, inDestRect);
+    float const tileScale = inScale * m_Camera.m_Zoom;
+
+    SDL_FRect dst{ screenDest.m_X, screenDest.m_Y, screenDest.m_Width, screenDest.m_Height };
+    if ( !SDL_RenderTextureTiled(m_Renderer, texture, nullptr, tileScale, &dst) )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
     }
@@ -189,11 +204,15 @@ void asge::video::SDLRenderer::DrawTextureAffine(
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
 
-    SDL_FPoint origin{ inOrigin.x(), inOrigin.y() };
-    SDL_FPoint right{ inRight.x(), inRight.y() };
-    SDL_FPoint down{ inDown.x(), inDown.y() };
+    math::Float2 const origin = WorldToScreen(m_Camera, inOrigin);
+    math::Float2 const right  = WorldToScreen(m_Camera, inRight);
+    math::Float2 const down   = WorldToScreen(m_Camera, inDown);
 
-    if (!SDL_RenderTextureAffine(m_Renderer, texture, nullptr, &origin, &right, &down))
+    SDL_FPoint originPt{ origin.x(), origin.y() };
+    SDL_FPoint rightPt{ right.x(), right.y() };
+    SDL_FPoint downPt{ down.x(), down.y() };
+
+    if (!SDL_RenderTextureAffine(m_Renderer, texture, nullptr, &originPt, &rightPt, &downPt))
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
     }
@@ -206,8 +225,9 @@ void asge::video::SDLRenderer::DrawTexture9Grid(
 {
     auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
 
-    SDL_FRect dst{ inDestRect.m_X, inDestRect.m_Y, inDestRect.m_Width, inDestRect.m_Height };
-    auto r = SDL_RenderTexture9Grid(m_Renderer, texture, nullptr,inLeft, inRight, inTop, inBottom, 1.0F, &dst);
+    math::Rect const screenDest = TransformRect(m_Camera, inDestRect);
+    SDL_FRect dst{ screenDest.m_X, screenDest.m_Y, screenDest.m_Width, screenDest.m_Height };
+    auto r = SDL_RenderTexture9Grid(m_Renderer, texture, nullptr, inLeft, inRight, inTop, inBottom, m_Camera.m_Zoom, &dst);
     if ( !r )
     {
         LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
@@ -257,6 +277,35 @@ void asge::video::SDLRenderer::Present() const
 bool asge::video::SDLRenderer::IsValid() const
 {
     return m_Renderer != nullptr;
+}
+
+void asge::video::SDLRenderer::SetCamera( Camera const& inCamera )
+{
+    m_Camera = inCamera;
+}
+
+Camera const& asge::video::SDLRenderer::GetCamera() const
+{
+    return m_Camera;
+}
+
+void asge::video::SDLRenderer::SetViewport(Viewport const& inViewport)
+{
+    m_Viewport = inViewport;
+
+    // Given we are in the SDL Renderer backend which already handles
+    // viewport we shall call the SDL_SetRenderViewport function
+    SDL_Rect const rect{
+        static_cast<int>(inViewport.m_X), static_cast<int>(inViewport.m_Y),
+        static_cast<int>(inViewport.m_Width), static_cast<int>(inViewport.m_Height)
+    };
+
+    SDL_SetRenderViewport( m_Renderer, &rect );
+}
+
+Viewport const& asge::video::SDLRenderer::GetViewport() const
+{
+    return m_Viewport;
 }
 
 void asge::video::SDLRenderer::Destroy()

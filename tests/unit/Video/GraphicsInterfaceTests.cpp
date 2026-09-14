@@ -81,6 +81,10 @@ public:
     mutable int s_CreateTextureCalls{0};
     mutable int s_PresentCalls{0};
     mutable RGBA_Color s_LastClearColor{};
+    mutable int s_SetCameraCalls{0};
+    mutable int s_SetViewportCalls{0};
+    asge::video::Camera s_Camera{};
+    asge::video::Viewport s_Viewport{};
     bool s_Valid;
 
     explicit FakeRenderer(bool inValid) : s_Valid(inValid) {}
@@ -160,6 +164,22 @@ public:
 
     void Present() const override { ++s_PresentCalls; }
     [[nodiscard]] bool IsValid() const override { return s_Valid; }
+
+    void SetCamera(asge::video::Camera const& inCamera) override
+    {
+        ++s_SetCameraCalls;
+        s_Camera = inCamera;
+    }
+
+    [[nodiscard]] asge::video::Camera const& GetCamera() const override { return s_Camera; }
+
+    void SetViewport(asge::video::Viewport const& inViewport) override
+    {
+        ++s_SetViewportCalls;
+        s_Viewport = inViewport;
+    }
+
+    [[nodiscard]] asge::video::Viewport const& GetViewport() const override { return s_Viewport; }
 };
 
 TEST(GraphicsInterfaceTest, WindowIsUsablePolymorphicallyThroughIWindow)

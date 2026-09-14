@@ -14,6 +14,8 @@ class SDLRenderer final : public IRenderer
 {
 private:
     SDL_Renderer * m_Renderer{nullptr};
+    Camera         m_Camera{};
+    Viewport       m_Viewport{};
 
 public:
     SDLRenderer(SDL_Window* inWindow);
@@ -50,6 +52,11 @@ public:
 
     void Present() const override;
     [[nodiscard]] bool IsValid() const override;
+
+    void SetCamera( Camera const& inCamera ) override;
+    Camera const& GetCamera() const override;
+    void SetViewport(Viewport const& inViewport) override;
+    Viewport const& GetViewport() const override;
 
     // Destroy procedure for the renderer
     void Destroy();
