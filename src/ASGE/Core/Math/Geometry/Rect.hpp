@@ -14,5 +14,4 @@ struct Rect
     float m_Height; // the height of the rectangle
 };
 
-
 }

@@ -5,12 +5,26 @@
 namespace asge::game::components
 {
 
+/**
+ * @brief Marks an entity as a camera target for systems::CameraSystem.
+ *
+ * Only takes effect once this entity is set as resources::ActiveCamera's
+ * m_Entity — CameraSystem then reads this entity's own Transform (m_X/m_Y)
+ * each frame as the world-space point to center the view on, and this
+ * component for how to get there. Camera itself carries no position of its
+ * own; the owning entity's Transform is the single source of truth for it.
+ */
 struct Camera
 {
-    float m_Zoom        { 1.0f };
-    float m_Smoothing   { 0.0f };
+    float m_Zoom      { 1.0f }; // uniform zoom passed straight to video::Camera::m_Zoom
+    float m_Smoothing { 0.0f }; // catch-up rate toward the target position; 0 snaps there immediately, higher values ease in faster (see CameraSystem)
 };
 
+/**
+ * @brief Round-trips m_Zoom and m_Smoothing — see AudioSource's Serializer
+ *        doc comment for why a scene file only ever describes this much
+ *        and not any runtime-only state (Camera has none of its own).
+ */
 template<>
 struct Serializer<Camera>
 {

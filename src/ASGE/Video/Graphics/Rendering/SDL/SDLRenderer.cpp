@@ -2,6 +2,7 @@
 #include "../RenderError.hpp"
 #include "SDLTexture.hpp"
 
+#include <cmath>
 #include <unordered_map>
 
 using namespace asge::video;
@@ -12,6 +13,17 @@ asge::video::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
     if (!m_Renderer)
     {
         LogError( make_error_code( errors::RenderError::CreateRendererFailed ), SDL_GetError() );
+    }
+
+    // Default the viewport to the window's own size, so RenderSystem's
+    // visible-rect culling (see VisibleWorldRect) has something sane to cull
+    // against even for callers that never call SetViewport themselves --
+    // matching a zero-size default here would cull every sprite outright.
+    int width{0};
+    int height{0};
+    if ( SDL_GetWindowSize(inWindow, &width, &height) )
+    {
+        m_Viewport = Viewport{ 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height) };
     }
 }
 

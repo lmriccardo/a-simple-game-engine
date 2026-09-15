@@ -44,14 +44,19 @@ TEST_F(SDLRendererCameraTest, DefaultCamera_IsIdentity)
     EXPECT_FLOAT_EQ(renderer.GetCamera().m_Zoom, 1.0f);
 }
 
-TEST_F(SDLRendererCameraTest, DefaultViewport_IsZeroed)
+TEST_F(SDLRendererCameraTest, DefaultViewport_MatchesTheWindowSize)
 {
+    // A zero-size default would cull every sprite outright under
+    // RenderSystem's visible-rect culling (see VisibleWorldRect) unless a
+    // caller remembered to call SetViewport itself -- defaulting to the
+    // window's own size (64x64, per SDLHeadlessTest) means "do nothing"
+    // still renders everything on screen, same as before culling existed.
     SDLRenderer renderer(m_Window);
 
     EXPECT_FLOAT_EQ(renderer.GetViewport().m_X, 0.0f);
     EXPECT_FLOAT_EQ(renderer.GetViewport().m_Y, 0.0f);
-    EXPECT_FLOAT_EQ(renderer.GetViewport().m_Width, 0.0f);
-    EXPECT_FLOAT_EQ(renderer.GetViewport().m_Height, 0.0f);
+    EXPECT_FLOAT_EQ(renderer.GetViewport().m_Width, 64.0f);
+    EXPECT_FLOAT_EQ(renderer.GetViewport().m_Height, 64.0f);
 }
 
 // ─── SetCamera / SetViewport round-trip ─────────────────────────────────────

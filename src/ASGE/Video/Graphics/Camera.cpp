@@ -39,3 +39,13 @@ asge::math::Rect asge::video::TransformRect(
         inWorldRect.m_Height * inCamera.m_Zoom
     };
 }
+
+asge::math::Rect asge::video::VisibleWorldRect(
+    Camera const &inCamera, Viewport const &inViewport) noexcept
+{
+    return math::Rect{
+        inCamera.m_X, inCamera.m_Y,
+        inViewport.m_Width  / inCamera.m_Zoom,
+        inViewport.m_Height / inCamera.m_Zoom
+    };
+}

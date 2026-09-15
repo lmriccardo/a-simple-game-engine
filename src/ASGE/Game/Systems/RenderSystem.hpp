@@ -26,16 +26,33 @@ namespace asge::game::systems
 void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
 /**
- * @brief Draws every entity that has both a Transform and a Sprite.
+ * @brief Points inRenderer's camera at resources::ActiveCamera's entity, if any.
+ *
+ * A no-op (leaving inRenderer's camera exactly as it was) unless
+ * ActiveCamera is set to a live entity that carries both a
+ * components::Camera and a components::Transform. When it does, sets the
+ * renderer's zoom straight from Camera::m_Zoom and aims its position at
+ * that Transform centered in the current viewport; Camera::m_Smoothing ==
+ * 0 snaps there immediately, a positive value eases toward it exponentially
+ * (frame-rate independent — see the .cpp) instead of jumping every frame.
+ */
+void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
+
+/**
+ * @brief Draws every entity that has both a Transform and a Sprite whose
+ *        destination rect overlaps the camera's currently visible area.
  *
  * Transform's position is the sprite's top-left corner; scale stretches
  * the drawn size — the texture's native size, or Sprite::m_SourceRect's
  * size when set, so a cropped cell of a larger spritesheet is scaled from
  * its own dimensions rather than the whole sheet's. Entities whose
- * Sprite::m_Texture is null are skipped. Rotation is not applied —
- * IRenderer's Rect-based DrawTexture overloads (the only ones that also
- * support a source rect) don't take one; use DrawTextureAffine directly
- * for a rotating, unclipped sprite.
+ * Sprite::m_Texture is null are skipped, as is any entity whose destination
+ * rect doesn't overlap IRenderer's current camera/viewport at all (see
+ * video::VisibleWorldRect) — cheaper than submitting a draw call the
+ * backend would just clip away. Rotation is not applied — IRenderer's
+ * Rect-based DrawTexture overloads (the only ones that also support a
+ * source rect) don't take one; use DrawTextureAffine directly for a
+ * rotating, unclipped sprite.
  *
  * Draw order is sorted, not insertion order: entities are batched by
  * Sprite::m_Layer first (lower layers draw first, so higher layers draw on
@@ -47,12 +64,16 @@ void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 
 /**
- * @brief The single per-frame entry point: AnimationSystem then RenderSystem.
+ * @brief The single per-frame entry point: AnimationSystem, then
+ *        CameraSystem, then RenderSystem.
  *
- * Convenience wrapper for callers that want animated sprites without
- * sequencing the two systems themselves — equivalent to calling
- * AnimationSystem(inRegistry, inDeltaTime) followed by
- * RenderSystem(inRegistry, inRenderer).
+ * Convenience wrapper for callers that want animated, camera-followed
+ * sprites without sequencing the three systems themselves — equivalent to
+ * calling AnimationSystem(inRegistry, inDeltaTime), then
+ * CameraSystem(inRegistry, inRenderer, inDeltaTime), then
+ * RenderSystem(inRegistry, inRenderer). CameraSystem must run before
+ * RenderSystem so this frame's camera move is what RenderSystem culls and
+ * draws against, not last frame's.
  */
 void RenderPipeline(
     ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;

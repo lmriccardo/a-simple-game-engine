@@ -36,6 +36,7 @@
 #include <ASGE/Game/Systems.hpp>
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Events.hpp>
+#include <ASGE/Game/Resources/ActiveCamera.hpp>
 
 // ASGE Core ECS functionalities
 #include <ASGE/Core/ECS/Registry.hpp>

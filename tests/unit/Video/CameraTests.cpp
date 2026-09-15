@@ -13,6 +13,7 @@ using asge::video::Viewport;
 using asge::video::WorldToScreen;
 using asge::video::ScreenToWorld;
 using asge::video::TransformRect;
+using asge::video::VisibleWorldRect;
 
 // ─── WorldToScreen (camera only) ────────────────────────────────────────────
 
@@ -130,6 +131,58 @@ TEST(TransformRectTest, ZeroZoom_CollapsesRectToAPointAtTheCameraOrigin)
 
     EXPECT_FLOAT_EQ(screen.m_Width, 0.0f);
     EXPECT_FLOAT_EQ(screen.m_Height, 0.0f);
+}
+
+// ─── VisibleWorldRect ────────────────────────────────────────────────────────
+
+TEST(VisibleWorldRectTest, IdentityCamera_MatchesTheViewportSizeAtTheOrigin)
+{
+    Camera const camera{};
+    Viewport const viewport{ 0.0f, 0.0f, 800.0f, 600.0f };
+
+    auto const visible = VisibleWorldRect(camera, viewport);
+
+    EXPECT_FLOAT_EQ(visible.m_X, 0.0f);
+    EXPECT_FLOAT_EQ(visible.m_Y, 0.0f);
+    EXPECT_FLOAT_EQ(visible.m_Width, 800.0f);
+    EXPECT_FLOAT_EQ(visible.m_Height, 600.0f);
+}
+
+TEST(VisibleWorldRectTest, OffsetCamera_AnchorsTheVisibleRectAtTheCameraPosition)
+{
+    Camera const camera{ .m_X = 100.0f, .m_Y = 50.0f, .m_Zoom = 1.0f };
+    Viewport const viewport{ 0.0f, 0.0f, 400.0f, 300.0f };
+
+    auto const visible = VisibleWorldRect(camera, viewport);
+
+    EXPECT_FLOAT_EQ(visible.m_X, 100.0f);
+    EXPECT_FLOAT_EQ(visible.m_Y, 50.0f);
+    EXPECT_FLOAT_EQ(visible.m_Width, 400.0f);
+    EXPECT_FLOAT_EQ(visible.m_Height, 300.0f);
+}
+
+TEST(VisibleWorldRectTest, ZoomedInCamera_HalvesTheVisibleWorldArea)
+{
+    // Zooming in shows less world per screen pixel -- the visible rect
+    // shrinks as zoom grows, inverse of TransformRect's size math.
+    Camera const camera{ .m_Zoom = 2.0f };
+    Viewport const viewport{ 0.0f, 0.0f, 800.0f, 600.0f };
+
+    auto const visible = VisibleWorldRect(camera, viewport);
+
+    EXPECT_FLOAT_EQ(visible.m_Width, 400.0f);  // 800 / 2
+    EXPECT_FLOAT_EQ(visible.m_Height, 300.0f); // 600 / 2
+}
+
+TEST(VisibleWorldRectTest, ZoomedOutCamera_GrowsTheVisibleWorldArea)
+{
+    Camera const camera{ .m_Zoom = 0.5f };
+    Viewport const viewport{ 0.0f, 0.0f, 800.0f, 600.0f };
+
+    auto const visible = VisibleWorldRect(camera, viewport);
+
+    EXPECT_FLOAT_EQ(visible.m_Width, 1600.0f);  // 800 / 0.5
+    EXPECT_FLOAT_EQ(visible.m_Height, 1200.0f); // 600 / 0.5
 }
 
 }

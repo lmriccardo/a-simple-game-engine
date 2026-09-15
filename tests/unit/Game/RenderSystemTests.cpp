@@ -1,9 +1,12 @@
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <vector>
 
 namespace
@@ -12,8 +15,10 @@ namespace
 using asge::Result;
 using asge::ecs::Registry;
 using asge::game::components::Animation;
+using asge::game::components::Camera;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
+using asge::game::resources::ActiveCamera;
 
 // Minimal ITexture stub that just reports a fixed size -- no SDL/GPU
 // resource, so RenderSystem can be exercised without a real renderer.
@@ -92,7 +97,13 @@ public:
 
 private:
     asge::video::Camera   m_Camera{};
-    asge::video::Viewport m_Viewport{};
+    // Large enough that every existing test's small, arbitrary coordinates
+    // stay inside RenderSystem's visible-rect culling (see VisibleWorldRect)
+    // without each test needing its own SetViewport call -- mirrors
+    // SDLRenderer now defaulting its viewport to the real window size
+    // instead of zero (see SDLRendererCameraTests.cpp's
+    // DefaultViewport_MatchesTheWindowSize).
+    asge::video::Viewport m_Viewport{ 0.0f, 0.0f, 800.0f, 600.0f };
 };
 
 // ─── RenderSystem — whole-texture sprites (no source rect) ─────────────────────
@@ -348,6 +359,221 @@ TEST(RenderSystemTest, NullTexture_EntitySkipped)
     asge::game::systems::RenderSystem(registry, renderer);
 
     EXPECT_TRUE(renderer.m_Calls.empty());
+}
+
+// ─── RenderSystem — camera-driven culling ───────────────────────────────────────
+
+TEST(RenderSystemTest, Culling_SpriteWithinTheDefaultViewport_IsDrawn)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer; // default camera {0,0,zoom=1}, viewport {0,0,800,600}
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 100.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);
+}
+
+TEST(RenderSystemTest, Culling_SpriteFarOutsideTheViewport_IsSkipped)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer; // visible world rect is {0,0,800,600}
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 5000.0f, .m_Y = 5000.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(renderer.m_Calls.empty());
+}
+
+TEST(RenderSystemTest, Culling_SpriteStraddlingTheViewportEdge_IsDrawn)
+{
+    // Overlap, not full containment, is the bar -- a sprite whose destination
+    // rect only partly crosses into view must still be drawn, not clipped
+    // away entirely by the cull check itself.
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 64, 64 });
+    RecordingRenderer renderer; // visible world rect ends at x=800
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 790.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);
+}
+
+TEST(RenderSystemTest, Culling_FollowsTheRendererSCurrentCameraNotJustItsDefault)
+{
+    // Moving the camera away from the origin must shift what counts as
+    // "visible" along with it -- culling reads IRenderer::GetCamera() fresh
+    // each call rather than assuming an identity camera.
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+    renderer.SetCamera( asge::video::Camera{ .m_X = 2000.0f, .m_Y = 2000.0f, .m_Zoom = 1.0f } );
+
+    auto nowOffscreen = registry.CreateEntity();
+    ASSERT_TRUE(nowOffscreen.IsOk());
+    ASSERT_TRUE(registry.AddComponent(nowOffscreen.Value(), Transform{ .m_X = 0.0f, .m_Y = 0.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(nowOffscreen.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    auto nowOnscreen = registry.CreateEntity();
+    ASSERT_TRUE(nowOnscreen.IsOk());
+    ASSERT_TRUE(registry.AddComponent(nowOnscreen.Value(), Transform{ .m_X = 2050.0f, .m_Y = 2050.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(nowOnscreen.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 1u);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 2050.0f);
+}
+
+// ─── CameraSystem ────────────────────────────────────────────────────────────────
+
+TEST(CameraSystemTest, NoActiveCameraResourceSet_LeavesTheRendererSCameraUntouched)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 0.0f);
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Zoom, 1.0f);
+}
+
+TEST(CameraSystemTest, ActiveCameraPointsAtEntityNull_LeavesTheRendererSCameraUntouched)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    registry.SetResource( ActiveCamera{} ); // default-constructed m_Entity is Entity::Null()
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 0.0f);
+}
+
+TEST(CameraSystemTest, ActiveCameraEntityMissingCameraComponent_LeavesTheRendererSCameraUntouched)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 500.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 0.0f);
+}
+
+TEST(CameraSystemTest, ActiveCameraEntityMissingTransform_LeavesTheRendererSCameraUntouched)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 2.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Zoom, 1.0f); // still the default -- never touched
+}
+
+TEST(CameraSystemTest, ZeroSmoothing_SnapsStraightToTheTargetEntityCenteredInTheViewport)
+{
+    Registry registry;
+    RecordingRenderer renderer; // default viewport {0,0,800,600}
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 0.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    // Centered: entity position minus half the viewport, at zoom 1.
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 100.0f);  // 500 - 800/2
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 0.0f);    // 300 - 600/2
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Zoom, 1.0f);
+}
+
+TEST(CameraSystemTest, ZeroSmoothing_ZoomNarrowsHowMuchViewportIsSubtracted)
+{
+    Registry registry;
+    RecordingRenderer renderer; // default viewport {0,0,800,600}
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 2.0f, .m_Smoothing = 0.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 300.0f); // 500 - 800/(2*2)
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 150.0f); // 300 - 600/(2*2)
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Zoom, 2.0f);
+}
+
+TEST(CameraSystemTest, PositiveSmoothing_EasesPartwayTowardTheTargetInsteadOfSnapping)
+{
+    Registry registry;
+    RecordingRenderer renderer; // default viewport {0,0,800,600}
+    renderer.SetCamera( asge::video::Camera{ .m_X = 0.0f, .m_Y = 0.0f, .m_Zoom = 1.0f } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    // Target center: 500 - 800/2 = 100 on X, 300 - 600/2 = 0 on Y.
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 4.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    float const dt = 1.0f / 60.0f;
+    asge::game::systems::CameraSystem(registry, renderer, dt);
+
+    float const k = 1.0f - std::exp( -4.0f * dt );
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 0.0f + (100.0f - 0.0f) * k);
+    EXPECT_GT(renderer.GetCamera().m_X, 0.0f);   // moved toward the target...
+    EXPECT_LT(renderer.GetCamera().m_X, 100.0f); // ...but hasn't snapped all the way there
+}
+
+TEST(CameraSystemTest, PositiveSmoothing_RepeatedTicksConvergeOnTheTarget)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 10.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    for ( int i = 0; i < 300; ++i )
+    {
+        asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+    }
+
+    EXPECT_NEAR(renderer.GetCamera().m_X, 100.0f, 0.01f); // 500 - 800/2
+    EXPECT_NEAR(renderer.GetCamera().m_Y, 0.0f, 0.01f);   // 300 - 600/2
 }
 
 // ─── AnimationSystem ─────────────────────────────────────────────────────────────

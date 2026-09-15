@@ -44,4 +44,15 @@ math::Float2 ScreenToWorld(
 // Applies WorldToScreen to inWorldRect's position and inCamera's zoom to its size
 math::Rect TransformRect(Camera const& inCamera, math::Rect const& inWorldRect) noexcept;
 
+/**
+ * @brief The world-space rect currently visible through inViewport at inCamera's position/zoom.
+ *
+ * Inverse of TransformRect's size math: inViewport's size divided by zoom
+ * gives how much world-space area is on screen, anchored at the camera's
+ * own (m_X, m_Y). Used by systems::RenderSystem to cull sprites whose
+ * destination rect doesn't overlap it at all, rather than drawing (and
+ * having the backend clip) every entity in the world every frame.
+ */
+math::Rect VisibleWorldRect(Camera const& inCamera, Viewport const& inViewport) noexcept;
+
 }

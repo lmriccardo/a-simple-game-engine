@@ -13,9 +13,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSource)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCamera)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 7);
+    static_assert(std::tuple_size_v<SerializableComponents> == 8);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -23,6 +23,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<4, SerializableComponents>, Rigidbody>);
     static_assert(std::is_same_v<std::tuple_element_t<5, SerializableComponents>, Animation>);
     static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, AudioSource>);
+    static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Camera>);
     SUCCEED();
 }
 
@@ -36,6 +37,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Rigidbody>::kTableName, "Rigidbody");
     EXPECT_EQ(Serializer<Animation>::kTableName, "Animation");
     EXPECT_EQ(Serializer<AudioSource>::kTableName, "AudioSource");
+    EXPECT_EQ(Serializer<Camera>::kTableName, "Camera");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -390,6 +392,40 @@ TEST(AudioSourceSerializerTest, FromToml_MissingVirtualClipPathKeyDefaultsToEmpt
 
     AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
     EXPECT_TRUE(restored.m_VirtualClipPath.empty());
+}
+
+// ─── Camera ─────────────────────────────────────────────────────────────────
+
+TEST(CameraSerializerTest, ToToml_WritesFieldsUnderCameraTable)
+{
+    TOMLBuilder builder;
+    Serializer<Camera>::ToToml( Camera{ .m_Zoom = 2.5f, .m_Smoothing = 8.0f }, builder );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Camera]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Zoom = 2.5"), std::string::npos);
+    EXPECT_NE(dump.find("m_Smoothing = 8.0"), std::string::npos);
+}
+
+TEST(CameraSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    Camera const original{ .m_Zoom = 2.5f, .m_Smoothing = 8.0f };
+    Serializer<Camera>::ToToml( original, builder );
+
+    Camera const restored = Serializer<Camera>::FromToml( builder );
+    EXPECT_FLOAT_EQ(restored.m_Zoom, original.m_Zoom);
+    EXPECT_FLOAT_EQ(restored.m_Smoothing, original.m_Smoothing);
+}
+
+TEST(CameraSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("Camera");
+
+    Camera const restored = Serializer<Camera>::FromToml( builder );
+    EXPECT_FLOAT_EQ(restored.m_Zoom, 1.0f);
+    EXPECT_FLOAT_EQ(restored.m_Smoothing, 0.0f);
 }
 
 }
