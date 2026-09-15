@@ -1,31 +1,81 @@
-/* ASGE: brand accent for doxygen-awesome-css + the small nav bar linking back
-   to the rest of the docsite (injected by doxygen-custom/header.html). */
+/* ASGE: modernizes doxygen-awesome-css to match the rest of the docsite --
+   almost entirely through its own CSS custom properties (the intended
+   customization point), plus the small top nav bar linking back into the
+   rest of the site (injected by doxygen-custom/header.html). */
+
+:root, html.dark-mode {
+    /* Same stacks as the rest of the docsite (docsite/site/assets/css/style.css) */
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-family-monospace: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+
+    /* Rounder corners across memitems/codeblocks/dropdowns, matching the
+       site's --radius: 12px card language instead of doxygen-awesome's
+       tighter defaults. */
+    --border-radius-large: 14px;
+    --border-radius-medium: 10px;
+    --border-radius-small: 6px;
+
+    /* A little more breathing room than the 1050px default. */
+    --content-maxwidth: 1150px;
+    --spacing-large: 18px;
+    --spacing-xlarge: 26px;
+
+    /* Bigger, bolder page titles -- closer to the rest of the site's h1/h2 scale. */
+    --title-font-size: 27px;
+    --memtitle-font-size: 19px;
+
+    --tree-item-height: 32px;
+}
 
 html:not(.dark-mode) {
     --primary-color: #6a4cf0;
     --primary-dark-color: #4c33b8;
     --primary-light-color: #9c8bff;
+    --box-shadow: 0 1px 2px rgba(20, 22, 28, .06), 0 6px 18px rgba(20, 22, 28, .06);
 }
 
 html.dark-mode {
     --primary-color: #9c8bff;
     --primary-dark-color: #c9befa;
     --primary-light-color: #6a4cf0;
+    --box-shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .35);
 }
 
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+div.header .title, .memtitle, h1, h2, h3 {
+    font-weight: 700;
+    letter-spacing: -0.01em;
 }
+
+/* A small accent underline on page titles, echoing the gradient hero on
+   the rest of the site, without touching doxygen-awesome's own markup. */
+div.header {
+    position: relative;
+}
+div.header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 64px;
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--primary-color), var(--primary-light-color));
+}
+
+/* ---------- top site nav ---------- */
 
 #asge-site-nav {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 10px 18px;
-    background: var(--page-background-color);
+    padding: 12px 20px;
+    background: color-mix(in srgb, var(--page-background-color) 80%, transparent);
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
     border-bottom: 1px solid var(--separator-color);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    box-shadow: var(--box-shadow);
+    font-family: var(--font-family);
     flex-wrap: wrap;
     position: sticky;
     top: 0;
@@ -35,37 +85,44 @@ body {
 #asge-site-nav .asge-site-nav-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     font-weight: 700;
-    color: var(--page-foreground-color);
+    font-size: 1rem;
+    color: var(--page-foreground-color) !important;
     text-decoration: none;
-    font-size: 0.95rem;
 }
 
 #asge-site-nav .asge-site-nav-brand img {
     display: inline-block;
+    border-radius: 6px;
 }
 
 #asge-site-nav nav {
     display: flex;
-    gap: 4px;
+    align-items: center;
+    gap: 2px;
     flex-wrap: wrap;
 }
 
+/* doxygen-awesome.css forces `a:link,:visited,:hover,:focus,:active { color:
+   var(--link-color) !important; }` -- !important, so nothing here beats it
+   on specificity alone. Every color below has to fight it the same way. */
 #asge-site-nav nav a {
-    color: var(--page-secondary-foreground-color);
+    color: var(--page-secondary-foreground-color) !important;
     text-decoration: none;
-    font-size: 0.85rem;
+    font-size: 0.86rem;
     font-weight: 600;
-    padding: 6px 10px;
-    border-radius: 6px;
+    padding: 7px 12px;
+    border-radius: var(--border-radius-small);
+    transition: background-color .12s ease, color .12s ease;
 }
 
 #asge-site-nav nav a:hover {
-    background: var(--separator-color);
-    color: var(--page-foreground-color);
+    background: var(--menu-selected-background);
+    color: var(--page-foreground-color) !important;
 }
 
 #asge-site-nav nav a.active {
-    color: var(--primary-color);
+    color: var(--on-primary-color) !important;
+    background: var(--primary-color);
 }
