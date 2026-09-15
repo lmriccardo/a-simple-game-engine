@@ -1,3 +1,43 @@
+## [0.8.1] - 2026-09-15
+
+
+### Bug Fixes
+
+- :bug: Fix camera-follow/culling bugs, document and test the whole feature
+
+- :bug: Pin CI's Doxygen to the version that generated header.html (#80)
+
+- :bug: Pin CI's Doxygen to the version that generated header.html
+
+
+
+
+### Features
+
+- :sparkles: Add camera_follow_demo showcasing ECS camera-follow and culling
+
+- :construction: Work in progress works of camera component for rendering
+
+- :sparkles: Add Registry resources, document and test
+
+- :sparkles: Add camera_demo showcasing Camera/Viewport
+
+- :sparkles: Add IRenderer camera/viewport and document, test, fix compile errors
+
+- :sparkles: Replace the Doxygen HTML theme with a custom-rendered API reference
+
+- :sparkles: Add a documentation site hosted on GitHub Pages (#79)
+
+- :sparkles: Add a documentation site hosted on GitHub Pages
+
+
+
+
+### Contributors
+
+- lmriccardo
+
+- La Marca Riccardo
 ## [0.8.0] - 2026-09-14
 
 
@@ -367,6 +407,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.6.1...v0.7.0
