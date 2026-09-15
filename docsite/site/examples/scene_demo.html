@@ -254,8 +254,8 @@ void SceneDemoState::RenderActiveEntities(asge::video::IRenderer &amp;inRenderer
         float srcH{};
         if ( src.has_value() )
         {
-            srcW = src-&gt;w;
-            srcH = src-&gt;h;
+            srcW = src-&gt;m_Width;
+            srcH = src-&gt;m_Height;
         }
         else
         {
