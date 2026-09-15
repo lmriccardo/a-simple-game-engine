@@ -1,5 +1,23 @@
 #pragma once
 
+/**
+ * @mainpage ASGE API Reference
+ *
+ * ASGE ("A Simple Game Engine") is a modular, lightweight, cross-platform 2D
+ * game engine written in C++23 on top of SDL3. This reference is generated
+ * from the doc comments on every public and internal declaration under
+ * `src/ASGE/` — use the sidebar to browse by namespace or class.
+ *
+ * For an overview, installation instructions, and runnable examples with
+ * screenshots and source, see the rest of the
+ * <a href="../index.html">documentation site</a>.
+ *
+ * Pull in the whole engine through this umbrella header:
+ * @code
+ * #include <ASGE/ASGE.hpp>
+ * @endcode
+ */
+
 // General Application
 #include <ASGE/Application/Application.hpp>
 #include <ASGE/Application/ApplicationConfig.hpp>

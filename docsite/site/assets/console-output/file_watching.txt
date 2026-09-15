@@ -1,0 +1,10 @@
+[INFO][20:36:21.453][FileWatcher] New File Watcher Created
+[INFO][20:36:21.454][AddWatch] Added new watch for "C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files" with mask Created, Deleted, Modified, Moved
+FileEvent [
+  Timestamp: 1789497382466ms
+  Event:     Created
+  Path:      C:\Users\ricca\Desktop\dev\asge\examples\file_watching\files\trigger.txt
+  Type:      File (2)
+  Size:      0 bytes
+  Raw OS ID: 0x1
+]

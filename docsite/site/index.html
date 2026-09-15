@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>A Simple Game Engine · ASGE</title>
+<meta name="description" content="ASGE is a modular, lightweight, cross-platform 2D game engine written in modern C++ on top of SDL3."/>
+<meta property="og:title" content="A Simple Game Engine · ASGE"/>
+<meta property="og:description" content="ASGE is a modular, lightweight, cross-platform 2D game engine written in modern C++ on top of SDL3."/>
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg"/>
+<link rel="stylesheet" href="assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="index.html"><img src="assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="index.html" class="active">Overview</a>
+    <a href="install.html">Install</a>
+    <a href="examples/index.html">Examples</a>
+    <a href="api/index.html">API Reference</a>
+    <a href="releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section class="hero">
+  <div class="container">
+    <span class="kicker">v0.8.0 &middot; MIT Licensed &middot; C++23</span>
+    <h1>A Simple Game Engine, built to stay out of your way.</h1>
+    <p class="lede">ASGE is a modular, lightweight, cross-platform 2D game engine written in modern
+    C++ (C++23) on top of <a href="https://www.libsdl.org/" target="_blank" rel="noopener">SDL3</a>.
+    Small composable subsystems, an ECS-based gameplay layer, and a growing set of runnable
+    examples — targeting Windows, Linux and macOS.</p>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="install.html">Get started</a>
+      <a class="btn btn-ghost" href="examples/index.html">Browse examples</a>
+      <a class="btn btn-ghost" href="api/index.html">API reference</a>
+      <a class="btn btn-ghost" href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><b>16</b><span>runnable examples</span></div>
+      <div class="stat"><b>C++23</b><span>modern, header-driven API</span></div>
+      <div class="stat"><b>3</b><span>target platforms</span></div>
+      <div class="stat"><b>SDL3</b><span>current render backend</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Built around four ideas</h2>
+    <div class="grid" style="margin-top:20px;">
+      <div class="card"><h3>Performance</h3><p>Thin abstractions over SDL3, custom allocators, and a thread pool for concurrent work — the engine tries to stay out of your frame budget's way.</p></div>
+<div class="card"><h3>Simplicity</h3><p>Small, composable subsystems instead of one monolithic framework. Pull in what a game needs through the <code>ASGE.hpp</code> umbrella header.</p></div>
+<div class="card"><h3>Extensibility</h3><p>An ECS-based gameplay layer plus a signal/event system (<code>asge::signals::Signal</code>) for decoupling systems from each other.</p></div>
+<div class="card"><h3>Tooling</h3><p>A debug logger, timing/profiling utilities (<code>ScopedTimer</code>), a virtual filesystem, and a growing set of runnable examples.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Repository layout</h2>
+    <table>
+      <tr><th>Path</th><th>Contents</th></tr>
+      <tr><td><code>src/ASGE/</code></td><td>Engine source — Application, Core, Events, Game, Input, Video, Audio</td></tr>
+      <tr><td><code>examples/</code></td><td>Small standalone programs demonstrating each subsystem</td></tr>
+      <tr><td><code>tests/</code></td><td>GoogleTest unit test suite</td></tr>
+      <tr><td><code>docs/roadmap/</code></td><td>Design docs and the phased implementation roadmap</td></tr>
+      <tr><td><code>scripts/</code></td><td>Dependency-fetching scripts (SDL3, stb) for each platform</td></tr>
+      <tr><td><code>cmake/</code></td><td>CMake package config used when ASGE is installed</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="container">
+    <h2>Roadmap status</h2>
+    <p class="lede">ASGE is under active development, worked through a phased
+    <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/README.md" target="_blank" rel="noopener">roadmap</a>.
+    Tiers are priority order; each system also has its own phase docs for scope/maturity.</p>
+    <h3 style="margin-top:28px;">Tier 0 — Foundation</h3><div class="roadmap-list"><div class="roadmap-item"><span class="name">Core Engine</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/01.1-core-engine.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Rendering Primitives</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/02.1-rendering-primitives.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div></div><h3 style="margin-top:28px;">Tier 1 — MVP-critical</h3><div class="roadmap-list"><div class="roadmap-item"><span class="name">Entity-Component-System</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/03.1-entity-component-system.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Input System</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/04.1-input-system.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Asset Pipeline</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/05.1-asset-pipeline.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Scene Management</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/06.1-scene-management.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div></div><h3 style="margin-top:28px;">Tier 2 — Makes it feel like a game</h3><div class="roadmap-list"><div class="roadmap-item"><span class="name">Physics</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/07.1-physics-system.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Audio</span><span class="badge badge-done">Done</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/08.1-audio-system.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">UI Framework</span><span class="badge badge-progress">In progress</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/09.1-ui-framework.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div></div><h3 style="margin-top:28px;">Tier 3 — Revisit once Tier 1-2 exist</h3><div class="roadmap-list"><div class="roadmap-item"><span class="name">Rendering System (2D camera, compositing)</span><span class="badge badge-progress">In progress</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/10.1-rendering-system.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Scripting &amp; Events</span><span class="badge badge-todo">Planned</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-2/11.2-scripting-and-events.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div></div><h3 style="margin-top:28px;">Tier 4 — Explicitly deferred</h3><div class="roadmap-list"><div class="roadmap-item"><span class="name">Networking</span><span class="badge badge-todo">Planned</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-2/12.2-networking.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Optimization</span><span class="badge badge-progress">In progress</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/13.1-optimization.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div><div class="roadmap-item"><span class="name">Documentation</span><span class="badge badge-progress">In progress</span><a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/docs/roadmap/phase-1/14.1-documentation.md" target="_blank" rel="noopener" class="tag" style="margin-left:8px;">docs →</a></div></div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Jump into an example</h2>
+    <p class="lede">Every example ships with real screenshots and its full embedded source.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;">
+      <a class="tag" href="examples/shapes_demo.html" style="padding:6px 12px;">Shapes</a>
+<a class="tag" href="examples/moving_box.html" style="padding:6px 12px;">Moving Box</a>
+<a class="tag" href="examples/texture_demo.html" style="padding:6px 12px;">Textures</a>
+<a class="tag" href="examples/text_demo.html" style="padding:6px 12px;">Text Rendering</a>
+<a class="tag" href="examples/animation_demo.html" style="padding:6px 12px;">Sprite Animation</a>
+<a class="tag" href="examples/ecs_demo.html" style="padding:6px 12px;">ECS</a>
+<a class="tag" href="examples/input_demo.html" style="padding:6px 12px;">Input System</a>
+<a class="tag" href="examples/scene_demo.html" style="padding:6px 12px;">Scene Management</a>
+      <a class="tag" href="examples/index.html" style="padding:6px 12px;">All 16 examples →</a>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Minimal game</h2>
+    <p class="lede">A <code>Game&lt;TStateId&gt;</code> subclass drives a stack of
+    <code>IGameState</code>s — <code>TStateId</code> is whatever identifies a screen. See
+    <a href="examples/moving_box.html">Moving Box</a> for the complete, playable version of this.</p>
+    <div class="code-card">
+  <div class="code-card-head"><span>main.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &lt;ASGE/ASGE.hpp&gt;
+
+class MyGameState : public asge::game::state::IGameState&lt;int&gt;
+{
+public:
+    std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override
+    {
+        // Game logic goes here
+        return std::nullopt; // engaged instead: push/pop/replace to another state
+    }
+
+    void Render(asge::video::IRenderer&amp; inRenderer) override
+    {
+        // Draw calls go here
+    }
+
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override
+    {
+        // Handle window/system events
+    }
+};
+
+class MyGame : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit MyGame(asge::video::IRenderer&amp; inRenderer) : Game(inRenderer)
+    {
+        SetInitialState(0);
+    }
+
+protected:
+    std::unique_ptr&lt;StateType&gt; CreateState(int inId) override
+    {
+        return std::make_unique&lt;MyGameState&gt;();
+    }
+};
+
+int main()
+{
+    asge::Application&lt;MyGame&gt; app(asge::ApplicationConfig{});
+    app.Run();
+    return 0;
+}
+</code></pre>
+</div>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="index.html#roadmap">Roadmap</a>
+      <a href="releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="assets/js/main.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Audio · ASGE</title>
+<meta name="description" content="One-shot and looping playback"/>
+<meta property="og:title" content="Audio · ASGE"/>
+<meta property="og:description" content="One-shot and looping playback"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Audio</span>
+        <h1>Audio</h1>
+        <p class="lede">One-shot and looping playback</p>
+        <p>Demonstrates <code>AudioSource</code>/<code>AudioSystem</code>: replaying a short one-shot "blip" immediately even while it's still sounding, toggling a looping ambient hum, adjusting the audio device's master gain, and detaching a source's stream back to the shared pool.</p>
+        <h3>Controls</h3><ul class="controls-list"><li><kbd>SPACE</kbd> <span>Replay the one-shot blip</span></li><li><kbd>L</kbd> <span>Toggle the looping ambient hum</span></li><li><kbd>↑ / ↓</kbd> <span>Master volume</span></li><li><kbd>D</kbd> <span>Detach the blip&#x27;s stream back to the pool</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Audio</span></div>
+      </div>
+      <div class="example-media"><img src="../assets/img/examples/audio_demo.png" alt="Audio screenshot"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target audio_demo
+# binary lands under bin/ (e.g. bin/Debug/audio_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/audio_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+#include &lt;ASGE/ASGE.hpp&gt;
+
+// Demonstrates AudioSource/AudioSystem: SPACE (re)plays a short one-shot
+// &quot;blip&quot; immediately even while it&#x27;s still sounding (see AudioSource&#x27;s
+// m_Restart), L toggles a looping ambient hum on/off, UP/DOWN adjust the
+// device&#x27;s master volume (AudioDevice::SetGain), and D detaches the blip&#x27;s
+// stream back to the pool (DetachAudioSource) -- SPACE afterwards creates it
+// a fresh stream rather than reusing the detached one. Each on-screen
+// rectangle is driven straight from its own AudioSource&#x27;s live state rather
+// than a separate visual timer -- the blip rect is lit while its stream
+// still has queued audio, the ambient rect while its m_Playing is true, and
+// the volume bar&#x27;s width tracks m_MasterVolume.
+class AudioDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    asge::ecs::Registry&amp;             m_Registry;
+    asge::game::asset::AssetManager&amp; m_Assets;
+    asge::audio::AudioDevice&amp;        m_AudioDev;
+
+    asge::ecs::Entity m_Ambient{ asge::ecs::Entity::Null() };
+    asge::ecs::Entity m_Blip{ asge::ecs::Entity::Null() };
+    float             m_MasterVolume{ 1.0f }; // local copy -- AudioDevice has no getter for SDL&#x27;s device gain
+
+    void SpawnSources();
+    void AdjustMasterVolume( float inDelta );
+
+public:
+    AudioDemoState(
+        asge::ecs::Registry&amp; inRegistry,
+        asge::game::asset::AssetManager&amp; inAssets,
+        asge::audio::AudioDevice&amp; inAudioDev );
+
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class AudioDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit AudioDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/audio_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;algorithm&gt;
+
+namespace
+{
+using namespace asge::game::components;
+
+constexpr char const* kAmbientPath = &quot;audio/ambient.ogg&quot;;
+constexpr char const* kBlipPath    = &quot;audio/blip.ogg&quot;;
+constexpr float kVolumeStep = 0.1f;
+}
+
+AudioDemoState::AudioDemoState(
+    asge::ecs::Registry&amp; inRegistry,
+    asge::game::asset::AssetManager&amp; inAssets,
+    asge::audio::AudioDevice&amp; inAudioDev
+)
+: m_Registry(inRegistry), m_Assets(inAssets), m_AudioDev(inAudioDev)
+{
+    SpawnSources();
+}
+
+void AudioDemoState::SpawnSources()
+{
+    // Unlike Sprite/Animation, resolving an AudioClip doesn&#x27;t need a
+    // renderer -- so both sources are resolved eagerly here instead of
+    // going through AssetManager::ResolveAssets&#x27; deferred per-frame pass.
+    auto ambient = m_Registry.CreateEntity();
+    if ( !ambient ) { ambient.LogError(); return; }
+    m_Ambient = ambient.Value();
+
+    AudioSource ambientSource{};
+    auto ambientClip = m_Assets.GetAudio(kAmbientPath);
+    if ( !ambientClip ) ambientClip.LogError();
+    else ambientSource.m_Clip = ambientClip.Value();
+
+    auto addedAmbient = m_Registry.AddComponent&lt;AudioSource&gt;(m_Ambient, ambientSource);
+    if ( !addedAmbient ) { addedAmbient.LogError(); return; }
+    if ( ambientSource.m_Clip ) PlayAudioSource( addedAmbient.Value().get(), /*inLoop=*/true );
+
+    auto blip = m_Registry.CreateEntity();
+    if ( !blip ) { blip.LogError(); return; }
+    m_Blip = blip.Value();
+
+    AudioSource blipSource{};
+    auto blipClip = m_Assets.GetAudio(kBlipPath);
+    if ( !blipClip ) blipClip.LogError();
+    else blipSource.m_Clip = blipClip.Value();
+
+    auto addedBlip = m_Registry.AddComponent&lt;AudioSource&gt;(m_Blip, blipSource);
+    if ( !addedBlip ) addedBlip.LogError();
+}
+
+void AudioDemoState::AdjustMasterVolume(float inDelta)
+{
+    m_MasterVolume = std::clamp(m_MasterVolume + inDelta, 0.0f, 1.0f);
+    auto result = m_AudioDev.SetGain(m_MasterVolume);
+    if ( !result ) result.LogError();
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+AudioDemoState::Update(
+    [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const&amp; inInput)
+{
+    asge::game::systems::AudioSystem( m_Registry, m_AudioDev );
+    return std::nullopt;
+}
+
+void AudioDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    inRenderer.Clear({ 18, 18, 24, 255 });
+
+    bool ambientPlaying = false;
+    if ( auto ambient = m_Registry.GetComponent&lt;AudioSource&gt;(m_Ambient) )
+        ambientPlaying = ambient.Value().get().m_Playing;
+
+    bool blipSounding = false;
+    if ( auto blip = m_Registry.GetComponent&lt;AudioSource&gt;(m_Blip) )
+    {
+        auto&amp; source = blip.Value().get();
+        blipSounding = source.m_Stream &amp;&amp; source.m_Stream-&gt;IsDataAvailable();
+    }
+
+    // &quot;AMBIENT&quot; indicator (left) -- lit while the looping background hum plays.
+    inRenderer.DrawRect(
+        asge::math::Rect{ 120.0f, 220.0f, 200.0f, 160.0f },
+        ambientPlaying ? asge::media::RGBA_Color{ 80, 220, 140, 255 } : asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        true
+    );
+
+    // &quot;BLIP&quot; indicator (right) -- lit while its stream still has data queued,
+    // dark red once D has detached it (SPACE then creates a fresh stream).
+    bool blipDetached = true;
+    if ( auto blip = m_Registry.GetComponent&lt;AudioSource&gt;(m_Blip) )
+        blipDetached = blip.Value().get().m_Stream == nullptr;
+
+    inRenderer.DrawRect(
+        asge::math::Rect{ 480.0f, 220.0f, 200.0f, 160.0f },
+        blipSounding      ? asge::media::RGBA_Color{ 240, 200, 60, 255 } :
+        blipDetached      ? asge::media::RGBA_Color{ 90, 40, 40, 255 }  :
+                             asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        true
+    );
+
+    // Master volume bar (bottom): outline is the full 0..1 range, the fill
+    // tracks m_MasterVolume -- both driven by AudioDevice::SetGain via
+    // AdjustMasterVolume, not a separate progress animation.
+    asge::math::Rect const volumeTrack{ 120.0f, 440.0f, 560.0f, 24.0f };
+    inRenderer.DrawRect(volumeTrack, asge::media::RGBA_Color{ 90, 90, 100, 255 }, false);
+    inRenderer.DrawRect(
+        asge::math::Rect{ volumeTrack.x, volumeTrack.y, volumeTrack.w * m_MasterVolume, volumeTrack.h },
+        asge::media::RGBA_Color{ 100, 170, 240, 255 },
+        true
+    );
+}
+
+void AudioDemoState::OnSystemEvent(asge::event::SystemEvent const &amp;inSysEvent)
+{
+    auto const* keyEvent = inSysEvent.TryGet&lt;asge::event::KeyboardEvent&gt;();
+    if ( !keyEvent ) return;
+    if ( keyEvent-&gt;s_Type != asge::event::EventType::KEYBOARD_KEY_PRESSED ) return;
+    if ( keyEvent-&gt;s_Repeat ) return; // edge-triggered: one toggle/replay per physical press
+
+    if ( keyEvent-&gt;s_Keycode == asge::input::Keycode::SPACE )
+    {
+        auto blip = m_Registry.GetComponent&lt;AudioSource&gt;(m_Blip);
+        if ( blip ) PlayAudioSource( blip.Value().get(), /*inLoop=*/false );
+    }
+    else if ( keyEvent-&gt;s_Keycode == asge::input::Keycode::L )
+    {
+        auto ambient = m_Registry.GetComponent&lt;AudioSource&gt;(m_Ambient);
+        if ( !ambient ) return;
+
+        auto&amp; source = ambient.Value().get();
+        if ( source.m_Playing ) StopAudioSource( source );
+        else PlayAudioSource( source, /*inLoop=*/true );
+    }
+    else if ( keyEvent-&gt;s_Keycode == asge::input::Keycode::UP )
+    {
+        AdjustMasterVolume( kVolumeStep );
+    }
+    else if ( keyEvent-&gt;s_Keycode == asge::input::Keycode::DOWN )
+    {
+        AdjustMasterVolume( -kVolumeStep );
+    }
+    else if ( keyEvent-&gt;s_Keycode == asge::input::Keycode::D )
+    {
+        auto blip = m_Registry.GetComponent&lt;AudioSource&gt;(m_Blip);
+        if ( !blip ) return;
+
+        auto result = DetachAudioSource( m_AudioDev, blip.Value().get() );
+        if ( !result ) result.LogError();
+    }
+}
+
+AudioDemoGame::AudioDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    // ASGE_AUDIO_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted once
+    // so clips are loaded by virtual path (see SpawnSources) instead of a
+    // hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount(&quot;audio&quot;, ASGE_AUDIO_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;AudioDemoGame::StateType&gt; AudioDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;AudioDemoState&gt;( m_SceneManager.GetRegistry(), m_Assets, m_AudioDev );
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/audio_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>

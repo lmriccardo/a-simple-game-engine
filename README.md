@@ -1,5 +1,7 @@
 # ASGE — A Simple Game Engine
 
+📖 **[Documentation site](https://lmriccardo.github.io/a-simple-game-engine/)** — project overview, installation, the full API reference, and every example with screenshots and source.
+
 ASGE is a modular, lightweight, cross-platform 2D game engine written in
 modern C++ (C++23), built on top of [SDL3](https://www.libsdl.org/). It's
 developed with a focus on:

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>File Watching · ASGE</title>
+<meta name="description" content="Filesystem change notifications"/>
+<meta property="og:title" content="File Watching · ASGE"/>
+<meta property="og:description" content="Filesystem change notifications"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Filesystem</span>
+        <h1>File Watching</h1>
+        <p class="lede">Filesystem change notifications</p>
+        <p>Starts a <code>FileWatcher</code> on a directory and prints every <code>FileEvent</code> (created/modified/removed) it receives, cancelling itself on the first event — a minimal example of ASGE's cross-platform filesystem-watching API.</p>
+        
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Filesystem</span></div>
+      </div>
+      <div class="example-media"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);padding:20px;text-align:center;">console example — no window, see captured output below</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Sample output</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>file_watching output</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">[INFO][20:36:21.453][FileWatcher] New File Watcher Created
+[INFO][20:36:21.454][AddWatch] Added new watch for &quot;C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files&quot; with mask Created, Deleted, Modified, Moved
+FileEvent [
+  Timestamp: 1789497382466ms
+  Event:     Created
+  Path:      C:\Users\ricca\Desktop\dev\asge\examples\file_watching\files\trigger.txt
+  Type:      File (2)
+  Size:      0 bytes
+  Raw OS ID: 0x1
+]
+</code></pre>
+</div>
+  </div>
+</section>
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target file_watching
+# binary lands under bin/ (e.g. bin/Debug/file_watching.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/file_watching/main.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &lt;iostream&gt;
+#include &lt;ASGE/Core/Filesystem/FileWatcher.hpp&gt;
+
+using namespace asge::filesystem;
+
+int main()
+{
+    FileWatcher fw;
+    fw.Start();
+    
+    auto result = fw.AddWatch(
+#ifdef _WIN32
+        &quot;C:\\Users\\ricca\\Desktop\\dev\\asge\\examples\\file_watching\\files&quot;,
+#else
+        &quot;/home/ricca/personal/a-simple-game-engine/examples/file_watching/files&quot;,
+#endif
+        [&amp;fw]( FileEvent const&amp; inEvent )
+        {
+            std::cout &lt;&lt; inEvent &lt;&lt; std::endl;
+            fw.Cancel();
+        }
+    );
+
+    if (!result)
+    {
+        auto const err = result.Error();
+        LOG_ERROR(&quot;Error adding watcher: &quot;, err);
+        fw.Cancel();
+        fw.Join();
+        return 1;
+    }
+    
+    fw.Join();
+
+    return 0;
+}</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/file_watching" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>
