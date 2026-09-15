@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Input System · ASGE</title>
+<meta name="description" content="Polling InputState end-to-end"/>
+<meta property="og:title" content="Input System · ASGE"/>
+<meta property="og:description" content="Polling InputState end-to-end"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Input</span>
+        <h1>Input System</h1>
+        <p class="lede">Polling InputState end-to-end</p>
+        <p>Step 3 of the input-system roadmap: a small <code>InputState</code>/<code>InputSystem</code> showcase.</p>
+<p>Everything here is driven by polling <code>InputState</code> inside <code>Update()</code> — movement, an edge-triggered toggle, a mouse cursor, held vs. edge-triggered mouse buttons, and scroll — with <code>OnSystemEvent</code> left completely empty, proving the polling API is enough on its own for a real game loop.</p>
+        <h3>Controls</h3><ul class="controls-list"><li><kbd>W A S D</kbd> <span>Move the box</span></li><li><kbd>SPACE</kbd> <span>Toggle light/dark background (edge-triggered)</span></li><li><kbd>Left Click (hold)</kbd> <span>Shown as held while down</span></li><li><kbd>Right Click</kbd> <span>Drop a mark at the cursor (edge-triggered)</span></li><li><kbd>Scroll</kbd> <span>Shown live</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Input</span></div>
+      </div>
+      <div class="example-media"><img src="../assets/img/examples/input_demo.png" alt="Input System screenshot"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target input_demo
+# binary lands under bin/ (e.g. bin/Debug/input_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/input_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+#include &lt;ASGE/ASGE.hpp&gt;
+#include &lt;array&gt;
+
+/**
+ * @brief Step 3 of the input-system roadmap: a small InputState/InputSystem showcase.
+ *
+ * Everything here is driven by polling InputState in Update() -- WASD movement,
+ * a SPACE toggle (edge-triggered), a mouse cursor, left-click-held vs. right-click
+ * (edge-triggered) and scroll -- with OnSystemEvent left empty, proving the polling
+ * API is enough on its own for a real game loop.
+ */
+class InputDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    static constexpr std::size_t kMaxMarks = 24;
+
+    asge::math::Float2 m_BoxPos{ 380.0f, 280.0f };
+    float               m_BoxSize{ 48.0f };
+    bool                m_LightBackground{ false };
+
+    // Render() only gets an IRenderer, not InputState, so the cursor&#x27;s
+    // position/held-state are cached here in Update() and just drawn in Render().
+    asge::math::Float2 m_CursorPos{};
+    bool                m_CursorHeld{ false };
+
+    std::array&lt;asge::math::Float2, kMaxMarks&gt; m_Marks{};
+    std::size_t m_MarkCount{ 0 };
+    std::size_t m_NextMarkSlot{ 0 };
+
+    void UpdatePlayerBox(float inDeltaTime, asge::input::InputState const&amp; inInput);
+    void UpdateBackgroundToggle(asge::input::InputState const&amp; inInput);
+    void UpdateBoxSizeFromScroll(asge::input::InputState const&amp; inInput);
+    void UpdateCursor(asge::input::InputState const&amp; inInput);
+    void UpdateMarks(asge::input::InputState const&amp; inInput);
+
+public:
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class InputDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit InputDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/input_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;algorithm&gt;
+
+using asge::input::Keycode;
+using asge::input::MouseButton;
+
+namespace
+{
+constexpr float kBoxSpeed      = 250.0f; // pixels/second
+constexpr float kMinBoxSize    = 20.0f;
+constexpr float kMaxBoxSize    = 120.0f;
+constexpr float kScrollToSize  = 6.0f;   // pixels of box size per scroll unit
+constexpr int   kCursorRadius  = 12;
+constexpr int   kMarkRadius    = 5;
+constexpr float kWindowW       = 800.0f;
+constexpr float kWindowH       = 600.0f;
+}
+
+void InputDemoState::UpdatePlayerBox(float inDeltaTime, asge::input::InputState const &amp;inInput)
+{
+    // Continuous, held-down movement -- exactly what IsKeyDown polling replaces
+    // the hand-rolled m_Up/m_Down/m_Left/m_Right + OnSystemEvent pattern for.
+    float const dx = (inInput.IsKeyDown(Keycode::D) ? kBoxSpeed : 0.0f)
+                    - (inInput.IsKeyDown(Keycode::A) ? kBoxSpeed : 0.0f);
+    float const dy = (inInput.IsKeyDown(Keycode::S) ? kBoxSpeed : 0.0f)
+                    - (inInput.IsKeyDown(Keycode::W) ? kBoxSpeed : 0.0f);
+
+    m_BoxPos += asge::math::Float2{ dx, dy } * inDeltaTime;
+    m_BoxPos = {
+        std::clamp( m_BoxPos.x(), 0.0f, kWindowW - m_BoxSize ),
+        std::clamp( m_BoxPos.y(), 0.0f, kWindowH - m_BoxSize )
+    };
+}
+
+void InputDemoState::UpdateBackgroundToggle(asge::input::InputState const &amp;inInput)
+{
+    // Edge-triggered: only flips once per press, unlike IsKeyDown above.
+    if ( inInput.IsKeyPressed(Keycode::SPACE) )
+        m_LightBackground = !m_LightBackground;
+}
+
+void InputDemoState::UpdateBoxSizeFromScroll(asge::input::InputState const &amp;inInput)
+{
+    m_BoxSize += inInput.GetScrollDelta().y() * kScrollToSize;
+    m_BoxSize = std::clamp( m_BoxSize, kMinBoxSize, kMaxBoxSize );
+}
+
+void InputDemoState::UpdateCursor(asge::input::InputState const &amp;inInput)
+{
+    m_CursorPos = inInput.GetMousePosition();
+    m_CursorHeld = inInput.IsMouseButtonDown(MouseButton::LEFT);
+}
+
+void InputDemoState::UpdateMarks(asge::input::InputState const &amp;inInput)
+{
+    // Right-click drops a mark at the cursor -- edge-triggered, same as the
+    // SPACE toggle above but for a mouse button instead of a key.
+    if ( !inInput.IsMouseButtonPressed(MouseButton::RIGHT) ) return;
+
+    m_Marks[m_NextMarkSlot] = inInput.GetMousePosition();
+    m_NextMarkSlot = (m_NextMarkSlot + 1) % kMaxMarks;
+    m_MarkCount = std::min( m_MarkCount + 1, kMaxMarks );
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+InputDemoState::Update(float inDeltaTime, asge::input::InputState const &amp;inInput)
+{
+    UpdatePlayerBox( inDeltaTime, inInput );
+    UpdateBackgroundToggle( inInput );
+    UpdateBoxSizeFromScroll( inInput );
+    UpdateCursor( inInput );
+    UpdateMarks( inInput );
+    return std::nullopt;
+}
+
+void InputDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    inRenderer.Clear( m_LightBackground
+        ? asge::media::RGBA_Color{ 225, 225, 230, 255 }
+        : asge::media::RGBA_Color{ 20, 20, 25, 255 } );
+
+    // Marks dropped by right-click.
+    for ( std::size_t i = 0; i &lt; m_MarkCount; ++i )
+    {
+        inRenderer.DrawCircle(
+            asge::math::Int2{ static_cast&lt;int&gt;(m_Marks[i].x()), static_cast&lt;int&gt;(m_Marks[i].y()) },
+            kMarkRadius, { 240, 200, 60, 255 }, true );
+    }
+
+    // WASD-controlled box.
+    inRenderer.DrawRect(
+        asge::math::Rect{ m_BoxPos.x(), m_BoxPos.y(), m_BoxSize, m_BoxSize },
+        { 220, 60, 60, 255 }, true );
+
+    // Mouse cursor: filled while left-click is held, outline otherwise. Both the
+    // position and the held-state come from InputState polling, cached in Update().
+    inRenderer.DrawCircle(
+        asge::math::Int2{ static_cast&lt;int&gt;(m_CursorPos.x()), static_cast&lt;int&gt;(m_CursorPos.y()) },
+        kCursorRadius, { 90, 170, 240, 255 }, m_CursorHeld );
+}
+
+void InputDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &amp;inSysEvent)
+{
+    // Deliberately empty -- every reaction to input in this example comes from
+    // polling InputState in Update() instead.
+}
+
+InputDemoGame::InputDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;InputDemoGame::StateType&gt; InputDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;InputDemoState&gt;();
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/input_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>

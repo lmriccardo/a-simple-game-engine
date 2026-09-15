@@ -1,0 +1,5 @@
+-- Summary after 5 frames --
+[INFO][20:35:50.199][LogSummary] [TimingProfiler] FrameUpdate — calls: 5, avg: 29735920ns, min: 21817700ns, max: 32020400ns
+[INFO][20:35:50.200][LogSummary] [TimingProfiler] FastOperation — calls: 5, avg: 13886280ns, min: 6636000ns, max: 16007300ns
+[INFO][20:35:50.200][LogSummary] [TimingProfiler] SlowOperation — calls: 5, avg: 15843240ns, min: 15166000ns, max: 16023100ns
+-- Summary after ResetAll (buckets are empty, nothing logged) --

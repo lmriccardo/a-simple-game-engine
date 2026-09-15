@@ -1,0 +1,10 @@
+[INFO][20:35:47.780][FileWatcher] New File Watcher Created
+Before Set
+Window.Width = 800
+Window.Height = 600
+Rendering.Target_Fps = 120
+[INFO][20:35:47.786][AddWatch] Added new watch for "C:\\Users\\ricca\\AppData\\Local\\Temp\\asge_configuration_reader_example.toml" with mask Modified
+After Set+Save
+Window.Width = 1024
+Window.Height = 600
+Rendering.Target_Fps = 120

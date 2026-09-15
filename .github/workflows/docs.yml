@@ -1,0 +1,72 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docsite/**"
+      - "src/ASGE/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  api-docs:
+    name: Build API reference (Doxygen)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Doxygen + Graphviz
+        run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
+
+      - name: Determine project version
+        id: version
+        run: echo "version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate API reference
+        working-directory: docsite
+        run: (cat Doxyfile; echo "PROJECT_NUMBER = ${{ steps.version.outputs.version }}") | doxygen -
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: docsite/api
+
+  deploy:
+    name: Assemble and deploy Pages
+    needs: [api-docs]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r docsite/site/. _site/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: api-docs
+          path: _site/api
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

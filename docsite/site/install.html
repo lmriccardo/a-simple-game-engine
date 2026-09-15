@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Installation · ASGE</title>
+<meta name="description" content="Build ASGE from source, or consume it from your own C++ project via add_subdirectory, FetchContent, or an installed CMake package."/>
+<meta property="og:title" content="Installation · ASGE"/>
+<meta property="og:description" content="Build ASGE from source, or consume it from your own C++ project via add_subdirectory, FetchContent, or an installed CMake package."/>
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg"/>
+<link rel="stylesheet" href="assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="index.html"><img src="assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="index.html">Overview</a>
+    <a href="install.html" class="active">Install</a>
+    <a href="examples/index.html">Examples</a>
+    <a href="api/index.html">API Reference</a>
+    <a href="releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section class="hero" style="padding:56px 0 40px;">
+  <div class="container">
+    <span class="kicker">Installation</span>
+    <h1>Build ASGE from source</h1>
+    <p class="lede">ASGE builds a static library target and installs a CMake package config, so it
+    can be consumed as a subdirectory, via <code>FetchContent</code>, or as an installed package.</p>
+  </div>
+</section>
+
+<section style="padding-top:40px;">
+  <div class="container">
+    <h2>Prerequisites</h2>
+    <ul>
+      <li>A C++23 compiler — MSVC on Windows, GCC/Clang on Linux, Clang on macOS</li>
+      <li><a href="https://cmake.org/" target="_blank" rel="noopener">CMake</a> &ge; 3.31</li>
+      <li>Git</li>
+    </ul>
+
+    <ol class="steps">
+      <li>
+        <h3>Clone the repository</h3>
+        <div class="code-card">
+  <div class="code-card-head"><span>shell</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">git clone https://github.com/lmriccardo/a-simple-game-engine.git asge
+cd asge</code></pre>
+</div>
+      </li>
+      <li>
+        <h3>Fetch vendored dependencies</h3>
+        <p>SDL3 and the stb single-header libraries aren't pulled in by CMake — a script vendors them per platform.</p>
+        <div data-tabs><div class="tabs"><button class="tab-btn active" data-tab="deps-0">Windows (PowerShell)</button>
+<button class="tab-btn" data-tab="deps-1">Linux / macOS</button></div><div class="tab-panel active" data-panel="deps-0"><div class="code-card">
+  <div class="code-card-head"><span>Windows (PowerShell)</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-powershell">./scripts/install-deps.ps1</code></pre>
+</div></div>
+<div class="tab-panel" data-panel="deps-1"><div class="code-card">
+  <div class="code-card-head"><span>Linux / macOS</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">./scripts/install-deps.sh</code></pre>
+</div></div></div>
+      </li>
+      <li>
+        <h3>Configure, build and test</h3>
+        <p>Using one of the provided <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/CMakePresets.json" target="_blank" rel="noopener">CMake presets</a>
+        (also buildable without a preset via plain <code>cmake -S . -B build</code>):</p>
+        <div data-tabs><div class="tabs"><button class="tab-btn active" data-tab="build-0">Windows</button>
+<button class="tab-btn" data-tab="build-1">Linux</button>
+<button class="tab-btn" data-tab="build-2">macOS</button></div><div class="tab-panel active" data-panel="build-0"><div class="code-card">
+  <div class="code-card-head"><span>Windows</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --preset windows
+cmake --build --preset windows
+ctest --preset windows-debug</code></pre>
+</div></div>
+<div class="tab-panel" data-panel="build-1"><div class="code-card">
+  <div class="code-card-head"><span>Linux</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --preset linux
+cmake --build --preset linux
+ctest --preset linux-debug</code></pre>
+</div></div>
+<div class="tab-panel" data-panel="build-2"><div class="code-card">
+  <div class="code-card-head"><span>macOS</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --preset macos
+cmake --build --preset macos
+ctest --preset macos-debug</code></pre>
+</div></div></div>
+        <p class="lede">Built examples land in <code>bin/</code>.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Using ASGE in your own C++ project</h2>
+    <p class="lede">Either way, pull in the whole engine through the umbrella header:
+    <div class="code-card">
+  <div class="code-card-head"><span></span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &lt;ASGE/ASGE.hpp&gt;</code></pre>
+</div></p>
+
+    <h3>Option 1 — add_subdirectory</h3>
+    <p>Vendor ASGE into your project (e.g. as a submodule under <code>third-party/asge</code>) and add it directly:</p>
+    <div class="code-card">
+  <div class="code-card-head"><span>CMakeLists.txt</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cmake">add_subdirectory(third-party/asge)
+
+add_executable(my_game main.cpp)
+target_link_libraries(my_game PRIVATE ASGE)
+
+# On Windows, my_game.exe also needs SDL3.dll next to it at runtime
+asge_copy_sdl3_runtime(my_game)</code></pre>
+</div>
+
+    <h3>Option 2 — FetchContent</h3>
+    <div class="code-card">
+  <div class="code-card-head"><span>CMakeLists.txt</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cmake">include(FetchContent)
+FetchContent_Declare(
+    asge
+    GIT_REPOSITORY https://github.com/lmriccardo/a-simple-game-engine.git
+    GIT_TAG main
+    SOURCE_DIR &quot;${CMAKE_SOURCE_DIR}/third-party/asge&quot;
+)
+FetchContent_MakeAvailable(asge)
+
+add_executable(my_game main.cpp)
+target_link_libraries(my_game PRIVATE ASGE)
+asge_copy_sdl3_runtime(my_game)</code></pre>
+</div>
+    <p class="lede">ASGE's own dependencies aren't fetched by CMake, so the <strong>first</strong>
+    <code>FetchContent_MakeAvailable</code> call fails — it clones ASGE, then immediately tries to
+    configure it before <code>find_package(SDL3)</code> can find anything. Run ASGE's install
+    script against the freshly-cloned copy once, then reconfigure:</p>
+    <div class="code-card">
+  <div class="code-card-head"><span>shell</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">./third-party/asge/scripts/install-deps.sh      # or install-deps.ps1 on Windows</code></pre>
+</div>
+
+    <h3>Option 3 — installed package</h3>
+    <p>Install ASGE (<code>cmake --install build</code>), then from your own project:</p>
+    <div class="code-card">
+  <div class="code-card-head"><span>CMakeLists.txt</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cmake">find_package(ASGE REQUIRED CONFIG)
+
+add_executable(my_game main.cpp)
+target_link_libraries(my_game PRIVATE ASGE::ASGE)</code></pre>
+</div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Testing</h2>
+    <p class="lede">Unit tests (GoogleTest) live under <code>tests/</code> and build when
+    <code>BUILD_TESTING</code> is <code>ON</code>:</p>
+    <div class="code-card">
+  <div class="code-card-head"><span>shell</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">ctest --preset windows-debug   # or the linux / macos equivalent</code></pre>
+</div>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="index.html#roadmap">Roadmap</a>
+      <a href="releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="assets/js/main.js"></script>
+
+</body>
+</html>

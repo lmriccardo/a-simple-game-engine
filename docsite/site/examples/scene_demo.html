@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Scene Management · ASGE</title>
+<meta name="description" content="A whole level loaded from TOML"/>
+<meta property="og:title" content="Scene Management · ASGE"/>
+<meta property="og:description" content="A whole level loaded from TOML"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Scenes &middot; ECS &middot; Assets</span>
+        <h1>Scene Management</h1>
+        <p class="lede">A whole level loaded from TOML</p>
+        <p>Loads its whole entity set from a hand-authored TOML scene file (<code>assets/scene.toml</code>) via <code>SceneManager::LoadScene</code> instead of spawning entities in code — see <code>ecs_demo</code> for the code-driven equivalent this replaces.</p>
+<p>Ties together every ASGE subsystem at its current state: the virtual filesystem loads the TOML, the asset pipeline resolves textures, the ECS registry holds the resulting entities, and <code>SceneManager</code> can swap the whole active scene at runtime or snapshot it back out to disk.</p>
+        <h3>Controls</h3><ul class="controls-list"><li><kbd>W A S D</kbd> <span>Move the player entity</span></li><li><kbd>P</kbd> <span>Save a snapshot of the current scene back to TOML (edge-triggered)</span></li><li><kbd>L</kbd> <span>Swap to the other scene file, alternating back and forth</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Scenes</span><span class="tag">ECS</span><span class="tag">Assets</span></div>
+      </div>
+      <div class="example-media"><img src="../assets/img/examples/scene_demo.png" alt="Scene Management screenshot"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target scene_demo
+# binary lands under bin/ (e.g. bin/Debug/scene_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/scene_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+#include &lt;ASGE/ASGE.hpp&gt;
+
+#include &lt;memory&gt;
+#include &lt;string&gt;
+#include &lt;unordered_map&gt;
+
+/**
+ * @brief Loads its whole entity set from a hand-authored TOML scene file
+ * (assets/scene.toml) via SceneManager::LoadScene instead of spawning
+ * entities in code — see ecs_demo for the code-driven equivalent this
+ * replaces.
+ *
+ * Ties together every ASGE subsystem at its current state: VirtualFileSystem
+ * + AssetManager resolve the scene file and each Sprite&#x27;s texture by virtual
+ * path; Registry/View run the ECS side; InputState is polled in Update()
+ * (see input_demo) to drive the player entity (the scene&#x27;s last one, by
+ * convention — see scene.toml&#x27;s own comments). P calls SceneManager::SaveScene
+ * on the live, moved-around Registry — the other half of the round-trip —
+ * and L requests a swap to a second scene file (assets/scene_alt.toml) via
+ * SceneManager::RequestLoad, applied once per frame from a point nothing is
+ * iterating the Registry, demonstrating on-the-fly scene swapping.
+ * OnSystemEvent is left empty, same as input_demo, since polling covers
+ * everything this demo needs.
+ *
+ * Notably absent: asge::game::systems::MovementSystem/RenderSystem. Both
+ * take a bare Registry and have no notion of &quot;active scene&quot; — SceneManager
+ * now keeps every resident scene&#x27;s entities in the *same* Registry (see its
+ * own doc comment), so calling those systems against GetRegistry() directly
+ * would move/draw every resident scene at once, not just the active one.
+ * MoveActiveEntities()/RenderActiveEntities() below are small local
+ * stand-ins scoped to SceneManager::ActiveEntities() instead — teaching the
+ * shared systems to be scene-aware for real is future work, not this demo&#x27;s.
+ */
+class SceneDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    asge::game::scene::SceneManager&amp; m_SceneManager;
+    asge::game::asset::AssetManager&amp; m_Assets;
+
+    asge::ecs::Entity m_Player{ asge::ecs::Entity::Null() };
+
+    // Textures are cached by the virtual path each Sprite names, so several
+    // entities sharing one texture only create it once -- and so a scene
+    // swap&#x27;s freshly-loaded sprites still resolve against the same cache
+    // instead of recreating a texture already loaded once.
+    std::unordered_map&lt;std::string, std::unique_ptr&lt;asge::video::ITexture&gt;&gt; m_Textures;
+
+    void ResolveSpriteTextures( asge::video::IRenderer&amp; inRenderer );
+    void UpdatePlayerVelocity( asge::input::InputState const&amp; inInput );
+    void MoveActiveEntities( float inDeltaTime );   // MovementSystem, scoped to ActiveEntities()
+    void RenderActiveEntities( asge::video::IRenderer&amp; inRenderer ); // RenderSystem, likewise
+    void WrapAroundScreen();
+    void SaveSceneSnapshot() const;
+    void RefreshPlayerReference(); // re-finds &quot;the player&quot; after any (re)load
+
+public:
+    SceneDemoState(
+        asge::game::scene::SceneManager&amp; inSceneManager, asge::game::asset::AssetManager&amp; inAssets );
+
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class SceneDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit SceneDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/scene_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;algorithm&gt;
+#include &lt;filesystem&gt;
+
+namespace
+{
+using asge::game::components::Sprite;
+using asge::game::components::Transform;
+using asge::game::components::Velocity;
+
+constexpr float kWindowWidth  = 800.0f;
+constexpr float kWindowHeight = 600.0f;
+constexpr float kPlayerSpeed  = 220.0f;
+}
+
+SceneDemoState::SceneDemoState(
+    asge::game::scene::SceneManager&amp; inSceneManager, asge::game::asset::AssetManager&amp; inAssets)
+: m_SceneManager(inSceneManager), m_Assets(inAssets)
+{
+    RefreshPlayerReference();
+}
+
+void SceneDemoState::RefreshPlayerReference()
+{
+    // The active scene&#x27;s last entity is the player, by convention -- see
+    // scene.toml&#x27;s own comments for why (no entity name/tag/id concept
+    // exists yet to do this properly). ActiveEntities(), not GetRegistry()
+    // -- the shared Registry also holds any other resident-but-inactive
+    // scene&#x27;s entities, whose &quot;last one&quot; isn&#x27;t this scene&#x27;s player at all.
+    // Re-run after every (re)load, since a fresh load hands out entirely
+    // new Entity handles (a residency hit reuses the same ones, but
+    // there&#x27;s no harm re-deriving m_Player from them either way).
+    auto active = m_SceneManager.ActiveEntities();
+    m_Player = active.empty() ? asge::ecs::Entity::Null() : active.back();
+}
+
+void SceneDemoState::ResolveSpriteTextures(asge::video::IRenderer &amp;inRenderer)
+{
+    for ( auto entity : m_SceneManager.ActiveEntities() )
+    {
+        auto&amp; registry = m_SceneManager.GetRegistry();
+        auto spriteResult = registry.GetComponent&lt;Sprite&gt;(entity);
+        if ( !spriteResult ) continue;
+
+        Sprite&amp; s = spriteResult.Value().get();
+        if ( s.m_Texture || s.m_VirtualPath.empty() ) continue;
+
+        // Cached by virtual path so entities sharing one texture (every
+        // sprite in this demo, all pointing at assets/checker.bmp) only
+        // pay for CreateTexture once -- including across a scene swap,
+        // whose freshly-loaded sprites arrive with m_Texture null again
+        // but hit this same cache instead of recreating it.
+        auto cached = m_Textures.find(s.m_VirtualPath);
+        if ( cached == m_Textures.end() )
+        {
+            auto imageAsset = m_Assets.GetImage(s.m_VirtualPath);
+            if ( !imageAsset )
+            {
+                imageAsset.LogError();
+                continue;
+            }
+
+            auto texture = inRenderer.CreateTexture(imageAsset.Value()-&gt;Get());
+            if ( !texture ) continue;
+            cached = m_Textures.emplace(s.m_VirtualPath, std::move(texture)).first;
+        }
+
+        s.m_Texture = cached-&gt;second.get();
+    }
+}
+
+void SceneDemoState::MoveActiveEntities(float inDeltaTime)
+{
+    // Same logic as asge::game::systems::MovementSystem, just scoped to
+    // ActiveEntities() instead of View&lt;Transform, Velocity&gt;() over the
+    // whole (multi-scene) Registry -- see this class&#x27;s doc comment.
+    auto&amp; registry = m_SceneManager.GetRegistry();
+    for ( auto entity : m_SceneManager.ActiveEntities() )
+    {
+        auto transform = registry.GetComponent&lt;Transform&gt;(entity);
+        auto velocity  = registry.GetComponent&lt;Velocity&gt;(entity);
+        if ( !transform || !velocity ) continue;
+
+        transform.Value().get().m_X += velocity.Value().get().m_DX * inDeltaTime;
+        transform.Value().get().m_Y += velocity.Value().get().m_DY * inDeltaTime;
+    }
+}
+
+void SceneDemoState::RenderActiveEntities(asge::video::IRenderer &amp;inRenderer)
+{
+    // Same logic as asge::game::systems::RenderSystem, scoped the same way
+    // MoveActiveEntities() is -- see this class&#x27;s doc comment.
+    auto&amp; registry = m_SceneManager.GetRegistry();
+    for ( auto entity : m_SceneManager.ActiveEntities() )
+    {
+        auto transformResult = registry.GetComponent&lt;Transform&gt;(entity);
+        auto spriteResult    = registry.GetComponent&lt;Sprite&gt;(entity);
+        if ( !transformResult || !spriteResult ) continue;
+
+        asge::video::ITexture* texture = spriteResult.Value().get().m_Texture;
+        if ( !texture ) continue;
+
+        auto const&amp; t = transformResult.Value().get();
+        auto const&amp; src = spriteResult.Value().get().m_SourceRect;
+
+        float srcW{};
+        float srcH{};
+        if ( src.has_value() )
+        {
+            srcW = src-&gt;w;
+            srcH = src-&gt;h;
+        }
+        else
+        {
+            asge::math::Int2 const texSize = texture-&gt;Size();
+            srcW = static_cast&lt;float&gt;(texSize.x());
+            srcH = static_cast&lt;float&gt;(texSize.y());
+        }
+
+        asge::math::Rect const destRect{
+            t.m_X, t.m_Y,
+            srcW * t.m_ScaleX,
+            srcH * t.m_ScaleY
+        };
+
+        if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, destRect );
+        else                   inRenderer.DrawTexture( *texture, destRect );
+    }
+}
+
+void SceneDemoState::WrapAroundScreen()
+{
+    // Demo-specific dressing (not part of the shared Game/Systems library):
+    // keeps drifting entities on screen by teleporting them across once
+    // they fully exit one edge. Same approach as ecs_demo, scoped to
+    // ActiveEntities() for the same reason MoveActiveEntities() is.
+    auto&amp; registry = m_SceneManager.GetRegistry();
+    for ( auto entity : m_SceneManager.ActiveEntities() )
+    {
+        auto transform = registry.GetComponent&lt;Transform&gt;(entity);
+        if ( !transform ) continue;
+
+        auto&amp; t = transform.Value().get();
+        float const margin = 64.0f * std::max(t.m_ScaleX, t.m_ScaleY);
+
+        if ( t.m_X &lt; -margin )                    t.m_X = kWindowWidth + margin;
+        else if ( t.m_X &gt; kWindowWidth + margin )  t.m_X = -margin;
+
+        if ( t.m_Y &lt; -margin )                     t.m_Y = kWindowHeight + margin;
+        else if ( t.m_Y &gt; kWindowHeight + margin )  t.m_Y = -margin;
+    }
+}
+
+void SceneDemoState::UpdatePlayerVelocity(asge::input::InputState const&amp; inInput)
+{
+    if ( m_Player == asge::ecs::Entity::Null() ) return;
+
+    auto result = m_SceneManager.GetRegistry().GetComponent&lt;Velocity&gt;(m_Player);
+    if ( !result ) return;
+
+    // Continuous, held-down movement -- IsKeyDown polling, same as
+    // input_demo&#x27;s UpdatePlayerBox, instead of hand-tracking bools from
+    // OnSystemEvent&#x27;s press/release events.
+    Velocity&amp; velocity = result.Value().get();
+    velocity.m_DX = (inInput.IsKeyDown(asge::input::Keycode::D) ? kPlayerSpeed : 0.0f)
+                  - (inInput.IsKeyDown(asge::input::Keycode::A) ? kPlayerSpeed : 0.0f);
+    velocity.m_DY = (inInput.IsKeyDown(asge::input::Keycode::S) ? kPlayerSpeed : 0.0f)
+                  - (inInput.IsKeyDown(asge::input::Keycode::W) ? kPlayerSpeed : 0.0f);
+}
+
+void SceneDemoState::SaveSceneSnapshot() const
+{
+    // Written next to the temp dir, not back over the checked-in
+    // assets/scene*.toml -- this demo&#x27;s point is that the *live*, moved
+    // around Registry round-trips, not that it should overwrite its own
+    // source asset every time someone presses P. SaveScene() only writes
+    // the active scene&#x27;s entities, not any other resident-but-inactive one.
+    auto const path = std::filesystem::temp_directory_path() / &quot;asge_scene_demo_saved.toml&quot;;
+    auto result = m_SceneManager.SaveScene(path);
+    if ( !result ) { result.LogError(); return; }
+    LOG_INFO(&quot;Scene snapshot saved to &quot;, path.string());
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+SceneDemoState::Update(float inDeltaTime, asge::input::InputState const&amp; inInput)
+{
+    UpdatePlayerVelocity(inInput);
+    MoveActiveEntities(inDeltaTime);
+    WrapAroundScreen();
+
+    // Edge-triggered -- IsKeyPressed, not IsKeyDown, so one tap saves once
+    // instead of once per frame the key happens to be held.
+    if ( inInput.IsKeyPressed(asge::input::Keycode::P) ) SaveSceneSnapshot();
+
+    // L requests a swap to the second scene file, alternating back and
+    // forth on repeated presses. RequestLoad() only *queues* it -- the
+    // swap itself happens below, via ApplyPendingTransition(), now that
+    // MoveActiveEntities()/WrapAroundScreen are done iterating this
+    // frame&#x27;s active entities. Doing the swap immediately from inside this
+    // Update() would risk mutating the very entity list those two just
+    // iterated.
+    if ( inInput.IsKeyPressed(asge::input::Keycode::L) )
+    {
+        auto const&amp; currentPath = m_SceneManager.CurrentScenePath();
+        bool const onAlt = currentPath.has_value() &amp;&amp; *currentPath == &quot;assets/scene_alt.toml&quot;;
+        m_SceneManager.RequestLoad( onAlt ? &quot;assets/scene.toml&quot; : &quot;assets/scene_alt.toml&quot; );
+    }
+
+    if ( m_SceneManager.HasPendingTransition() )
+    {
+        auto result = m_SceneManager.ApplyPendingTransition();
+        if ( !result ) { result.LogError(); return std::nullopt; }
+        RefreshPlayerReference(); // the new active scene&#x27;s &quot;last entity&quot; is a different one
+    }
+
+    return std::nullopt;
+}
+
+void SceneDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    inRenderer.Clear({ 15, 15, 20, 255 });
+    ResolveSpriteTextures(inRenderer); // cheap no-op for sprites that already have a texture
+    RenderActiveEntities(inRenderer);
+}
+
+void SceneDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &amp;inSysEvent)
+{
+    // Deliberately empty -- every reaction to input in this example comes
+    // from polling InputState in Update() instead (see input_demo).
+}
+
+SceneDemoGame::SceneDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    // ASGE_SCENE_DEMO_ASSET_DIR is injected by CMakeLists.txt -- mounted
+    // once so both scene files and every Sprite&#x27;s texture inside them are
+    // resolved by virtual path, not a hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount(&quot;assets&quot;, ASGE_SCENE_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
+    // m_SceneManager.LoadScene() directly, not the Game::LoadScene()
+    // convenience wrapper -- that wrapper also runs AssetManager::
+    // ResolveAssets, which would resolve sprites through a texture cache
+    // separate from this demo&#x27;s own m_Textures (see SceneDemoState), and a
+    // later scene swap (see Update()&#x27;s L-key handling) goes through
+    // m_SceneManager directly too, so every load stays on one resolution
+    // path instead of two.
+    auto loadResult = m_SceneManager.LoadScene(&quot;assets/scene.toml&quot;);
+    if ( !loadResult ) loadResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;SceneDemoGame::StateType&gt; SceneDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;SceneDemoState&gt;( m_SceneManager, m_Assets );
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/scene_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>

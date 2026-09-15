@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Physics · ASGE</title>
+<meta name="description" content="Gravity, collision response and triggers"/>
+<meta property="og:title" content="Physics · ASGE"/>
+<meta property="og:description" content="Gravity, collision response and triggers"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Physics &middot; ECS</span>
+        <h1>Physics</h1>
+        <p class="lede">Gravity, collision response and triggers</p>
+        <p>Showcase for <code>Rigidbody</code>, gravity, mass-weighted collision response, and Trigger colliders, all driven through <code>systems::PhysicsUpdate</code>.</p>
+<p>A floor and two side walls are static Solid Colliders — deliberately no <code>Velocity</code>/<code>Rigidbody</code>, so collision response treats them as immovable. A yellow-outlined zone acts as a Trigger, reporting overlap without any physical push-back.</p>
+        <h3>Controls</h3><ul class="controls-list"><li><kbd>Click</kbd> <span>Drop a new box at the cursor</span></li><li><kbd>R</kbd> <span>Reset the scene</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Physics</span><span class="tag">ECS</span></div>
+      </div>
+      <div class="example-media"><img src="../assets/img/examples/physics_demo.png" alt="Physics screenshot"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target physics_demo
+# binary lands under bin/ (e.g. bin/Debug/physics_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/physics_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+/**
+ * @brief Showcase for Rigidbody, gravity, mass-weighted collision response,
+ *        and Trigger colliders, all driven through systems::PhysicsUpdate.
+ *
+ * A floor and two side walls are static Solid Colliders (Transform +
+ * Collider, deliberately no Velocity or Rigidbody, so collision response
+ * treats them as immovable). A yellow-outlined zone near the bottom-right
+ * is a static Trigger Collider instead -- boxes fall/settle against the
+ * Solid geometry as normal, but pass straight through the trigger zone
+ * without being pushed; overlapping it despawns the box, via
+ * events::OnCollisionTriggerEnter rather than a Collider push-out.
+ *
+ * Left-click drops a new box -- Transform + Velocity + Collider + Rigidbody
+ * with a randomized mass -- at the cursor; every frame runs
+ * systems::PhysicsUpdate (gravity, movement, collision detection/response,
+ * trigger events, in that order), so boxes fall, land on the floor/each
+ * other/the trigger zone, and settle (or get despawned). R resets the scene.
+ *
+ * Two extra &quot;ghost&quot; boxes near the left wall showcase Collider::m_Layer/
+ * m_Mask: dropped at the same X, on two layers whose masks exclude each
+ * other. Both still land on the floor/walls normally (m_Mask still includes
+ * the default layer everything else uses), but the second one falls
+ * straight through the first instead of stacking on it -- see SpawnBox&#x27;s
+ * inLayer/inMask parameters and components::details::LayersCanCollide.
+ */
+
+#include &lt;ASGE/ASGE.hpp&gt;
+#include &lt;random&gt;
+#include &lt;vector&gt;
+
+class PhysicsDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    asge::ecs::Registry&amp;              m_Registry;
+    std::vector&lt;asge::ecs::Entity&gt;    m_Boxes; // dynamic entities only -- static geometry is never touched by Reset()
+    std::mt19937                      m_Rng{ std::random_device{}() };
+    asge::game::systems::PhysicsState m_PhysicsState; // enter/exit bookkeeping for trigger pairs -- see PhysicsUpdate
+
+    asge::ecs::Entity m_TriggerZone{ asge::ecs::Entity::Null() };
+    std::vector&lt;asge::ecs::Entity&gt; m_ConsumedByTrigger; // boxes to destroy once PhysicsUpdate returns -- see HandleTriggerOverlap
+    asge::signals::Connection&lt;asge::ecs::Entity, asge::ecs::Entity&gt; m_TriggerConnection;
+
+    void SpawnStaticGeometry();
+    void SpawnTriggerZone();
+    void SpawnBox( asge::math::Float2 inCenter,
+        asge::game::components::CollisionLayer inLayer = 1u,
+        asge::game::components::CollisionLayer inMask = ~asge::game::components::CollisionLayer{0},
+        float inSize = 0.0f );
+    void SpawnInitialStack();
+    void Reset();
+    void DestroyBox( asge::ecs::Entity inEntity );
+    void DespawnFallenBoxes();
+    void HandleTriggerOverlap( asge::ecs::Entity inA, asge::ecs::Entity inB );
+    void ProcessTriggerDespawns();
+    void HandleInput( asge::input::InputState const&amp; inInput );
+
+public:
+    explicit PhysicsDemoState(asge::ecs::Registry&amp; inRegistry);
+
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class PhysicsDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit PhysicsDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/physics_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;algorithm&gt;
+#include &lt;cstddef&gt;
+#include &lt;iterator&gt;
+#include &lt;type_traits&gt;
+
+namespace
+{
+using asge::game::components::Collider;
+using asge::game::components::CollisionLayer;
+using asge::game::components::ResolutionType;
+using asge::game::components::Rigidbody;
+using asge::game::components::Transform;
+using asge::game::components::Velocity;
+
+constexpr float kWindowWidth   = 800.0f;
+constexpr float kWindowHeight  = 600.0f;
+constexpr float kWallThickness = 20.0f;
+constexpr float kFloorHeight   = 30.0f;
+constexpr float kMinBoxSize    = 24.0f;
+constexpr float kMaxBoxSize    = 48.0f;
+constexpr float kMinMass       = 0.5f;
+constexpr float kMaxMass       = 3.0f;
+constexpr float kFallLimit     = kWindowHeight + 200.0f; // safety net for a box tunneling past the floor
+constexpr std::size_t kMaxBoxes = 80; // keeps DetectCollisions&#x27;s all-pairs check cheap
+
+// A Trigger-resolution despawn zone near the bottom-right, sitting on top
+// of the floor -- any box&#x27;s Collider overlapping it is removed instead of
+// being pushed out, since a Trigger never participates in solid push-out.
+constexpr float kTriggerZoneSize = 150.0f;
+constexpr float kTriggerZoneX    = kWindowWidth - kTriggerZoneSize - 30.0f;
+constexpr float kTriggerZoneY    = kWindowHeight - kFloorHeight - kTriggerZoneSize;
+
+constexpr asge::media::RGBA_Color kStaticColor{ 70, 70, 80, 255 };
+constexpr asge::media::RGBA_Color kTriggerColor{ 240, 210, 60, 255 };
+constexpr asge::media::RGBA_Color kBoxPalette[] = {
+    { 220, 90, 90, 255 },
+    { 90, 180, 220, 255 },
+    { 230, 200, 90, 255 },
+    { 120, 200, 120, 255 },
+    { 190, 120, 220, 255 },
+};
+
+constexpr CollisionLayer kLayerDefault   = 1u;
+constexpr CollisionLayer kLayerGhostRed  = 1u &lt;&lt; 1;
+constexpr CollisionLayer kLayerGhostBlue = 1u &lt;&lt; 2;
+constexpr CollisionLayer kMaskGhostRed   = kLayerDefault | kLayerGhostRed;
+constexpr CollisionLayer kMaskGhostBlue  = kLayerDefault | kLayerGhostBlue;
+
+constexpr float kGhostDemoRedX  = 110.0f;
+constexpr float kGhostDemoBlueX = 140.0f;
+constexpr asge::media::RGBA_Color kGhostRedColor{ 235, 60, 60, 255 };
+constexpr asge::media::RGBA_Color kGhostBlueColor{ 60, 130, 235, 255 };
+}
+
+PhysicsDemoState::PhysicsDemoState(asge::ecs::Registry&amp; inRegistry)
+: m_Registry(inRegistry)
+{
+    SpawnStaticGeometry();
+    SpawnTriggerZone();
+    SpawnInitialStack();
+
+    // Enter, not Stay/Exit -- this demo only cares about the first frame a
+    // box touches the trigger zone (it gets despawned that same frame, so
+    // there&#x27;s never a &quot;still overlapping&quot; frame after to report Stay for).
+    m_TriggerConnection = asge::game::events::OnCollisionTriggerEnter().Connect(
+        [this]( asge::ecs::Entity inA, asge::ecs::Entity inB ) { HandleTriggerOverlap( inA, inB ); }
+    );
+}
+
+void PhysicsDemoState::SpawnStaticGeometry()
+{
+    // Floor and side walls: Transform + Collider only -- no Velocity or
+    // Rigidbody, so ResolveCollisions treats them as immovable.
+    auto makeStatic = [this]( asge::math::Rect inBounds )
+    {
+        auto entity = m_Registry.CreateEntity();
+        if ( !entity ) { entity.LogError(); return; }
+
+        m_Registry.AddComponent&lt;Transform&gt;( entity.Value(), Transform{ inBounds.x, inBounds.y, 0.0f, 1.0f, 1.0f } );
+        m_Registry.AddComponent&lt;Collider&gt;( entity.Value(),
+            Collider{ asge::math::Rect{ 0.0f, 0.0f, inBounds.w, inBounds.h } } );
+    };
+
+    makeStatic({ 0.0f, kWindowHeight - kFloorHeight, kWindowWidth, kFloorHeight });      // floor
+    makeStatic({ -kWallThickness, 0.0f, kWallThickness, kWindowHeight });                // left wall
+    makeStatic({ kWindowWidth, 0.0f, kWallThickness, kWindowHeight });                   // right wall
+}
+
+void PhysicsDemoState::SpawnTriggerZone()
+{
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) { entity.LogError(); return; }
+
+    m_Registry.AddComponent&lt;Transform&gt;( entity.Value(),
+        Transform{ kTriggerZoneX, kTriggerZoneY, 0.0f, 1.0f, 1.0f } );
+    m_Registry.AddComponent&lt;Collider&gt;( entity.Value(), Collider{
+        asge::math::Rect{ 0.0f, 0.0f, kTriggerZoneSize, kTriggerZoneSize },
+        ResolutionType::Trigger
+    } );
+
+    m_TriggerZone = entity.Value();
+}
+
+void PhysicsDemoState::SpawnBox(asge::math::Float2 inCenter, CollisionLayer inLayer, CollisionLayer inMask, float inSize)
+{
+    if ( m_Boxes.size() &gt;= kMaxBoxes ) return;
+
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) { entity.LogError(); return; }
+
+    std::uniform_real_distribution&lt;float&gt; sizeDist( kMinBoxSize, kMaxBoxSize );
+    std::uniform_real_distribution&lt;float&gt; massDist( kMinMass, kMaxMass );
+    float const size = inSize &gt; 0.0f ? inSize : sizeDist( m_Rng );
+
+    m_Registry.AddComponent&lt;Transform&gt;( entity.Value(),
+        Transform{ inCenter.x() - size * 0.5f, inCenter.y() - size * 0.5f, 0.0f, 1.0f, 1.0f } );
+    m_Registry.AddComponent&lt;Velocity&gt;( entity.Value(), Velocity{} );
+    m_Registry.AddComponent&lt;Collider&gt;( entity.Value(), Collider{
+        asge::math::Rect{ 0.0f, 0.0f, size, size }, ResolutionType::Solid, inLayer, inMask
+    } );
+    m_Registry.AddComponent&lt;Rigidbody&gt;( entity.Value(), Rigidbody{ massDist( m_Rng ), true } );
+
+    m_Boxes.push_back( entity.Value() );
+}
+
+void PhysicsDemoState::SpawnInitialStack()
+{
+    // A staggered column dropped from above the floor, so gravity and
+    // mass-weighted collision resolution have something to settle right
+    // away, without waiting for a click.
+    for ( int i = 0; i &lt; 6; ++i )
+    {
+        float const xOffset = (i % 2 == 0) ? -20.0f : 20.0f;
+        SpawnBox({ kWindowWidth * 0.5f + xOffset, 80.0f * float(i) });
+    }
+
+    // One extra box dropped straight above the trigger zone, so the
+    // despawn-on-overlap behavior is visible immediately on startup/reset,
+    // without needing a click.
+    SpawnBox({ kTriggerZoneX + kTriggerZoneSize * 0.5f, 50.0f });
+
+    SpawnBox( { kGhostDemoRedX, 20.0f },   kLayerGhostRed,  kMaskGhostRed,  48.0f );
+    SpawnBox( { kGhostDemoBlueX, -80.0f }, kLayerGhostBlue, kMaskGhostBlue, 32.0f );
+}
+
+void PhysicsDemoState::Reset()
+{
+    for ( auto entity : m_Boxes )
+    {
+        if ( auto result = m_Registry.DestroyEntity( entity ); !result ) result.LogError();
+    }
+    m_Boxes.clear();
+    m_ConsumedByTrigger.clear(); // nothing pending should survive a reset
+    SpawnInitialStack();
+}
+
+void PhysicsDemoState::DestroyBox(asge::ecs::Entity inEntity)
+{
+    if ( auto result = m_Registry.DestroyEntity( inEntity ); !result ) result.LogError();
+    m_Boxes.erase( std::remove( m_Boxes.begin(), m_Boxes.end(), inEntity ), m_Boxes.end() );
+}
+
+void PhysicsDemoState::DespawnFallenBoxes()
+{
+    m_Boxes.erase(
+        std::remove_if( m_Boxes.begin(), m_Boxes.end(), [this]( asge::ecs::Entity inEntity )
+        {
+            auto transform = m_Registry.GetComponent&lt;Transform&gt;( inEntity );
+            bool const fellThrough = transform.IsOk() &amp;&amp; transform.Value().get().m_Y &gt; kFallLimit;
+            if ( fellThrough )
+            {
+                if ( auto result = m_Registry.DestroyEntity( inEntity ); !result ) result.LogError();
+            }
+            return fellThrough;
+        }),
+        m_Boxes.end()
+    );
+}
+
+void PhysicsDemoState::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
+{
+    // events::OnCollisionTriggerEnter() fires synchronously, from inside
+    // systems::DispatchTriggerEvents -- itself called partway through
+    // PhysicsUpdate, still iterating this frame&#x27;s contact list. Destroying
+    // an entity here rather than deferring it could disturb that in-progress
+    // iteration (or any later contact in the same list still referencing this
+    // entity), so just record which box to remove; the actual destruction
+    // happens in ProcessTriggerDespawns(), after PhysicsUpdate has returned
+    // for this frame.
+    asge::ecs::Entity other;
+    if ( inA == m_TriggerZone )      other = inB;
+    else if ( inB == m_TriggerZone ) other = inA;
+    else return; // this overlap doesn&#x27;t involve our despawn zone
+
+    m_ConsumedByTrigger.push_back( other );
+}
+
+void PhysicsDemoState::ProcessTriggerDespawns()
+{
+    for ( auto entity : m_ConsumedByTrigger )
+    {
+        LOG_INFO( &quot;[Trigger] box (entity index &quot;, entity.m_Index, &quot;) despawned by the trigger zone&quot; );
+        DestroyBox( entity );
+    }
+    m_ConsumedByTrigger.clear();
+}
+
+void PhysicsDemoState::HandleInput(asge::input::InputState const &amp;inInput)
+{
+    using asge::input::Keycode;
+    using asge::input::MouseButton;
+
+    if ( inInput.IsMouseButtonPressed( MouseButton::LEFT ) )
+    {
+        SpawnBox( inInput.GetMousePosition() );
+    }
+
+    if ( inInput.IsKeyPressed( Keycode::R ) )
+    {
+        Reset();
+    }
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+PhysicsDemoState::Update(float inDeltaTime, asge::input::InputState const &amp;inInput)
+{
+    HandleInput( inInput );
+
+    // May queue trigger-zone despawns via HandleTriggerOverlap (connected
+    // to events::OnCollisionTriggerEnter in the constructor).
+    asge::game::systems::PhysicsUpdate( m_Registry, m_PhysicsState, inDeltaTime );
+
+    ProcessTriggerDespawns();
+    DespawnFallenBoxes();
+    return std::nullopt;
+}
+
+void PhysicsDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    inRenderer.Clear({ 18, 18, 24, 255 });
+
+    // No Sprite/RenderSystem here -- Colliders don&#x27;t carry a texture, so
+    // this demo draws each entity&#x27;s world-space Collider bounds directly.
+    // Every Collider this demo spawns is a Rect today, but drawing through
+    // std::visit rather than assuming .x/.y/.w/.h keeps this correct if a
+    // Circle collider ever gets spawned here too.
+    for ( auto [ entity, transform, collider ] : m_Registry.View&lt;Transform, Collider&gt;() )
+    {
+        auto const&amp; t = transform.get();
+        auto const&amp; c = collider.get();
+
+        // Trigger geometry is drawn outlined-only in a distinct color, so
+        // it visually reads as &quot;a zone to watch for&quot;, not solid geometry.
+        bool const isTrigger = c.m_Resolution == ResolutionType::Trigger;
+        bool const isBox = m_Registry.HasComponent&lt;Rigidbody&gt;( entity );
+        auto const color = isTrigger ? kTriggerColor
+            : c.m_Layer == kLayerGhostRed  ? kGhostRedColor
+            : c.m_Layer == kLayerGhostBlue ? kGhostBlueColor
+            : isBox ? kBoxPalette[ entity.m_Index % std::size(kBoxPalette) ]
+            : kStaticColor;
+        bool const fill = !isTrigger;
+
+        std::visit( [&amp;]( auto const&amp; inShape )
+        {
+            using ShapeT = std::decay_t&lt;decltype(inShape)&gt;;
+            if constexpr ( std::is_same_v&lt;ShapeT, asge::math::Rect&gt; )
+            {
+                asge::math::Rect const bounds{
+                    t.m_X + inShape.x, t.m_Y + inShape.y, inShape.w, inShape.h
+                };
+                inRenderer.DrawRect( bounds, color, fill );
+            }
+            else
+            {
+                asge::math::Int2 const center{
+                    static_cast&lt;int&gt;( t.m_X + inShape.m_Center.x() ),
+                    static_cast&lt;int&gt;( t.m_Y + inShape.m_Center.y() )
+                };
+                inRenderer.DrawCircle( center, static_cast&lt;int&gt;( inShape.m_Radius ), color, fill );
+            }
+        }, c.m_LocalBounds );
+    }
+}
+
+void PhysicsDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &amp;inSysEvent)
+{
+    // Everything here is driven by polling InputState in Update() instead.
+}
+
+PhysicsDemoGame::PhysicsDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;PhysicsDemoGame::StateType&gt; PhysicsDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;PhysicsDemoState&gt;( m_SceneManager.GetRegistry() );
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/physics_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>

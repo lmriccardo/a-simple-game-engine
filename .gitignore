@@ -2,3 +2,6 @@ third-party/
 build/
 bin/
 examples/file_watching/files
+docsite/api/
+docsite/_site/
+docsite/site/playable/
