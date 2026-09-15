@@ -2,6 +2,8 @@ third-party/
 build/
 bin/
 examples/file_watching/files
-docsite/api/
+docsite/xml/
 docsite/_site/
+docsite/site/api/
 docsite/site/playable/
+docsite/__pycache__/
