@@ -109,7 +109,7 @@ void AudioDemoState::Render(asge::video::IRenderer &inRenderer)
     asge::math::Rect const volumeTrack{ 120.0f, 440.0f, 560.0f, 24.0f };
     inRenderer.DrawRect(volumeTrack, asge::media::RGBA_Color{ 90, 90, 100, 255 }, false);
     inRenderer.DrawRect(
-        asge::math::Rect{ volumeTrack.x, volumeTrack.y, volumeTrack.w * m_MasterVolume, volumeTrack.h },
+        asge::math::Rect{ volumeTrack.m_X, volumeTrack.m_Y, volumeTrack.m_Width * m_MasterVolume, volumeTrack.m_Height },
         asge::media::RGBA_Color{ 100, 170, 240, 255 },
         true
     );

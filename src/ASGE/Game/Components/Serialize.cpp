@@ -3,10 +3,10 @@
 void asge::game::components::Serializer<asge::math::Rect>::ToToml(
     math::Rect inShape, asge::config::toml::TOMLTableView inTview ) noexcept
 {
-    inTview.Set("m_Width",   inShape.w)
-           .Set("m_Height",  inShape.h)
-           .Set("m_OffsetX", inShape.x)
-           .Set("m_OffsetY", inShape.y);
+    inTview.Set("m_Width",   inShape.m_Width)
+           .Set("m_Height",  inShape.m_Height)
+           .Set("m_OffsetX", inShape.m_X)
+           .Set("m_OffsetY", inShape.m_Y);
 }
 
 asge::math::Rect asge::game::components::Serializer<asge::math::Rect>::FromToml(

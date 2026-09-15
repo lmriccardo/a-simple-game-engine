@@ -11,8 +11,8 @@ std::optional<asge::math::Rect> asge::game::components::SpriteGetDstRect(
 
     if ( srcRect.has_value() )
     {
-        srcW = srcRect->w;
-        srcH = srcRect->h;
+        srcW = srcRect->m_Width;
+        srcH = srcRect->m_Height;
     }
     else
     {
@@ -35,10 +35,10 @@ void asge::game::components::Serializer<asge::game::components::Sprite>::ToToml(
     if ( inSprite.m_SourceRect )
     {
         sprite.Table("SourceRect")
-              .Set("x", inSprite.m_SourceRect->x)
-              .Set("y", inSprite.m_SourceRect->y)
-              .Set("w", inSprite.m_SourceRect->w)
-              .Set("h", inSprite.m_SourceRect->h);
+              .Set("x", inSprite.m_SourceRect->m_X)
+              .Set("y", inSprite.m_SourceRect->m_Y)
+              .Set("w", inSprite.m_SourceRect->m_Width)
+              .Set("h", inSprite.m_SourceRect->m_Height);
     }
 
     sprite.Set("m_Layer", inSprite.m_Layer);

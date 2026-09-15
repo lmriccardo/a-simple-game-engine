@@ -6,6 +6,7 @@
 #include <ASGE/Core/Math/Math.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include "Texture.hpp"
+#include "Camera.hpp"
 
 namespace asge::video
 {
@@ -146,6 +147,30 @@ public:
 
     // Checks if the current renderer is valid or not
     [[nodiscard]] virtual bool IsValid() const = 0;
+
+    /**
+     * @brief Sets the camera every subsequent draw call is transformed through
+     *
+     * Every draw call (DrawRect, DrawTexture*, DrawLine, DrawCircle, ...)
+     * maps its world-space coordinates to screen space via inCamera before
+     * rendering -- see Camera.hpp's WorldToScreen/TransformRect.
+     */
+    virtual void SetCamera( Camera const& inCamera ) = 0;
+
+    // Returns the camera currently applied to draw calls (see SetCamera)
+    virtual Camera const& GetCamera() const = 0;
+
+    /**
+     * @brief Sets the screen-space viewport draw calls are clipped/offset into
+     *
+     * Backed by the native renderer's own viewport support (e.g.
+     * SDL_SetRenderViewport), so clipping outside inViewport is handled by
+     * the backend rather than by this class.
+     */
+    virtual void SetViewport(Viewport const& inViewport) = 0;
+
+    // Returns the viewport currently applied to draw calls (see SetViewport)
+    virtual Viewport const& GetViewport() const = 0;
 };
 
 /**
@@ -162,9 +187,9 @@ inline void DrawTextureAnchored(
 ) noexcept
 {
     math::Rect const adjustedDest{
-        inDestRect.x - inSrcAnchor.x() * inDestRect.w,
-        inDestRect.y - inSrcAnchor.y() * inDestRect.h,
-        inDestRect.w, inDestRect.h
+        inDestRect.m_X - inSrcAnchor.x() * inDestRect.m_Width,
+        inDestRect.m_Y - inSrcAnchor.y() * inDestRect.m_Height,
+        inDestRect.m_Width, inDestRect.m_Height
     };
     inRenderer.DrawTexture( inTexture, inSrcRect, adjustedDest );
 }

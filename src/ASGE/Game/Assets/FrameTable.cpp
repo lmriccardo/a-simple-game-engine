@@ -38,10 +38,10 @@ std::vector<asge::math::Rect> asge::game::asset::MakeGridFrames(
         std::size_t const row = ii / inColumns;
 
         frames.push_back( math::Rect{
-            inSheetCell.x + static_cast<float>(col) * inSheetCell.w,
-            inSheetCell.y + static_cast<float>(row) * inSheetCell.h,
-            inSheetCell.w,
-            inSheetCell.h
+            inSheetCell.m_X + static_cast<float>(col) * inSheetCell.m_Width,
+            inSheetCell.m_Y + static_cast<float>(row) * inSheetCell.m_Height,
+            inSheetCell.m_Width,
+            inSheetCell.m_Height
         });
     }
 

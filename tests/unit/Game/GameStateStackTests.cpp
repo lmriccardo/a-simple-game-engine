@@ -71,6 +71,15 @@ public:
     [[nodiscard]] std::unique_ptr<asge::video::ITexture> CreateTexture(
         asge::media::Image const&) const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const override { return true; }
+
+    void SetCamera(asge::video::Camera const& inCamera) override { m_Camera = inCamera; }
+    [[nodiscard]] asge::video::Camera const& GetCamera() const override { return m_Camera; }
+    void SetViewport(asge::video::Viewport const& inViewport) override { m_Viewport = inViewport; }
+    [[nodiscard]] asge::video::Viewport const& GetViewport() const override { return m_Viewport; }
+
+private:
+    asge::video::Camera   m_Camera{};
+    asge::video::Viewport m_Viewport{};
 };
 
 class GameStateStackTest : public ::testing::Test

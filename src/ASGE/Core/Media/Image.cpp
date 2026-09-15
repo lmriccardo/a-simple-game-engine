@@ -14,10 +14,10 @@ asge::math::Rect ClampRegionToImage( asge::math::Rect const& inRegion, asge::mat
     float const imgW = static_cast<float>( inDimensions.x() );
     float const imgH = static_cast<float>( inDimensions.y() );
 
-    float const x0 = std::clamp( inRegion.x, 0.0f, imgW );
-    float const y0 = std::clamp( inRegion.y, 0.0f, imgH );
-    float const x1 = std::clamp( inRegion.x + inRegion.w, 0.0f, imgW );
-    float const y1 = std::clamp( inRegion.y + inRegion.h, 0.0f, imgH );
+    float const x0 = std::clamp( inRegion.m_X, 0.0f, imgW );
+    float const y0 = std::clamp( inRegion.m_Y, 0.0f, imgH );
+    float const x1 = std::clamp( inRegion.m_X + inRegion.m_Width, 0.0f, imgW );
+    float const y1 = std::clamp( inRegion.m_Y + inRegion.m_Height, 0.0f, imgH );
 
     return { x0, y0, std::max( 0.0f, x1 - x0 ), std::max( 0.0f, y1 - y0 ) };
 }
@@ -67,12 +67,12 @@ asge::math::Rect asge::media::Image::AlphaContentBounds() const noexcept
 asge::math::Rect asge::media::Image::AlphaContentBounds( math::Rect const &inRegion ) const noexcept
 {
     math::Rect const region = ClampRegionToImage( inRegion, Dimensions() );
-    if ( region.w <= 0.0f || region.h <= 0.0f ) return region;
+    if ( region.m_Width <= 0.0f || region.m_Height <= 0.0f ) return region;
 
-    auto const x0 = static_cast<std::size_t>(region.x);
-    auto const y0 = static_cast<std::size_t>(region.y);
-    auto const x1 = static_cast<std::size_t>(region.x + region.w); // exclusive
-    auto const y1 = static_cast<std::size_t>(region.y + region.h); // exclusive
+    auto const x0 = static_cast<std::size_t>(region.m_X);
+    auto const y0 = static_cast<std::size_t>(region.m_Y);
+    auto const x1 = static_cast<std::size_t>(region.m_X + region.m_Width); // exclusive
+    auto const y1 = static_cast<std::size_t>(region.m_Y + region.m_Height); // exclusive
 
     std::size_t minX = x1, minY = y1, maxX = x0, maxY = y0;
     bool foundContent = false;

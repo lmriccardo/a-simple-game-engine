@@ -60,6 +60,15 @@ public:
     [[nodiscard]] std::unique_ptr<asge::video::ITexture> CreateTexture(
         asge::media::Image const&) const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const override { return true; }
+
+    void SetCamera(asge::video::Camera const& inCamera) override { m_Camera = inCamera; }
+    [[nodiscard]] asge::video::Camera const& GetCamera() const override { return m_Camera; }
+    void SetViewport(asge::video::Viewport const& inViewport) override { m_Viewport = inViewport; }
+    [[nodiscard]] asge::video::Viewport const& GetViewport() const override { return m_Viewport; }
+
+private:
+    asge::video::Camera   m_Camera{};
+    asge::video::Viewport m_Viewport{};
 };
 
 Entity MakeRectCollider(Registry& inRegistry, float inX, float inY,
@@ -89,10 +98,10 @@ TEST(PhysicsDebugSystemTest, RectCollider_DrawsUnfilledRectAtWorldOffsetBounds)
     EXPECT_TRUE(renderer.m_CircleCalls.empty());
     auto const& call = renderer.m_RectCalls[0];
     EXPECT_FALSE(call.m_Fill);
-    EXPECT_FLOAT_EQ(call.m_Rect.x, 15.0f); // 10 + 5
-    EXPECT_FLOAT_EQ(call.m_Rect.y, 26.0f); // 20 + 6
-    EXPECT_FLOAT_EQ(call.m_Rect.w, 30.0f);
-    EXPECT_FLOAT_EQ(call.m_Rect.h, 40.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_X, 15.0f); // 10 + 5
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Y, 26.0f); // 20 + 6
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Width, 30.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Height, 40.0f);
 }
 
 TEST(PhysicsDebugSystemTest, CircleCollider_DrawsUnfilledCircleAtWorldOffsetCenter)

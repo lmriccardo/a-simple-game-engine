@@ -2,8 +2,13 @@
 
 #include <vector>
 #include <algorithm>
+#include <cmath>
 
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Resources/ActiveCamera.hpp>
+#include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Video/Graphics/Camera.hpp>
+#include <ASGE/Core/Math/Geometry/Collision.hpp>
 
 namespace
 {
@@ -42,7 +47,7 @@ std::optional<DrawItem> ConstructFrom(
     if ( !result.has_value() ) return std::nullopt;
     return DrawItem
     {
-        inE, &inT, &inS, inS.m_Layer, inT.m_Y + (*result).h,
+        inE, &inT, &inS, inS.m_Layer, inT.m_Y + (*result).m_Height,
         inS.m_YSort, *result
     };
 }
@@ -84,16 +89,52 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
     }
 }
 
+void asge::game::systems::CameraSystem(
+    ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
+{
+    auto active = inRegistry.GetResource<resources::ActiveCamera>();
+    if ( !active || active.Value().get().m_Entity == ecs::Entity::Null() ) return;
+
+    auto const& entity = active.Value().get().m_Entity;
+    auto cameraResult = inRegistry.GetComponent<components::Camera>( entity );
+    auto transformResult = inRegistry.GetComponent<components::Transform>( entity );
+    if ( !cameraResult || !transformResult ) return;
+
+    auto& cameraComp = cameraResult.Value().get();
+    auto& transform  = transformResult.Value().get();
+    video::Camera camera = inRenderer.GetCamera();
+    camera.m_Zoom = cameraComp.m_Zoom;
+
+    float const targetX = transform.m_X - inRenderer.GetViewport().m_Width  / ( 2.0f * camera.m_Zoom );
+    float const targetY = transform.m_Y - inRenderer.GetViewport().m_Height / ( 2.0f * camera.m_Zoom );
+
+    if ( cameraComp.m_Smoothing <= 0.0f )
+    {
+        camera.m_X = targetX;
+        camera.m_Y = targetY;
+    }
+    else
+    {
+        float const k = 1.0f - std::exp( -cameraComp.m_Smoothing * inDeltaTime );
+        camera.m_X += ( targetX - camera.m_X ) * k;
+        camera.m_Y += ( targetY - camera.m_Y ) * k;
+    }
+
+    inRenderer.SetCamera( camera );
+}
+
 void asge::game::systems::RenderSystem(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer) noexcept
 {
     std::vector<DrawItem> drawItems;
+    math::Rect const visible = video::VisibleWorldRect( inRenderer.GetCamera(), inRenderer.GetViewport() );
 
     for ( auto [ entity, transform, sprite ]
             : inRegistry.View<components::Transform, components::Sprite>() )
     {
         if ( auto item = ConstructFrom( entity, transform.get(), sprite.get() ); item.has_value() )
         {
+            if ( !math::AabbOverlap( item->m_DstRect, visible ) ) continue;
             drawItems.push_back( *item );
         }
     }
@@ -120,5 +161,6 @@ void asge::game::systems::RenderPipeline(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
 {
     AnimationSystem( inRegistry, inDeltaTime );
-    RenderSystem( inRegistry, inRenderer ); 
+    CameraSystem( inRegistry, inRenderer, inDeltaTime );
+    RenderSystem( inRegistry, inRenderer );
 }
