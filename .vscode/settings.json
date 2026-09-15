@@ -19,6 +19,7 @@
         "graphics",
         "build",
         "audio",
-        "versioning"
+        "versioning",
+        "claude-skills"
     ]
 }
