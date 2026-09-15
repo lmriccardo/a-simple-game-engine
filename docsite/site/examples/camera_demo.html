@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Camera &amp; Viewport · ASGE</title>
+<meta name="description" content="Panning, zooming, and a picture-in-picture minimap"/>
+<meta property="og:title" content="Camera &amp; Viewport · ASGE"/>
+<meta property="og:description" content="Panning, zooming, and a picture-in-picture minimap"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Rendering</span>
+        <h1>Camera &amp; Viewport</h1>
+        <p class="lede">Panning, zooming, and a picture-in-picture minimap</p>
+        <p>Showcases <code>IRenderer</code>'s <code>Camera</code>/<code>Viewport</code> pair directly (no ECS involved): a checkerboard world bigger than the window, panned and zoomed by a controllable <code>Camera</code>, plus a picture-in-picture minimap — a second <code>Camera</code>, zoomed to fit the whole world, rendered through a small <code>Viewport</code> in the corner with a live outline tracking the main camera's visible area.</p>
+        <h3>Controls</h3><ul class="controls-list"><li><kbd>W A S D</kbd> <span>Pan the camera</span></li><li><kbd>Scroll</kbd> <span>Zoom in/out</span></li><li><kbd>R</kbd> <span>Reset the camera</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Rendering</span></div>
+      </div>
+      <div class="example-media"><img src="../assets/img/examples/camera_demo.png" alt="Camera &amp; Viewport screenshot"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target camera_demo
+# binary lands under bin/ (e.g. bin/Debug/camera_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/camera_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+#include &lt;ASGE/ASGE.hpp&gt;
+
+/**
+ * @brief Showcases IRenderer&#x27;s Camera/Viewport pair: a large world panned
+ *        and zoomed by a controllable Camera, plus a picture-in-picture
+ *        minimap rendered through a second Camera into a small Viewport.
+ */
+class CameraDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    asge::video::Camera m_Camera{}; // world-space camera, panned/zoomed by input
+
+    void UpdateCamera(float inDeltaTime, asge::input::InputState const&amp; inInput);
+    void RenderWorld(asge::video::IRenderer&amp; inRenderer) const;
+    void RenderMinimap(asge::video::IRenderer&amp; inRenderer) const;
+
+public:
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class CameraDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit CameraDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/camera_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;algorithm&gt;
+#include &lt;array&gt;
+
+namespace
+{
+
+using asge::input::Keycode;
+using asge::media::RGBA_Color;
+using asge::video::Camera;
+using asge::video::Viewport;
+
+constexpr float kWindowW = 800.0f;
+constexpr float kWindowH = 600.0f;
+
+constexpr float kTileSize  = 100.0f;
+constexpr int   kGridCols  = 16;
+constexpr int   kGridRows  = 12;
+constexpr float kWorldW    = kGridCols * kTileSize;
+constexpr float kWorldH    = kGridRows * kTileSize;
+
+constexpr float kPanSpeed = 400.0f; // world units/second
+constexpr float kZoomStep = 0.1f;   // camera zoom per scroll wheel unit
+constexpr float kMinZoom  = 0.3f;
+constexpr float kMaxZoom  = 3.0f;
+
+// Backdrop is drawn in full-window screen space; the viewport below is the
+// smaller area inside it the minimap&#x27;s own camera actually renders into.
+constexpr asge::math::Rect kMinimapBackdrop{ 620.0f, 10.0f, 170.0f, 130.0f };
+constexpr asge::math::Rect kMinimapViewport{ 625.0f, 15.0f, 160.0f, 120.0f };
+
+constexpr float kLandmarkRadius = 35.0f;
+
+struct Landmark
+{
+    asge::math::Float2 m_Pos;
+    RGBA_Color          m_Color;
+};
+
+std::array&lt;Landmark, 5&gt; const kLandmarks{ {
+    { { 150.0f,  150.0f }, RGBA_Color{ 220,  60,  60, 255 } },
+    { { 1450.0f, 150.0f }, RGBA_Color{  60, 200,  90, 255 } },
+    { { 800.0f,  600.0f }, RGBA_Color{ 240, 200,  60, 255 } },
+    { { 150.0f, 1050.0f }, RGBA_Color{  90, 170, 240, 255 } },
+    { { 1450.0f,1050.0f }, RGBA_Color{ 200,  90, 220, 255 } },
+} };
+
+}
+
+void CameraDemoState::UpdateCamera(float inDeltaTime, asge::input::InputState const &amp;inInput)
+{
+    float const dx = (inInput.IsKeyDown(Keycode::D) ? kPanSpeed : 0.0f)
+                    - (inInput.IsKeyDown(Keycode::A) ? kPanSpeed : 0.0f);
+    float const dy = (inInput.IsKeyDown(Keycode::S) ? kPanSpeed : 0.0f)
+                    - (inInput.IsKeyDown(Keycode::W) ? kPanSpeed : 0.0f);
+
+    m_Camera.m_X += dx * inDeltaTime;
+    m_Camera.m_Y += dy * inDeltaTime;
+    m_Camera.m_Zoom = std::clamp(
+        m_Camera.m_Zoom + inInput.GetScrollDelta().y() * kZoomStep, kMinZoom, kMaxZoom
+    );
+
+    // Keep the visible area inside the world when it fits within it,
+    // otherwise center the (now larger than the world) view on it.
+    float const visibleW = kWindowW / m_Camera.m_Zoom;
+    float const visibleH = kWindowH / m_Camera.m_Zoom;
+    m_Camera.m_X = visibleW &lt; kWorldW
+        ? std::clamp(m_Camera.m_X, 0.0f, kWorldW - visibleW)
+        : (kWorldW - visibleW) * 0.5f;
+    m_Camera.m_Y = visibleH &lt; kWorldH
+        ? std::clamp(m_Camera.m_Y, 0.0f, kWorldH - visibleH)
+        : (kWorldH - visibleH) * 0.5f;
+}
+
+void CameraDemoState::RenderWorld(asge::video::IRenderer &amp;inRenderer) const
+{
+    for ( int row = 0; row &lt; kGridRows; ++row )
+    {
+        for ( int col = 0; col &lt; kGridCols; ++col )
+        {
+            bool const light = (row + col) % 2 == 0;
+            inRenderer.DrawRect(
+                asge::math::Rect{
+                    static_cast&lt;float&gt;(col) * kTileSize, static_cast&lt;float&gt;(row) * kTileSize,
+                    kTileSize, kTileSize
+                },
+                light ? RGBA_Color{ 60, 65, 80, 255 } : RGBA_Color{ 40, 44, 56, 255 },
+                true
+            );
+        }
+    }
+
+    // World border, so panning past the edge of the map is obvious.
+    inRenderer.DrawRect(asge::math::Rect{ 0.0f, 0.0f, kWorldW, kWorldH }, RGBA_Color{ 240, 240, 245, 255 }, false);
+
+    for ( auto const&amp; landmark : kLandmarks )
+    {
+        inRenderer.DrawCircle(
+            asge::math::Int2{ static_cast&lt;int&gt;(landmark.m_Pos.x()), static_cast&lt;int&gt;(landmark.m_Pos.y()) },
+            static_cast&lt;int&gt;(kLandmarkRadius), landmark.m_Color, true
+        );
+    }
+}
+
+void CameraDemoState::RenderMinimap(asge::video::IRenderer &amp;inRenderer) const
+{
+    inRenderer.SetViewport(kMinimapViewport);
+
+    // Zoom chosen so the whole world fits inside the minimap viewport.
+    float const zoom = std::min(kMinimapViewport.m_Width / kWorldW, kMinimapViewport.m_Height / kWorldH);
+    inRenderer.SetCamera(Camera{ .m_X = 0.0f, .m_Y = 0.0f, .m_Zoom = zoom });
+
+    RenderWorld(inRenderer);
+
+    // The main camera&#x27;s visible area, in world space -- SetCamera above
+    // means this lands in minimap space exactly like everything RenderWorld
+    // just drew, with no extra math needed here.
+    asge::math::Rect const visible{
+        m_Camera.m_X, m_Camera.m_Y, kWindowW / m_Camera.m_Zoom, kWindowH / m_Camera.m_Zoom
+    };
+    inRenderer.DrawRect(visible, RGBA_Color{ 255, 255, 255, 255 }, false);
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+CameraDemoState::Update(float inDeltaTime, asge::input::InputState const &amp;inInput)
+{
+    UpdateCamera(inDeltaTime, inInput);
+    return std::nullopt;
+}
+
+void CameraDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    inRenderer.Clear(RGBA_Color{ 15, 15, 20, 255 });
+
+    inRenderer.SetViewport(Viewport{ 0.0f, 0.0f, kWindowW, kWindowH });
+    inRenderer.SetCamera(m_Camera);
+    RenderWorld(inRenderer);
+
+    // Minimap backdrop, drawn in full-window screen space (identity camera)
+    // before RenderMinimap below switches to its own viewport/camera.
+    inRenderer.SetCamera(Camera{});
+    inRenderer.DrawRect(kMinimapBackdrop, RGBA_Color{ 10, 10, 14, 230 }, true);
+    inRenderer.DrawRect(kMinimapBackdrop, RGBA_Color{ 200, 200, 210, 255 }, false);
+
+    RenderMinimap(inRenderer);
+
+    // Restore full-window/main-camera state -- RenderMinimap leaves both
+    // pointed at its own viewport/camera, and Render() should hand the
+    // renderer back the way it found it.
+    inRenderer.SetViewport(Viewport{ 0.0f, 0.0f, kWindowW, kWindowH });
+    inRenderer.SetCamera(m_Camera);
+}
+
+void CameraDemoState::OnSystemEvent(asge::event::SystemEvent const &amp;inSysEvent)
+{
+    auto const* keyEvent = inSysEvent.TryGet&lt;asge::event::KeyboardEvent&gt;();
+    if ( !keyEvent ) return;
+    if ( keyEvent-&gt;s_Type != asge::event::EventType::KEYBOARD_KEY_PRESSED ) return;
+    if ( keyEvent-&gt;s_Keycode == Keycode::R ) m_Camera = Camera{};
+}
+
+CameraDemoGame::CameraDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;CameraDemoGame::StateType&gt; CameraDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;CameraDemoState&gt;();
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/camera_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>

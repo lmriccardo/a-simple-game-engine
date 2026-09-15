@@ -104,6 +104,46 @@ EXAMPLES = [
         source_files=["Game.hpp", "Game.cpp"],
     ),
     dict(
+        slug="camera_demo", title="Camera & Viewport", tagline="Panning, zooming, and a picture-in-picture minimap",
+        tags=["Rendering"], kind="window", playable=False,
+        description=[
+            "Showcases <code>IRenderer</code>'s <code>Camera</code>/<code>Viewport</code> pair "
+            "directly (no ECS involved): a checkerboard world bigger than the window, panned "
+            "and zoomed by a controllable <code>Camera</code>, plus a picture-in-picture "
+            "minimap — a second <code>Camera</code>, zoomed to fit the whole world, rendered "
+            "through a small <code>Viewport</code> in the corner with a live outline tracking "
+            "the main camera's visible area.",
+        ],
+        controls=[
+            ("W A S D", "Pan the camera"),
+            ("Scroll", "Zoom in/out"),
+            ("R", "Reset the camera"),
+        ],
+        source_files=["Game.hpp", "Game.cpp"],
+    ),
+    dict(
+        slug="camera_follow_demo", title="Camera Follow", tagline="ECS camera-follow with off-screen culling",
+        tags=["Rendering", "ECS"], kind="window", playable=False,
+        description=[
+            "The ECS-driven counterpart to <code>camera_demo</code>: a player entity "
+            "(<code>Transform</code> + <code>Velocity</code> + <code>Camera</code>, set as "
+            "<code>resources::ActiveCamera</code>) WASD-driven through a 40×30-tile world, "
+            "1280×960 — well beyond the 800×600 window.",
+            "<code>systems::CameraSystem</code> smoothly follows the player every frame, and "
+            "<code>RenderSystem</code> culls tiles outside the visible area "
+            "(<code>video::VisibleWorldRect</code>) rather than submitting a draw call for all "
+            "1,200 of them. Unlike <code>camera_demo</code>, nothing here ever calls "
+            "<code>IRenderer::SetCamera</code> directly — <code>CameraSystem</code> does that "
+            "from the active entity's own components, the way a real game would.",
+        ],
+        controls=[
+            ("W A S D", "Move the player"),
+            ("↑ / ↓", "Adjust zoom"),
+            ("F", "Toggle camera smoothing (instant-snap vs. eased follow)"),
+        ],
+        source_files=["Game.hpp", "Game.cpp"],
+    ),
+    dict(
         slug="input_demo", title="Input System", tagline="Polling InputState end-to-end",
         tags=["Input"], kind="window", playable=False,
         description=[
