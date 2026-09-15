@@ -28,8 +28,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Doxygen + Graphviz
-        run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
+      # Pinned to the exact release used to generate docsite/doxygen-custom/header.html
+      # (via `doxygen -w html`) -- that file's $-placeholders (e.g. $mermaidjs) are only
+      # substituted by the same version that wrote them. apt's ubuntu-latest package is
+      # older and prints unknown placeholders back out literally instead of substituting
+      # them, which is exactly the "$mermaidjs" text that leaked onto the live page.
+      - name: Install Graphviz
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+
+      - name: Install Doxygen 1.18.0
+        run: |
+          curl -sL -o /tmp/doxygen.tar.gz https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz
+          tar -xzf /tmp/doxygen.tar.gz -C /tmp
+          echo "/tmp/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
 
       - name: Determine project version
         id: version
