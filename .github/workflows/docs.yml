@@ -23,37 +23,42 @@ concurrency:
 
 jobs:
   api-docs:
-    name: Build API reference (Doxygen)
+    name: Build API reference
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Pinned to the exact release used to generate docsite/doxygen-custom/header.html
-      # (via `doxygen -w html`) -- that file's $-placeholders (e.g. $mermaidjs) are only
-      # substituted by the same version that wrote them. apt's ubuntu-latest package is
-      # older and prints unknown placeholders back out literally instead of substituting
-      # them, which is exactly the "$mermaidjs" text that leaked onto the live page.
-      - name: Install Graphviz
-        run: sudo apt-get update && sudo apt-get install -y graphviz
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
 
-      - name: Install Doxygen 1.18.0
-        run: |
-          curl -sL -o /tmp/doxygen.tar.gz https://github.com/doxygen/doxygen/releases/download/Release_1_18_0/doxygen-1.18.0.linux.bin.tar.gz
-          tar -xzf /tmp/doxygen.tar.gz -C /tmp
-          echo "/tmp/doxygen-1.18.0/bin" >> "$GITHUB_PATH"
+      # Doxygen's job here is reduced to "parse C++ and emit XML" -- every
+      # page is then rendered by docsite/generate_api.py using the exact
+      # same nav/CSS as the rest of the site, not Doxygen's own HTML/theme.
+      # That means no HTML-template version sensitivity and no Graphviz
+      # dependency (diagrams are Mermaid, built from the XML's own
+      # structured <inheritancegraph>/<collaborationgraph> data), so apt's
+      # doxygen package is fine -- we only rely on the stable, versioned
+      # XML schema, not any HTML-specific behavior.
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen
 
       - name: Determine project version
         id: version
         run: echo "version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" >> "$GITHUB_OUTPUT"
 
-      - name: Generate API reference
+      - name: Generate Doxygen XML
         working-directory: docsite
         run: (cat Doxyfile; echo "PROJECT_NUMBER = ${{ steps.version.outputs.version }}") | doxygen -
+
+      - name: Render the API reference pages
+        working-directory: docsite
+        run: python generate_api.py
 
       - uses: actions/upload-artifact@v4
         with:
           name: api-docs
-          path: docsite/api
+          path: docsite/site/api
 
   deploy:
     name: Assemble and deploy Pages
