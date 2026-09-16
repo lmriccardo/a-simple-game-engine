@@ -1,5 +1,7 @@
 #include "Sprite.hpp"
 
+#include <cmath>
+
 std::optional<asge::math::Rect> asge::game::components::SpriteGetDstRect(
     Sprite const& inSprite, Transform const& inT ) noexcept
 {
@@ -23,6 +25,34 @@ std::optional<asge::math::Rect> asge::game::components::SpriteGetDstRect(
 
     return math::Rect{
         inT.m_X, inT.m_Y, srcW * inT.m_ScaleX, srcH * inT.m_ScaleY
+    };
+}
+
+asge::game::components::SpriteDrawCorners asge::game::components::SpriteGetDrawCorners(
+    math::Rect const& inDstRect, float inRotationRadians ) noexcept
+{
+    float const centerX = inDstRect.m_X + inDstRect.m_Width  * 0.5f;
+    float const centerY = inDstRect.m_Y + inDstRect.m_Height * 0.5f;
+    float const halfW = inDstRect.m_Width  * 0.5f;
+    float const halfH = inDstRect.m_Height * 0.5f;
+
+    float const cosR = std::cos( inRotationRadians );
+    float const sinR = std::sin( inRotationRadians );
+
+    // Rotates a point given relative to the rect's own center; screen-space
+    // Y grows downward, so this reads as a clockwise rotation on screen.
+    auto rotate = [&]( float inLocalX, float inLocalY ) noexcept -> math::Float2
+    {
+        return math::Float2{
+            centerX + inLocalX * cosR - inLocalY * sinR,
+            centerY + inLocalX * sinR + inLocalY * cosR
+        };
+    };
+
+    return SpriteDrawCorners{
+        rotate( -halfW, -halfH ), // origin: top-left
+        rotate(  halfW, -halfH ), // right:  top-right
+        rotate( -halfW,  halfH )  // down:   bottom-left
     };
 }
 

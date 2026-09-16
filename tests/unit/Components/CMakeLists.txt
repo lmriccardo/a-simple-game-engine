@@ -1,5 +1,6 @@
 add_executable(ASGE_ComponentsTest
     SerializeTests.cpp
+    SpriteTests.cpp
 )
 
 target_link_libraries(ASGE_ComponentsTest

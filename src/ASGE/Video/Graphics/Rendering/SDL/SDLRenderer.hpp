@@ -36,9 +36,11 @@ public:
     void DrawTexture(ITexture const& inTexture, math::Float2 const& inPosition) const noexcept override;
     void DrawTexture(ITexture const& inTexture, math::Rect const& inSrcRect,math::Rect const& inDestRect) const noexcept override;
     void DrawTextureTiled(ITexture const& inTexture, float inScale, math::Rect const& inDestRect) const noexcept override;
-    void DrawTextureAffine(ITexture const& inTexture, math::Float2 const& inOrigin, 
+    void DrawTextureAffine(ITexture const& inTexture, math::Float2 const& inOrigin,
         math::Float2 const& inRight, math::Float2 const& inDown) const noexcept override;
-    
+    void DrawTextureAffine(ITexture const& inTexture, math::Rect const& inSrcRect, math::Float2 const& inOrigin,
+        math::Float2 const& inRight, math::Float2 const& inDown) const noexcept override;
+
     void DrawTexture9Grid(
         ITexture const& inTexture, float inLeft, float inRight, float inTop, 
         float inBottom, math::Rect const& inDestRect

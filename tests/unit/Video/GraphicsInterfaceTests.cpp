@@ -77,6 +77,7 @@ public:
     mutable int s_DrawTexture9GridCalls{0};
     mutable int s_DrawTextureTiledCalls{0};
     mutable int s_DrawTextureAffineCalls{0};
+    mutable int s_DrawTextureAffineSrcRectCalls{0};
     mutable int s_DrawStringCalls{0};
     mutable int s_CreateTextureCalls{0};
     mutable int s_PresentCalls{0};
@@ -144,6 +145,14 @@ public:
     ) const noexcept override
     {
         ++s_DrawTextureAffineCalls;
+    }
+
+    void DrawTextureAffine(
+        ITexture const&, asge::math::Rect const&,
+        asge::math::Float2 const&, asge::math::Float2 const&, asge::math::Float2 const&
+    ) const noexcept override
+    {
+        ++s_DrawTextureAffineSrcRectCalls;
     }
 
     // Not exercised by RendererIsUsablePolymorphicallyThroughIRenderer below:
@@ -222,6 +231,8 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     renderer->DrawTextureTiled(*texture, 1.0F, asge::math::Rect{0.0F, 0.0F, 32.0F, 32.0F});
     renderer->DrawTextureAffine(*texture,
         asge::math::Float2{0.0F, 0.0F}, asge::math::Float2{32.0F, 0.0F}, asge::math::Float2{0.0F, 32.0F});
+    renderer->DrawTextureAffine(*texture, asge::math::Rect{0.0F, 0.0F, 16.0F, 16.0F},
+        asge::math::Float2{0.0F, 0.0F}, asge::math::Float2{32.0F, 0.0F}, asge::math::Float2{0.0F, 32.0F});
     renderer->Present();
 
     auto const& fake = static_cast<FakeRenderer const&>(*renderer);
@@ -236,6 +247,7 @@ TEST(GraphicsInterfaceTest, RendererIsUsablePolymorphicallyThroughIRenderer)
     EXPECT_EQ(fake.s_DrawTexture9GridCalls, 1);
     EXPECT_EQ(fake.s_DrawTextureTiledCalls, 1);
     EXPECT_EQ(fake.s_DrawTextureAffineCalls, 1);
+    EXPECT_EQ(fake.s_DrawTextureAffineSrcRectCalls, 1);
     EXPECT_EQ(fake.s_PresentCalls, 1);
     EXPECT_EQ(fake.s_LastClearColor.r, 10);
     EXPECT_TRUE(renderer->IsValid());

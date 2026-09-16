@@ -42,17 +42,20 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
  * @brief Draws every entity that has both a Transform and a Sprite whose
  *        destination rect overlaps the camera's currently visible area.
  *
- * Transform's position is the sprite's top-left corner; scale stretches
- * the drawn size — the texture's native size, or Sprite::m_SourceRect's
- * size when set, so a cropped cell of a larger spritesheet is scaled from
- * its own dimensions rather than the whole sheet's. Entities whose
- * Sprite::m_Texture is null are skipped, as is any entity whose destination
- * rect doesn't overlap IRenderer's current camera/viewport at all (see
- * video::VisibleWorldRect) — cheaper than submitting a draw call the
- * backend would just clip away. Rotation is not applied — IRenderer's
- * Rect-based DrawTexture overloads (the only ones that also support a
- * source rect) don't take one; use DrawTextureAffine directly for a
- * rotating, unclipped sprite.
+ * Transform's position is the sprite's top-left corner (before rotation —
+ * see below); scale stretches the drawn size — the texture's native size,
+ * or Sprite::m_SourceRect's size when set, so a cropped cell of a larger
+ * spritesheet is scaled from its own dimensions rather than the whole
+ * sheet's. Entities whose Sprite::m_Texture is null are skipped, as is any
+ * entity whose destination rect doesn't overlap IRenderer's current
+ * camera/viewport at all (see video::VisibleWorldRect) — cheaper than
+ * submitting a draw call the backend would just clip away.
+ *
+ * Transform::m_Rotation == 0 (the overwhelming majority of sprites) takes
+ * IRenderer's plain Rect-based DrawTexture path; a non-zero rotation
+ * instead routes through DrawTextureAffine with corners computed by
+ * components::SpriteGetDrawCorners, rotating the sprite around its own
+ * center (positive m_Rotation is clockwise on screen).
  *
  * Draw order is sorted, not insertion order: entities are batched by
  * Sprite::m_Layer first (lower layers draw first, so higher layers draw on
