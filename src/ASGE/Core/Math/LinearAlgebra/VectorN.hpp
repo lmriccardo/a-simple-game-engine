@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <initializer_list>
 #include <functional>
+#include <cmath>
 
 namespace asge::math
 {
@@ -301,7 +302,25 @@ public:
         return vec / scalar;
     }
 };
-    
+
+template<std::size_t N, _internal::Numeric T, typename Derived>
+T LengthSquared( VecN<N, T, Derived> const& inVector ) noexcept
+{
+    T result{0};
+    for ( std::size_t ii = 0; ii < N; ++ii )
+    {
+        result += inVector[ii] * inVector[ii];
+    }
+    return result;
+}
+
+template<std::size_t N, _internal::Numeric T, typename Derived>
+auto Length( VecN<N, T, Derived> const& inVector ) noexcept
+{
+    using RetType = std::conditional_t<std::is_floating_point_v<T>, T, double>;
+    return static_cast<RetType>( std::sqrt( static_cast<double>(LengthSquared( inVector )) ) );
+}
+
 }
 
 #define DEFINE_REBIND_TRAIT(_Class) \
