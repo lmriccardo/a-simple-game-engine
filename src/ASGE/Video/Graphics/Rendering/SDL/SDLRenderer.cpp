@@ -230,6 +230,27 @@ void asge::video::SDLRenderer::DrawTextureAffine(
     }
 }
 
+void asge::video::SDLRenderer::DrawTextureAffine(
+    ITexture const &inTexture, math::Rect const &inSrcRect, math::Float2 const &inOrigin,
+    math::Float2 const &inRight, math::Float2 const &inDown) const noexcept
+{
+    auto* texture = static_cast<SDL_Texture*>(inTexture.NativeHandle());
+
+    math::Float2 const origin = WorldToScreen(m_Camera, inOrigin);
+    math::Float2 const right  = WorldToScreen(m_Camera, inRight);
+    math::Float2 const down   = WorldToScreen(m_Camera, inDown);
+
+    SDL_FRect src{ inSrcRect.m_X, inSrcRect.m_Y, inSrcRect.m_Width, inSrcRect.m_Height };
+    SDL_FPoint originPt{ origin.x(), origin.y() };
+    SDL_FPoint rightPt{ right.x(), right.y() };
+    SDL_FPoint downPt{ down.x(), down.y() };
+
+    if (!SDL_RenderTextureAffine(m_Renderer, texture, &src, &originPt, &rightPt, &downPt))
+    {
+        LogError( make_error_code( errors::RenderError::RenderTextureFailed ), SDL_GetError() );
+    }
+}
+
 void asge::video::SDLRenderer::DrawTexture9Grid(
     ITexture const &inTexture, float inLeft, float inRight, float inTop, 
     float inBottom, math::Rect const &inDestRect

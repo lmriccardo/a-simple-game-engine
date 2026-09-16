@@ -146,13 +146,24 @@ void asge::game::systems::RenderSystem(
         video::ITexture* texture = drawItem.m_Sprite->m_Texture;
         auto const& src = drawItem.m_Sprite->m_SourceRect;
 
+        if ( drawItem.m_Transform->m_Rotation == 0.0f )
+        {
+            // Fast, common path: the overwhelming majority of sprites are
+            // unrotated, and IRenderer's Rect-based DrawTexture overloads
+            // are cheaper than routing everything through an affine draw.
+            if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, drawItem.m_DstRect );
+            else inRenderer.DrawTexture( *texture, drawItem.m_DstRect );
+            continue;
+        }
+
+        auto const corners = components::SpriteGetDrawCorners( drawItem.m_DstRect, drawItem.m_Transform->m_Rotation );
         if ( src.has_value() )
         {
-            inRenderer.DrawTexture( *texture, *src, drawItem.m_DstRect );
+            inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
         }
         else
         {
-            inRenderer.DrawTexture( *texture, drawItem.m_DstRect );
+            inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
         }
     }
 }

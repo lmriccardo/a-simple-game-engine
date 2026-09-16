@@ -167,6 +167,8 @@ TEST_F(TextureRenderingIntegrationTest, EveryDrawTextureVariantRunsAgainstARealD
     renderer.DrawTextureTiled(*texture, 1.0f, asge::math::Rect{20.0f, 20.0f, 16.0f, 16.0f});
     renderer.DrawTextureAffine(*texture,
         asge::math::Float2{0.0f, 40.0f}, asge::math::Float2{16.0f, 40.0f}, asge::math::Float2{0.0f, 56.0f});
+    renderer.DrawTextureAffine(*texture, asge::math::Rect{0.0f, 0.0f, 16.0f, 16.0f},
+        asge::math::Float2{20.0f, 40.0f}, asge::math::Float2{36.0f, 40.0f}, asge::math::Float2{20.0f, 56.0f});
     renderer.Present();
 
     EXPECT_TRUE(capture.Str().empty())

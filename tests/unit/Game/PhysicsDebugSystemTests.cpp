@@ -53,6 +53,8 @@ public:
     void DrawTextureTiled(asge::video::ITexture const&, float, asge::math::Rect const&) const noexcept override {}
     void DrawTextureAffine(asge::video::ITexture const&, asge::math::Float2 const&,
         asge::math::Float2 const&, asge::math::Float2 const&) const noexcept override {}
+    void DrawTextureAffine(asge::video::ITexture const&, asge::math::Rect const&, asge::math::Float2 const&,
+        asge::math::Float2 const&, asge::math::Float2 const&) const noexcept override {}
     void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
         asge::math::Float2 const&, asge::media::RGBA_Color const&) const noexcept override {}
 

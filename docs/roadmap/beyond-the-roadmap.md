@@ -143,25 +143,25 @@ but which also has no reported need yet. Reported as
 proposed `Spline` shape (Catmull-Rom through authored waypoints,
 `PointAt`/`TangentAt`, arc-length parameterization).
 
-## 11. `Transform::m_Rotation` is never applied by rendering
+## 11. `Transform::m_Rotation` is never applied by rendering - ✅ complete
 
-`Transform::m_Rotation` exists, defaults to 0, and round-trips through
-`Serializer<Transform>` — but nothing reads it back out.
-`Sprite::SpriteGetDstRect` builds its destination rect from
-`m_X`/`m_Y`/`m_ScaleX`/`m_ScaleY` only, and `RenderSystem` always calls
+`Transform::m_Rotation` existed, defaulted to 0, and round-tripped through
+`Serializer<Transform>` — but nothing read it back out.
+`Sprite::SpriteGetDstRect` built its destination rect from
+`m_X`/`m_Y`/`m_ScaleX`/`m_ScaleY` only, and `RenderSystem` always called
 `IRenderer`'s axis-aligned `DrawTexture` overload, never the
-`DrawTextureAffine` one already capable of expressing rotation. The only
-"rotation" tracked anywhere in the roadmap is
-[10-Rendering System Phase 1](phase-1/10.1-rendering-system.md)'s open 2D
-camera task ("position, zoom, rotation applied to `DrawX` calls") — a
-*global* camera rotation, not routing an individual entity's own
-`Transform::m_Rotation` through to its drawn `Sprite`. Set it today and a
-sprite silently keeps drawing upright. Reported as
+`DrawTextureAffine` one already capable of expressing rotation. Fixed:
+`RenderSystem` now routes a non-zero `m_Rotation` through
+`components::SpriteGetDrawCorners` (rotating the sprite around its own
+center) and `IRenderer::DrawTextureAffine` — including a new source-rect
+overload for a rotated *and* cropped sprite (e.g. an animation frame) —
+while an unrotated sprite (the overwhelming majority) keeps the original,
+cheaper `DrawTexture` path. Reported as, and closes,
 [#68](https://github.com/lmriccardo/a-simple-game-engine/issues/68).
 
 ## Priority, if picking one
 
-Items #1 and #3 above have since shipped. Of what's left, **#9 (broad-phase
+Items #1, #3, and #11 above have since shipped. Of what's left, **#9 (broad-phase
 collision)** is the one most likely to bite silently — nothing here fails
 loudly, a scene just gets slower as colliding entities grow, with no
 profiling task anywhere flagged to catch it. **#7 (view/system scoping)**

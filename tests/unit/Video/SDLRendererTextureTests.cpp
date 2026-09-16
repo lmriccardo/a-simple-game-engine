@@ -155,6 +155,8 @@ TEST_F(SDLRendererTextureTest, RemainingDrawTextureVariantsRunWithoutError)
     renderer.DrawTextureTiled(*texture, 1.0f, asge::math::Rect{0.0f, 0.0f, 32.0f, 32.0f});
     renderer.DrawTextureAffine(*texture,
         asge::math::Float2{0.0f, 0.0f}, asge::math::Float2{16.0f, 0.0f}, asge::math::Float2{0.0f, 16.0f});
+    renderer.DrawTextureAffine(*texture, asge::math::Rect{0.0f, 0.0f, 2.0f, 2.0f},
+        asge::math::Float2{0.0f, 0.0f}, asge::math::Float2{16.0f, 0.0f}, asge::math::Float2{0.0f, 16.0f});
     renderer.Present();
     auto const output = capture.Str();
 
@@ -197,6 +199,12 @@ TEST_F(SDLRendererTextureTest, EveryDrawTextureVariantLogsRenderTextureFailedFor
     {
         asge::test::CapturedStdout capture;
         renderer.DrawTextureAffine(invalid,
+            asge::math::Float2{0.0f, 0.0f}, asge::math::Float2{4.0f, 0.0f}, asge::math::Float2{0.0f, 4.0f});
+        EXPECT_NE(capture.Str().find("failed to render a texture"), std::string::npos);
+    }
+    {
+        asge::test::CapturedStdout capture;
+        renderer.DrawTextureAffine(invalid, asge::math::Rect{0.0f, 0.0f, 1.0f, 1.0f},
             asge::math::Float2{0.0f, 0.0f}, asge::math::Float2{4.0f, 0.0f}, asge::math::Float2{0.0f, 4.0f});
         EXPECT_NE(capture.Str().find("failed to render a texture"), std::string::npos);
     }

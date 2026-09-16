@@ -50,8 +50,13 @@ class RecordingRenderer final : public asge::video::IRenderer
 public:
     struct DrawCall
     {
-        asge::math::Rect m_DestRect;
-        bool m_HadSourceRect;
+        asge::math::Rect m_DestRect;         // set for a rect-based DrawTexture call, untouched otherwise
+        bool m_HadSourceRect;                // rect-based DrawTexture only: whether it was the srcRect+destRect overload
+        bool m_WasAffine{false};             // true for either DrawTextureAffine overload
+        bool m_AffineHadSourceRect{false};   // affine only: whether it was the srcRect-taking overload
+        asge::math::Float2 m_Origin{};       // affine only
+        asge::math::Float2 m_Right{};        // affine only
+        asge::math::Float2 m_Down{};         // affine only
     };
 
     mutable std::vector<DrawCall> m_Calls;
@@ -78,8 +83,17 @@ public:
     void DrawTexture9Grid(asge::video::ITexture const&, float, float, float, float,
         asge::math::Rect const&) const noexcept override {}
     void DrawTextureTiled(asge::video::ITexture const&, float, asge::math::Rect const&) const noexcept override {}
-    void DrawTextureAffine(asge::video::ITexture const&, asge::math::Float2 const&,
-        asge::math::Float2 const&, asge::math::Float2 const&) const noexcept override {}
+    void DrawTextureAffine(asge::video::ITexture const&, asge::math::Float2 const& inOrigin,
+        asge::math::Float2 const& inRight, asge::math::Float2 const& inDown) const noexcept override
+    {
+        m_Calls.push_back({ {}, false, true, false, inOrigin, inRight, inDown });
+    }
+
+    void DrawTextureAffine(asge::video::ITexture const&, asge::math::Rect const&, asge::math::Float2 const& inOrigin,
+        asge::math::Float2 const& inRight, asge::math::Float2 const& inDown) const noexcept override
+    {
+        m_Calls.push_back({ {}, false, true, true, inOrigin, inRight, inDown });
+    }
     void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
         asge::math::Float2 const&, asge::media::RGBA_Color const&) const noexcept override {}
 
@@ -438,6 +452,74 @@ TEST(RenderSystemTest, Culling_FollowsTheRendererSCurrentCameraNotJustItsDefault
 
     ASSERT_EQ(renderer.m_Calls.size(), 1u);
     EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 2050.0f);
+}
+
+// ─── RenderSystem — rotation ─────────────────────────────────────────────────────
+
+TEST(RenderSystemTest, Rotation_ZeroRotation_UsesThePlainDrawTexturePath)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 100.0f, .m_Y = 100.0f, .m_Rotation = 0.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 1u);
+    EXPECT_FALSE(renderer.m_Calls[0].m_WasAffine);
+}
+
+TEST(RenderSystemTest, Rotation_NonZeroRotationNoSourceRect_RoutesThroughWholeTextureAffineOverload)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_X = 100.0f, .m_Y = 100.0f, .m_Rotation = 3.14159265358979323846f * 0.5f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 1u);
+    auto const& call = renderer.m_Calls[0];
+    EXPECT_TRUE(call.m_WasAffine);
+    EXPECT_FALSE(call.m_AffineHadSourceRect);
+
+    // Dest rect is {100,100,32,32}, center (116,116); a 90-degree turn
+    // (clockwise on screen) puts the texture's top-left at what was the
+    // dest rect's top-right corner.
+    EXPECT_NEAR(call.m_Origin.x(), 132.0f, 1e-2f);
+    EXPECT_NEAR(call.m_Origin.y(), 100.0f, 1e-2f);
+    EXPECT_NEAR(call.m_Right.x(), 132.0f, 1e-2f);
+    EXPECT_NEAR(call.m_Right.y(), 132.0f, 1e-2f);
+    EXPECT_NEAR(call.m_Down.x(), 100.0f, 1e-2f);
+    EXPECT_NEAR(call.m_Down.y(), 100.0f, 1e-2f);
+}
+
+TEST(RenderSystemTest, Rotation_NonZeroRotationWithSourceRect_RoutesThroughSourceRectAffineOverload)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 256, 256 }); // a spritesheet
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 0.0f, .m_Y = 0.0f, .m_Rotation = 0.7f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Sprite{ .m_Texture = &texture, .m_SourceRect = asge::math::Rect{ 0.0f, 0.0f, 16.0f, 16.0f } }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 1u);
+    EXPECT_TRUE(renderer.m_Calls[0].m_WasAffine);
+    EXPECT_TRUE(renderer.m_Calls[0].m_AffineHadSourceRect); // cropped *and* rotated -- needs the srcRect affine overload
 }
 
 // ─── CameraSystem ────────────────────────────────────────────────────────────────

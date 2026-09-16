@@ -118,8 +118,27 @@ public:
      * @param inDown where the texture's bottom-left (0,h) lands on screen
      */
     virtual void DrawTextureAffine(
-        ITexture const& inTexture, math::Float2 const& inOrigin, math::Float2 const& inRight, 
+        ITexture const& inTexture, math::Float2 const& inOrigin, math::Float2 const& inRight,
         math::Float2 const& inDown) const noexcept = 0;
+
+    /**
+     * @brief Draw a sub-region of a texture using an arbitrary affine transform
+     *
+     * Same mapping as the whole-texture DrawTextureAffine overload, except
+     * inOrigin/inRight/inDown correspond to inSrcRect's own top-left/
+     * top-right/bottom-left corners rather than the whole texture's —
+     * needed to draw a rotated sprite cropped to one cell of a larger
+     * spritesheet (e.g. an animation frame).
+     *
+     * @param inTexture the texture to draw from
+     * @param inSrcRect the source rectangle within inTexture, in pixels
+     * @param inOrigin where inSrcRect's top-left corner lands on screen
+     * @param inRight where inSrcRect's top-right corner lands on screen
+     * @param inDown where inSrcRect's bottom-left corner lands on screen
+     */
+    virtual void DrawTextureAffine(
+        ITexture const& inTexture, math::Rect const& inSrcRect, math::Float2 const& inOrigin,
+        math::Float2 const& inRight, math::Float2 const& inDown) const noexcept = 0;
 
     /**
      * @brief Draw a string of text using a baked Font and its uploaded atlas texture

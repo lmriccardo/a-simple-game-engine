@@ -38,6 +38,26 @@ struct Sprite
 /** @brief inSprite's on-screen destination rect at inT's position/scale, or nullopt if it has no texture yet. */
 std::optional<math::Rect> SpriteGetDstRect( Sprite const& inSprite, Transform const& inT ) noexcept;
 
+/** @brief The three corners IRenderer::DrawTextureAffine maps a texture's (0,0)/(w,0)/(0,h) onto. */
+struct SpriteDrawCorners
+{
+    math::Float2 m_Origin; // texture's top-left (0,0) maps here
+    math::Float2 m_Right;  // texture's top-right (w,0) maps here
+    math::Float2 m_Down;   // texture's bottom-left (0,h) maps here
+};
+
+/**
+ * @brief inDstRect's own corners (as SpriteGetDstRect returns), rotated
+ *        inRotationRadians around inDstRect's center.
+ *
+ * Positive inRotationRadians rotates clockwise on screen (screen-space Y
+ * grows downward); inRotationRadians == 0 reproduces inDstRect's unrotated
+ * corners exactly. Feeds IRenderer::DrawTextureAffine, the only DrawTexture*
+ * overload that can express rotation — see RenderSystem, which switches to
+ * it whenever a drawn entity's Transform::m_Rotation is non-zero.
+ */
+SpriteDrawCorners SpriteGetDrawCorners( math::Rect const& inDstRect, float inRotationRadians ) noexcept;
+
 template<>
 struct Serializer<Sprite>
 {
