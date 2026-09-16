@@ -65,6 +65,16 @@ public:
     }
 
     /**
+     * @brief Sets a float-array-valued key. Stored as an array of TOML
+     *        doubles — the array-valued counterpart to the float overload
+     *        of Set(); see its doc comment for why.
+     */
+    TOMLTableView& SetArray( std::string const& inKey, std::vector<float> const& inValues )
+    {
+        return SetArray<double>( inKey, std::vector<double>( inValues.begin(), inValues.end() ) );
+    }
+
+    /**
      * @brief Descends into a dotted subtable path relative to this table,
      *        creating any missing tables along the way, and returns a view
      *        scoped to it.
@@ -133,6 +143,35 @@ public:
             return static_cast<float>( *asInt.Value() );
 
         return inDefault;
+    }
+
+    /**
+     * @brief Reads an array-valued key at inKey on this table, returning
+     *        inDefault if the array's elements hold a different type — the
+     *        read-side counterpart to SetArray(). A missing key yields an
+     *        empty vector rather than inDefault, mirroring the underlying
+     *        Table::GetTypedArray().
+     */
+    template<typename T>
+    std::vector<T> GetArray( std::string const& inKey, std::vector<T> inDefault = {} ) const
+    {
+        auto result = m_Table->template GetTypedArray<T>( inKey );
+        return result ? std::move(result).Value() : std::move(inDefault);
+    }
+
+    /**
+     * @brief Reads a float-array-valued key — the read-side counterpart to
+     *        the float overload of SetArray(). Stored/looked up as an
+     *        array of doubles; see that overload's doc comment for why.
+     */
+    std::vector<float> GetArray( std::string const& inKey, std::vector<float> inDefault = {} ) const
+    {
+        auto asDouble = GetArray<double>( inKey, std::vector<double>( inDefault.begin(), inDefault.end() ) );
+
+        std::vector<float> result;
+        result.reserve( asDouble.size() );
+        for ( double value : asDouble ) result.push_back( static_cast<float>(value) );
+        return result;
     }
 
     /**

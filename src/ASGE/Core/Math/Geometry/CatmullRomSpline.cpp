@@ -117,6 +117,11 @@ asge::math::CatmullRomSpline::Waypoints() const noexcept
     return m_Waypoints;
 }
 
+bool asge::math::CatmullRomSpline::HasSegments() const noexcept
+{
+    return !m_Segments.empty();
+}
+
 float asge::math::CatmullRomSpline::Length() const noexcept
 {
     return m_TotalLength;

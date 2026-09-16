@@ -58,14 +58,16 @@ class CatmullRomSpline
         float m_Length;                       // This segment's own arc length
     };
 
-    std::vector<Float2>  m_Waypoints;
-    std::vector<Segment> m_Segments;
+    std::vector<Float2>  m_Waypoints{};
+    std::vector<Segment> m_Segments{};
     float                m_TotalLength{0.0f};
 
     /** @brief Maps a normalized spline parameter `inTime` in [0, 1] to the
      *  segment it falls in and the local Hermite parameter within it. */
     std::pair<std::size_t, float> LocateSegment( float inTime ) const;
 public:
+    CatmullRomSpline() = default;
+
     /** @brief Builds the spline through `inWp`, precomputing each segment's
      *  arc-length table with `inResolution` samples. Splines with fewer
      *  than two waypoints have no segments and evaluate to a zero point. */
@@ -84,6 +86,9 @@ public:
 
     /** @brief Returns the waypoints the spline was constructed from. */
     std::vector<Float2>  const& Waypoints() const noexcept;
+
+    /** @brief Check if the spline has segments in it. */
+    bool HasSegments() const noexcept;
 
     /** @brief Returns the total arc length of the spline. */
     float Length() const noexcept;
