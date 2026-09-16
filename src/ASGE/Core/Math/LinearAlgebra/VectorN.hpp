@@ -321,6 +321,15 @@ auto Length( VecN<N, T, Derived> const& inVector ) noexcept
     return static_cast<RetType>( std::sqrt( static_cast<double>(LengthSquared( inVector )) ) );
 }
 
+/** @brief Returns `inVector` scaled to unit length. Dividing by a zero
+ *  length (a zero vector) yields a vector of NaNs/infinities. */
+template<std::size_t N, _internal::Numeric T, typename Derived>
+Derived NormalizeVec( VecN<N, T, Derived> const& inVector ) noexcept
+{
+    auto l2norm = Length( inVector );
+    return static_cast<Derived>( inVector / l2norm );
+}
+
 }
 
 #define DEFINE_REBIND_TRAIT(_Class) \
