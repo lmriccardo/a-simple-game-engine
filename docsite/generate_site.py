@@ -144,6 +144,27 @@ EXAMPLES = [
         source_files=["Game.hpp", "Game.cpp"],
     ),
     dict(
+        slug="rotation_demo", title="Sprite Rotation", tagline="Transform::m_Rotation, applied for real",
+        tags=["Rendering"], kind="window", playable=False,
+        description=[
+            "Showcases <code>Transform::m_Rotation</code> actually being applied by "
+            "<code>RenderSystem</code>: a plain rotating sprite (the whole-texture "
+            "<code>DrawTextureAffine</code> path) alongside a rotating <em>animated</em> sprite "
+            "(the source-rect <code>DrawTextureAffine</code> overload — rotated and cropped to "
+            "its current animation frame at once).",
+            "Both entities just accumulate their own angular speed into their own "
+            "<code>Transform::m_Rotation</code> each <code>Update()</code> — there's no "
+            "engine-side \"spin\" component, it's ordinary per-entity gameplay state living in "
+            "the demo itself.",
+        ],
+        controls=[
+            ("LEFT / RIGHT", "Adjust the plain sprite's spin speed (can reverse direction)"),
+            ("SPACE", "Pause/resume both sprites"),
+            ("R", "Reset"),
+        ],
+        source_files=["Game.hpp", "Game.cpp"],
+    ),
+    dict(
         slug="input_demo", title="Input System", tagline="Polling InputState end-to-end",
         tags=["Input"], kind="window", playable=False,
         description=[
@@ -197,6 +218,29 @@ EXAMPLES = [
             "without any physical push-back.",
         ],
         controls=[("Click", "Drop a new box at the cursor"), ("R", "Reset the scene")],
+        source_files=["Game.hpp", "Game.cpp"],
+    ),
+    dict(
+        slug="path_following_demo", title="Path Following", tagline="A car driving a closed, curved street",
+        tags=["Physics", "ECS", "Assets", "Rendering"], kind="window", playable=False,
+        description=[
+            "End-to-end showcase for <code>components::PathFollow</code> and "
+            "<code>systems::PathFollowingSystem</code>: a car drives a closed, curved street "
+            "loop built from <code>math::CatmullRomSpline</code> — 13 waypoints (the first "
+            "repeated at the end, since a Catmull-Rom chain doesn't wrap on its own) resolved "
+            "once at spawn time, then walked every frame at a player-adjustable speed, with the "
+            "car oriented to face the road's tangent direction as it turns.",
+            "The street itself is drawn straight from the car's own resolved "
+            "<code>PathFollow::m_Path</code> — <code>IRenderer</code> has no curve/polygon-fill "
+            "primitive, so it's painted as a dense trail of overlapping filled circles (via "
+            "<code>PointAtDistance</code>) with a dashed centerline, rather than needing a "
+            "second, separately-authored road asset.",
+        ],
+        controls=[
+            ("UP / DOWN", "Adjust speed while held"),
+            ("SPACE", "Pause/resume"),
+            ("R", "Reset to the start of the loop"),
+        ],
         source_files=["Game.hpp", "Game.cpp"],
     ),
     dict(
@@ -352,7 +396,7 @@ def build_index():
     body = f"""
 <section class="hero">
   <div class="container">
-    <span class="kicker">v0.8.0 &middot; MIT Licensed &middot; C++23</span>
+    <span class="kicker">v0.8.2 &middot; MIT Licensed &middot; C++23</span>
     <h1>A Simple Game Engine, built to stay out of your way.</h1>
     <p class="lede">ASGE is a modular, lightweight, cross-platform 2D game engine written in modern
     C++ (C++23) on top of <a href="https://www.libsdl.org/" target="_blank" rel="noopener">SDL3</a>.
@@ -629,11 +673,15 @@ def build_install():
 def example_card(e: dict) -> str:
     img_path = f"assets/img/examples/{e['slug']}.png"
     has_img = (SITE / img_path).exists()
-    thumb = (
-        f'<img src="../{img_path}" alt="{html.escape(e["title"])} screenshot" loading="lazy"/>'
-        if has_img else
-        f'<div class="noshot">console example<br/>(no window)</div>'
-    )
+    if has_img:
+        thumb = f'<img src="../{img_path}" alt="{html.escape(e["title"])} screenshot" loading="lazy"/>'
+    elif e["kind"] == "console":
+        thumb = '<div class="noshot">console example<br/>(no window)</div>'
+    else:
+        # A window-kind example without a captured screenshot yet (e.g. just
+        # added) -- distinct from "console example" so the grid doesn't claim
+        # it has no window at all.
+        thumb = '<div class="noshot">screenshot pending</div>'
     badge = '<span class="playable-badge">Play in browser</span>' if e.get("playable") else ""
     tags = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in e["tags"])
     return f"""<a class="example-card" href="{e['slug']}.html">

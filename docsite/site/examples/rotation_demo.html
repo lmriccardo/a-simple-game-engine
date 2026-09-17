@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Sprite Rotation · ASGE</title>
+<meta name="description" content="Transform::m_Rotation, applied for real"/>
+<meta property="og:title" content="Sprite Rotation · ASGE"/>
+<meta property="og:description" content="Transform::m_Rotation, applied for real"/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html" class="active">Examples</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Rendering</span>
+        <h1>Sprite Rotation</h1>
+        <p class="lede">Transform::m_Rotation, applied for real</p>
+        <p>Showcases <code>Transform::m_Rotation</code> actually being applied by <code>RenderSystem</code>: a plain rotating sprite (the whole-texture <code>DrawTextureAffine</code> path) alongside a rotating <em>animated</em> sprite (the source-rect <code>DrawTextureAffine</code> overload — rotated and cropped to its current animation frame at once).</p>
+<p>Both entities just accumulate their own angular speed into their own <code>Transform::m_Rotation</code> each <code>Update()</code> — there's no engine-side "spin" component, it's ordinary per-entity gameplay state living in the demo itself.</p>
+        <h3>Controls</h3><ul class="controls-list"><li><kbd>LEFT / RIGHT</kbd> <span>Adjust the plain sprite&#x27;s spin speed (can reverse direction)</span></li><li><kbd>SPACE</kbd> <span>Pause/resume both sprites</span></li><li><kbd>R</kbd> <span>Reset</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">Rendering</span></div>
+      </div>
+      <div class="example-media"><img src="../assets/img/examples/rotation_demo.png" alt="Sprite Rotation screenshot"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target rotation_demo
+# binary lands under bin/ (e.g. bin/Debug/rotation_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2>Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/rotation_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+#include &lt;ASGE/ASGE.hpp&gt;
+
+/**
+ * @brief Showcases Transform::m_Rotation actually being applied by
+ *        RenderSystem: a plain rotating sprite (the whole-texture
+ *        DrawTextureAffine path) alongside a rotating *animated* sprite (the
+ *        source-rect DrawTextureAffine overload — rotated and cropped to
+ *        its current animation frame at once).
+ *
+ * Both entities just accumulate their own angular speed into their own
+ * Transform::m_Rotation each Update() — there&#x27;s no engine-side &quot;spin&quot;
+ * component, this is ordinary per-entity gameplay state living in the demo.
+ * LEFT/RIGHT adjust the plain sprite&#x27;s spin speed (and can reverse its
+ * direction), SPACE pauses/resumes both, R resets everything.
+ */
+class RotationDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    asge::ecs::Registry&amp;             m_Registry;
+    asge::game::asset::AssetManager&amp; m_Assets;
+
+    asge::ecs::Entity m_Spinner{ asge::ecs::Entity::Null() };         // whole-texture rotation
+    asge::ecs::Entity m_AnimatedSpinner{ asge::ecs::Entity::Null() }; // rotation + cropped animation frame
+
+    float m_SpinnerSpeed{ 1.5f }; // radians/second; LEFT/RIGHT-adjustable, can go negative
+    bool  m_Paused{ false };
+    float m_LastDeltaTime{ 0.0f }; // Captured in Update(), consumed by Render()&#x27;s RenderPipeline call
+
+    void SpawnEntities();
+    void UpdateRotation(float inDeltaTime);
+    void AdjustSpinnerSpeed(float inDelta);
+    void Reset();
+    void RenderHud(asge::video::IRenderer&amp; inRenderer) const;
+
+public:
+    RotationDemoState(asge::ecs::Registry&amp; inRegistry, asge::game::asset::AssetManager&amp; inAssets);
+
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class RotationDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit RotationDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/rotation_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;algorithm&gt;
+#include &lt;cmath&gt;
+
+namespace
+{
+using asge::input::Keycode;
+using asge::media::RGBA_Color;
+using asge::game::components::Animation;
+using asge::game::components::Sprite;
+using asge::game::components::Transform;
+
+constexpr float kPi = 3.14159265358979323846f;
+constexpr float kTwoPi = kPi * 2.0f;
+
+constexpr char const* kArrowPath = &quot;textures/arrow.bmp&quot;;
+constexpr char const* kSheetPath = &quot;textures/spritesheet.bmp&quot;;
+constexpr char const* kClipPath  = &quot;textures/walk.toml&quot;; // asset::FrameTable meta-file -- see assets/
+
+constexpr float kArrowScale = 4.0f; // draws the 32x32 arrow at 128x128
+constexpr float kSheetScale = 3.0f; // draws each 32x32 cell at 96x96
+
+constexpr float kSpinnerX = 260.0f;
+constexpr float kAnimatedSpinnerX = 540.0f;
+constexpr float kSpinY = 300.0f;
+
+constexpr float kAnimatedAngularSpeed = -0.9f; // radians/second, fixed -- just for visual contrast with the player-adjustable spinner
+constexpr float kFrameDuration = 0.12f;
+
+constexpr float kSpeedStep = 0.5f; // radians/second per LEFT/RIGHT press
+
+/** @brief Wraps inRadians into [0, 2*pi) -- keeps Transform::m_Rotation from growing unbounded over a long-running demo. */
+float WrapAngle( float inRadians ) noexcept
+{
+    float wrapped = std::fmod( inRadians, kTwoPi );
+    if ( wrapped &lt; 0.0f ) wrapped += kTwoPi;
+    return wrapped;
+}
+}
+
+RotationDemoState::RotationDemoState(
+    asge::ecs::Registry&amp; inRegistry, asge::game::asset::AssetManager&amp; inAssets
+)
+: m_Registry(inRegistry), m_Assets(inAssets)
+{
+    SpawnEntities();
+}
+
+void RotationDemoState::SpawnEntities()
+{
+    auto spinner = m_Registry.CreateEntity();
+    if ( !spinner ) { spinner.LogError(); return; }
+    m_Spinner = spinner.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_Spinner,
+        Transform{ .m_X = kSpinnerX, .m_Y = kSpinY, .m_ScaleX = kArrowScale, .m_ScaleY = kArrowScale } );
+    // m_Texture stays null until Render()&#x27;s AssetManager::ResolveAssets call.
+    m_Registry.AddComponent&lt;Sprite&gt;( m_Spinner, Sprite{ .m_VirtualPath = kArrowPath } );
+
+    auto animated = m_Registry.CreateEntity();
+    if ( !animated ) { animated.LogError(); return; }
+    m_AnimatedSpinner = animated.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_AnimatedSpinner,
+        Transform{ .m_X = kAnimatedSpinnerX, .m_Y = kSpinY, .m_ScaleX = kSheetScale, .m_ScaleY = kSheetScale } );
+    m_Registry.AddComponent&lt;Sprite&gt;( m_AnimatedSpinner, Sprite{ .m_VirtualPath = kSheetPath } );
+    m_Registry.AddComponent&lt;Animation&gt;( m_AnimatedSpinner, Animation{
+        .m_ClipPath = kClipPath, .m_FrameDuration = kFrameDuration
+    } );
+}
+
+void RotationDemoState::UpdateRotation(float inDeltaTime)
+{
+    if ( m_Paused ) return;
+
+    if ( auto result = m_Registry.GetComponent&lt;Transform&gt;( m_Spinner ) )
+    {
+        Transform&amp; t = result.Value().get();
+        t.m_Rotation = WrapAngle( t.m_Rotation + m_SpinnerSpeed * inDeltaTime );
+    }
+
+    if ( auto result = m_Registry.GetComponent&lt;Transform&gt;( m_AnimatedSpinner ) )
+    {
+        Transform&amp; t = result.Value().get();
+        t.m_Rotation = WrapAngle( t.m_Rotation + kAnimatedAngularSpeed * inDeltaTime );
+    }
+}
+
+void RotationDemoState::AdjustSpinnerSpeed(float inDelta)
+{
+    m_SpinnerSpeed += inDelta;
+}
+
+void RotationDemoState::Reset()
+{
+    m_Paused = false;
+    m_SpinnerSpeed = 1.5f;
+
+    for ( auto entity : { m_Spinner, m_AnimatedSpinner } )
+    {
+        if ( auto result = m_Registry.GetComponent&lt;Transform&gt;( entity ) )
+        {
+            result.Value().get().m_Rotation = 0.0f;
+        }
+    }
+}
+
+void RotationDemoState::RenderHud(asge::video::IRenderer &amp;inRenderer) const
+{
+    // &quot;PAUSED&quot; indicator (top-left): lit while rotation is frozen.
+    inRenderer.DrawRect(
+        asge::math::Rect{ 20.0f, 20.0f, 30.0f, 16.0f },
+        m_Paused ? RGBA_Color{ 240, 120, 60, 255 } : RGBA_Color{ 55, 55, 60, 255 },
+        true
+    );
+
+    // Spin-speed bar (below it): fill tracks m_SpinnerSpeed&#x27;s magnitude,
+    // centered so a negative (reversed) speed fills from the middle leftward.
+    constexpr float kMaxSpeed = 6.0f;
+    asge::math::Rect const track{ 20.0f, 46.0f, 160.0f, 16.0f };
+    inRenderer.DrawRect(track, RGBA_Color{ 90, 90, 100, 255 }, false);
+
+    float const half = track.m_Width * 0.5f;
+    float const fill = std::clamp( m_SpinnerSpeed / kMaxSpeed, -1.0f, 1.0f ) * half;
+    asge::math::Rect const bar = fill &gt;= 0.0f
+        ? asge::math::Rect{ track.m_X + half, track.m_Y, fill, track.m_Height }
+        : asge::math::Rect{ track.m_X + half + fill, track.m_Y, -fill, track.m_Height };
+    inRenderer.DrawRect(bar, RGBA_Color{ 100, 170, 240, 255 }, true);
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+RotationDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const &amp;inInput)
+{
+    UpdateRotation( inDeltaTime );
+    // AnimationSystem itself runs inside RenderPipeline (see Render()) --
+    // same reasoning as animation_demo&#x27;s m_LastDeltaTime capture.
+    m_LastDeltaTime = inDeltaTime;
+    return std::nullopt;
+}
+
+void RotationDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    inRenderer.Clear({ 15, 18, 22, 255 });
+
+    // Deferred-loads Sprite::m_Texture/Animation::m_Clip on first use, same
+    // as animation_demo -- no hand-rolled &quot;is the texture attached yet&quot;
+    // bookkeeping needed here.
+    m_Assets.ResolveAssets( m_Registry, inRenderer );
+
+    // The one call this whole demo exists to show off: RenderSystem now
+    // routes a non-zero Transform::m_Rotation through DrawTextureAffine
+    // (via components::SpriteGetDrawCorners) instead of always drawing
+    // axis-aligned.
+    asge::game::systems::RenderPipeline( m_Registry, inRenderer, m_LastDeltaTime );
+
+    RenderHud( inRenderer );
+}
+
+void RotationDemoState::OnSystemEvent(asge::event::SystemEvent const &amp;inSysEvent)
+{
+    auto const* keyEvent = inSysEvent.TryGet&lt;asge::event::KeyboardEvent&gt;();
+    if ( !keyEvent ) return;
+    if ( keyEvent-&gt;s_Type != asge::event::EventType::KEYBOARD_KEY_PRESSED ) return;
+    if ( keyEvent-&gt;s_Repeat ) return; // edge-triggered: one step/toggle per physical press
+
+    if ( keyEvent-&gt;s_Keycode == Keycode::LEFT )       AdjustSpinnerSpeed( -kSpeedStep );
+    else if ( keyEvent-&gt;s_Keycode == Keycode::RIGHT ) AdjustSpinnerSpeed( kSpeedStep );
+    else if ( keyEvent-&gt;s_Keycode == Keycode::SPACE ) m_Paused = !m_Paused;
+    else if ( keyEvent-&gt;s_Keycode == Keycode::R )     Reset();
+}
+
+RotationDemoGame::RotationDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    // ASGE_ROTATION_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted
+    // once so textures are loaded by virtual path instead of a hardcoded OS
+    // path baked into this demo.
+    auto mountResult = m_Vfs.Mount(&quot;textures&quot;, ASGE_ROTATION_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;RotationDemoGame::StateType&gt; RotationDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;RotationDemoState&gt;( m_SceneManager.GetRegistry(), m_Assets );
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/rotation_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>
