@@ -128,7 +128,7 @@ any current example uses; stops scaling once a game wants dozens-to-hundreds
 colliding at once. Reported as
 [#66](https://github.com/lmriccardo/a-simple-game-engine/issues/66).
 
-## 10. Curve/spline math primitive
+## 10. Curve/spline math primitive - ✅ complete
 
 `asge::math`'s entire geometry surface — checked, along with every phase
 file for "curve"/"spline"/"bezier" — is `Vec2`/`Rect`/`Circle` plus pairwise
