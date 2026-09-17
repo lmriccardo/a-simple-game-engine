@@ -15,6 +15,14 @@ asge::video::SDLRenderer::SDLRenderer(SDL_Window *inWindow)
         LogError( make_error_code( errors::RenderError::CreateRendererFailed ), SDL_GetError() );
     }
 
+    // SDL's own default draw-color blend mode is NONE, which ignores alpha
+    // entirely -- DrawRect/DrawLine/DrawCircle's inColor.a would otherwise
+    // always render fully opaque regardless of what's passed in.
+    if ( m_Renderer && !SDL_SetRenderDrawBlendMode( m_Renderer, SDL_BLENDMODE_BLEND ) )
+    {
+        LogError( make_error_code( errors::RenderError::SetDrawColorFailed ), SDL_GetError() );
+    }
+
     // Default the viewport to the window's own size, so RenderSystem's
     // visible-rect culling (see VisibleWorldRect) has something sane to cull
     // against even for callers that never call SetViewport themselves --
