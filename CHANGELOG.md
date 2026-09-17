@@ -1,3 +1,37 @@
+## [0.8.2] - 2026-09-17
+
+
+### Bug Fixes
+
+- :bug: Fix CatmullRomSpline arc-length NaN bug, document and test the whole feature
+
+- Apply Transform::m_Rotation when RenderSystem draws a Sprite (#86)
+
+
+
+
+### Features
+
+- :sparkles: Add path_following_demo -- a car driving a closed curved street
+
+- :sparkles: Add PathFollowingSystem, document and test path-following end to end
+
+- :sparkles: Generalize ResolveAssets via Resolver<T>, resolve PathFollow's spline
+
+- :sparkles: Add PathFollow component for Catmull-Rom path following
+
+- :construction: Introduces initial Spline using Catmull-Rom Method
+
+- :sparkles: Add camera_demo and camera_follow_demo to the Examples section (#85)
+
+
+
+
+### Contributors
+
+- lmriccardo
+
+- La Marca Riccardo
 ## [0.8.1] - 2026-09-15
 
 
@@ -407,6 +441,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.0...v0.7.1
