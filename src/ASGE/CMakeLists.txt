@@ -30,6 +30,7 @@ add_library(ASGE STATIC
     # Math utilities implementation
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
+    Core/Math/Geometry/CatmullRomSpline.cpp
 
     # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
     # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
@@ -74,6 +75,7 @@ add_library(ASGE STATIC
     Game/Components/Animation.cpp
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp
+    Game/Components/PathFollow.cpp
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp
@@ -83,6 +85,7 @@ add_library(ASGE STATIC
 
     # Asset Manager
     Game/Assets/AssetManager.cpp
+    Game/Assets/AssetResolver.cpp
     Game/Assets/FrameTable.cpp
 
     # Scene management

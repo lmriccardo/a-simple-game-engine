@@ -65,6 +65,30 @@ TEST(TOMLBuilderTest, SetArray_NestedArraySerializesCorrectly)
     EXPECT_NE(builder.ToString().find("matrix = [[1, 2], [3, 4]]"), std::string::npos);
 }
 
+TEST(TOMLBuilderTest, GetArray_ReturnsWhatWasPreviouslySet)
+{
+    toml::TOMLBuilder builder;
+    builder.SetArray<int>("nums", {1, 2, 3});
+
+    EXPECT_EQ(builder.GetArray<int>("nums"), (std::vector<int>{1, 2, 3}));
+}
+
+TEST(TOMLBuilderTest, GetArray_MissingKeyReturnsEmptyVectorRatherThanDefault)
+{
+    toml::TOMLBuilder builder;
+
+    EXPECT_TRUE(builder.GetArray<int>("missing", {9, 9, 9}).empty());
+}
+
+TEST(TOMLBuilderTest, GetArray_TypeMismatchReturnsInDefault)
+{
+    toml::TOMLBuilder builder;
+    builder.SetArray<std::string>("tags", {"prod", "eu"});
+
+    std::vector<int> const fallback{-1};
+    EXPECT_EQ(builder.GetArray<int>("tags", fallback), fallback);
+}
+
 // ─── Set/Get(float) — stored as TOML's double under the hood ──────────────────
 
 TEST(TOMLBuilderTest, Set_FloatKeySerializesAsTomlFloat)

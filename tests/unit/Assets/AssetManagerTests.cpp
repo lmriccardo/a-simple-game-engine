@@ -3,6 +3,7 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Core/Errors.hpp>
 
@@ -248,7 +249,7 @@ TEST_F(AssetManagerTest, GetFrameTable_SamePathTwiceReturnsSameCachedAsset)
     EXPECT_EQ(first.Value(), second.Value());
 }
 
-// ─── ResolveAssets ───────────────────────────────────────────────────────────
+// ─── CreateTexture / ResolveAssets test doubles ─────────────────────────────
 
 // Minimal ITexture stub tracking how many instances are currently alive, so
 // tests can assert on AssetManager actually owning (and eventually freeing)
@@ -320,6 +321,63 @@ private:
     asge::video::Camera   m_Camera{};
     asge::video::Viewport m_Viewport{};
 };
+
+// ─── CreateTexture ───────────────────────────────────────────────────────────
+
+class CreateTextureTest : public AssetManagerTest
+{
+protected:
+    FakeRenderer m_Renderer;
+
+    void SetUp() override
+    {
+        AssetManagerTest::SetUp();
+        FakeTexture::s_LiveCount = 0;
+    }
+};
+
+TEST_F(CreateTextureTest, ValidImageReturnsANonOwningPointerToALiveTexture)
+{
+    AssetManager mgr(m_Vfs);
+    auto image = mgr.GetImage("images/hero.bmp");
+    ASSERT_TRUE(image.IsOk());
+
+    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+
+    ASSERT_NE(texture, nullptr);
+    EXPECT_TRUE(texture->IsValid());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
+
+TEST_F(CreateTextureTest, RendererFailureReturnsNullRatherThanCrashing)
+{
+    AssetManager mgr(m_Vfs);
+    m_Renderer.m_FailCreate = true;
+    auto image = mgr.GetImage("images/hero.bmp");
+    ASSERT_TRUE(image.IsOk());
+
+    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+
+    EXPECT_EQ(texture, nullptr);
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
+}
+
+TEST_F(CreateTextureTest, EachCallCreatesAndKeepsAliveASeparateTexture)
+{
+    AssetManager mgr(m_Vfs);
+    auto image = mgr.GetImage("images/hero.bmp");
+    ASSERT_TRUE(image.IsOk());
+
+    auto* first = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto* second = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    EXPECT_NE(first, second); // no caching here -- that's GetImage's job, not CreateTexture's
+    EXPECT_EQ(FakeTexture::s_LiveCount, 2);
+}
+
+// ─── ResolveAssets ───────────────────────────────────────────────────────────
 
 class ResolveAssetsTest : public AssetManagerTest
 {
@@ -447,6 +505,81 @@ TEST_F(ResolveAssetsTest, AnimationWithEmptyClipPathIsSkipped)
     auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
     auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_Clip, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, PathFollowWithWaypointsGetsPathBuilt)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    asge::game::components::PathFollow pathFollow;
+    pathFollow.m_Waypoints = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, { 10.0f, 10.0f } };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), pathFollow ).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    auto const& path = pathResult.Value().get();
+    EXPECT_TRUE(path.m_Path.HasSegments());
+    EXPECT_GT(path.m_Path.Length(), 0.0f);
+}
+
+TEST_F(ResolveAssetsTest, PathFollowWithEmptyWaypointsIsSkipped)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::PathFollow>(entity.Value(), {}).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    EXPECT_FALSE(pathResult.Value().get().m_Path.HasSegments());
+}
+
+TEST_F(ResolveAssetsTest, PathFollowWithOnlyOneWaypointLeavesPathWithoutSegments)
+{
+    // CatmullRomSpline itself declines to build any segments for fewer than
+    // two waypoints -- distinct code path from the empty-vector skip above,
+    // both landing on the same "no segments" outcome.
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    asge::game::components::PathFollow pathFollow;
+    pathFollow.m_Waypoints = { { 5.0f, 5.0f } };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), pathFollow ).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    EXPECT_FALSE(pathResult.Value().get().m_Path.HasSegments());
+}
+
+TEST_F(ResolveAssetsTest, PathFollowAlreadyHavingAPathIsLeftUntouched)
+{
+    // Regression guard: Resolver<PathFollow> used to rebuild the spline --
+    // recomputing every segment's arc-length table -- on every single
+    // ResolveAssets call rather than just the first, unlike every other
+    // resolver here, which skips an entity that's already resolved. Since
+    // ResolveAssets runs every frame by convention (see e.g. animation_demo),
+    // that meant rebuilding the whole path from scratch every frame for
+    // every path-following entity.
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    asge::game::components::PathFollow pathFollow;
+    pathFollow.m_Waypoints = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, { 10.0f, 10.0f } };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), pathFollow ).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    float const lengthAfterFirstResolve =
+        m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value()).Value().get().m_Path.Length();
+
+    // If it were to rebuild, the spline would now run through these very
+    // different waypoints and its Length() would change accordingly.
+    m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value()).Value().get().m_Waypoints =
+        { { 0.0f, 0.0f }, { 100.0f, 0.0f }, { 100.0f, 100.0f } };
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    EXPECT_FLOAT_EQ(pathResult.Value().get().m_Path.Length(), lengthAfterFirstResolve);
 }
 
 TEST_F(ResolveAssetsTest, CreatedTexturesAreOwnedByAssetManagerAndFreedWithIt)

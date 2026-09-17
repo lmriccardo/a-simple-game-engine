@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -13,9 +14,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCamera)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollow)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 8);
+    static_assert(std::tuple_size_v<SerializableComponents> == 9);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -24,6 +25,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<5, SerializableComponents>, Animation>);
     static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, AudioSource>);
     static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Camera>);
+    static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
     SUCCEED();
 }
 
@@ -38,6 +40,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Animation>::kTableName, "Animation");
     EXPECT_EQ(Serializer<AudioSource>::kTableName, "AudioSource");
     EXPECT_EQ(Serializer<Camera>::kTableName, "Camera");
+    EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -426,6 +429,105 @@ TEST(CameraSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     Camera const restored = Serializer<Camera>::FromToml( builder );
     EXPECT_FLOAT_EQ(restored.m_Zoom, 1.0f);
     EXPECT_FLOAT_EQ(restored.m_Smoothing, 0.0f);
+}
+
+// ─── PathFollow ─────────────────────────────────────────────────────────────
+
+TEST(PathFollowSerializerTest, ToToml_WritesWaypointsAndFieldsUnderPathFollowTable)
+{
+    TOMLBuilder builder;
+    PathFollow value{};
+    value.m_Waypoints = { asge::math::Float2{ 0.0f, 0.0f }, asge::math::Float2{ 10.0f, 20.0f } };
+    value.m_Speed = 4.5f;
+    value.m_Loop = true;
+    value.m_Resolution = 16;
+    Serializer<PathFollow>::ToToml( value, builder );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[PathFollow]"), std::string::npos);
+    EXPECT_NE(dump.find("m_WaypointX"), std::string::npos);
+    EXPECT_NE(dump.find("m_WaypointY"), std::string::npos);
+    EXPECT_NE(dump.find("m_Speed = 4.5"), std::string::npos);
+    EXPECT_NE(dump.find("m_Loop = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_Resolution = 16"), std::string::npos);
+}
+
+TEST(PathFollowSerializerTest, RoundTripsWaypointsAndFieldsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    PathFollow original{};
+    original.m_Waypoints = {
+        asge::math::Float2{ 0.0f, 0.0f }, asge::math::Float2{ 10.0f, 20.0f }, asge::math::Float2{ -5.0f, 30.0f }
+    };
+    original.m_Speed = 4.5f;
+    original.m_Loop = true;
+    original.m_Resolution = 16;
+    Serializer<PathFollow>::ToToml( original, builder );
+
+    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    ASSERT_EQ(restored.m_Waypoints.size(), original.m_Waypoints.size());
+    for ( std::size_t ii = 0; ii < original.m_Waypoints.size(); ++ii )
+    {
+        EXPECT_FLOAT_EQ(restored.m_Waypoints[ii].x(), original.m_Waypoints[ii].x());
+        EXPECT_FLOAT_EQ(restored.m_Waypoints[ii].y(), original.m_Waypoints[ii].y());
+    }
+    EXPECT_FLOAT_EQ(restored.m_Speed, original.m_Speed);
+    EXPECT_EQ(restored.m_Loop, original.m_Loop);
+    EXPECT_EQ(restored.m_Resolution, original.m_Resolution);
+}
+
+TEST(PathFollowSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    // Regression test: m_Resolution used to read via table.Get<int>("m_Resolution")
+    // with no explicit default, silently falling back to int{} (0) rather
+    // than PathFollow's own in-code default (32) whenever the key was
+    // missing -- e.g. a hand-authored or pre-PathFollow scene file. A
+    // resolution of 0 collapses every segment's arc-length table to a
+    // single zero-length sample (see CatmullRomSpline::BuildArcLengthTable),
+    // degenerating the whole spline.
+    TOMLBuilder builder;
+    builder.Table("PathFollow");
+
+    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    EXPECT_TRUE(restored.m_Waypoints.empty());
+    EXPECT_FLOAT_EQ(restored.m_Speed, 1.0f);
+    EXPECT_FALSE(restored.m_Loop);
+    EXPECT_EQ(restored.m_Resolution, 32u);
+}
+
+TEST(PathFollowSerializerTest, FromToml_RuntimeOnlyFieldsAlwaysResetToStructDefaults)
+{
+    // m_Path/m_Traveled/m_Finished are never written by ToToml in the first
+    // place, so FromToml can't restore them either -- a scene file
+    // describes an entity's authored path, not how far a previous run got
+    // along it (see AudioSource's Serializer doc comment for the same
+    // reasoning applied to playback state).
+    TOMLBuilder builder;
+    PathFollow value{};
+    value.m_Waypoints = { asge::math::Float2{ 0.0f, 0.0f }, asge::math::Float2{ 10.0f, 0.0f } };
+    Serializer<PathFollow>::ToToml( value, builder );
+
+    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    EXPECT_FALSE(restored.m_Path.HasSegments());
+    EXPECT_FLOAT_EQ(restored.m_Path.Length(), 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_Traveled, 0.0f);
+    EXPECT_FALSE(restored.m_Finished);
+}
+
+TEST(PathFollowSerializerTest, FromToml_MismatchedWaypointArrayLengthsUsesTheShorterOne)
+{
+    // ToToml always writes m_WaypointX/Y with equal lengths, but FromToml's
+    // own loop only trusts xs.size() -- a hand-edited file with a shorter
+    // m_WaypointY must not read past its end.
+    TOMLBuilder builder;
+    auto table = builder.Table("PathFollow");
+    table.SetArray("m_WaypointX", std::vector<float>{ 0.0f, 10.0f, 20.0f });
+    table.SetArray("m_WaypointY", std::vector<float>{ 0.0f, 5.0f });
+
+    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    ASSERT_EQ(restored.m_Waypoints.size(), 2u); // min(3, 2) -- the third X has no matching Y
+    EXPECT_FLOAT_EQ(restored.m_Waypoints[1].x(), 10.0f);
+    EXPECT_FLOAT_EQ(restored.m_Waypoints[1].y(), 5.0f);
 }
 
 }
