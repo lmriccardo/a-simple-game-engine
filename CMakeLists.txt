@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31.0)
-project(asge VERSION 0.8.1 LANGUAGES C CXX)
+project(asge VERSION 0.8.2 LANGUAGES C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
