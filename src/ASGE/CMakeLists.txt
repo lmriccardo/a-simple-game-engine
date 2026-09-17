@@ -85,6 +85,7 @@ add_library(ASGE STATIC
 
     # Asset Manager
     Game/Assets/AssetManager.cpp
+    Game/Assets/AssetResolver.cpp
     Game/Assets/FrameTable.cpp
 
     # Scene management

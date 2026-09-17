@@ -10,6 +10,7 @@
 #include "Components/Animation.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/Camera.hpp"
+#include "Components/PathFollow.hpp"
 
 namespace asge::game::components
 {
@@ -26,7 +27,7 @@ namespace asge::game::components
  */
 using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation, 
-    AudioSource, Camera
+    AudioSource, Camera, PathFollow
 >;
 
 }

@@ -20,12 +20,13 @@ namespace asge::game::asset
  * `VirtualFileSystem` the caller keeps alive.
  *
  * The one entry point for loading assets by virtual path: `GetImage`/
- * `GetFont`/`GetFrameTable` each forward to their own `AssetPool`, which
- * caches by virtual path (plus, for fonts, the bake pixel height) and only
- * calls the underlying `Load` on a cache miss. `ResolveAssets` builds on
- * these to deferred-load an entire Registry's worth of Sprite/Animation
- * components in one pass — see its own doc comment. Does not own `inVfs` —
- * it must outlive the `AssetManager`.
+ * `GetFont`/`GetFrameTable`/`GetAudio` each forward to their own
+ * `AssetPool`, which caches by virtual path (plus, for fonts, the bake
+ * pixel height) and only calls the underlying `Load` on a cache miss.
+ * `ResolveAssets` builds on these to deferred-load an entire Registry's
+ * worth of components in one pass, dispatching per component type through
+ * `Resolver<T>` — see its own doc comment. Does not own `inVfs` — it must
+ * outlive the `AssetManager`.
  */
 class AssetManager
 {
@@ -36,7 +37,7 @@ class AssetManager
     AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load       };
     AssetPool<media::AudioClip>  m_AudioPool  { &media::AudioClip::Load };
 
-    // GPU textures ResolveAssets() creates from a resolved Image, keyed by
+    // GPU textures CreateTexture() creates from a resolved Image, keyed by
     // nothing -- Sprite::m_Texture only ever points into here, so these must
     // outlive every entity holding one (see ResolveAssets' own doc comment).
     std::vector<std::unique_ptr<video::ITexture>> m_Textures;
@@ -75,25 +76,40 @@ public:
      */
     [[nodiscard]] Result<asset_ptr<FrameTable>> GetFrameTable( str::StringCRef inVirtualPath );
 
+    /**
+     * @brief Loads (or returns the cached) `AudioClip` at a virtual path.
+     * Fails if the path doesn't resolve through the VFS or fails to decode.
+     */
     [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
 
     /**
-     * @brief Deferred-loads every unresolved Sprite texture and Animation
-     * clip in inRegistry, in that order.
+     * @brief Creates a GPU texture from inImage via inRenderer and keeps it
+     *        alive for this AssetManager's own lifetime.
      *
-     * For each `components::Sprite` with a non-empty `m_VirtualPath` but a
-     * null `m_Texture`: loads (or reuses the cached) `Image` via `GetImage`,
-     * creates a GPU texture from it through inRenderer, and points
-     * `m_Texture` at it — the created texture is kept alive by this
-     * `AssetManager` (see `m_Textures`), so it must outlive every entity
-     * whose Sprite it resolved. For each `components::Animation` with a
-     * non-empty `m_ClipPath` but a null `m_Clip`: loads (or reuses the
-     * cached) `FrameTable` via `GetFrameTable` and points `m_Clip` at it.
+     * Returns a non-owning raw pointer — the texture itself lives in
+     * `m_Textures` until this AssetManager is destroyed, so it (and
+     * whichever `Sprite::m_Texture` ends up pointing at it) must not
+     * outlive it. Returns `nullptr` if `inRenderer` fails to create one.
+     */
+    [[nodiscard]] video::ITexture* CreateTexture(
+        video::IRenderer& inRenderer, media::Image const& inImage ) noexcept;
+
+    /**
+     * @brief Deferred-loads every still-unresolved asset-owning component
+     *        in inRegistry, for every entity that has one.
      *
-     * Either kind of failure (VFS resolve, decode, texture creation) is
-     * logged and that entity is left unresolved — retried on the next call
-     * rather than treated as fatal, since inRenderer only exists once the
-     * caller has a window (unlike component construction, which can happen
+     * Folds over `components::SerializableComponents` and, for each type T,
+     * calls `Resolver<T>{}` on every entity's T — a no-op for most
+     * component types (nothing to load), and an actual resolve for the
+     * ones that do own an asset (`Sprite`, `Animation`, `AudioSource`,
+     * `PathFollow` — see their own `Resolver<T>` specializations in
+     * AssetResolver.hpp for exactly what each one does and what it skips
+     * once already resolved).
+     *
+     * Any resolve failure (VFS resolve, decode, texture creation) is logged
+     * and that entity is left unresolved — retried on the next call rather
+     * than treated as fatal, since inRenderer only exists once the caller
+     * has a window (unlike component construction, which can happen
      * earlier, e.g. while loading a scene).
      */
     void ResolveAssets( ecs::Registry& inRegistry, video::IRenderer& inRenderer );
