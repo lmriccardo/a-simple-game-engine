@@ -274,4 +274,59 @@ TEST(CatmullRomSplineTest, TangentAt_EmptySpline_ReturnsZeroWithoutProducingNaN)
     EXPECT_FLOAT_EQ(tangent.y(), 0.0f);
 }
 
+// ─── CatmullRomSpline::TimeAtDistance ────────────────────────────────────────
+
+TEST(CatmullRomSplineTest, TimeAtDistance_ZeroDistance_ReturnsZero)
+{
+    std::vector<Float2> const wp{
+        Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f}, Float2{20.0f, 0.0f}, Float2{30.0f, 0.0f}};
+    CatmullRomSpline const spline(wp);
+
+    EXPECT_NEAR(spline.TimeAtDistance(0.0f), 0.0f, 1e-3f);
+}
+
+TEST(CatmullRomSplineTest, TimeAtDistance_FullLength_ReturnsOne)
+{
+    std::vector<Float2> const wp{
+        Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f}, Float2{20.0f, 0.0f}, Float2{30.0f, 0.0f}};
+    CatmullRomSpline const spline(wp);
+
+    EXPECT_NEAR(spline.TimeAtDistance(spline.Length()), 1.0f, 1e-3f);
+}
+
+TEST(CatmullRomSplineTest, TimeAtDistance_OutOfRangeDistance_ClampsToZeroAndOne)
+{
+    std::vector<Float2> const wp{
+        Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f}, Float2{20.0f, 0.0f}, Float2{30.0f, 0.0f}};
+    CatmullRomSpline const spline(wp);
+
+    EXPECT_NEAR(spline.TimeAtDistance(-5.0f), 0.0f, 1e-3f);
+    EXPECT_NEAR(spline.TimeAtDistance(spline.Length() + 100.0f), 1.0f, 1e-3f);
+}
+
+TEST(CatmullRomSplineTest, TimeAtDistance_RoundTripsThroughPointAtToMatchPointAtDistance)
+{
+    // A curved (non-straight) path, so this actually exercises non-uniform
+    // per-segment arc length rather than degenerating to a linear mapping.
+    std::vector<Float2> const wp{
+        Float2{0.0f, 0.0f}, Float2{10.0f, 4.0f}, Float2{20.0f, -2.0f}, Float2{30.0f, 0.0f}};
+    CatmullRomSpline const spline(wp);
+
+    float const distance = spline.Length() * 0.37f;
+    float const time = spline.TimeAtDistance(distance);
+
+    Float2 const viaDistance = spline.PointAtDistance(distance);
+    Float2 const viaTime = spline.PointAt(time);
+
+    EXPECT_NEAR(viaDistance.x(), viaTime.x(), 1e-1f);
+    EXPECT_NEAR(viaDistance.y(), viaTime.y(), 1e-1f);
+}
+
+TEST(CatmullRomSplineTest, TimeAtDistance_EmptySpline_ReturnsZeroWithoutProducingNaN)
+{
+    CatmullRomSpline const empty(std::vector<Float2>{});
+
+    EXPECT_FLOAT_EQ(empty.TimeAtDistance(0.5f), 0.0f);
+}
+
 }

@@ -4,9 +4,12 @@
 #include "../Components/Velocity.hpp"
 #include "../Components/Collider.hpp"
 #include "../Components/Rigidbody.hpp"
+#include "../Components/PathFollow.hpp"
 #include "../Events.hpp"
 
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
+
+#include <cmath>
 
 namespace
 {
@@ -219,7 +222,48 @@ void asge::game::systems::PhysicsUpdate(
 {
     GravitySystem( inRegistry, inDeltaTime );
     MovementSystem( inRegistry, inDeltaTime );
+    PathFollowingSystem( inRegistry, inDeltaTime );
     auto contacts = DetectCollisions( inRegistry );
     ResolveCollisions( inRegistry, contacts );
     DispatchTriggerEvents( inState, contacts );
+}
+
+void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
+{
+    for ( auto [ e, t, p ] 
+        : inRegistry.View<components::Transform, components::PathFollow>() )
+    {
+        auto& path = p.get();
+        auto& transform = t.get();
+
+        if ( path.m_Finished || !path.m_Path.HasSegments() ) continue;
+        path.m_Traveled += path.m_Speed * inDeltaTime;
+        const float length = path.m_Path.Length();
+        if ( path.m_Traveled >= length )
+        {
+            // length > 0.0f guards fmod: a degenerate path (all waypoints
+            // coincide) has nothing to wrap around, so treat it as finished
+            // even when m_Loop is set, rather than fmod-by-zero producing NaN.
+            if ( path.m_Loop && length > 0.0f ) path.m_Traveled = std::fmod( path.m_Traveled, length );
+            else
+            {
+                path.m_Traveled = length;
+                path.m_Finished = true;
+            }
+        }
+
+        math::Float2 pos = path.m_Path.PointAtDistance( path.m_Traveled );
+        transform.m_X = pos.x();
+        transform.m_Y = pos.y();
+
+        float time = path.m_Path.TimeAtDistance( path.m_Traveled );
+        math::Float2 tangent = path.m_Path.TangentAt( time );
+
+        // A degenerate segment (coincident control points) normalizes to a
+        // NaN tangent -- leave m_Rotation as it was rather than corrupting it.
+        if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
+        {
+            transform.m_Rotation = std::atan2( tangent.y(), tangent.x() );
+        }
+    }
 }

@@ -1,13 +1,16 @@
 #include <ASGE/Game/Systems/PhysicsSystem.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
+#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Velocity.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Rigidbody.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Events.hpp>
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -18,6 +21,7 @@ using asge::ecs::Entity;
 using asge::ecs::Registry;
 using asge::game::components::Collider;
 using asge::game::components::CollisionLayer;
+using asge::game::components::PathFollow;
 using asge::game::components::ResolutionType;
 using asge::game::components::Rigidbody;
 using asge::game::components::Transform;
@@ -458,6 +462,149 @@ TEST_F(TriggerCollisionTest, DestroyedOverlappingEntity_StillFiresExit)
     ASSERT_EQ(exits.size(), 1u);
     EXPECT_EQ(exits[0].first, e1);
     EXPECT_EQ(exits[0].second, e2);
+}
+
+// ─── PathFollowingSystem ─────────────────────────────────────────────────────
+
+// Builds an entity with a Transform and a PathFollow whose m_Path is already
+// built (bypassing asset::Resolver<PathFollow> entirely -- these tests care
+// about how PathFollowingSystem advances an already-resolved path, not about
+// resolution itself, which AssetManagerTests already covers).
+Entity MakePathFollower(Registry& inRegistry, std::vector<asge::math::Float2> const& inWaypoints,
+    float inSpeed, bool inLoop = false)
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{}).IsOk());
+
+    PathFollow pathFollow;
+    pathFollow.m_Speed = inSpeed;
+    pathFollow.m_Loop = inLoop;
+    pathFollow.m_Path = asge::math::CatmullRomSpline(inWaypoints);
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), pathFollow).IsOk());
+
+    return entity.Value();
+}
+
+TEST(PathFollowingSystemTest, AdvancesTraveledBySpeedTimesDeltaTimeAndMovesTheTransform)
+{
+    Registry registry;
+    auto e = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f); // 5 units/s * 1s = 5 units
+
+    auto pathResult = registry.GetComponent<PathFollow>(e);
+    ASSERT_TRUE(pathResult.IsOk());
+    EXPECT_NEAR(pathResult.Value().get().m_Traveled, 5.0f, 1e-3f);
+    EXPECT_FALSE(pathResult.Value().get().m_Finished);
+
+    auto transformResult = registry.GetComponent<Transform>(e);
+    ASSERT_TRUE(transformResult.IsOk());
+    EXPECT_NEAR(transformResult.Value().get().m_X, 5.0f, 1e-1f); // halfway along a straight 10-unit line
+    EXPECT_NEAR(transformResult.Value().get().m_Y, 0.0f, 1e-2f);
+}
+
+TEST(PathFollowingSystemTest, OrientsRotationToFaceTheTravelDirection)
+{
+    Registry registry;
+    auto e = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+
+    // Travelling straight along +X -- tangent (1, 0), so rotation is 0 radians.
+    auto transformResult = registry.GetComponent<Transform>(e);
+    ASSERT_TRUE(transformResult.IsOk());
+    EXPECT_NEAR(transformResult.Value().get().m_Rotation, 0.0f, 1e-2f);
+}
+
+TEST(PathFollowingSystemTest, NonLoopingPath_ClampsAtTheEndAndMarksFinished)
+{
+    Registry registry;
+    auto e = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    // One big step, far past the path's length.
+    asge::game::systems::PathFollowingSystem(registry, 100.0f);
+
+    auto pathResult = registry.GetComponent<PathFollow>(e);
+    ASSERT_TRUE(pathResult.IsOk());
+    EXPECT_NEAR(pathResult.Value().get().m_Traveled, pathResult.Value().get().m_Path.Length(), 1e-3f);
+    EXPECT_TRUE(pathResult.Value().get().m_Finished);
+
+    auto transformResult = registry.GetComponent<Transform>(e);
+    ASSERT_TRUE(transformResult.IsOk());
+    EXPECT_NEAR(transformResult.Value().get().m_X, 10.0f, 1e-1f); // clamped at the last waypoint
+}
+
+TEST(PathFollowingSystemTest, LoopingPath_WrapsTraveledPastTheEndInsteadOfFinishing)
+{
+    Registry registry;
+    auto e = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f, /*inLoop=*/true);
+
+    auto const length = registry.GetComponent<PathFollow>(e).Value().get().m_Path.Length();
+
+    // dt chosen so m_Traveled overshoots by exactly 1/4 of the path's length.
+    float const dt = ( length * 1.25f ) / 5.0f;
+    asge::game::systems::PathFollowingSystem(registry, dt);
+
+    auto pathResult = registry.GetComponent<PathFollow>(e);
+    ASSERT_TRUE(pathResult.IsOk());
+    EXPECT_NEAR(pathResult.Value().get().m_Traveled, length * 0.25f, 1e-2f); // wrapped rather than clamped
+    EXPECT_FALSE(pathResult.Value().get().m_Finished);
+}
+
+TEST(PathFollowingSystemTest, FinishedPath_NoLongerAdvancesOnSubsequentCalls)
+{
+    Registry registry;
+    auto e = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    asge::game::systems::PathFollowingSystem(registry, 100.0f); // finishes it
+    auto const finishedTraveled = registry.GetComponent<PathFollow>(e).Value().get().m_Traveled;
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f); // must be a no-op now
+
+    auto pathResult = registry.GetComponent<PathFollow>(e);
+    ASSERT_TRUE(pathResult.IsOk());
+    EXPECT_FLOAT_EQ(pathResult.Value().get().m_Traveled, finishedTraveled);
+    EXPECT_TRUE(pathResult.Value().get().m_Finished);
+}
+
+TEST(PathFollowingSystemTest, UnresolvedPath_SkippedNotCrashed)
+{
+    Registry registry;
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+
+    PathFollow pathFollow; // m_Waypoints set, but m_Path never resolved -- no segments
+    pathFollow.m_Waypoints = {{0.0f, 0.0f}, {10.0f, 0.0f}};
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), pathFollow).IsOk());
+
+    EXPECT_NO_THROW(asge::game::systems::PathFollowingSystem(registry, 1.0f));
+
+    auto transformResult = registry.GetComponent<Transform>(entity.Value());
+    ASSERT_TRUE(transformResult.IsOk());
+    EXPECT_FLOAT_EQ(transformResult.Value().get().m_X, 0.0f); // left untouched
+}
+
+TEST(PathFollowingSystemTest, ZeroLengthLoopingPath_FinishesInsteadOfProducingNaN)
+{
+    // Regression test: two coincident waypoints give HasSegments()==true but
+    // Length()==0 -- looping used to fmod(traveled, 0.0f), which is NaN.
+    Registry registry;
+    auto e = MakePathFollower(registry, {{5.0f, 5.0f}, {5.0f, 5.0f}}, 5.0f, /*inLoop=*/true);
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+
+    auto pathResult = registry.GetComponent<PathFollow>(e);
+    ASSERT_TRUE(pathResult.IsOk());
+    EXPECT_FALSE(std::isnan(pathResult.Value().get().m_Traveled));
+    EXPECT_TRUE(pathResult.Value().get().m_Finished);
+
+    auto transformResult = registry.GetComponent<Transform>(e);
+    ASSERT_TRUE(transformResult.IsOk());
+    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_X));
+    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_Y));
+    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_Rotation));
 }
 
 }

@@ -72,6 +72,41 @@ std::pair<std::size_t, float> asge::math::CatmullRomSpline::LocateSegment(float 
     return {segIdx, localT};
 }
 
+std::pair<std::size_t, float> asge::math::CatmullRomSpline::LocateByDistance(float inDistance) const noexcept
+{
+    inDistance = std::clamp( inDistance, 0.0f, m_TotalLength );
+
+    // 1. Find the segment containing this distance
+    auto segIt = std::upper_bound(
+        m_Segments.begin(), m_Segments.end(), inDistance,
+        []( float d, Segment const& seg ){ return d < seg.m_StartDistance + seg.m_Length; }
+    );
+
+    if (segIt == m_Segments.end()) segIt = std::prev(m_Segments.end());
+
+    // 2. Find t within this segment's local arc-length table that matches localDist
+    Segment const& seg = *segIt;
+    const std::size_t segIdx = static_cast<std::size_t>(std::distance(m_Segments.begin(), segIt));
+
+    float localDist = inDistance - seg.m_StartDistance;
+    auto sampleIt = std::upper_bound(
+        seg.m_Table.begin(), seg.m_Table.end(), localDist,
+        []( float d, ArcLengthSample const& sample ){ return d < sample.m_Distance; }
+    );
+
+    float localT;
+    if      ( sampleIt == seg.m_Table.begin() ) localT = 0.0f;
+    else if ( sampleIt == seg.m_Table.end() )   localT = 1.0f;
+    else {
+        ArcLengthSample const& prev = *std::prev( sampleIt );
+        ArcLengthSample const& curr = *sampleIt;
+        float segFrac = ( localDist - prev.m_Distance ) / ( curr.m_Distance - prev.m_Distance );
+        localT = prev.m_T + segFrac * ( curr.m_T - prev.m_T );
+    }
+
+    return { segIdx, localT };
+}
+
 asge::math::CatmullRomSpline::CatmullRomSpline(
     std::vector<Float2> inWp, std::size_t inResolution)
     : m_Waypoints(std::move(inWp))
@@ -138,34 +173,8 @@ asge::math::Float2 asge::math::CatmullRomSpline::PointAt(float inTime) const noe
 asge::math::Float2 asge::math::CatmullRomSpline::PointAtDistance(float inDistance) const noexcept
 {
     if ( m_Segments.empty() ) return Float2{};
-    inDistance = std::clamp( inDistance, 0.0f, m_TotalLength );
-
-    // 1. Find the segment containing this distance
-    auto segIt = std::upper_bound(
-        m_Segments.begin(), m_Segments.end(), inDistance,
-        []( float d, Segment const& seg ){ return d < seg.m_StartDistance + seg.m_Length; }
-    );
-
-    if (segIt == m_Segments.end()) segIt = std::prev(m_Segments.end());
-
-    // 2. Find t within this segment's local arc-length table that matches localDist
-    Segment const& seg = *segIt;
-    float localDist = inDistance - seg.m_StartDistance;
-    auto sampleIt = std::upper_bound(
-        seg.m_Table.begin(), seg.m_Table.end(), localDist,
-        []( float d, ArcLengthSample const& sample ){ return d < sample.m_Distance; }
-    );
-
-    float localT;
-    if      ( sampleIt == seg.m_Table.begin() ) localT = 0.0f;
-    else if ( sampleIt == seg.m_Table.end() )   localT = 1.0f;
-    else {
-        ArcLengthSample const& prev = *std::prev( sampleIt );
-        ArcLengthSample const& curr = *sampleIt;
-        float segFrac = ( localDist - prev.m_Distance ) / ( curr.m_Distance - prev.m_Distance );
-        localT = prev.m_T + segFrac * ( curr.m_T - prev.m_T );
-    }
-
+    auto [ segIdx, localT ] = LocateByDistance( inDistance );
+    auto const& seg = m_Segments[segIdx];
     return Hermite( seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, localT );
 }
 
@@ -176,4 +185,11 @@ asge::math::Float2 asge::math::CatmullRomSpline::TangentAt(float inTime) const n
     Segment const& seg = m_Segments[ segIdx ];
     return NormalizeVec( HermiteDerivative( 
         seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, localT ) );
+}
+
+float asge::math::CatmullRomSpline::TimeAtDistance(float inDistance) const noexcept
+{
+    if (m_Segments.empty()) return 0.0f;
+    auto [segIdx, localT] = LocateByDistance(inDistance);
+    return (static_cast<float>(segIdx) + localT) / static_cast<float>(m_Segments.size());
 }

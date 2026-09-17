@@ -99,15 +99,32 @@ void DispatchTriggerEvents( PhysicsState& inState, std::span<CollisionContact co
 void GravitySystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
 /**
- * @brief Runs a full physics frame: gravity, movement, then collision
- *        detection/response/trigger-events, in that order.
+ * @brief Runs a full physics frame: gravity, movement, path following, then
+ *        collision detection/response/trigger-events, in that order.
  *
  * The single entry point a game loop actually needs — see GravitySystem/
- * MovementSystem/DetectCollisions/ResolveCollisions/DispatchTriggerEvents
- * for what each step does on its own. inState persists across calls (one
- * per Registry, not shared) so DispatchTriggerEvents can tell Enter from
- * Stay from Exit.
+ * MovementSystem/PathFollowingSystem/DetectCollisions/ResolveCollisions/
+ * DispatchTriggerEvents for what each step does on its own. inState
+ * persists across calls (one per Registry, not shared) so
+ * DispatchTriggerEvents can tell Enter from Stay from Exit.
  */
 void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDeltaTime ) noexcept;
+
+/**
+ * @brief Advances every PathFollow entity's Transform along its resolved
+ *        components::PathFollow::m_Path, at m_Speed units/second.
+ *
+ * Skips an entity whose path has already finished (m_Finished) or whose
+ * PathFollow hasn't been resolved into a built path yet (no segments —
+ * see asset::Resolver<PathFollow>). Once m_Traveled reaches the path's
+ * length, a looping path wraps back to the start; a non-looping one clamps
+ * there and sets m_Finished so it's left alone from then on (a zero-length
+ * path, e.g. coincident waypoints, always finishes rather than looping,
+ * since there's nothing to wrap around). Also orients Transform::m_Rotation
+ * to face the path's tangent direction at the new position, except on a
+ * degenerate (zero-tangent) segment, where m_Rotation is left as it was
+ * rather than set to NaN.
+ */
+void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
 }

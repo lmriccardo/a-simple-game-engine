@@ -65,6 +65,12 @@ class CatmullRomSpline
     /** @brief Maps a normalized spline parameter `inTime` in [0, 1] to the
      *  segment it falls in and the local Hermite parameter within it. */
     std::pair<std::size_t, float> LocateSegment( float inTime ) const;
+
+    /** @brief Maps `inDistance` (clamped to [0, Length()]) to the segment it
+     *  falls in and the local Hermite parameter within it, via that
+     *  segment's arc-length table — the distance-based counterpart to
+     *  LocateSegment(). Shared by PointAtDistance() and TimeAtDistance(). */
+    std::pair<std::size_t, float> LocateByDistance(float inDistance) const noexcept;
 public:
     CatmullRomSpline() = default;
 
@@ -105,6 +111,13 @@ public:
     /** @brief Returns the normalized tangent direction at normalized
      *  parameter `inTime`. */
     Float2 TangentAt( float inTime ) const noexcept;
+
+    /** @brief Returns the normalized `[0, 1]` parameter TangentAt()/PointAt()
+     *  expect for the point `inDistance` (clamped to [0, Length()]) along
+     *  the curve — the inverse of the distribution PointAt() walks, so
+     *  `PointAt(TimeAtDistance(d))` matches `PointAtDistance(d)`. Returns 0
+     *  for a spline with no segments. */
+    float TimeAtDistance( float inDistance ) const noexcept;
 };
 
 }
