@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Strings.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -17,14 +17,25 @@ struct Rigidbody
     bool  m_AffectedByGravity{true};
 };
 
-template<>
-struct Serializer<Rigidbody>
+}
+
+namespace asge::game::scene
 {
-    using T = Rigidbody;
+
+template<>
+struct Serializer<components::Rigidbody>
+{
+    using T = components::Rigidbody;
     static constexpr str::StringView kTableName = "Rigidbody";
 
-    static void ToToml( Rigidbody inRigidbody, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
+    static void ToToml(
+                            components::Rigidbody inRigidbody,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inEnttView,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

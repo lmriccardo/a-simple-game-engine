@@ -1,6 +1,6 @@
 #include "Serialize.hpp"
 
-void asge::game::components::Serializer<asge::math::Rect>::ToToml(
+void asge::game::scene::Serializer<asge::math::Rect>::ToToml(
     math::Rect inShape, asge::config::toml::TOMLTableView inTview ) noexcept
 {
     inTview.Set("m_Width",   inShape.m_Width)
@@ -9,7 +9,7 @@ void asge::game::components::Serializer<asge::math::Rect>::ToToml(
            .Set("m_OffsetY", inShape.m_Y);
 }
 
-asge::math::Rect asge::game::components::Serializer<asge::math::Rect>::FromToml(
+asge::math::Rect asge::game::scene::Serializer<asge::math::Rect>::FromToml(
     asge::config::toml::TOMLTableView inTview ) noexcept
 {
     return math::Rect{
@@ -18,7 +18,7 @@ asge::math::Rect asge::game::components::Serializer<asge::math::Rect>::FromToml(
     };
 }
 
-void asge::game::components::Serializer<asge::math::Circle>::ToToml(
+void asge::game::scene::Serializer<asge::math::Circle>::ToToml(
     math::Circle inShape, asge::config::toml::TOMLTableView inTview ) noexcept
 {
     inTview.Set("m_OffsetX", inShape.m_Center.x())
@@ -26,7 +26,7 @@ void asge::game::components::Serializer<asge::math::Circle>::ToToml(
            .Set("m_Radius",  inShape.m_Radius);
 }
 
-asge::math::Circle asge::game::components::Serializer<asge::math::Circle>::FromToml(
+asge::math::Circle asge::game::scene::Serializer<asge::math::Circle>::FromToml(
     asge::config::toml::TOMLTableView inTview ) noexcept
 {
     return math::Circle{

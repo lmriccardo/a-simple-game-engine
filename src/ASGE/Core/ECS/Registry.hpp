@@ -3,6 +3,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <functional>
 #include <ASGE/Core/Errors.hpp>
 #include "EntityAllocator.hpp"
 #include "ComponentPool.hpp"
@@ -246,6 +247,8 @@ public:
         auto& resource = static_cast<ResourceHolder<T>*>( m_Resources[id].get() )->m_Value;
         return Result<std::reference_wrapper<T>>::Ok(std::reference_wrapper<T>( resource ));
     }
+
+    void ForEachEntity( std::function<void(Entity const&)> m_Callback ) const;
 };
 
 }
