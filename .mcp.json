@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "agentmemory": {
+      "command": "wsl.exe",
+      "args": ["-d", "Ubuntu", "--", "/home/ricca/.nvm/versions/node/v24.13.0/bin/agentmemory", "mcp", "--tools", "core"],
+      "env": {
+        "AGENTMEMORY_URL": "http://localhost:3111"
+      }
+    }
+  }
+}
