@@ -11,20 +11,20 @@ void asge::game::components::StopAnimation( Animation& inAnim ) noexcept
     inAnim.m_Playing = false;
 }
 
-void asge::game::components::Serializer<asge::game::components::Animation>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+void asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(
+    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table(std::string(kTableName))
            .Set<std::string>("m_ClipPath", inValue.m_ClipPath)
            .Set("m_FrameDuration", inValue.m_FrameDuration);
 }
 
-asge::game::components::Animation asge::game::components::Serializer<asge::game::components::Animation>::FromToml(
-    asge::config::toml::TOMLTableView inTview ) noexcept
+asge::game::components::Animation asge::game::scene::Serializer<asge::game::components::Animation>::FromToml(
+    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table(std::string(kTableName));
 
-    Animation result{};
+    T result{};
     result.m_ClipPath      = table.Get<std::string>("m_ClipPath", std::string{});
     result.m_FrameDuration = table.Get("m_FrameDuration", result.m_FrameDuration);
     return result;

@@ -57,8 +57,8 @@ asge::game::components::SpriteDrawCorners asge::game::components::SpriteGetDrawC
     };
 }
 
-void asge::game::components::Serializer<asge::game::components::Sprite>::ToToml(
-    Sprite inSprite, asge::config::toml::TOMLTableView inTview ) noexcept
+void asge::game::scene::Serializer<asge::game::components::Sprite>::ToToml(
+    components::Sprite inSprite, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto sprite = inTview.Table(std::string(kTableName));
     sprite.Set<std::string>("m_VirtualPath", inSprite.m_VirtualPath);
@@ -76,12 +76,12 @@ void asge::game::components::Serializer<asge::game::components::Sprite>::ToToml(
     sprite.Set("m_YSort", inSprite.m_YSort);
 }
 
-asge::game::components::Sprite asge::game::components::Serializer<asge::game::components::Sprite>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView ) noexcept
+asge::game::components::Sprite asge::game::scene::Serializer<asge::game::components::Sprite>::FromToml(
+    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     auto sprite = inEnttView.Table(std::string(kTableName));
 
-    Sprite result{};
+    components::Sprite result{};
     result.m_VirtualPath = sprite.Get<std::string>("m_VirtualPath", std::string{});
 
     if ( sprite.HasTable("SourceRect") )

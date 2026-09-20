@@ -2,7 +2,7 @@
 
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -32,15 +32,26 @@ struct Transform
     bool  m_Dirty{false};        // Set to request a TransformPropagationSystem recompute of World from Local
 };
 
-template<>
-struct Serializer<Transform>
+}
+
+namespace asge::game::scene
 {
-    using T = Transform;
+
+template<>
+struct Serializer<components::Transform>
+{
+    using T = components::Transform;
 
     static constexpr str::StringView kTableName = "Transform";
 
-    static void ToToml( Transform inTransform, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
+    static void ToToml(
+                            components::Transform inTransform,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inEnttView,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

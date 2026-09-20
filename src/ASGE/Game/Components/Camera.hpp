@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -21,20 +21,31 @@ struct Camera
     float m_Smoothing { 0.0f }; // catch-up rate toward the target position; 0 snaps there immediately, higher values ease in faster (see CameraSystem)
 };
 
+}
+
+namespace asge::game::scene
+{
+
 /**
  * @brief Round-trips m_Zoom and m_Smoothing — see AudioSource's Serializer
  *        doc comment for why a scene file only ever describes this much
  *        and not any runtime-only state (Camera has none of its own).
  */
 template<>
-struct Serializer<Camera>
+struct Serializer<components::Camera>
 {
     static constexpr str::StringView kTableName = "Camera";
 
-    using T = Camera;
+    using T = components::Camera;
 
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+    static void ToToml(
+                            T inValue,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }
