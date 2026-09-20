@@ -3,6 +3,7 @@
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Configuration/TOML_TableView.hpp>
+#include <ASGE/Game/Scene/IdContext.hpp>
 
 namespace asge::game::components
 {
@@ -23,13 +24,18 @@ template<typename T>
 struct Serializer
 {
     /** @brief Writes inValue's fields into inTview. Shape is up to each specialization. */
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+    static void ToToml( 
+                            T inValue, 
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept
     {
         static_assert( false && "Not Implemented" );
     }
 
     /** @brief Reads a T back out of inTview, as previously written by ToToml. */
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept
+    static T FromToml( 
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept
     {
         static_assert( false && "Not Implemented" );
     }

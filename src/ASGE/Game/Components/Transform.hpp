@@ -28,8 +28,14 @@ struct Serializer<Transform>
     // saved entity has this component, without hardcoding the name again.
     static constexpr str::StringView kTableName = "Transform";
 
-    static void ToToml( Transform inTransform, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
+    static void ToToml(
+                            Transform inTransform,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inEnttView,
+        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
 };
 
 }

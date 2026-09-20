@@ -91,6 +91,7 @@ add_library(ASGE STATIC
     # Scene management
     Game/Scene/SceneSerializer.cpp
     Game/Scene/SceneManager.cpp
+    Game/Scene/IdContext.cpp
 
     # Game Events
     Game/Events.cpp

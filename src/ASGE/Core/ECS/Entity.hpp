@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <utility>
 
@@ -68,3 +69,13 @@ inline EntityPair MakeCanonicalPair( Entity inA, Entity inB ) noexcept
 }
 
 }
+
+template<>
+struct std::hash<asge::ecs::Entity>
+{
+    /** @brief Hashes an Entity via its packed index+generation — see PackEntity. */
+    std::size_t operator()( asge::ecs::Entity const& inEntity ) const noexcept
+    {
+        return std::hash<std::uint64_t>{}( asge::ecs::PackEntity( inEntity ) );
+    }
+};

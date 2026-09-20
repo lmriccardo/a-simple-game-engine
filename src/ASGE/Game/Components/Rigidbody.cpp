@@ -1,7 +1,7 @@
 #include "Rigidbody.hpp"
 
 void asge::game::components::Serializer<asge::game::components::Rigidbody>::ToToml(
-    Rigidbody inRigidbody, asge::config::toml::TOMLTableView inTview ) noexcept
+    Rigidbody inRigidbody, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
 {
     inTview.Table(std::string(kTableName))
            .Set("m_Mass", inRigidbody.m_Mass)
@@ -9,7 +9,7 @@ void asge::game::components::Serializer<asge::game::components::Rigidbody>::ToTo
 }
 
 asge::game::components::Rigidbody asge::game::components::Serializer<asge::game::components::Rigidbody>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView ) noexcept
+    asge::config::toml::TOMLTableView inEnttView, scene::LoadContext const& inCtx ) noexcept
 {
     auto table = inEnttView.Table(std::string(kTableName));
     Rigidbody result{};

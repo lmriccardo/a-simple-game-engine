@@ -1,16 +1,16 @@
 #include "Camera.hpp"
 
 void asge::game::components::Serializer<asge::game::components::Camera>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+    T inValue, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String( kTableName ) )
            .Set( "m_Zoom", inValue.m_Zoom )
            .Set( "m_Smoothing", inValue.m_Smoothing );
 }
 
-asge::game::components::Camera 
-asge::game::components::Serializer<asge::game::components::Camera>::FromToml( 
-    asge::config::toml::TOMLTableView inTview ) noexcept
+asge::game::components::Camera
+asge::game::components::Serializer<asge::game::components::Camera>::FromToml(
+    asge::config::toml::TOMLTableView inTview, scene::LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
     Camera result;

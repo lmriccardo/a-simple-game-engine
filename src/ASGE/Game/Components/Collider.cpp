@@ -24,7 +24,7 @@ bool asge::game::components::details::LayersCanCollide( Collider const& inA, Col
 }
 
 void asge::game::components::Serializer<asge::game::components::Collider>::ToToml(
-    Collider inCollider, asge::config::toml::TOMLTableView inTview ) noexcept
+    Collider inCollider, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table(std::string(kTableName));
     std::visit( [&table]( auto const& inShape )
@@ -40,7 +40,7 @@ void asge::game::components::Serializer<asge::game::components::Collider>::ToTom
 }
 
 asge::game::components::Collider asge::game::components::Serializer<asge::game::components::Collider>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView ) noexcept
+    asge::config::toml::TOMLTableView inEnttView, scene::LoadContext const& inCtx ) noexcept
 {
     auto table = inEnttView.Table(std::string(kTableName));
     // Defaults to "Rect" so a scene file saved before Circle existed --

@@ -3,7 +3,7 @@
 #include <algorithm>
 
 void asge::game::components::Serializer<asge::game::components::PathFollow>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+    T inValue, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 
@@ -23,9 +23,9 @@ void asge::game::components::Serializer<asge::game::components::PathFollow>::ToT
     table.Set( "m_Resolution", static_cast<int>(inValue.m_Resolution) );
 }
 
-asge::game::components::PathFollow 
-asge::game::components::Serializer<asge::game::components::PathFollow>::FromToml( 
-    asge::config::toml::TOMLTableView inTview ) noexcept
+asge::game::components::PathFollow
+asge::game::components::Serializer<asge::game::components::PathFollow>::FromToml(
+    asge::config::toml::TOMLTableView inTview, scene::LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 

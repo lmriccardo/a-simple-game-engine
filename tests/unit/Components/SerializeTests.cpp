@@ -48,7 +48,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
 TEST(TransformSerializerTest, ToToml_WritesAllFieldsUnderTransformTable)
 {
     TOMLBuilder builder;
-    Serializer<Transform>::ToToml( Transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f }, builder );
+    Serializer<Transform>::ToToml(Transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f }, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Transform]"), std::string::npos);
@@ -63,9 +63,9 @@ TEST(TransformSerializerTest, RoundTripsThroughToTomlAndFromToml)
 {
     TOMLBuilder builder;
     Transform const original{ 10.0f, -5.0f, 1.25f, 2.0f, 0.5f };
-    Serializer<Transform>::ToToml( original, builder );
+    Serializer<Transform>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Transform const restored = Serializer<Transform>::FromToml( builder );
+    Transform const restored = Serializer<Transform>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_FLOAT_EQ(restored.m_X, original.m_X);
     EXPECT_FLOAT_EQ(restored.m_Y, original.m_Y);
     EXPECT_FLOAT_EQ(restored.m_Rotation, original.m_Rotation);
@@ -77,7 +77,7 @@ TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
 {
     TOMLBuilder builder;
     builder.Table("Transform"); // present but empty
-    Transform const restored = Serializer<Transform>::FromToml( builder );
+    Transform const restored = Serializer<Transform>::FromToml(builder, asge::game::scene::LoadContext{});
 
     EXPECT_FLOAT_EQ(restored.m_X, 0.0f);
     EXPECT_FLOAT_EQ(restored.m_Y, 0.0f);
@@ -91,7 +91,7 @@ TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
 TEST(VelocitySerializerTest, ToToml_WritesFieldsUnderVelocityTable)
 {
     TOMLBuilder builder;
-    Serializer<Velocity>::ToToml( Velocity{ 12.5f, -3.0f }, builder );
+    Serializer<Velocity>::ToToml(Velocity{ 12.5f, -3.0f }, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Velocity]"), std::string::npos);
@@ -103,9 +103,9 @@ TEST(VelocitySerializerTest, RoundTripsThroughToTomlAndFromToml)
 {
     TOMLBuilder builder;
     Velocity const original{ 12.5f, -3.0f };
-    Serializer<Velocity>::ToToml( original, builder );
+    Serializer<Velocity>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Velocity const restored = Serializer<Velocity>::FromToml( builder );
+    Velocity const restored = Serializer<Velocity>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_FLOAT_EQ(restored.m_DX, original.m_DX);
     EXPECT_FLOAT_EQ(restored.m_DY, original.m_DY);
 }
@@ -117,7 +117,7 @@ TEST(SpriteSerializerTest, ToToml_WritesVirtualPathButNeverTheTexturePointer)
     TOMLBuilder builder;
     Sprite sprite{};
     sprite.m_VirtualPath = "textures/checker.bmp";
-    Serializer<Sprite>::ToToml( sprite, builder );
+    Serializer<Sprite>::ToToml(sprite, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find(R"(m_VirtualPath = "textures/checker.bmp")"), std::string::npos);
@@ -128,9 +128,9 @@ TEST(SpriteSerializerTest, RoundTrip_WithoutSourceRectLeavesItNulloptAndTextureN
     TOMLBuilder builder;
     Sprite sprite{};
     sprite.m_VirtualPath = "textures/checker.bmp";
-    Serializer<Sprite>::ToToml( sprite, builder );
+    Serializer<Sprite>::ToToml(sprite, builder, asge::game::scene::SaveContext{});
 
-    Sprite const restored = Serializer<Sprite>::FromToml( builder );
+    Sprite const restored = Serializer<Sprite>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_VirtualPath, "textures/checker.bmp");
     EXPECT_EQ(restored.m_Texture, nullptr); // resolving the path into a live
                                              // texture is the caller's job
@@ -143,12 +143,12 @@ TEST(SpriteSerializerTest, RoundTrip_WithSourceRectRestoresItsFields)
     Sprite sprite{};
     sprite.m_VirtualPath = "textures/atlas.png";
     sprite.m_SourceRect = asge::math::Rect{ 16.0f, 32.0f, 8.0f, 8.0f };
-    Serializer<Sprite>::ToToml( sprite, builder );
+    Serializer<Sprite>::ToToml(sprite, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Sprite.SourceRect]"), std::string::npos);
 
-    Sprite const restored = Serializer<Sprite>::FromToml( builder );
+    Sprite const restored = Serializer<Sprite>::FromToml(builder, asge::game::scene::LoadContext{});
     ASSERT_TRUE(restored.m_SourceRect.has_value());
     EXPECT_FLOAT_EQ(restored.m_SourceRect->m_X, 16.0f);
     EXPECT_FLOAT_EQ(restored.m_SourceRect->m_Y, 32.0f);
@@ -163,7 +163,7 @@ TEST(ColliderSerializerTest, ToToml_WritesShapeDiscriminatorAndResolution)
     TOMLBuilder builder;
     Collider collider{ .m_LocalBounds = asge::math::Rect{ 1.0f, 2.0f, 3.0f, 4.0f },
                         .m_Resolution = ResolutionType::Trigger };
-    Serializer<Collider>::ToToml( collider, builder );
+    Serializer<Collider>::ToToml(collider, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Collider]"), std::string::npos);
@@ -178,9 +178,9 @@ TEST(ColliderSerializerTest, RoundTrip_RectShapeSolidResolution)
     TOMLBuilder builder;
     Collider const original{ .m_LocalBounds = asge::math::Rect{ 1.0f, 2.0f, 3.0f, 4.0f },
                               .m_Resolution = ResolutionType::Solid };
-    Serializer<Collider>::ToToml( original, builder );
+    Serializer<Collider>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     ASSERT_TRUE(std::holds_alternative<asge::math::Rect>(restored.m_LocalBounds));
     auto const& rect = std::get<asge::math::Rect>(restored.m_LocalBounds);
     EXPECT_FLOAT_EQ(rect.m_X, 1.0f);
@@ -197,9 +197,9 @@ TEST(ColliderSerializerTest, RoundTrip_CircleShapeTriggerResolution)
         .m_LocalBounds = asge::math::Circle{ asge::math::Float2{ 5.0f, 6.0f }, 7.0f },
         .m_Resolution = ResolutionType::Trigger
     };
-    Serializer<Collider>::ToToml( original, builder );
+    Serializer<Collider>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     ASSERT_TRUE(std::holds_alternative<asge::math::Circle>(restored.m_LocalBounds));
     auto const& circle = std::get<asge::math::Circle>(restored.m_LocalBounds);
     EXPECT_FLOAT_EQ(circle.m_Center.x(), 5.0f);
@@ -214,7 +214,7 @@ TEST(ColliderSerializerTest, FromToml_MissingShapeKeyDefaultsToRect)
     TOMLBuilder builder;
     builder.Table("Collider").Set("m_Width", 3.0f).Set("m_Height", 4.0f);
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(std::holds_alternative<asge::math::Rect>(restored.m_LocalBounds));
 }
 
@@ -229,7 +229,7 @@ TEST(ColliderSerializerTest, FromToml_MissingResolutionKeyDefaultsToSolidNotUnkn
            .Set<std::string>("m_Shape", "Rect")
            .Set("m_Width", 3.0f).Set("m_Height", 4.0f);
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Resolution, ResolutionType::Solid);
 }
 
@@ -240,7 +240,7 @@ TEST(ColliderSerializerTest, FromToml_UnrecognizedResolutionValueBecomesUnknown)
            .Set<std::string>("m_Shape", "Rect")
            .Set<std::string>("m_Resolution", "NotARealValue");
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Resolution, ResolutionType::Unknown);
 }
 
@@ -255,9 +255,9 @@ TEST(ColliderSerializerTest, RoundTrip_DefaultLayerAndMaskSurviveExactly)
     // wraparound, well-defined since C++20) must round-trip this exactly.
     TOMLBuilder builder;
     Collider const original{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 1.0f, 1.0f } };
-    Serializer<Collider>::ToToml( original, builder );
+    Serializer<Collider>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Layer, original.m_Layer);
     EXPECT_EQ(restored.m_Mask, original.m_Mask);
     EXPECT_EQ(restored.m_Mask, ~CollisionLayer{0});
@@ -269,9 +269,9 @@ TEST(ColliderSerializerTest, RoundTrip_CustomLayerAndMask)
     Collider const original{ .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 1.0f, 1.0f },
                               .m_Layer = 1u << 2,
                               .m_Mask = (1u << 0) | (1u << 2) };
-    Serializer<Collider>::ToToml( original, builder );
+    Serializer<Collider>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Layer, original.m_Layer);
     EXPECT_EQ(restored.m_Mask, original.m_Mask);
 }
@@ -282,7 +282,7 @@ TEST(ColliderSerializerTest, FromToml_MissingLayerAndMaskKeysDefaultToCollideWit
     TOMLBuilder builder;
     builder.Table("Collider").Set<std::string>("m_Shape", "Rect");
 
-    Collider const restored = Serializer<Collider>::FromToml( builder );
+    Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Layer, 1u);
     EXPECT_EQ(restored.m_Mask, ~CollisionLayer{0});
 }
@@ -293,7 +293,7 @@ TEST(AnimationSerializerTest, ToToml_WritesClipPathAndFrameDurationUnderAnimatio
 {
     TOMLBuilder builder;
     Animation const anim{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.2f };
-    Serializer<Animation>::ToToml( anim, builder );
+    Serializer<Animation>::ToToml(anim, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Animation]"), std::string::npos);
@@ -305,9 +305,9 @@ TEST(AnimationSerializerTest, RoundTrip_ClipPathAndDurationPreserved)
 {
     TOMLBuilder builder;
     Animation const original{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.15f };
-    Serializer<Animation>::ToToml( original, builder );
+    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Animation const restored = Serializer<Animation>::FromToml( builder );
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_ClipPath, original.m_ClipPath);
     EXPECT_FLOAT_EQ(restored.m_FrameDuration, original.m_FrameDuration);
 }
@@ -319,9 +319,9 @@ TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStructDe
     // a resolved asset) or playback progress, since neither is something a
     // scene file describes at all.
     TOMLBuilder builder;
-    Serializer<Animation>::ToToml( Animation{ .m_ClipPath = "clips/walk.toml" }, builder );
+    Serializer<Animation>::ToToml(Animation{ .m_ClipPath = "clips/walk.toml" }, builder, asge::game::scene::SaveContext{});
 
-    Animation const restored = Serializer<Animation>::FromToml( builder );
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Clip, nullptr);
     EXPECT_EQ(restored.m_CurrentFrame, 0u);
     EXPECT_FLOAT_EQ(restored.m_ElapsedTime, 0.0f);
@@ -337,7 +337,7 @@ TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
     TOMLBuilder builder;
     builder.Table("Animation").Set("m_FrameDuration", 0.1f);
 
-    Animation const restored = Serializer<Animation>::FromToml( builder );
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(restored.m_ClipPath.empty());
 }
 
@@ -348,7 +348,7 @@ TEST(AudioSourceSerializerTest, ToToml_WritesVirtualClipPathUnderAudioSourceTabl
     TOMLBuilder builder;
     AudioSource source{};
     source.m_VirtualClipPath = "audio/theme.ogg";
-    Serializer<AudioSource>::ToToml( source, builder );
+    Serializer<AudioSource>::ToToml(source, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[AudioSource]"), std::string::npos);
@@ -360,9 +360,9 @@ TEST(AudioSourceSerializerTest, RoundTrip_VirtualClipPathPreserved)
     TOMLBuilder builder;
     AudioSource source{};
     source.m_VirtualClipPath = "audio/theme.ogg";
-    Serializer<AudioSource>::ToToml( source, builder );
+    Serializer<AudioSource>::ToToml(source, builder, asge::game::scene::SaveContext{});
 
-    AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
+    AudioSource const restored = Serializer<AudioSource>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_VirtualClipPath, "audio/theme.ogg");
 }
 
@@ -375,9 +375,9 @@ TEST(AudioSourceSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStruct
     TOMLBuilder builder;
     AudioSource source{};
     source.m_VirtualClipPath = "audio/theme.ogg";
-    Serializer<AudioSource>::ToToml( source, builder );
+    Serializer<AudioSource>::ToToml(source, builder, asge::game::scene::SaveContext{});
 
-    AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
+    AudioSource const restored = Serializer<AudioSource>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Clip, nullptr);
     EXPECT_EQ(restored.m_Stream, nullptr);
     EXPECT_FALSE(restored.m_Playing);
@@ -393,7 +393,7 @@ TEST(AudioSourceSerializerTest, FromToml_MissingVirtualClipPathKeyDefaultsToEmpt
     TOMLBuilder builder;
     builder.Table("AudioSource");
 
-    AudioSource const restored = Serializer<AudioSource>::FromToml( builder );
+    AudioSource const restored = Serializer<AudioSource>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(restored.m_VirtualClipPath.empty());
 }
 
@@ -402,7 +402,7 @@ TEST(AudioSourceSerializerTest, FromToml_MissingVirtualClipPathKeyDefaultsToEmpt
 TEST(CameraSerializerTest, ToToml_WritesFieldsUnderCameraTable)
 {
     TOMLBuilder builder;
-    Serializer<Camera>::ToToml( Camera{ .m_Zoom = 2.5f, .m_Smoothing = 8.0f }, builder );
+    Serializer<Camera>::ToToml(Camera{ .m_Zoom = 2.5f, .m_Smoothing = 8.0f }, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Camera]"), std::string::npos);
@@ -414,9 +414,9 @@ TEST(CameraSerializerTest, RoundTripsThroughToTomlAndFromToml)
 {
     TOMLBuilder builder;
     Camera const original{ .m_Zoom = 2.5f, .m_Smoothing = 8.0f };
-    Serializer<Camera>::ToToml( original, builder );
+    Serializer<Camera>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    Camera const restored = Serializer<Camera>::FromToml( builder );
+    Camera const restored = Serializer<Camera>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_FLOAT_EQ(restored.m_Zoom, original.m_Zoom);
     EXPECT_FLOAT_EQ(restored.m_Smoothing, original.m_Smoothing);
 }
@@ -426,7 +426,7 @@ TEST(CameraSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     TOMLBuilder builder;
     builder.Table("Camera");
 
-    Camera const restored = Serializer<Camera>::FromToml( builder );
+    Camera const restored = Serializer<Camera>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_FLOAT_EQ(restored.m_Zoom, 1.0f);
     EXPECT_FLOAT_EQ(restored.m_Smoothing, 0.0f);
 }
@@ -441,7 +441,7 @@ TEST(PathFollowSerializerTest, ToToml_WritesWaypointsAndFieldsUnderPathFollowTab
     value.m_Speed = 4.5f;
     value.m_Loop = true;
     value.m_Resolution = 16;
-    Serializer<PathFollow>::ToToml( value, builder );
+    Serializer<PathFollow>::ToToml(value, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[PathFollow]"), std::string::npos);
@@ -462,9 +462,9 @@ TEST(PathFollowSerializerTest, RoundTripsWaypointsAndFieldsThroughToTomlAndFromT
     original.m_Speed = 4.5f;
     original.m_Loop = true;
     original.m_Resolution = 16;
-    Serializer<PathFollow>::ToToml( original, builder );
+    Serializer<PathFollow>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
-    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    PathFollow const restored = Serializer<PathFollow>::FromToml(builder, asge::game::scene::LoadContext{});
     ASSERT_EQ(restored.m_Waypoints.size(), original.m_Waypoints.size());
     for ( std::size_t ii = 0; ii < original.m_Waypoints.size(); ++ii )
     {
@@ -488,7 +488,7 @@ TEST(PathFollowSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     TOMLBuilder builder;
     builder.Table("PathFollow");
 
-    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    PathFollow const restored = Serializer<PathFollow>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(restored.m_Waypoints.empty());
     EXPECT_FLOAT_EQ(restored.m_Speed, 1.0f);
     EXPECT_FALSE(restored.m_Loop);
@@ -505,9 +505,9 @@ TEST(PathFollowSerializerTest, FromToml_RuntimeOnlyFieldsAlwaysResetToStructDefa
     TOMLBuilder builder;
     PathFollow value{};
     value.m_Waypoints = { asge::math::Float2{ 0.0f, 0.0f }, asge::math::Float2{ 10.0f, 0.0f } };
-    Serializer<PathFollow>::ToToml( value, builder );
+    Serializer<PathFollow>::ToToml(value, builder, asge::game::scene::SaveContext{});
 
-    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    PathFollow const restored = Serializer<PathFollow>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_FALSE(restored.m_Path.HasSegments());
     EXPECT_FLOAT_EQ(restored.m_Path.Length(), 0.0f);
     EXPECT_FLOAT_EQ(restored.m_Traveled, 0.0f);
@@ -524,7 +524,7 @@ TEST(PathFollowSerializerTest, FromToml_MismatchedWaypointArrayLengthsUsesTheSho
     table.SetArray("m_WaypointX", std::vector<float>{ 0.0f, 10.0f, 20.0f });
     table.SetArray("m_WaypointY", std::vector<float>{ 0.0f, 5.0f });
 
-    PathFollow const restored = Serializer<PathFollow>::FromToml( builder );
+    PathFollow const restored = Serializer<PathFollow>::FromToml(builder, asge::game::scene::LoadContext{});
     ASSERT_EQ(restored.m_Waypoints.size(), 2u); // min(3, 2) -- the third X has no matching Y
     EXPECT_FLOAT_EQ(restored.m_Waypoints[1].x(), 10.0f);
     EXPECT_FLOAT_EQ(restored.m_Waypoints[1].y(), 5.0f);

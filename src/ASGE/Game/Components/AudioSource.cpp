@@ -31,14 +31,14 @@ void asge::game::components::SetVolume( AudioSource& inAudioSource, float inVolu
 }
 
 void asge::game::components::Serializer<asge::game::components::AudioSource>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+    T inValue, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String( kTableName ) )
            .Set<str::String>( "m_VirtualClipPath", inValue.m_VirtualClipPath );
 }
 
 asge::game::components::AudioSource asge::game::components::Serializer<asge::game::components::AudioSource>::FromToml(
-    asge::config::toml::TOMLTableView inTview ) noexcept
+    asge::config::toml::TOMLTableView inTview, scene::LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
     AudioSource result;

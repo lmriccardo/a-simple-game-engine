@@ -12,7 +12,7 @@ void asge::game::components::StopAnimation( Animation& inAnim ) noexcept
 }
 
 void asge::game::components::Serializer<asge::game::components::Animation>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+    T inValue, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
 {
     inTview.Table(std::string(kTableName))
            .Set<std::string>("m_ClipPath", inValue.m_ClipPath)
@@ -20,7 +20,7 @@ void asge::game::components::Serializer<asge::game::components::Animation>::ToTo
 }
 
 asge::game::components::Animation asge::game::components::Serializer<asge::game::components::Animation>::FromToml(
-    asge::config::toml::TOMLTableView inTview ) noexcept
+    asge::config::toml::TOMLTableView inTview, scene::LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table(std::string(kTableName));
 

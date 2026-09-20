@@ -45,8 +45,14 @@ struct Serializer<PathFollow>
 
     using T = PathFollow;
 
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+    static void ToToml(
+                            T inValue,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
 };
 
 }

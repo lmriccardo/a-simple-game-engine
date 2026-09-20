@@ -23,8 +23,14 @@ struct Serializer<Rigidbody>
     using T = Rigidbody;
     static constexpr str::StringView kTableName = "Rigidbody";
 
-    static void ToToml( Rigidbody inRigidbody, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
+    static void ToToml(
+                            Rigidbody inRigidbody,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inEnttView,
+        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
 };
 
 }
