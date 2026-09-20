@@ -11,6 +11,7 @@
 #include "Components/AudioSource.hpp"
 #include "Components/Camera.hpp"
 #include "Components/PathFollow.hpp"
+#include "Components/Name.hpp"
 
 namespace asge::game::components
 {
@@ -26,8 +27,8 @@ namespace asge::game::components
  * Serializer<T> specialization.
  */
 using SerializableComponents = std::tuple<
-    Transform, Velocity, Sprite, Collider, Rigidbody, Animation, 
-    AudioSource, Camera, PathFollow
+    Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
+    AudioSource, Camera, PathFollow, Name
 >;
 
 }

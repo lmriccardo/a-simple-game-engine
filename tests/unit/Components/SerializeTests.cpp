@@ -16,9 +16,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollow)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowName)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 9);
+    static_assert(std::tuple_size_v<SerializableComponents> == 10);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -28,6 +28,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, AudioSource>);
     static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Camera>);
     static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
+    static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
     SUCCEED();
 }
 
@@ -43,6 +44,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<AudioSource>::kTableName, "AudioSource");
     EXPECT_EQ(Serializer<Camera>::kTableName, "Camera");
     EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
+    EXPECT_EQ(Serializer<Name>::kTableName, "Name");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────

@@ -9,15 +9,32 @@
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Name.hpp>
 
 #include <imgui.h>
 
 #include <cstdio>
+#include <string>
 
 using namespace asge::game::components;
 
 namespace
 {
+
+// inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
+// -- used for both the entity list and the inspector header, so the two
+// panels never disagree about what to call an entity.
+std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    if ( auto r = inRegistry.GetComponent<Name>( inEntity ); r && !r.Value().get().m_Name.empty() )
+    {
+        return r.Value().get().m_Name;
+    }
+
+    char buf[32];
+    std::snprintf( buf, sizeof(buf), "Entity #%u", inEntity.m_Index );
+    return buf;
+}
 
 // Edits a std::string field through a scratch fixed-size buffer, re-synced
 // from inValue every call -- the standard immediate-mode pattern for
@@ -32,6 +49,11 @@ bool DrawTextField( char const* inLabel, std::string& ioValue ) noexcept
         return true;
     }
     return false;
+}
+
+void DrawInspector( Name& inName ) noexcept
+{
+    DrawTextField( "Name", inName.m_Name );
 }
 
 void DrawInspector( Transform& inT ) noexcept
@@ -164,9 +186,12 @@ void DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
     ImGui::Begin( "Entities" );
     for ( auto entity : inRegistry.AllEntities() )
     {
-        char label[32];
-        std::snprintf( label, sizeof(label), "Entity #%u", entity.m_Index );
-        if ( ImGui::Selectable( label, entity == ioSelected ) ) ioSelected = entity;
+        // "##<index>" suffix keeps each row's ImGui ID unique even when two
+        // entities share the same (or default, unnamed) display label --
+        // the same class of collision DrawSection's PushID guards against.
+        std::string const label = GetEntityLabel( inRegistry, entity )
+            + "##" + std::to_string( entity.m_Index );
+        if ( ImGui::Selectable( label.c_str(), entity == ioSelected ) ) ioSelected = entity;
     }
     ImGui::End();
 }
@@ -176,9 +201,10 @@ void DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inSe
     if ( inSelected == asge::ecs::Entity::Null() ) return;
 
     ImGui::Begin( "Inspector" );
-    ImGui::Text( "Entity #%u", inSelected.m_Index );
+    ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );
     ImGui::Separator();
 
+    DrawSection<Name>( inRegistry, inSelected, "Name" );
     DrawSection<Transform>( inRegistry, inSelected, "Transform" );
     DrawSection<Velocity>( inRegistry, inSelected, "Velocity" );
     DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
