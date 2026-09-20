@@ -30,18 +30,18 @@ void asge::game::components::SetVolume( AudioSource& inAudioSource, float inVolu
     inAudioSource.m_Volume = inVolume;
 }
 
-void asge::game::components::Serializer<asge::game::components::AudioSource>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, scene::SaveContext const& inCtx ) noexcept
+void asge::game::scene::Serializer<asge::game::components::AudioSource>::ToToml(
+    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String( kTableName ) )
            .Set<str::String>( "m_VirtualClipPath", inValue.m_VirtualClipPath );
 }
 
-asge::game::components::AudioSource asge::game::components::Serializer<asge::game::components::AudioSource>::FromToml(
-    asge::config::toml::TOMLTableView inTview, scene::LoadContext const& inCtx ) noexcept
+asge::game::components::AudioSource asge::game::scene::Serializer<asge::game::components::AudioSource>::FromToml(
+    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
-    AudioSource result;
+    T result;
     result.m_VirtualClipPath = table.Get("m_VirtualClipPath", str::String{});
     return result;
 }

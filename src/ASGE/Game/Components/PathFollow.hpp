@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -31,6 +31,11 @@ struct PathFollow
     bool                   m_Finished{false}; // Whether a non-looping path has reached its end
 };
 
+}
+
+namespace asge::game::scene
+{
+
 /**
  * @brief Round-trips m_Waypoints/m_Speed/m_Loop/m_Resolution only — see
  *        AudioSource's Serializer doc comment for why a scene file
@@ -39,20 +44,20 @@ struct PathFollow
  *        in-code defaults, resolved later by asset::Resolver<PathFollow>.
  */
 template<>
-struct Serializer<PathFollow>
+struct Serializer<components::PathFollow>
 {
     static constexpr str::StringView kTableName = "PathFollow";
 
-    using T = PathFollow;
+    using T = components::PathFollow;
 
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
-        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
-        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

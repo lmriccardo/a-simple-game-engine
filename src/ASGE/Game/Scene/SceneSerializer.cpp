@@ -2,8 +2,8 @@
 #include <vector>
 #include <ASGE/Core/Configuration/TOML_Builder.hpp>
 #include <ASGE/Game/Components.hpp>
-#include <ASGE/Game/Components/Serialize.hpp>
 
+#include "Serialize.hpp"
 #include "IdContext.hpp"
 
 asge::BoolResult asge::game::scene::SceneSerializer::Save(
@@ -33,7 +33,7 @@ asge::BoolResult asge::game::scene::SceneSerializer::Save(
                     using T = decltype(component);
                     if ( inRegistry.HasComponent<T>(entity) )
                     {
-                        components::Serializer<T>::ToToml(
+                        Serializer<T>::ToToml(
                             inRegistry.GetComponent<T>( entity ).Value().get(),
                             entityTable,
                             ctx
@@ -138,10 +138,10 @@ asge::BoolResult asge::game::scene::SceneSerializer::Load(
             {
                 if ( !result ) return;
                 using T = decltype(component);
-                constexpr auto tName = components::Serializer<T>::kTableName;
+                constexpr auto tName = Serializer<T>::kTableName;
                 if ( entityTable.HasTable( str::String(tName) ) )
                 {
-                    T c = components::Serializer<T>::FromToml( entityTable, ctx );
+                    T c = Serializer<T>::FromToml( entityTable, ctx );
                     auto addResult = dstRegistry.AddComponent<T>( entity, c );
                     if ( !addResult )
                     {

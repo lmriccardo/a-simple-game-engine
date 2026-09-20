@@ -1,4 +1,5 @@
 #include <ASGE/Game/Components.hpp>
+#include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Core/Configuration/TOML_Builder.hpp>
 
 #include <gtest/gtest.h>
@@ -10,6 +11,7 @@ namespace
 {
 
 using namespace asge::game::components;
+using namespace asge::game::scene;
 using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
@@ -528,6 +530,37 @@ TEST(PathFollowSerializerTest, FromToml_MismatchedWaypointArrayLengthsUsesTheSho
     ASSERT_EQ(restored.m_Waypoints.size(), 2u); // min(3, 2) -- the third X has no matching Y
     EXPECT_FLOAT_EQ(restored.m_Waypoints[1].x(), 10.0f);
     EXPECT_FLOAT_EQ(restored.m_Waypoints[1].y(), 5.0f);
+}
+
+// ─── Name ───────────────────────────────────────────────────────────────────
+
+TEST(NameSerializerTest, ToToml_WritesNameUnderNameTable)
+{
+    TOMLBuilder builder;
+    Serializer<Name>::ToToml(Name{ "Player" }, builder, asge::game::scene::SaveContext{});
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Name]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Name = "Player")"), std::string::npos);
+}
+
+TEST(NameSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    Name const original{ "Enemy Spawner" };
+    Serializer<Name>::ToToml(original, builder, asge::game::scene::SaveContext{});
+
+    Name const restored = Serializer<Name>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_EQ(restored.m_Name, original.m_Name);
+}
+
+TEST(NameSerializerTest, FromToml_MissingKeyDefaultsToEmptyString)
+{
+    TOMLBuilder builder;
+    builder.Table("Name"); // present but empty
+
+    Name const restored = Serializer<Name>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_TRUE(restored.m_Name.empty());
 }
 
 }

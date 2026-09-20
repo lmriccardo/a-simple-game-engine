@@ -6,7 +6,7 @@
 #include <ASGE/Video/Graphics/Texture.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 #include "Transform.hpp"
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -58,22 +58,27 @@ struct SpriteDrawCorners
  */
 SpriteDrawCorners SpriteGetDrawCorners( math::Rect const& inDstRect, float inRotationRadians ) noexcept;
 
-template<>
-struct Serializer<Sprite>
-{
-    using T = Sprite;
+}
 
-    /** @brief The subtable name ToToml/FromToml agree on — see Serializer<Transform>::kTableName. */
+namespace asge::game::scene
+{
+
+/** @brief The subtable name ToToml/FromToml agree on — see Serializer<components::Transform>::kTableName. */
+template<>
+struct Serializer<components::Sprite>
+{
+    using T = components::Sprite;
+
     static constexpr str::StringView kTableName = "Sprite";
 
     static void ToToml(
-                            Sprite inSprite,
+                            components::Sprite inSprite,
                             asge::config::toml::TOMLTableView inTview,
-        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
-        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

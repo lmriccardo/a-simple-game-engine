@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Strings.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -18,10 +18,15 @@ struct Transform
     float m_ScaleY{1.0f};
 };
 
-template<>
-struct Serializer<Transform>
+}
+
+namespace asge::game::scene
 {
-    using T = Transform;
+
+template<>
+struct Serializer<components::Transform>
+{
+    using T = components::Transform;
 
     // The subtable name ToToml/FromToml agree on — also what a generic
     // per-entity walker checks (TOMLTableView::HasTable) to tell whether a
@@ -29,13 +34,13 @@ struct Serializer<Transform>
     static constexpr str::StringView kTableName = "Transform";
 
     static void ToToml(
-                            Transform inTransform,
+                            components::Transform inTransform,
                             asge::config::toml::TOMLTableView inTview,
-        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
-        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

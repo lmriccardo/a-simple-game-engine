@@ -5,7 +5,7 @@
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Media/AudioClip.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -69,6 +69,11 @@ BoolResult DetachAudioSource( audio::AudioDevice& inDevice, AudioSource& inAudio
 /** @brief Set the audio source gain/volume */
 void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept;
 
+}
+
+namespace asge::game::scene
+{
+
 /**
  * @brief Round-trips m_VirtualClipPath only — which clip to play, not the
  *        live playback state. FromToml leaves m_Clip null (resolved later
@@ -78,20 +83,20 @@ void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept;
  *        whether a previous run happened to be mid-playback.
  */
 template<>
-struct Serializer<AudioSource>
+struct Serializer<components::AudioSource>
 {
     static constexpr str::StringView kTableName = "AudioSource";
 
-    using T = AudioSource;
+    using T = components::AudioSource;
 
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
-        [[maybe_unused]]    scene::SaveContext const& inCtx ) noexcept;
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
-        [[maybe_unused]]    scene::LoadContext const& inCtx ) noexcept;
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

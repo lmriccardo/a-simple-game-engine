@@ -65,8 +65,7 @@ add_library(ASGE STATIC
     # Entity-Component-System
     Core/ECS/Registry.cpp
 
-    # ECS components and their TOML (de)serialization
-    Game/Components/Serialize.cpp
+    # ECS components
     Game/Components/Transform.cpp
     Game/Components/Velocity.cpp
     Game/Components/Rigidbody.cpp
@@ -76,6 +75,7 @@ add_library(ASGE STATIC
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp
     Game/Components/PathFollow.cpp
+    Game/Components/Name.cpp
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp
@@ -88,7 +88,8 @@ add_library(ASGE STATIC
     Game/Assets/AssetResolver.cpp
     Game/Assets/FrameTable.cpp
 
-    # Scene management
+    # Scene management and component TOML (de)serialization
+    Game/Scene/Serialize.cpp
     Game/Scene/SceneSerializer.cpp
     Game/Scene/SceneManager.cpp
     Game/Scene/IdContext.cpp
