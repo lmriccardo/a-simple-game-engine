@@ -103,6 +103,7 @@ public:
         asge::media::Image const&) const noexcept override { return nullptr; }
 
     [[nodiscard]] bool IsValid() const override { return true; }
+    [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
 
     void SetCamera(asge::video::Camera const& inCamera) override { m_Camera = inCamera; }
     [[nodiscard]] asge::video::Camera const& GetCamera() const override { return m_Camera; }

@@ -173,6 +173,7 @@ public:
 
     void Present() const override { ++s_PresentCalls; }
     [[nodiscard]] bool IsValid() const override { return s_Valid; }
+    [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
 
     void SetCamera(asge::video::Camera const& inCamera) override
     {
