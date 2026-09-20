@@ -1,3 +1,16 @@
+## [0.8.3] - 2026-09-18
+
+
+### Features
+
+- :sparkles: Add rotation_demo and path_following_demo to the Examples section
+
+
+
+
+### Contributors
+
+- lmriccardo
 ## [0.8.2] - 2026-09-17
 
 
@@ -441,6 +454,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.3]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.7.1...v0.8.0
