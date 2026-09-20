@@ -98,3 +98,40 @@ bool asge::game::components::IsAncestor(
 
     return false;
 }
+
+void asge::game::components::DestroyEntityGraph(ecs::Registry &inReg, ecs::Entity inRoot)
+{
+    std::vector<ecs::Entity> children;
+    ForEachChild( inReg, inRoot, [&](ecs::Entity child) { children.push_back(child); } );
+    for ( auto child : children ) DestroyEntityGraph( inReg, child );
+    if ( auto result = inReg.DestroyEntity( inRoot ); !result )
+    {
+        result.LogError();
+    }
+}
+
+void asge::game::scene::Serializer<asge::game::components::Hierarchy>::ToToml(
+    components::Hierarchy inHierarchy, asge::config::toml::TOMLTableView inTview, 
+    SaveContext const& inCtx ) noexcept
+{
+    inTview.Table( str::String(kTableName) )
+           .Set("m_Parent",       inCtx.Resolve(inHierarchy.m_Parent))
+           .Set("m_FirstChild",   inCtx.Resolve(inHierarchy.m_FirstChild))
+           .Set("m_LastChild",    inCtx.Resolve(inHierarchy.m_LastChild))
+           .Set("m_PrevSibling", inCtx.Resolve(inHierarchy.m_PrevSibling))
+           .Set("m_NextSibling", inCtx.Resolve(inHierarchy.m_NextSibling));
+}
+
+asge::game::components::Hierarchy 
+asge::game::scene::Serializer<asge::game::components::Hierarchy>::FromToml(
+    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+{
+    auto table = inEnttView.Table( str::String(kTableName) );
+    components::Hierarchy result;
+    result.m_Parent      = inCtx.Resolve( table.Get<int>( "m_Parent", -1 ) );
+    result.m_FirstChild  = inCtx.Resolve( table.Get<int>( "m_FirstChild", -1 ) );
+    result.m_LastChild   = inCtx.Resolve( table.Get<int>( "m_LastChild", -1 ) );
+    result.m_PrevSibling = inCtx.Resolve( table.Get<int>( "m_PrevSibling", -1 ) );
+    result.m_NextSibling = inCtx.Resolve( table.Get<int>( "m_NextSibling", -1 ) );
+    return result;
+}

@@ -348,4 +348,73 @@ TEST_F(SceneSerializerTest, Load_MidLoopFailureRollsBackOnlyThisCallsEntitiesLea
     EXPECT_NE(std::find(all.begin(), all.end(), sentinel.Value()), all.end());
 }
 
+TEST_F(SceneSerializerTest, Load_HierarchyComponent_ReconnectsParentChildRelationshipsAmongTheNewlyCreatedEntities)
+{
+    auto root = m_Registry.CreateEntity();
+    auto childA = m_Registry.CreateEntity();
+    auto childB = m_Registry.CreateEntity();
+    ASSERT_TRUE(root.IsOk());
+    ASSERT_TRUE(childA.IsOk());
+    ASSERT_TRUE(childB.IsOk());
+
+    AttachChild( m_Registry, root.Value(), childA.Value() );
+    AttachChild( m_Registry, root.Value(), childB.Value() );
+
+    SceneSerializer serializer{ m_Vfs };
+    ASSERT_TRUE(serializer.Save( m_Registry, m_ScenePath ).IsOk());
+    ASSERT_TRUE(m_Vfs.Mount("scenes", m_Root.string()).IsOk());
+
+    // Pre-populate `loaded` with five unrelated entities before Load() runs,
+    // so root/childA/childB's counterparts land at indices 5-7 there rather
+    // than 0-2 -- guaranteeing they can't possibly equal m_Registry's own
+    // entities by coincidence, and so proving the Hierarchy links checked
+    // below only work because FromToml actually resolved ids through
+    // LoadContext, not because it copied the original Entity values through
+    // untouched.
+    asge::ecs::Registry loaded;
+    for ( int i = 0; i < 5; ++i )
+    {
+        ASSERT_TRUE(loaded.CreateEntity().IsOk());
+    }
+
+    ASSERT_TRUE(serializer.Load( loaded, "scenes/scene.toml" ).IsOk());
+
+    // AllEntities() walks slots in index order, and Load() creates its
+    // entities in the order it encounters entity[N] blocks (root, childA,
+    // childB, per Save's own creation-order guarantee) -- so with `loaded`
+    // otherwise untouched, they land at the next three free indices in that
+    // same order.
+    auto const all = loaded.AllEntities();
+    ASSERT_EQ(all.size(), 8u);
+    auto const loadedRoot = all[5];
+    auto const loadedChildA = all[6];
+    auto const loadedChildB = all[7];
+
+    // None of the original handles survived the round trip -- confirms the
+    // assertions below are only possible because FromToml actually resolved
+    // ids through LoadContext, not because it copied the old Entity values.
+    EXPECT_NE(loadedRoot, root.Value());
+    EXPECT_NE(loadedChildA, childA.Value());
+    EXPECT_NE(loadedChildB, childB.Value());
+
+    ASSERT_TRUE(loaded.HasComponent<Hierarchy>(loadedRoot));
+    ASSERT_TRUE(loaded.HasComponent<Hierarchy>(loadedChildA));
+    ASSERT_TRUE(loaded.HasComponent<Hierarchy>(loadedChildB));
+
+    auto const& rootH = loaded.GetComponent<Hierarchy>(loadedRoot).Value().get();
+    EXPECT_EQ(rootH.m_Parent, asge::ecs::Entity::Null());
+    EXPECT_EQ(rootH.m_FirstChild, loadedChildA);
+    EXPECT_EQ(rootH.m_LastChild, loadedChildB);
+
+    auto const& childAH = loaded.GetComponent<Hierarchy>(loadedChildA).Value().get();
+    EXPECT_EQ(childAH.m_Parent, loadedRoot);
+    EXPECT_EQ(childAH.m_PrevSibling, asge::ecs::Entity::Null());
+    EXPECT_EQ(childAH.m_NextSibling, loadedChildB);
+
+    auto const& childBH = loaded.GetComponent<Hierarchy>(loadedChildB).Value().get();
+    EXPECT_EQ(childBH.m_Parent, loadedRoot);
+    EXPECT_EQ(childBH.m_PrevSibling, loadedChildA);
+    EXPECT_EQ(childBH.m_NextSibling, asge::ecs::Entity::Null());
+}
+
 }

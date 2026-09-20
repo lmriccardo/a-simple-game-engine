@@ -12,6 +12,7 @@
 #include "Components/Camera.hpp"
 #include "Components/PathFollow.hpp"
 #include "Components/Hierarchy.hpp"
+#include "Components/Name.hpp"
 
 namespace asge::game::components
 {
@@ -28,7 +29,7 @@ namespace asge::game::components
  */
 using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation, 
-    AudioSource, Camera, PathFollow
+    AudioSource, Camera, PathFollow, Name, Hierarchy
 >;
 
 }

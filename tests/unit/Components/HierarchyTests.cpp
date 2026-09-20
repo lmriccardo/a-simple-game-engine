@@ -4,13 +4,17 @@
 
 #include <gtest/gtest.h>
 
+#include <vector>
+
 namespace
 {
 
 using asge::ecs::Entity;
 using asge::ecs::Registry;
 using asge::game::components::AttachChild;
+using asge::game::components::DestroyEntityGraph;
 using asge::game::components::DetachChild;
+using asge::game::components::ForEachChild;
 using asge::game::components::Hierarchy;
 using asge::game::components::IsAncestor;
 using asge::game::components::Transform;
@@ -290,6 +294,134 @@ TEST(IsAncestorTest, EntityWithNoHierarchyComponent_ReturnsFalse)
     auto b = MakeEntity(registry);
 
     EXPECT_FALSE(IsAncestor(registry, a, b));
+}
+
+// ─── ForEachChild ─────────────────────────────────────────────────────────────
+
+TEST(ForEachChildTest, VisitsEveryDirectChildInSiblingOrder)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    auto c = MakeEntity(registry);
+    AttachChild(registry, parent, a);
+    AttachChild(registry, parent, b);
+    AttachChild(registry, parent, c);
+
+    std::vector<Entity> visited;
+    ForEachChild(registry, parent, [&](Entity child) { visited.push_back(child); });
+
+    ASSERT_EQ(visited.size(), 3u);
+    EXPECT_EQ(visited[0], a);
+    EXPECT_EQ(visited[1], b);
+    EXPECT_EQ(visited[2], c);
+}
+
+TEST(ForEachChildTest, DoesNotVisitGrandchildren)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto child = MakeEntity(registry);
+    auto grandchild = MakeEntity(registry);
+    AttachChild(registry, parent, child);
+    AttachChild(registry, child, grandchild);
+
+    std::vector<Entity> visited;
+    ForEachChild(registry, parent, [&](Entity c) { visited.push_back(c); });
+
+    ASSERT_EQ(visited.size(), 1u);
+    EXPECT_EQ(visited[0], child);
+}
+
+TEST(ForEachChildTest, ParentWithNoHierarchyComponent_VisitsNothing)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+
+    std::vector<Entity> visited;
+    EXPECT_NO_THROW(ForEachChild(registry, parent, [&](Entity c) { visited.push_back(c); }));
+    EXPECT_TRUE(visited.empty());
+}
+
+TEST(ForEachChildTest, ParentWithNoChildren_VisitsNothing)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto onlyChild = MakeEntity(registry);
+    AttachChild(registry, parent, onlyChild);
+    DetachChild(registry, onlyChild); // parent now has a Hierarchy but no children
+
+    std::vector<Entity> visited;
+    ForEachChild(registry, parent, [&](Entity c) { visited.push_back(c); });
+    EXPECT_TRUE(visited.empty());
+}
+
+TEST(ForEachChildTest, CallableMaySafelyDetachTheChildItIsCurrentlyVisiting)
+{
+    // Regression guard: ForEachChild reads m_NextSibling before invoking
+    // inFn, so inFn detaching (and so clearing) the current child's own
+    // sibling links doesn't truncate the walk early.
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    AttachChild(registry, parent, a);
+    AttachChild(registry, parent, b);
+
+    std::vector<Entity> visited;
+    ForEachChild(registry, parent, [&](Entity child)
+    {
+        visited.push_back(child);
+        DetachChild(registry, child);
+    });
+
+    ASSERT_EQ(visited.size(), 2u);
+    EXPECT_EQ(visited[0], a);
+    EXPECT_EQ(visited[1], b);
+}
+
+// ─── DestroyEntityGraph ───────────────────────────────────────────────────────
+
+TEST(DestroyEntityGraphTest, LeafEntity_JustDestroysItself)
+{
+    Registry registry;
+    auto entity = MakeEntity(registry);
+
+    DestroyEntityGraph(registry, entity);
+
+    EXPECT_TRUE(registry.AllEntities().empty());
+}
+
+TEST(DestroyEntityGraphTest, DestroysTheWholeSubtreeIncludingGrandchildren)
+{
+    Registry registry;
+    auto root = MakeEntity(registry);
+    auto child = MakeEntity(registry);
+    auto grandchild = MakeEntity(registry);
+    auto unrelated = MakeEntity(registry);
+    AttachChild(registry, root, child);
+    AttachChild(registry, child, grandchild);
+
+    DestroyEntityGraph(registry, root);
+
+    auto const all = registry.AllEntities();
+    EXPECT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], unrelated);
+}
+
+TEST(DestroyEntityGraphTest, DestroysEveryChildOfAMultiChildRoot)
+{
+    Registry registry;
+    auto root = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    AttachChild(registry, root, a);
+    AttachChild(registry, root, b);
+
+    DestroyEntityGraph(registry, root);
+
+    EXPECT_TRUE(registry.AllEntities().empty());
 }
 
 }

@@ -16,9 +16,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollow)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchy)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 9);
+    static_assert(std::tuple_size_v<SerializableComponents> == 11);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -28,6 +28,8 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, AudioSource>);
     static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Camera>);
     static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
+    static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
+    static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
     SUCCEED();
 }
 
@@ -43,6 +45,8 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<AudioSource>::kTableName, "AudioSource");
     EXPECT_EQ(Serializer<Camera>::kTableName, "Camera");
     EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
+    EXPECT_EQ(Serializer<Name>::kTableName, "Name");
+    EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -563,6 +567,144 @@ TEST(NameSerializerTest, FromToml_MissingKeyDefaultsToEmptyString)
 
     Name const restored = Serializer<Name>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(restored.m_Name.empty());
+}
+
+// ─── Hierarchy ──────────────────────────────────────────────────────────────
+//
+// Unlike every other component here, Hierarchy's fields are themselves
+// Entity references -- a raw handle can't survive a save/load round trip
+// (Load() creates entirely new entities), so ToToml/FromToml go through
+// SaveContext::Resolve/LoadContext::Resolve instead of writing/reading the
+// Entity directly. These tests exercise that resolution explicitly, with
+// SaveContext/LoadContext built by hand rather than relying on a real
+// SceneSerializer -- see SceneSerializerTests.cpp for the full round trip
+// through an actual parent/child graph.
+
+TEST(HierarchySerializerTest, ToToml_WritesEachFieldAsItsSaveContextResolvedId)
+{
+    TOMLBuilder builder;
+    asge::ecs::Entity const parent{ 3, 0 };
+    asge::ecs::Entity const firstChild{ 5, 0 };
+    asge::ecs::Entity const lastChild{ 7, 0 };
+
+    asge::game::scene::SaveContext ctx;
+    ctx.m_Ids[parent] = 10;
+    ctx.m_Ids[firstChild] = 11;
+    ctx.m_Ids[lastChild] = 12;
+
+    Hierarchy const value{ .m_Parent = parent, .m_FirstChild = firstChild, .m_LastChild = lastChild };
+    // m_PrevSibling/m_NextSibling left at Entity::Null().
+    Serializer<Hierarchy>::ToToml( value, builder, ctx );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Hierarchy]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Parent = 10"), std::string::npos);
+    EXPECT_NE(dump.find("m_FirstChild = 11"), std::string::npos);
+    EXPECT_NE(dump.find("m_LastChild = 12"), std::string::npos);
+    EXPECT_NE(dump.find("m_PrevSibling = -1"), std::string::npos);
+    EXPECT_NE(dump.find("m_NextSibling = -1"), std::string::npos);
+}
+
+TEST(HierarchySerializerTest, ToToml_EntityNotInSaveContextResolvesToNegativeOne)
+{
+    // Resolve returns -1 for an Entity SaveContext never learned about --
+    // same as Entity::Null() -- rather than throwing or crashing.
+    TOMLBuilder builder;
+    asge::game::scene::SaveContext const emptyCtx;
+    Hierarchy const value{ .m_Parent = asge::ecs::Entity{ 9, 0 } };
+    Serializer<Hierarchy>::ToToml( value, builder, emptyCtx );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("m_Parent = -1"), std::string::npos);
+}
+
+TEST(HierarchySerializerTest, FromToml_ResolvesIdsBackToTheCorrectEntitiesViaLoadContext)
+{
+    TOMLBuilder builder;
+    auto table = builder.Table("Hierarchy");
+    table.Set<int>( "m_Parent", 10 );
+    table.Set<int>( "m_FirstChild", 11 );
+    table.Set<int>( "m_LastChild", -1 );
+    table.Set<int>( "m_PrevSibling", -1 );
+    table.Set<int>( "m_NextSibling", -1 );
+
+    asge::ecs::Entity const parent{ 3, 0 };
+    asge::ecs::Entity const firstChild{ 5, 1 };
+    asge::game::scene::LoadContext ctx;
+    ctx.m_Entities[10] = parent;
+    ctx.m_Entities[11] = firstChild;
+
+    Hierarchy const restored = Serializer<Hierarchy>::FromToml( builder, ctx );
+    EXPECT_EQ(restored.m_Parent, parent);
+    EXPECT_EQ(restored.m_FirstChild, firstChild);
+    EXPECT_EQ(restored.m_LastChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_PrevSibling, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_NextSibling, asge::ecs::Entity::Null());
+}
+
+TEST(HierarchySerializerTest, FromToml_MissingKeysDefaultEveryFieldToNullEntity)
+{
+    TOMLBuilder builder;
+    builder.Table("Hierarchy"); // present but empty
+
+    // Present in the context but never referenced by the (empty) table --
+    // proves the default comes from the missing key, not an empty context.
+    asge::game::scene::LoadContext ctx;
+    ctx.m_Entities[10] = asge::ecs::Entity{ 3, 0 };
+
+    Hierarchy const restored = Serializer<Hierarchy>::FromToml( builder, ctx );
+    EXPECT_EQ(restored.m_Parent, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_FirstChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_LastChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_PrevSibling, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_NextSibling, asge::ecs::Entity::Null());
+}
+
+TEST(HierarchySerializerTest, RoundTripsThroughToTomlAndFromTomlWithMatchingContexts)
+{
+    TOMLBuilder builder;
+    asge::ecs::Entity const parent{ 1, 0 };
+    asge::ecs::Entity const firstChild{ 2, 0 };
+    asge::ecs::Entity const lastChild{ 3, 0 };
+    asge::ecs::Entity const prevSibling{ 4, 0 };
+    asge::ecs::Entity const nextSibling{ 5, 0 };
+
+    asge::game::scene::SaveContext saveCtx;
+    saveCtx.m_Ids[parent] = 0;
+    saveCtx.m_Ids[firstChild] = 1;
+    saveCtx.m_Ids[lastChild] = 2;
+    saveCtx.m_Ids[prevSibling] = 3;
+    saveCtx.m_Ids[nextSibling] = 4;
+
+    Hierarchy const original{
+        .m_Parent = parent, .m_FirstChild = firstChild, .m_LastChild = lastChild,
+        .m_NextSibling = nextSibling, .m_PrevSibling = prevSibling
+    };
+    Serializer<Hierarchy>::ToToml( original, builder, saveCtx );
+
+    // A real Load() maps the same saved ids onto freshly created entities,
+    // never the originals -- use different Entity values here than saveCtx
+    // did, so this only passes if FromToml actually performs the id lookup
+    // rather than smuggling the original handle through some other path.
+    asge::ecs::Entity const newParent{ 10, 0 };
+    asge::ecs::Entity const newFirstChild{ 11, 0 };
+    asge::ecs::Entity const newLastChild{ 12, 0 };
+    asge::ecs::Entity const newPrevSibling{ 13, 0 };
+    asge::ecs::Entity const newNextSibling{ 14, 0 };
+
+    asge::game::scene::LoadContext loadCtx;
+    loadCtx.m_Entities[0] = newParent;
+    loadCtx.m_Entities[1] = newFirstChild;
+    loadCtx.m_Entities[2] = newLastChild;
+    loadCtx.m_Entities[3] = newPrevSibling;
+    loadCtx.m_Entities[4] = newNextSibling;
+
+    Hierarchy const restored = Serializer<Hierarchy>::FromToml( builder, loadCtx );
+    EXPECT_EQ(restored.m_Parent, newParent);
+    EXPECT_EQ(restored.m_FirstChild, newFirstChild);
+    EXPECT_EQ(restored.m_LastChild, newLastChild);
+    EXPECT_EQ(restored.m_PrevSibling, newPrevSibling);
+    EXPECT_EQ(restored.m_NextSibling, newNextSibling);
 }
 
 }

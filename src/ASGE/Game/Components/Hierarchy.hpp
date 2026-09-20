@@ -2,6 +2,8 @@
 
 #include <ASGE/Core/ECS/Entity.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
+#include <ASGE/Game/Scene/Serialize.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 namespace asge::game::components
 {
@@ -50,5 +52,77 @@ void DetachChild( ecs::Registry& inReg, ecs::Entity inChild );
  *        inEntity has no Hierarchy component, or is a root.
  */
 bool IsAncestor( ecs::Registry& inReg, ecs::Entity inPotentialAncestor, ecs::Entity inEntity );
+
+/**
+ * @brief Invokes inFn(child) once per direct child of inParent, in sibling
+ *        order (m_FirstChild through m_LastChild). A no-op if inParent has
+ *        no Hierarchy component or currently has no children. inFn is
+ *        captured by the caller's own iteration, so it may safely call
+ *        AttachChild/DetachChild on the entity it's currently visiting --
+ *        that entity's own m_NextSibling is read before inFn runs.
+ */
+template<typename Callable>
+requires (functools::_internal::arity_v<Callable> == 1)
+    &&   (std::is_same_v<functools::_internal::arg_t<Callable, 0>, ecs::Entity>)
+void ForEachChild( ecs::Registry& inReg, ecs::Entity inParent, Callable&& inFn )
+{
+    auto parentHResult = inReg.GetComponent<Hierarchy>(inParent);
+    if ( !parentHResult ) return;
+    ecs::Entity current = parentHResult.Value().get().m_FirstChild;
+    while ( current != ecs::Entity::Null() )
+    {
+        auto currentHResult = inReg.GetComponent<Hierarchy>( current );
+        ecs::Entity const next = currentHResult.Value().get().m_NextSibling;
+        inFn( current );
+        current = next;
+    }
+}
+
+/**
+ * @brief Destroys inRoot and its entire subtree (children, grandchildren,
+ *        ...), depth-first via ForEachChild/recursion. Unlike a plain
+ *        DestroyEntity(inRoot), this doesn't leave orphaned children behind
+ *        pointing at a now-dead parent.
+ */
+void DestroyEntityGraph(ecs::Registry& inReg, ecs::Entity inRoot);
+
+}
+
+namespace asge::game::scene
+{
+
+/**
+ * @brief Round-trips every entity-reference field (m_Parent/m_FirstChild/
+ *        m_LastChild/m_PrevSibling/m_NextSibling) via SaveContext/
+ *        LoadContext rather than the raw ecs::Entity handle.
+ *
+ * An Entity's index/generation isn't stable across a save/load round trip
+ * -- Load() creates fresh entities in whatever order it encounters
+ * `[[entity]]` blocks, so a handle saved from the old registry would
+ * silently alias onto the wrong entity (or none at all) in the new one.
+ * ToToml writes each field as SaveContext::Resolve's stable per-entity id
+ * (-1 for Entity::Null()); FromToml reads that id back through
+ * LoadContext::Resolve, which only works correctly once every referenced
+ * entity has already been created — see SceneSerializer::Load, which
+ * creates every entity up front in one pass before populating any
+ * component in a second pass, specifically so a Hierarchy field can point
+ * to a sibling/parent entity regardless of which is loaded first.
+ */
+template<>
+struct Serializer<components::Hierarchy>
+{
+    static constexpr str::StringView kTableName = "Hierarchy";
+
+    using T = components::Hierarchy;
+
+    static void ToToml(
+                            T inValue,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
+};
 
 }
