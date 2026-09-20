@@ -17,6 +17,7 @@
 #include <filesystem>
 
 #include "Inspector.hpp"
+#include "ViewportOverlay.hpp"
 
 namespace
 {
@@ -112,6 +113,7 @@ int main(int, char**)
     ImGui_ImplSDLRenderer3_Init(renderer);
 
     auto selectedEntity = asge::ecs::Entity::Null();
+    float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the Scene window
 
     bool running = true;
     while (running)
@@ -156,6 +158,7 @@ int main(int, char**)
                     {
                         auto const saveResult = sceneManager.SaveScene(resolved.Value());
                         if (!saveResult) saveResult.LogError();
+                        else LOG_INFO("Scene saved to ", resolved.Value().string());
                     }
                     else resolved.LogError();
                 }
@@ -166,12 +169,20 @@ int main(int, char**)
 
         ImGui::Begin("Scene");
         ImGui::Text("Scene loaded: %zu entities", sceneManager.GetRegistry().AllEntities().size());
+        ImGui::DragFloat("Grid Spacing", &gridSpacing, 1.0f, 5.0f, 500.0f);
         ImGui::End();
 
         // Phase 3: entity list panel drives the same selection state as
         // viewport picking (Phase 2) -- one selection state, two input paths.
         DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity);
         DrawInspectorPanel(sceneManager.GetRegistry(), selectedEntity);
+
+        // Phase 4: viewport overlays, so a position/collider is readable
+        // directly off the scene instead of only through the inspector.
+        // GetBackgroundDrawList() renders behind every ImGui window/panel,
+        // in front of the sprites RenderPipeline draws below.
+        DrawWorldGrid(videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), gridSpacing);
+        DrawColliderOverlays(videoSys.GetRenderer(), sceneManager.GetRegistry(), ImGui::GetBackgroundDrawList());
 
         ImGui::Render();
 
