@@ -42,6 +42,17 @@
             }
         },
         {
+            "name": "windows-editor",
+            "displayName": "Windows (editor: tests, no examples)",
+            "description": "For iterating on asge-editor without paying for every examples/ demo to rebuild -- tests stay on.",
+            "inherits": "windows-base",
+            "cacheVariables": {
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_BUILD_EDITOR": "ON"
+            }
+        },
+        {
             "name": "linux-base",
             "hidden": true,
             "binaryDir": "${sourceDir}/build",
@@ -156,6 +167,11 @@
             "configuration": "Debug"
         },
         {
+            "name": "windows-editor-debug",
+            "configurePreset": "windows-editor",
+            "configuration": "Debug"
+        },
+        {
             "name": "linux",
             "configurePreset": "linux"
         },
@@ -197,6 +213,14 @@
         {
             "name": "windows-ci-debug",
             "configurePreset": "windows-ci",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "windows-editor-debug",
+            "configurePreset": "windows-editor",
             "configuration": "Debug",
             "output": {
                 "outputOnFailure": true
