@@ -18,16 +18,16 @@ parallel schema, no parallel renderer.
 
 **Goal:** ImGui source present and building, no editor logic yet.
 
-- [ ] Vendor Dear ImGui (core + `backends/imgui_impl_sdl3.cpp` +
+- [x] Vendor Dear ImGui (core + `backends/imgui_impl_sdl3.cpp` +
       `backends/imgui_impl_sdlrenderer3.cpp`) alongside existing vendored
       libs (`stb_image`, `stb_truetype`, TOML parser).
-- [ ] New CMake target `asge-editor`, linking against the `Core` library
+- [x] New CMake target `asge-editor`, linking against the `Core` library
       target (whatever it's currently called) — not `Game`.
-- [ ] Add `IRenderer::GetNativeHandle()` (or equivalent) to expose the raw
+- [x] Add `IRenderer::GetNativeHandle()` (or equivalent) to expose the raw
       `SDL_Renderer*` — the one sanctioned leak through the `IRenderer`
       abstraction, needed because ImGui's SDL3 renderer backend binds to it
       directly.
-- [ ] Minimal `main()`: SDL3 init → create window/renderer via existing
+- [x] Minimal `main()`: SDL3 init → create window/renderer via existing
       engine init path → `ImGui_ImplSDL3_Init` / `ImGui_ImplSDLRenderer3_Init`
       → loop that pumps events (`ImGui_ImplSDL3_ProcessEvent` first), starts
       an ImGui frame, draws a single `ImGui::ShowDemoWindow()`, renders, and
@@ -42,13 +42,13 @@ top, no crashes on close.
 
 **Goal:** prove the editor operates on genuine engine state, not a mock.
 
-- [ ] Remove the demo window. On startup, call the existing
+- [x] Remove the demo window. On startup, call the existing
       `SceneManager::Load(path)` (same path the game uses) into a real
       `Registry`, from a hardcoded test `.toml` for now.
-- [ ] Run the existing render passes (whatever your game loop already calls
+- [x] Run the existing render passes (whatever your game loop already calls
       — texture draw, sprite/animation draw) each frame, so the loaded
       scene actually renders in the window.
-- [ ] ImGui pass on top is just a single "Scene loaded: N entities" text
+- [x] ImGui pass on top is just a single "Scene loaded: N entities" text
       window, reading entity count via `Registry`.
 
 **Done when:** a real authored `.toml` scene renders correctly inside the
