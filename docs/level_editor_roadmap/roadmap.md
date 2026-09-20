@@ -91,17 +91,22 @@ built on an unverified assumption.
 
 **Only start this once Phase 2's round trip is proven and boring.**
 
-- [ ] For each additional component type you want editable (`Collider`,
+- [x] For each additional component type you want editable (`Collider`,
       `Animation`, `Sprite`/layer fields), write one
       `void DrawInspector(ComponentType&)` free function — mirrors your
       existing convention of one `Serializer<T>` specialization per type,
       not a generic reflection system. No macro-based reflection unless a
-      second unrelated consumer justifies it later.
-- [ ] Entity list panel: fixed, explicit list of known component types
+      second unrelated consumer justifies it later. Covers every
+      currently-serializable type (`editor/Inspector.cpp`): `Transform`,
+      `Velocity`, `Rigidbody`, `Sprite`, `Collider`, `Camera`,
+      `AudioSource`, `Animation`, `PathFollow`. `Registry::GetPool<T>()`
+      doesn't actually exist — used `Registry::GetComponent<T>` per type
+      instead, which doubles as the "does it have one" check.
+- [x] Entity list panel: fixed, explicit list of known component types
       checked via `Registry::GetPool<T>()->Has(entity)` per type — same
       "no RTTI, function-local static counter IDs" convention already used
       internally by `Registry`.
-- [ ] Selecting an entity in the list drives the same inspector panel as
+- [x] Selecting an entity in the list drives the same inspector panel as
       viewport picking (Phase 2) — one selection state, two input paths.
 
 **Done when:** you can select any entity from the list or viewport and
