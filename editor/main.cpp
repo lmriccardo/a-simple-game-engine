@@ -16,6 +16,8 @@
 
 #include <filesystem>
 
+#include "Inspector.hpp"
+
 namespace
 {
 using asge::game::components::Sprite;
@@ -54,11 +56,13 @@ asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Flo
 }
 }
 
-// Phase 2: prove select -> edit -> save -> reload round-trips through the
-// engine's real Transform serialization, before building any generalized
-// inspector machinery. Still no Game/IGameState dependency -- picking uses
-// raw SDL mouse events rather than InputState/InputSystem, which exist to
-// feed IGameState::Update()'s polling model the editor doesn't have.
+// Phase 2 proved select -> edit -> save -> reload round-trips through the
+// engine's real Transform serialization. Phase 3 generalizes the inspector
+// (see Inspector.hpp/.cpp) to every currently-serializable component type,
+// plus an entity list panel driving the same selection state as viewport
+// picking. Still no Game/IGameState dependency -- picking uses raw SDL
+// mouse events rather than InputState/InputSystem, which exist to feed
+// IGameState::Update()'s polling model the editor doesn't have.
 int main(int, char**)
 {
     LOG_INSTANCE().SetLogLevel(asge::logger::LogLevel::Debug);
@@ -164,22 +168,10 @@ int main(int, char**)
         ImGui::Text("Scene loaded: %zu entities", sceneManager.GetRegistry().AllEntities().size());
         ImGui::End();
 
-        if (selectedEntity != asge::ecs::Entity::Null())
-        {
-            if (auto transformResult = sceneManager.GetRegistry().GetComponent<Transform>(selectedEntity))
-            {
-                auto& t = transformResult.Value().get();
-                ImGui::Begin("Inspector");
-                ImGui::Text("Entity #%u", selectedEntity.m_Index);
-                float pos[2]{ t.m_X, t.m_Y };
-                if (ImGui::DragFloat2("Position", pos))
-                {
-                    t.m_X = pos[0];
-                    t.m_Y = pos[1];
-                }
-                ImGui::End();
-            }
-        }
+        // Phase 3: entity list panel drives the same selection state as
+        // viewport picking (Phase 2) -- one selection state, two input paths.
+        DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity);
+        DrawInspectorPanel(sceneManager.GetRegistry(), selectedEntity);
 
         ImGui::Render();
 

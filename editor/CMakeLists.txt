@@ -1,4 +1,4 @@
-add_executable(asge-editor main.cpp)
+add_executable(asge-editor main.cpp Inspector.cpp)
 
 target_link_libraries(asge-editor PRIVATE ASGE imgui::imgui)
 
