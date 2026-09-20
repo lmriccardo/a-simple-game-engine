@@ -117,20 +117,30 @@ round-tripping through Phase 2's proven save path.
 
 ## Phase 4 — Visual collider overlays & basic gizmos
 
-- [ ] World-space coordinate grid, drawn as an `ImDrawList` overlay in the
+- [x] World-space coordinate grid, drawn as an `ImDrawList` overlay in the
       viewport via the same `Camera`/`Viewport` math Phase 2's picking
       already reuses (`WorldToScreen`, so grid lines pan/zoom with the
       camera instead of staying screen-fixed) — right now position is only
       knowable by opening the inspector and reading numbers off a selected
       entity, with nothing in the viewport itself to place it against.
-- [ ] Draw `Collider` bounds (AABB/circle, per your existing collision
+- [x] Draw `Collider` bounds (AABB/circle, per your existing collision
       types) as translucent `ImDrawList` overlays in the viewport, colored
       by layer/mask bitfield — this is the actual visual value-add over a
       coordinates-only editor.
-- [ ] Simple translate gizmo (drag handles, not just raw position drag) if
-      free-drag from Phase 2 feels imprecise in practice. Skip this if
-      free-drag is already good enough — don't build a gizmo system
-      speculatively.
+- [ ] Viewport free-drag: click-and-hold a selected entity directly in the
+      viewport (reusing Phase 2's picking) and move the mouse to reposition
+      it, converting screen-space mouse delta to world-space delta via the
+      same `Camera`/`Viewport` math the grid/picking already use, and
+      writing straight into `Transform` — no intermediate copy, same as the
+      inspector's `DragFloat2`. Unconstrained (no axis lock, no snapping);
+      that's what a gizmo would add on top, not this.
+- [ ] Translate gizmo on the selected entity: X/Y arrow handles drawn at its
+      `Transform` position via the same `ImDrawList` overlay approach as the
+      grid/collider bounds above. Dragging the X (or Y) arrow moves the
+      entity along just that axis; a center handle (or free-drag itself)
+      still allows unconstrained movement. Wanted outright, not
+      conditional on free-drag feeling imprecise — keep it in scope rather
+      than skipping it.
 
 **Done when:** you can visually confirm collider placement/overlap, and
 place/read off an entity's world position via the grid, without switching
@@ -172,6 +182,43 @@ of its own via File > Save As.
 
 **Done when:** authoring a new entity's visuals doesn't require knowing
 asset filenames by memory.
+
+---
+
+## Phase 7 — Viewport navigation & window ergonomics
+
+**Goal:** a level bigger than the editor window is still fully reachable,
+and the editor's own window size stops being confused with the target
+game's window size — two independent things today's editor conflates by
+having neither.
+
+- [ ] Resizable editor window: opt-in via a new `VideoSystem::Initialize`
+      parameter (default `false`, so every other consumer — examples,
+      games — keeps today's fixed-size behavior unchanged) rather than
+      flipping `SDL_CreateWindow`'s flags engine-wide; `asge-editor` is the
+      one caller that requests it. On `SDL_EVENT_WINDOW_RESIZED`, update
+      `IRenderer::SetViewport(...)` to match the new size — without this,
+      a resizable window would just stretch/crop the existing surface
+      instead of revealing more of the world.
+- [ ] Camera pan/zoom: mouse-driven viewport navigation (e.g.
+      middle-mouse-drag to pan, scroll wheel to zoom) writing into the same
+      `asge::video::Camera` the renderer already exposes via
+      `SetCamera`/`GetCamera`. Independent of window size entirely — a
+      level can always be bigger than any window, resizable or not, so
+      this is the actual fix for "I can't reach the rest of my level," not
+      the resize support above.
+- [ ] Target-game resolution preview: a rectangle overlay (same
+      `ImDrawList` approach as Phase 4's grid/collider overlays)
+      representing the actual game's configured window size/aspect ratio,
+      letterboxed to fit within whatever the editor's viewport currently
+      is. Previews what the shipped game will actually show, without ever
+      constraining the editor's own window to that size — the game's
+      resolution is scene/gameplay data, not an editor-window concern.
+
+**Done when:** a level larger than the editor window can be fully authored
+by panning/zooming to reach every part of it, resizing the editor window
+never distorts the view, and you can see at a glance what the target
+game's actual window will show.
 
 ---
 
