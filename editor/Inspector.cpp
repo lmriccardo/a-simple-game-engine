@@ -183,6 +183,10 @@ void DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
 
 void DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected ) noexcept
 {
+    float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
+    ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, 160.0f ), ImGuiCond_FirstUseEver );
+
     ImGui::Begin( "Entities" );
     for ( auto entity : inRegistry.AllEntities() )
     {
@@ -199,6 +203,11 @@ void DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
 void DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected ) noexcept
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return;
+
+    float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
+    float const remainingHeight = ImGui::GetIO().DisplaySize.y - 265.0f - 20.0f; // fills down to a bottom margin
+    ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, remainingHeight ), ImGuiCond_FirstUseEver );
 
     ImGui::Begin( "Inspector" );
     ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );

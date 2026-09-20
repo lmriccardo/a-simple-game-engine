@@ -5,6 +5,13 @@
 // Editor-only inspector UI -- lives here, not in src/ASGE/Game/Components/,
 // since it depends on ImGui and the engine library itself must not.
 
+// Shared right-side panel layout constants, so Scene (main.cpp)/Entities/
+// Inspector stack vertically along the same right-aligned column instead of
+// ImGui's default cascade-on-top-of-each-other for windows with no
+// explicit position.
+constexpr float kEditorPanelWidth = 300.0f;
+constexpr float kEditorPanelRightMargin = 10.0f;
+
 /**
  * @brief Lists every entity in inRegistry; clicking one sets ioSelected.
  */
