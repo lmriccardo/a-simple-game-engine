@@ -127,14 +127,14 @@ round-tripping through Phase 2's proven save path.
       types) as translucent `ImDrawList` overlays in the viewport, colored
       by layer/mask bitfield — this is the actual visual value-add over a
       coordinates-only editor.
-- [ ] Viewport free-drag: click-and-hold a selected entity directly in the
+- [x] Viewport free-drag: click-and-hold a selected entity directly in the
       viewport (reusing Phase 2's picking) and move the mouse to reposition
       it, converting screen-space mouse delta to world-space delta via the
       same `Camera`/`Viewport` math the grid/picking already use, and
       writing straight into `Transform` — no intermediate copy, same as the
       inspector's `DragFloat2`. Unconstrained (no axis lock, no snapping);
       that's what a gizmo would add on top, not this.
-- [ ] Translate gizmo on the selected entity: X/Y arrow handles drawn at its
+- [x] Translate gizmo on the selected entity: X/Y arrow handles drawn at its
       `Transform` position via the same `ImDrawList` overlay approach as the
       grid/collider bounds above. Dragging the X (or Y) arrow moves the
       entity along just that axis; a center handle (or free-drag itself)
