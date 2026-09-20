@@ -9,6 +9,8 @@
 
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 
+#include "TransformPropagationSystem.hpp"
+
 #include <cmath>
 
 namespace
@@ -18,10 +20,16 @@ using namespace asge::ecs;
 using namespace asge::math;
 
 // Applies a positional correction and zeroes velocity on whichever axis moved.
+// Updates both Local and World coordinates together (rather than just Local +
+// m_Dirty) since collision resolution runs after TransformPropagationSystem
+// in PhysicsUpdate -- deferring to next frame's propagation would leave this
+// frame's rendering one step stale.
 void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& inDelta ) noexcept
 {
-    inT.m_X += inDelta.x();
-    inT.m_Y += inDelta.y();
+    inT.m_LocalCoordinates.x() += inDelta.x();
+    inT.m_LocalCoordinates.y() += inDelta.y();
+    inT.m_WorldCoordinates.x() += inDelta.x();
+    inT.m_WorldCoordinates.y() += inDelta.y();
     if ( inDelta.x() != 0.0f ) inV.m_DX = 0.0f;
     if ( inDelta.y() != 0.0f ) inV.m_DY = 0.0f;
 }
@@ -85,13 +93,14 @@ asge::game::components::ColliderShape asge::game::systems::WorldBounds(
         if constexpr ( std::is_same_v<ShapeT, math::Rect> )
         {
             return math::Rect{
-                inTransform.m_X + inShape.m_X, inTransform.m_Y + inShape.m_Y,
+                inTransform.m_WorldCoordinates.x() + inShape.m_X, inTransform.m_WorldCoordinates.y() + inShape.m_Y,
                 inShape.m_Width, inShape.m_Height
             };
         } else {
             return math::Circle{
                 math::Float2{
-                    inTransform.m_X + inShape.m_Center.x(), inTransform.m_Y + inShape.m_Center.y()
+                    inTransform.m_WorldCoordinates.x() + inShape.m_Center.x(),
+                    inTransform.m_WorldCoordinates.y() + inShape.m_Center.y()
                 },
                 inShape.m_Radius
             };
@@ -101,11 +110,13 @@ asge::game::components::ColliderShape asge::game::systems::WorldBounds(
 
 void asge::game::systems::MovementSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
 {
-    for ( auto [ entity, transform, velocity ] 
+    for ( auto [ entity, transform, velocity ]
             : inRegistry.View<components::Transform, components::Velocity>() )
     {
-        transform.get().m_X += velocity.get().m_DX * inDeltaTime;
-        transform.get().m_Y += velocity.get().m_DY * inDeltaTime;
+        auto& t = transform.get();
+        t.m_LocalCoordinates.x() += velocity.get().m_DX * inDeltaTime;
+        t.m_LocalCoordinates.y() += velocity.get().m_DY * inDeltaTime;
+        t.m_Dirty = true;
     }
 }
 
@@ -223,6 +234,7 @@ void asge::game::systems::PhysicsUpdate(
     GravitySystem( inRegistry, inDeltaTime );
     MovementSystem( inRegistry, inDeltaTime );
     PathFollowingSystem( inRegistry, inDeltaTime );
+    TransformPropagationSystem( inRegistry );
     auto contacts = DetectCollisions( inRegistry );
     ResolveCollisions( inRegistry, contacts );
     DispatchTriggerEvents( inState, contacts );
@@ -253,17 +265,17 @@ void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float i
         }
 
         math::Float2 pos = path.m_Path.PointAtDistance( path.m_Traveled );
-        transform.m_X = pos.x();
-        transform.m_Y = pos.y();
+        transform.m_LocalCoordinates = pos;
+        transform.m_Dirty = true;
 
         float time = path.m_Path.TimeAtDistance( path.m_Traveled );
         math::Float2 tangent = path.m_Path.TangentAt( time );
 
         // A degenerate segment (coincident control points) normalizes to a
-        // NaN tangent -- leave m_Rotation as it was rather than corrupting it.
+        // NaN tangent -- leave m_LocalRotation as it was rather than corrupting it.
         if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
         {
-            transform.m_Rotation = std::atan2( tangent.y(), tangent.x() );
+            transform.m_LocalRotation = std::atan2( tangent.y(), tangent.x() );
         }
     }
 }

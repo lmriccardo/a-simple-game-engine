@@ -28,6 +28,7 @@ add_library(ASGE STATIC
     Core/Time/Time.cpp
 
     # Math utilities implementation
+    Core/Math/LinearAlgebra/Vector2.cpp
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
     Core/Math/Geometry/CatmullRomSpline.cpp
@@ -82,6 +83,7 @@ add_library(ASGE STATIC
     Game/Systems/PhysicsDebugSystem.cpp
     Game/Systems/RenderSystem.cpp
     Game/Systems/AudioSystem.cpp
+    Game/Systems/TransformPropagationSystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp

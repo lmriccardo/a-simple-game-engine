@@ -24,7 +24,8 @@ std::optional<asge::math::Rect> asge::game::components::SpriteGetDstRect(
     }
 
     return math::Rect{
-        inT.m_X, inT.m_Y, srcW * inT.m_ScaleX, srcH * inT.m_ScaleY
+        inT.m_WorldCoordinates.x(), inT.m_WorldCoordinates.y(),
+        srcW * inT.m_WorldScale.x(), srcH * inT.m_WorldScale.y()
     };
 }
 

@@ -1,4 +1,4 @@
-#include <ASGE/Game/Systems/RenderSystem.hpp>
+﻿#include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
@@ -131,7 +131,7 @@ TEST(RenderSystemTest, NoSourceRect_DestRectSizedFromFullTextureScaled)
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(),
-        Transform{ .m_X = 10.0f, .m_Y = 20.0f, .m_ScaleX = 2.0f, .m_ScaleY = 3.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {10.0f, 20.0f}, .m_WorldScale = {2.0f, 3.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -158,7 +158,7 @@ TEST(RenderSystemTest, SourceRectSet_DestRectSizedFromSourceRectNotFullTexture)
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(),
-        Transform{ .m_X = 5.0f, .m_Y = 5.0f, .m_ScaleX = 2.0f, .m_ScaleY = 2.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {5.0f, 5.0f}, .m_WorldScale = {2.0f, 2.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{
         .m_Texture = &texture,
         .m_SourceRect = asge::math::Rect{ 64.0f, 0.0f, 32.0f, 32.0f }
@@ -186,7 +186,7 @@ TEST(RenderSystemTest, SourceRectAndFullTextureEntities_EachDestRectComputedInde
     auto cropped = registry.CreateEntity();
     ASSERT_TRUE(cropped.IsOk());
     ASSERT_TRUE(registry.AddComponent(cropped.Value(),
-        Transform{ .m_X = 0.0f, .m_Y = 0.0f, .m_ScaleX = 1.0f, .m_ScaleY = 1.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {0.0f, 0.0f}, .m_WorldScale = {1.0f, 1.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(cropped.Value(), Sprite{
         .m_Texture = &sheet,
         .m_SourceRect = asge::math::Rect{ 0.0f, 0.0f, 32.0f, 32.0f }
@@ -195,7 +195,7 @@ TEST(RenderSystemTest, SourceRectAndFullTextureEntities_EachDestRectComputedInde
     auto whole = registry.CreateEntity();
     ASSERT_TRUE(whole.IsOk());
     ASSERT_TRUE(registry.AddComponent(whole.Value(),
-        Transform{ .m_X = 0.0f, .m_Y = 0.0f, .m_ScaleX = 1.0f, .m_ScaleY = 1.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {0.0f, 0.0f}, .m_WorldScale = {1.0f, 1.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(whole.Value(), Sprite{ .m_Texture = &standalone }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -222,14 +222,14 @@ TEST(RenderSystemTest, Layer_LowerLayerDrawnBeforeHigherLayer)
     auto high = registry.CreateEntity();
     ASSERT_TRUE(high.IsOk());
     ASSERT_TRUE(registry.AddComponent(high.Value(),
-        Transform{ .m_X = 100.0f, .m_Y = 0.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {100.0f, 0.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(high.Value(),
         Sprite{ .m_Texture = &texture, .m_Layer = 5 }).IsOk());
 
     auto low = registry.CreateEntity();
     ASSERT_TRUE(low.IsOk());
     ASSERT_TRUE(registry.AddComponent(low.Value(),
-        Transform{ .m_X = 200.0f, .m_Y = 0.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {200.0f, 0.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(low.Value(),
         Sprite{ .m_Texture = &texture, .m_Layer = 1 }).IsOk());
 
@@ -252,14 +252,14 @@ TEST(RenderSystemTest, YSort_SortsByBottomEdgeWithinSameLayer)
     auto front = registry.CreateEntity(); // Higher on screen -> lower bottom edge -> drawn first
     ASSERT_TRUE(front.IsOk());
     ASSERT_TRUE(registry.AddComponent(front.Value(),
-        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {2.0f, 10.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(front.Value(),
         Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
 
     auto back = registry.CreateEntity(); // Created first, but lower on screen -> drawn last
     ASSERT_TRUE(back.IsOk());
     ASSERT_TRUE(registry.AddComponent(back.Value(),
-        Transform{ .m_X = 1.0f, .m_Y = 100.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {1.0f, 100.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(back.Value(),
         Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
 
@@ -279,14 +279,14 @@ TEST(RenderSystemTest, YSort_TiedBottomEdge_FallsBackToEntityIndex)
     auto first = registry.CreateEntity();
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(registry.AddComponent(first.Value(),
-        Transform{ .m_X = 1.0f, .m_Y = 10.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {1.0f, 10.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(first.Value(),
         Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
 
     auto second = registry.CreateEntity();
     ASSERT_TRUE(second.IsOk());
     ASSERT_TRUE(registry.AddComponent(second.Value(),
-        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk()); // Same bottom edge as `first`
+        Transform{ .m_WorldCoordinates = {2.0f, 10.0f} }).IsOk()); // Same bottom edge as `first`
     ASSERT_TRUE(registry.AddComponent(second.Value(),
         Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
 
@@ -308,7 +308,7 @@ TEST(RenderSystemTest, YSort_MixedWithNonYSortSprite_EitherOptingInSortsBothByY)
     auto plain = registry.CreateEntity();
     ASSERT_TRUE(plain.IsOk());
     ASSERT_TRUE(registry.AddComponent(plain.Value(),
-        Transform{ .m_X = 1.0f, .m_Y = 100.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {1.0f, 100.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(plain.Value(),
         Sprite{ .m_Texture = &texture, .m_YSort = false }).IsOk());
 
@@ -316,7 +316,7 @@ TEST(RenderSystemTest, YSort_MixedWithNonYSortSprite_EitherOptingInSortsBothByY)
     auto sorted = registry.CreateEntity();
     ASSERT_TRUE(sorted.IsOk());
     ASSERT_TRUE(registry.AddComponent(sorted.Value(),
-        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {2.0f, 10.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(sorted.Value(),
         Sprite{ .m_Texture = &texture, .m_YSort = true }).IsOk());
 
@@ -340,14 +340,14 @@ TEST(RenderSystemTest, NoYSort_SameLayer_PreservesEntityCreationOrderRegardlessO
     auto first = registry.CreateEntity();
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(registry.AddComponent(first.Value(),
-        Transform{ .m_X = 1.0f, .m_Y = 100.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {1.0f, 100.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(first.Value(),
         Sprite{ .m_Texture = &texture }).IsOk());
 
     auto second = registry.CreateEntity();
     ASSERT_TRUE(second.IsOk());
     ASSERT_TRUE(registry.AddComponent(second.Value(),
-        Transform{ .m_X = 2.0f, .m_Y = 10.0f }).IsOk());
+        Transform{ .m_WorldCoordinates = {2.0f, 10.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(second.Value(),
         Sprite{ .m_Texture = &texture }).IsOk());
 
@@ -385,7 +385,7 @@ TEST(RenderSystemTest, Culling_SpriteWithinTheDefaultViewport_IsDrawn)
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 100.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -401,7 +401,7 @@ TEST(RenderSystemTest, Culling_SpriteFarOutsideTheViewport_IsSkipped)
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 5000.0f, .m_Y = 5000.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {5000.0f, 5000.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -420,7 +420,7 @@ TEST(RenderSystemTest, Culling_SpriteStraddlingTheViewportEdge_IsDrawn)
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 790.0f, .m_Y = 100.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {790.0f, 100.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -440,12 +440,12 @@ TEST(RenderSystemTest, Culling_FollowsTheRendererSCurrentCameraNotJustItsDefault
 
     auto nowOffscreen = registry.CreateEntity();
     ASSERT_TRUE(nowOffscreen.IsOk());
-    ASSERT_TRUE(registry.AddComponent(nowOffscreen.Value(), Transform{ .m_X = 0.0f, .m_Y = 0.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(nowOffscreen.Value(), Transform{ .m_WorldCoordinates = {0.0f, 0.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(nowOffscreen.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     auto nowOnscreen = registry.CreateEntity();
     ASSERT_TRUE(nowOnscreen.IsOk());
-    ASSERT_TRUE(registry.AddComponent(nowOnscreen.Value(), Transform{ .m_X = 2050.0f, .m_Y = 2050.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(nowOnscreen.Value(), Transform{ .m_WorldCoordinates = {2050.0f, 2050.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(nowOnscreen.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -464,7 +464,7 @@ TEST(RenderSystemTest, Rotation_ZeroRotation_UsesThePlainDrawTexturePath)
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 100.0f, .m_Y = 100.0f, .m_Rotation = 0.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f}, .m_WorldRotation = 0.0f }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -482,7 +482,7 @@ TEST(RenderSystemTest, Rotation_NonZeroRotationNoSourceRect_RoutesThroughWholeTe
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(),
-        Transform{ .m_X = 100.0f, .m_Y = 100.0f, .m_Rotation = 3.14159265358979323846f * 0.5f }).IsOk());
+        Transform{ .m_WorldCoordinates = {100.0f, 100.0f}, .m_WorldRotation = 3.14159265358979323846f * 0.5f }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -511,7 +511,7 @@ TEST(RenderSystemTest, Rotation_NonZeroRotationWithSourceRect_RoutesThroughSourc
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 0.0f, .m_Y = 0.0f, .m_Rotation = 0.7f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {0.0f, 0.0f}, .m_WorldRotation = 0.7f }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(),
         Sprite{ .m_Texture = &texture, .m_SourceRect = asge::math::Rect{ 0.0f, 0.0f, 16.0f, 16.0f } }).IsOk());
 
@@ -555,7 +555,7 @@ TEST(CameraSystemTest, ActiveCameraEntityMissingCameraComponent_LeavesTheRendere
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 500.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 500.0f} }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
 
     asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
@@ -586,7 +586,7 @@ TEST(CameraSystemTest, ZeroSmoothing_SnapsStraightToTheTargetEntityCenteredInThe
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 300.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 0.0f }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
 
@@ -605,7 +605,7 @@ TEST(CameraSystemTest, ZeroSmoothing_ZoomNarrowsHowMuchViewportIsSubtracted)
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 300.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 2.0f, .m_Smoothing = 0.0f }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
 
@@ -625,7 +625,7 @@ TEST(CameraSystemTest, PositiveSmoothing_EasesPartwayTowardTheTargetInsteadOfSna
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     // Target center: 500 - 800/2 = 100 on X, 300 - 600/2 = 0 on Y.
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 300.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 4.0f }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
 
@@ -645,7 +645,7 @@ TEST(CameraSystemTest, PositiveSmoothing_RepeatedTicksConvergeOnTheTarget)
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 300.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 10.0f }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
 

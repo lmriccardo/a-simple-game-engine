@@ -63,8 +63,9 @@ void CameraFollowDemoState::SpawnWorld()
             auto tile = m_Registry.CreateEntity();
             if ( !tile ) { tile.LogError(); continue; }
 
+            asge::math::Float2 const tilePos{ static_cast<float>(col) * kTileSize, static_cast<float>(row) * kTileSize };
             m_Registry.AddComponent<Transform>( tile.Value(),
-                Transform{ .m_X = static_cast<float>(col) * kTileSize, .m_Y = static_cast<float>(row) * kTileSize } );
+                Transform{ .m_LocalCoordinates = tilePos, .m_WorldCoordinates = tilePos } );
         }
     }
 
@@ -75,8 +76,12 @@ void CameraFollowDemoState::SpawnWorld()
     if ( !player ) { player.LogError(); return; }
 
     m_Player = player.Value();
-    m_Registry.AddComponent<Transform>( m_Player,
-        Transform{ .m_X = kWorldW * 0.5f, .m_Y = kWorldH * 0.5f, .m_ScaleX = kPlayerSize / kTileSize, .m_ScaleY = kPlayerSize / kTileSize } );
+    m_Registry.AddComponent<Transform>( m_Player, Transform{
+        .m_LocalCoordinates = {kWorldW * 0.5f, kWorldH * 0.5f},
+        .m_LocalScale = {kPlayerSize / kTileSize, kPlayerSize / kTileSize},
+        .m_WorldCoordinates = {kWorldW * 0.5f, kWorldH * 0.5f},
+        .m_WorldScale = {kPlayerSize / kTileSize, kPlayerSize / kTileSize}
+    } );
     m_Registry.AddComponent<Velocity>( m_Player, Velocity{} );
     m_Registry.AddComponent<Camera>( m_Player, Camera{ .m_Zoom = 1.0f, .m_Smoothing = kSmoothingRate } );
 
@@ -157,7 +162,10 @@ void CameraFollowDemoState::RenderHud(asge::video::IRenderer &inRenderer) const
     {
         Transform const& t = transform.Value().get();
         inRenderer.DrawRect(
-            asge::math::Rect{ t.m_X - kPlayerSize * 0.5f, t.m_Y - kPlayerSize * 0.5f, kPlayerSize, kPlayerSize },
+            asge::math::Rect{
+                t.m_WorldCoordinates.x() - kPlayerSize * 0.5f, t.m_WorldCoordinates.y() - kPlayerSize * 0.5f,
+                kPlayerSize, kPlayerSize
+            },
             RGBA_Color{ 250, 250, 255, 255 }, true
         );
     }
@@ -197,6 +205,7 @@ CameraFollowDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::I
 {
     UpdatePlayerVelocity();
     asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
+    asge::game::systems::TransformPropagationSystem( m_Registry );
     // CameraSystem itself runs inside RenderPipeline (see Render()) -- same
     // reasoning as animation_demo's m_LastDeltaTime capture.
     m_LastDeltaTime = inDeltaTime;

@@ -39,7 +39,10 @@ void EcsDemoState::SpawnEntities()
         auto entity = m_Registry.CreateEntity();
         if ( !entity ) { entity.LogError(); continue; }
 
-        m_Registry.AddComponent<Transform>( entity.Value(), Transform{ d.x, d.y, 0.0f, 0.5f, 0.5f } );
+        m_Registry.AddComponent<Transform>( entity.Value(), Transform{
+            .m_LocalCoordinates = {d.x, d.y}, .m_LocalScale = {0.5f, 0.5f},
+            .m_WorldCoordinates = {d.x, d.y}, .m_WorldScale = {0.5f, 0.5f}
+        } );
         m_Registry.AddComponent<Velocity>( entity.Value(), Velocity{ d.dx, d.dy } );
         m_SpriteEntities.push_back( entity.Value() );
     }
@@ -51,7 +54,10 @@ void EcsDemoState::SpawnEntities()
     if ( !player ) { player.LogError(); return; }
 
     m_Player = player.Value();
-    m_Registry.AddComponent<Transform>( m_Player, Transform{ 400.0f, 300.0f, 0.0f, 0.75f, 0.75f } );
+    m_Registry.AddComponent<Transform>( m_Player, Transform{
+        .m_LocalCoordinates = {400.0f, 300.0f}, .m_LocalScale = {0.75f, 0.75f},
+        .m_WorldCoordinates = {400.0f, 300.0f}, .m_WorldScale = {0.75f, 0.75f}
+    } );
     m_Registry.AddComponent<Velocity>( m_Player, Velocity{} );
     m_SpriteEntities.push_back( m_Player );
 }
@@ -97,13 +103,13 @@ void EcsDemoState::WrapAroundScreen()
     {
         (void)entity;
         auto& t = transform.get();
-        float const margin = 64.0f * std::max(t.m_ScaleX, t.m_ScaleY); // rough sprite half-size
+        float const margin = 64.0f * std::max(t.m_LocalScale.x(), t.m_LocalScale.y()); // rough sprite half-size
 
-        if ( t.m_X < -margin )                    t.m_X = kWindowWidth + margin;
-        else if ( t.m_X > kWindowWidth + margin )  t.m_X = -margin;
+        if ( t.m_LocalCoordinates.x() < -margin )                    { t.m_LocalCoordinates.x() = kWindowWidth + margin; t.m_Dirty = true; }
+        else if ( t.m_LocalCoordinates.x() > kWindowWidth + margin )  { t.m_LocalCoordinates.x() = -margin; t.m_Dirty = true; }
 
-        if ( t.m_Y < -margin )                     t.m_Y = kWindowHeight + margin;
-        else if ( t.m_Y > kWindowHeight + margin )  t.m_Y = -margin;
+        if ( t.m_LocalCoordinates.y() < -margin )                    { t.m_LocalCoordinates.y() = kWindowHeight + margin; t.m_Dirty = true; }
+        else if ( t.m_LocalCoordinates.y() > kWindowHeight + margin ) { t.m_LocalCoordinates.y() = -margin; t.m_Dirty = true; }
     }
 }
 
@@ -123,6 +129,7 @@ EcsDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState
     UpdatePlayerVelocity();
     asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
     WrapAroundScreen();
+    asge::game::systems::TransformPropagationSystem( m_Registry );
     return std::nullopt;
 }
 

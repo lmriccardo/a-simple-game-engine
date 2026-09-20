@@ -48,7 +48,9 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
 TEST(TransformSerializerTest, ToToml_WritesAllFieldsUnderTransformTable)
 {
     TOMLBuilder builder;
-    Serializer<Transform>::ToToml( Transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f }, builder );
+    Serializer<Transform>::ToToml(
+        Transform{ .m_LocalCoordinates = {1.0f, 2.0f}, .m_LocalScale = {3.0f, 4.0f}, .m_LocalRotation = 0.5f },
+        builder );
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Transform]"), std::string::npos);
@@ -62,15 +64,15 @@ TEST(TransformSerializerTest, ToToml_WritesAllFieldsUnderTransformTable)
 TEST(TransformSerializerTest, RoundTripsThroughToTomlAndFromToml)
 {
     TOMLBuilder builder;
-    Transform const original{ 10.0f, -5.0f, 1.25f, 2.0f, 0.5f };
+    Transform const original{ .m_LocalCoordinates = {10.0f, -5.0f}, .m_LocalScale = {2.0f, 0.5f}, .m_LocalRotation = 1.25f };
     Serializer<Transform>::ToToml( original, builder );
 
     Transform const restored = Serializer<Transform>::FromToml( builder );
-    EXPECT_FLOAT_EQ(restored.m_X, original.m_X);
-    EXPECT_FLOAT_EQ(restored.m_Y, original.m_Y);
-    EXPECT_FLOAT_EQ(restored.m_Rotation, original.m_Rotation);
-    EXPECT_FLOAT_EQ(restored.m_ScaleX, original.m_ScaleX);
-    EXPECT_FLOAT_EQ(restored.m_ScaleY, original.m_ScaleY);
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.x(), original.m_LocalCoordinates.x());
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.y(), original.m_LocalCoordinates.y());
+    EXPECT_FLOAT_EQ(restored.m_LocalRotation, original.m_LocalRotation);
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.x(), original.m_LocalScale.x());
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.y(), original.m_LocalScale.y());
 }
 
 TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
@@ -79,11 +81,11 @@ TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     builder.Table("Transform"); // present but empty
     Transform const restored = Serializer<Transform>::FromToml( builder );
 
-    EXPECT_FLOAT_EQ(restored.m_X, 0.0f);
-    EXPECT_FLOAT_EQ(restored.m_Y, 0.0f);
-    EXPECT_FLOAT_EQ(restored.m_Rotation, 0.0f);
-    EXPECT_FLOAT_EQ(restored.m_ScaleX, 1.0f); // Transform's own default, not 0
-    EXPECT_FLOAT_EQ(restored.m_ScaleY, 1.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.x(), 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.y(), 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalRotation, 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.x(), 1.0f); // Transform's own default, not 0
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.y(), 1.0f);
 }
 
 // ─── Velocity ─────────────────────────────────────────────────────────────

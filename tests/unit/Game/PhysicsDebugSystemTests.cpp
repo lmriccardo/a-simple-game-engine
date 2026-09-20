@@ -78,7 +78,8 @@ Entity MakeRectCollider(Registry& inRegistry, float inX, float inY,
 {
     auto entity = inRegistry.CreateEntity();
     EXPECT_TRUE(entity.IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{ .m_X = inX, .m_Y = inY }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(),
+        Transform{ .m_LocalCoordinates = {inX, inY}, .m_WorldCoordinates = {inX, inY} }).IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Collider{
         .m_LocalBounds = asge::math::Rect{ 5.0f, 6.0f, 30.0f, 40.0f },
         .m_Resolution = inResolution
@@ -113,7 +114,8 @@ TEST(PhysicsDebugSystemTest, CircleCollider_DrawsUnfilledCircleAtWorldOffsetCent
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 10.0f, .m_Y = 20.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_LocalCoordinates = {10.0f, 20.0f}, .m_WorldCoordinates = {10.0f, 20.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Collider{
         .m_LocalBounds = asge::math::Circle{ asge::math::Float2{ 5.0f, 6.0f }, 8.0f }
     }).IsOk());

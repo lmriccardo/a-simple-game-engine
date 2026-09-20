@@ -49,7 +49,9 @@ void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
     if ( !entity ) { entity.LogError(); return; }
     m_Car = entity.Value();
 
-    m_Registry.AddComponent<Transform>( m_Car, Transform{ .m_ScaleX = kCarScale, .m_ScaleY = kCarScale } );
+    m_Registry.AddComponent<Transform>( m_Car, Transform{
+        .m_LocalScale = {kCarScale, kCarScale}, .m_WorldScale = {kCarScale, kCarScale}
+    } );
     // m_Texture stays null until ResolveAssets below.
     m_Registry.AddComponent<Sprite>( m_Car, Sprite{ .m_VirtualPath = kCarTexturePath } );
 
@@ -83,10 +85,12 @@ void PathFollowingDemoState::RecenterCarSprite()
     // the sprite's top-left corner, but PathFollowingSystem just wrote the
     // spline point itself into it -- shift by the car's own half-extent so
     // it's the sprite's center (and so its rotation pivot) that rides the
-    // road, not its corner.
+    // road, not its corner. Adjusts Local, same as PathFollowingSystem --
+    // UpdateCar flushes to World via TransformPropagationSystem afterward.
     auto& t = transformResult.Value().get();
-    t.m_X -= kCarHalfW;
-    t.m_Y -= kCarHalfH;
+    t.m_LocalCoordinates.x() -= kCarHalfW;
+    t.m_LocalCoordinates.y() -= kCarHalfH;
+    t.m_Dirty = true;
 }
 
 void PathFollowingDemoState::UpdateCar(float inDeltaTime)
@@ -111,6 +115,7 @@ void PathFollowingDemoState::UpdateCar(float inDeltaTime)
     }
 
     RecenterCarSprite();
+    asge::game::systems::TransformPropagationSystem( m_Registry );
 }
 
 void PathFollowingDemoState::Reset()
@@ -131,11 +136,13 @@ void PathFollowingDemoState::Reset()
         auto const pos = path.m_Path.PointAtDistance( 0.0f );
         if ( auto transformResult = m_Registry.GetComponent<Transform>( m_Car ) )
         {
-            transformResult.Value().get().m_X = pos.x();
-            transformResult.Value().get().m_Y = pos.y();
-            transformResult.Value().get().m_Rotation = 0.0f; // the next PathFollowingSystem tick recomputes this properly
+            auto& t = transformResult.Value().get();
+            t.m_LocalCoordinates = pos;
+            t.m_LocalRotation = 0.0f; // the next PathFollowingSystem tick recomputes this properly
+            t.m_Dirty = true;
         }
         RecenterCarSprite();
+        asge::game::systems::TransformPropagationSystem( m_Registry );
     }
 }
 

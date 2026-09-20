@@ -53,7 +53,7 @@ TEST(SpriteGetDstRectTest, NoSourceRect_SizedFromFullTextureScaledByTransform)
 {
     FakeTexture texture(asge::math::Int2{ 32, 16 });
     Sprite const sprite{ .m_Texture = &texture };
-    Transform const transform{ .m_X = 10.0f, .m_Y = 20.0f, .m_ScaleX = 2.0f, .m_ScaleY = 3.0f };
+    Transform const transform{ .m_WorldCoordinates = {10.0f, 20.0f}, .m_WorldScale = {2.0f, 3.0f} };
 
     auto const dst = SpriteGetDstRect(sprite, transform);
 
@@ -68,7 +68,7 @@ TEST(SpriteGetDstRectTest, SourceRectSet_SizedFromSourceRectNotFullTexture)
 {
     FakeTexture texture(asge::math::Int2{ 256, 256 }); // a big spritesheet
     Sprite const sprite{ .m_Texture = &texture, .m_SourceRect = asge::math::Rect{ 0.0f, 0.0f, 16.0f, 24.0f } };
-    Transform const transform{ .m_X = 5.0f, .m_Y = 5.0f, .m_ScaleX = 1.0f, .m_ScaleY = 1.0f };
+    Transform const transform{ .m_WorldCoordinates = {5.0f, 5.0f}, .m_WorldScale = {1.0f, 1.0f} };
 
     auto const dst = SpriteGetDstRect(sprite, transform);
 

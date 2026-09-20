@@ -54,7 +54,7 @@ struct SpriteDrawCorners
  * grows downward); inRotationRadians == 0 reproduces inDstRect's unrotated
  * corners exactly. Feeds IRenderer::DrawTextureAffine, the only DrawTexture*
  * overload that can express rotation — see RenderSystem, which switches to
- * it whenever a drawn entity's Transform::m_Rotation is non-zero.
+ * it whenever a drawn entity's Transform::m_WorldRotation is non-zero.
  */
 SpriteDrawCorners SpriteGetDrawCorners( math::Rect const& inDstRect, float inRotationRadians ) noexcept;
 

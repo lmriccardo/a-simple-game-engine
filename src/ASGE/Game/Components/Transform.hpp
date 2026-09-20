@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Strings.hpp>
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 #include "Serialize.hpp"
 
 namespace asge::game::components
@@ -11,11 +12,16 @@ namespace asge::game::components
  */
 struct Transform
 {
-    float m_X{0.0f};
-    float m_Y{0.0f};
-    float m_Rotation{0.0f}; // radians
-    float m_ScaleX{1.0f};
-    float m_ScaleY{1.0f};
+    // Serialized properties
+    math::Float2 m_LocalCoordinates{0.0f, 0.0f};
+    math::Float2 m_LocalScale{ 1.0f, 1.0f };
+    float m_LocalRotation{0.0f}; // radians
+
+    // Runtime computed coordinates
+    math::Float2 m_WorldCoordinates{0.0f, 0.0f};
+    math::Float2 m_WorldScale{ 1.0f, 1.0f };
+    float m_WorldRotation{0.0f}; // radians
+    bool  m_Dirty{false};
 };
 
 template<>
@@ -23,9 +29,6 @@ struct Serializer<Transform>
 {
     using T = Transform;
 
-    // The subtable name ToToml/FromToml agree on — also what a generic
-    // per-entity walker checks (TOMLTableView::HasTable) to tell whether a
-    // saved entity has this component, without hardcoding the name again.
     static constexpr str::StringView kTableName = "Transform";
 
     static void ToToml( Transform inTransform, asge::config::toml::TOMLTableView inTview ) noexcept;

@@ -92,7 +92,7 @@ TEST_F(SceneSerializerTest, Save_EntityWithSubsetOfComponents_WritesOnlyThoseSub
     auto entity = m_Registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
 
-    Transform const transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f };
+    Transform const transform{ .m_LocalCoordinates = {1.0f, 2.0f}, .m_LocalScale = {3.0f, 4.0f}, .m_LocalRotation = 0.5f };
     Sprite sprite{};
     sprite.m_VirtualPath = "textures/checker.bmp";
 
@@ -111,11 +111,11 @@ TEST_F(SceneSerializerTest, Save_EntityWithSubsetOfComponents_WritesOnlyThoseSub
     EXPECT_FALSE(entityView.HasTable("Velocity"));
 
     Transform const restoredTransform = Serializer<Transform>::FromToml( entityView );
-    EXPECT_FLOAT_EQ(restoredTransform.m_X, transform.m_X);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Y, transform.m_Y);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Rotation, transform.m_Rotation);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleX, transform.m_ScaleX);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleY, transform.m_ScaleY);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.x(), transform.m_LocalCoordinates.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.y(), transform.m_LocalCoordinates.y());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalRotation, transform.m_LocalRotation);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.x(), transform.m_LocalScale.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.y(), transform.m_LocalScale.y());
 
     Sprite const restoredSprite = Serializer<Sprite>::FromToml( entityView );
     EXPECT_EQ(restoredSprite.m_VirtualPath, sprite.m_VirtualPath);
@@ -194,7 +194,7 @@ TEST_F(SceneSerializerTest, Load_ValidSceneFile_RecreatesEntitiesWithSavedCompon
     ASSERT_TRUE(withVelocity.IsOk());
     ASSERT_TRUE(bare.IsOk());
 
-    Transform const transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f };
+    Transform const transform{ .m_LocalCoordinates = {1.0f, 2.0f}, .m_LocalScale = {3.0f, 4.0f}, .m_LocalRotation = 0.5f };
     Velocity const velocity{ 5.0f, 6.0f };
     ASSERT_TRUE(m_Registry.AddComponent( withTransform.Value(), transform ).IsOk());
     ASSERT_TRUE(m_Registry.AddComponent( withVelocity.Value(), velocity ).IsOk());
@@ -218,11 +218,11 @@ TEST_F(SceneSerializerTest, Load_ValidSceneFile_RecreatesEntitiesWithSavedCompon
     EXPECT_FALSE(loaded.HasComponent<Velocity>(all[0]));
     auto restoredTransformResult = loaded.GetComponent<Transform>(all[0]);
     Transform const& restoredTransform = restoredTransformResult.Value().get();
-    EXPECT_FLOAT_EQ(restoredTransform.m_X, transform.m_X);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Y, transform.m_Y);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Rotation, transform.m_Rotation);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleX, transform.m_ScaleX);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleY, transform.m_ScaleY);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.x(), transform.m_LocalCoordinates.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.y(), transform.m_LocalCoordinates.y());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalRotation, transform.m_LocalRotation);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.x(), transform.m_LocalScale.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.y(), transform.m_LocalScale.y());
 
     ASSERT_TRUE(loaded.HasComponent<Velocity>(all[1]));
     auto restoredVelocityResult = loaded.GetComponent<Velocity>(all[1]);

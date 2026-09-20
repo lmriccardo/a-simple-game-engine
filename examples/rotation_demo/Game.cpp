@@ -30,7 +30,7 @@ constexpr float kFrameDuration = 0.12f;
 
 constexpr float kSpeedStep = 0.5f; // radians/second per LEFT/RIGHT press
 
-/** @brief Wraps inRadians into [0, 2*pi) -- keeps Transform::m_Rotation from growing unbounded over a long-running demo. */
+/** @brief Wraps inRadians into [0, 2*pi) -- keeps the spinner's rotation from growing unbounded over a long-running demo. */
 float WrapAngle( float inRadians ) noexcept
 {
     float wrapped = std::fmod( inRadians, kTwoPi );
@@ -52,16 +52,20 @@ void RotationDemoState::SpawnEntities()
     auto spinner = m_Registry.CreateEntity();
     if ( !spinner ) { spinner.LogError(); return; }
     m_Spinner = spinner.Value();
-    m_Registry.AddComponent<Transform>( m_Spinner,
-        Transform{ .m_X = kSpinnerX, .m_Y = kSpinY, .m_ScaleX = kArrowScale, .m_ScaleY = kArrowScale } );
+    m_Registry.AddComponent<Transform>( m_Spinner, Transform{
+        .m_LocalCoordinates = {kSpinnerX, kSpinY}, .m_LocalScale = {kArrowScale, kArrowScale},
+        .m_WorldCoordinates = {kSpinnerX, kSpinY}, .m_WorldScale = {kArrowScale, kArrowScale}
+    } );
     // m_Texture stays null until Render()'s AssetManager::ResolveAssets call.
     m_Registry.AddComponent<Sprite>( m_Spinner, Sprite{ .m_VirtualPath = kArrowPath } );
 
     auto animated = m_Registry.CreateEntity();
     if ( !animated ) { animated.LogError(); return; }
     m_AnimatedSpinner = animated.Value();
-    m_Registry.AddComponent<Transform>( m_AnimatedSpinner,
-        Transform{ .m_X = kAnimatedSpinnerX, .m_Y = kSpinY, .m_ScaleX = kSheetScale, .m_ScaleY = kSheetScale } );
+    m_Registry.AddComponent<Transform>( m_AnimatedSpinner, Transform{
+        .m_LocalCoordinates = {kAnimatedSpinnerX, kSpinY}, .m_LocalScale = {kSheetScale, kSheetScale},
+        .m_WorldCoordinates = {kAnimatedSpinnerX, kSpinY}, .m_WorldScale = {kSheetScale, kSheetScale}
+    } );
     m_Registry.AddComponent<Sprite>( m_AnimatedSpinner, Sprite{ .m_VirtualPath = kSheetPath } );
     m_Registry.AddComponent<Animation>( m_AnimatedSpinner, Animation{
         .m_ClipPath = kClipPath, .m_FrameDuration = kFrameDuration
@@ -72,16 +76,21 @@ void RotationDemoState::UpdateRotation(float inDeltaTime)
 {
     if ( m_Paused ) return;
 
+    // Written straight to both Local and World -- this demo never runs
+    // TransformPropagationSystem (RenderPipeline doesn't call it), so World
+    // is what RenderSystem actually draws from.
     if ( auto result = m_Registry.GetComponent<Transform>( m_Spinner ) )
     {
         Transform& t = result.Value().get();
-        t.m_Rotation = WrapAngle( t.m_Rotation + m_SpinnerSpeed * inDeltaTime );
+        t.m_LocalRotation = WrapAngle( t.m_LocalRotation + m_SpinnerSpeed * inDeltaTime );
+        t.m_WorldRotation = t.m_LocalRotation;
     }
 
     if ( auto result = m_Registry.GetComponent<Transform>( m_AnimatedSpinner ) )
     {
         Transform& t = result.Value().get();
-        t.m_Rotation = WrapAngle( t.m_Rotation + kAnimatedAngularSpeed * inDeltaTime );
+        t.m_LocalRotation = WrapAngle( t.m_LocalRotation + kAnimatedAngularSpeed * inDeltaTime );
+        t.m_WorldRotation = t.m_LocalRotation;
     }
 }
 
@@ -99,7 +108,8 @@ void RotationDemoState::Reset()
     {
         if ( auto result = m_Registry.GetComponent<Transform>( entity ) )
         {
-            result.Value().get().m_Rotation = 0.0f;
+            result.Value().get().m_LocalRotation = 0.0f;
+            result.Value().get().m_WorldRotation = 0.0f;
         }
     }
 }

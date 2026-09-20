@@ -78,7 +78,9 @@ void PhysicsDemoState::SpawnStaticGeometry()
         auto entity = m_Registry.CreateEntity();
         if ( !entity ) { entity.LogError(); return; }
 
-        m_Registry.AddComponent<Transform>( entity.Value(), Transform{ inBounds.m_X, inBounds.m_Y, 0.0f, 1.0f, 1.0f } );
+        m_Registry.AddComponent<Transform>( entity.Value(), Transform{
+            .m_LocalCoordinates = {inBounds.m_X, inBounds.m_Y}, .m_WorldCoordinates = {inBounds.m_X, inBounds.m_Y}
+        } );
         m_Registry.AddComponent<Collider>( entity.Value(),
             Collider{ asge::math::Rect{ 0.0f, 0.0f, inBounds.m_Width, inBounds.m_Height } } );
     };
@@ -94,7 +96,7 @@ void PhysicsDemoState::SpawnTriggerZone()
     if ( !entity ) { entity.LogError(); return; }
 
     m_Registry.AddComponent<Transform>( entity.Value(),
-        Transform{ kTriggerZoneX, kTriggerZoneY, 0.0f, 1.0f, 1.0f } );
+        Transform{ .m_LocalCoordinates = {kTriggerZoneX, kTriggerZoneY}, .m_WorldCoordinates = {kTriggerZoneX, kTriggerZoneY} } );
     m_Registry.AddComponent<Collider>( entity.Value(), Collider{
         asge::math::Rect{ 0.0f, 0.0f, kTriggerZoneSize, kTriggerZoneSize },
         ResolutionType::Trigger
@@ -114,8 +116,9 @@ void PhysicsDemoState::SpawnBox(asge::math::Float2 inCenter, CollisionLayer inLa
     std::uniform_real_distribution<float> massDist( kMinMass, kMaxMass );
     float const size = inSize > 0.0f ? inSize : sizeDist( m_Rng );
 
+    asge::math::Float2 const spawnPos{ inCenter.x() - size * 0.5f, inCenter.y() - size * 0.5f };
     m_Registry.AddComponent<Transform>( entity.Value(),
-        Transform{ inCenter.x() - size * 0.5f, inCenter.y() - size * 0.5f, 0.0f, 1.0f, 1.0f } );
+        Transform{ .m_LocalCoordinates = spawnPos, .m_WorldCoordinates = spawnPos } );
     m_Registry.AddComponent<Velocity>( entity.Value(), Velocity{} );
     m_Registry.AddComponent<Collider>( entity.Value(), Collider{
         asge::math::Rect{ 0.0f, 0.0f, size, size }, ResolutionType::Solid, inLayer, inMask
@@ -168,7 +171,7 @@ void PhysicsDemoState::DespawnFallenBoxes()
         std::remove_if( m_Boxes.begin(), m_Boxes.end(), [this]( asge::ecs::Entity inEntity )
         {
             auto transform = m_Registry.GetComponent<Transform>( inEntity );
-            bool const fellThrough = transform.IsOk() && transform.Value().get().m_Y > kFallLimit;
+            bool const fellThrough = transform.IsOk() && transform.Value().get().m_WorldCoordinates.y() > kFallLimit;
             if ( fellThrough )
             {
                 if ( auto result = m_Registry.DestroyEntity( inEntity ); !result ) result.LogError();
@@ -268,15 +271,16 @@ void PhysicsDemoState::Render(asge::video::IRenderer &inRenderer)
             if constexpr ( std::is_same_v<ShapeT, asge::math::Rect> )
             {
                 asge::math::Rect const bounds{
-                    t.m_X + inShape.m_X, t.m_Y + inShape.m_Y, inShape.m_Width, inShape.m_Height
+                    t.m_WorldCoordinates.x() + inShape.m_X, t.m_WorldCoordinates.y() + inShape.m_Y,
+                    inShape.m_Width, inShape.m_Height
                 };
                 inRenderer.DrawRect( bounds, color, fill );
             }
             else
             {
                 asge::math::Int2 const center{
-                    static_cast<int>( t.m_X + inShape.m_Center.x() ),
-                    static_cast<int>( t.m_Y + inShape.m_Center.y() )
+                    static_cast<int>( t.m_WorldCoordinates.x() + inShape.m_Center.x() ),
+                    static_cast<int>( t.m_WorldCoordinates.y() + inShape.m_Center.y() )
                 };
                 inRenderer.DrawCircle( center, static_cast<int>( inShape.m_Radius ), color, fill );
             }

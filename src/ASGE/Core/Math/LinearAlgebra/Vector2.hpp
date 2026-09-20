@@ -63,4 +63,6 @@ using Int642 = Vec2<std::int64_t>;
 
 DEFINE_REBIND_TRAIT(Vec2)
 
+Float2 Rotate( Float2 inVector, float inAngle ) noexcept;
+
 }

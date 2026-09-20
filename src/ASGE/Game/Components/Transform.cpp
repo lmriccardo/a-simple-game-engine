@@ -4,11 +4,11 @@ void asge::game::components::Serializer<asge::game::components::Transform>::ToTo
     Transform inTransform, asge::config::toml::TOMLTableView inTview ) noexcept
 {
     inTview.Table(std::string(kTableName))
-           .Set("m_X", inTransform.m_X)
-           .Set("m_Y", inTransform.m_Y)
-           .Set("m_Rotation", inTransform.m_Rotation)
-           .Set("m_ScaleX", inTransform.m_ScaleX)
-           .Set("m_ScaleY", inTransform.m_ScaleY);
+           .Set("m_X", inTransform.m_LocalCoordinates.x())
+           .Set("m_Y", inTransform.m_LocalCoordinates.y())
+           .Set("m_Rotation", inTransform.m_LocalRotation)
+           .Set("m_ScaleX", inTransform.m_LocalScale.x())
+           .Set("m_ScaleY", inTransform.m_LocalScale.y());
 }
 
 asge::game::components::Transform asge::game::components::Serializer<asge::game::components::Transform>::FromToml(
@@ -17,10 +17,8 @@ asge::game::components::Transform asge::game::components::Serializer<asge::game:
     auto table = inEnttView.Table(std::string(kTableName));
 
     Transform result{};
-    result.m_X        = table.Get("m_X", result.m_X);
-    result.m_Y        = table.Get("m_Y", result.m_Y);
-    result.m_Rotation = table.Get("m_Rotation", result.m_Rotation);
-    result.m_ScaleX   = table.Get("m_ScaleX", result.m_ScaleX);
-    result.m_ScaleY   = table.Get("m_ScaleY", result.m_ScaleY);
+    result.m_LocalCoordinates = math::Float2{table.Get( "m_X", 0.0f ), table.Get( "m_Y", 0.0f )};
+    result.m_LocalScale = math::Float2{table.Get( "m_ScaleX", 1.0f ), table.Get( "m_ScaleY", 1.0f )};
+    result.m_LocalRotation = table.Get("m_Rotation", result.m_LocalRotation);
     return result;
 }

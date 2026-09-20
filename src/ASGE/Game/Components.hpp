@@ -11,6 +11,7 @@
 #include "Components/AudioSource.hpp"
 #include "Components/Camera.hpp"
 #include "Components/PathFollow.hpp"
+#include "Components/Hierarchy.hpp"
 
 namespace asge::game::components
 {

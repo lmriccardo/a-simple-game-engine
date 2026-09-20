@@ -47,7 +47,7 @@ std::optional<DrawItem> ConstructFrom(
     if ( !result.has_value() ) return std::nullopt;
     return DrawItem
     {
-        inE, &inT, &inS, inS.m_Layer, inT.m_Y + (*result).m_Height,
+        inE, &inT, &inS, inS.m_Layer, inT.m_WorldCoordinates.y() + (*result).m_Height,
         inS.m_YSort, *result
     };
 }
@@ -105,8 +105,8 @@ void asge::game::systems::CameraSystem(
     video::Camera camera = inRenderer.GetCamera();
     camera.m_Zoom = cameraComp.m_Zoom;
 
-    float const targetX = transform.m_X - inRenderer.GetViewport().m_Width  / ( 2.0f * camera.m_Zoom );
-    float const targetY = transform.m_Y - inRenderer.GetViewport().m_Height / ( 2.0f * camera.m_Zoom );
+    float const targetX = transform.m_WorldCoordinates.x() - inRenderer.GetViewport().m_Width  / ( 2.0f * camera.m_Zoom );
+    float const targetY = transform.m_WorldCoordinates.y() - inRenderer.GetViewport().m_Height / ( 2.0f * camera.m_Zoom );
 
     if ( cameraComp.m_Smoothing <= 0.0f )
     {
@@ -146,7 +146,7 @@ void asge::game::systems::RenderSystem(
         video::ITexture* texture = drawItem.m_Sprite->m_Texture;
         auto const& src = drawItem.m_Sprite->m_SourceRect;
 
-        if ( drawItem.m_Transform->m_Rotation == 0.0f )
+        if ( drawItem.m_Transform->m_WorldRotation == 0.0f )
         {
             // Fast, common path: the overwhelming majority of sprites are
             // unrotated, and IRenderer's Rect-based DrawTexture overloads
@@ -156,7 +156,7 @@ void asge::game::systems::RenderSystem(
             continue;
         }
 
-        auto const corners = components::SpriteGetDrawCorners( drawItem.m_DstRect, drawItem.m_Transform->m_Rotation );
+        auto const corners = components::SpriteGetDrawCorners( drawItem.m_DstRect, drawItem.m_Transform->m_WorldRotation );
         if ( src.has_value() )
         {
             inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );

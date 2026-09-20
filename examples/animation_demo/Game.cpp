@@ -46,8 +46,10 @@ void AnimationDemoState::SpawnSprite( asge::math::Float2 inPosition, std::size_t
     auto entity = m_Registry.CreateEntity();
     if ( !entity ) { entity.LogError(); return; }
 
-    m_Registry.AddComponent<Transform>( entity.Value(),
-        Transform{ inPosition.x(), inPosition.y(), 0.0f, kSpriteScale, kSpriteScale } );
+    m_Registry.AddComponent<Transform>( entity.Value(), Transform{
+        .m_LocalCoordinates = inPosition, .m_LocalScale = {kSpriteScale, kSpriteScale},
+        .m_WorldCoordinates = inPosition, .m_WorldScale = {kSpriteScale, kSpriteScale}
+    } );
 
     std::uniform_real_distribution<float> durationDist( kMinFrameDuration, kMaxFrameDuration );
     m_Registry.AddComponent<Animation>( entity.Value(), Animation{
