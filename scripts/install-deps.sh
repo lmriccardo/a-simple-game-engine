@@ -15,3 +15,4 @@ case "$(uname -s)" in
         ;;
 esac
 bash "${repo_root}/scripts/install-stb.sh"
+bash "${repo_root}/scripts/install-imgui.sh"

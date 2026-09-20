@@ -44,6 +44,12 @@ public:
 
     // Returns a const reference to the renderer
     IRenderer const& GetRenderer() const;
+
+    // Returns a reference to the window
+    IWindow& GetWindow();
+
+    // Returns a const reference to the window
+    IWindow const& GetWindow() const;
 };
 
 }

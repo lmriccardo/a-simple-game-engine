@@ -7,3 +7,4 @@ $RepoRoot = Resolve-Path "$PSScriptRoot\.."
 # workflows individually.
 & "$RepoRoot/scripts/install-sdl-windows.ps1"
 & "$RepoRoot/scripts/install-stb.ps1"
+& "$RepoRoot/scripts/install-imgui.ps1"

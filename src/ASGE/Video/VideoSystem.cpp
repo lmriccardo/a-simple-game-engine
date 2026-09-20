@@ -55,3 +55,13 @@ video::IRenderer const &asge::video::VideoSystem::GetRenderer() const
 {
     return *m_Renderer;
 }
+
+video::IWindow &asge::video::VideoSystem::GetWindow()
+{
+    return *m_Window;
+}
+
+video::IWindow const &asge::video::VideoSystem::GetWindow() const
+{
+    return *m_Window;
+}

@@ -54,6 +54,7 @@ public:
 
     void Present() const override;
     [[nodiscard]] bool IsValid() const override;
+    [[nodiscard]] void* NativeHandle() const noexcept override;
 
     void SetCamera( Camera const& inCamera ) override;
     Camera const& GetCamera() const override;
