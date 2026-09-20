@@ -63,6 +63,9 @@ using Int642 = Vec2<std::int64_t>;
 
 DEFINE_REBIND_TRAIT(Vec2)
 
+/** @brief Rotates inVector by inAngle radians about the origin. Positive
+ *  angles turn clockwise on screen, matching this engine's screen-space
+ *  (Y-down) convention. */
 Float2 Rotate( Float2 inVector, float inAngle ) noexcept;
 
 }

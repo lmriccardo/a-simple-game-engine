@@ -194,6 +194,15 @@ public:
         return pool && pool->Contains( inEntity );
     }
 
+    /** @brief Gets inEntity's existing component of type T, or default-
+     *         constructs and attaches one first if it doesn't have one yet. */
+    template<typename T>
+    [[nodiscard]] std::reference_wrapper<T> GetOrAddComponent( Entity inEntity ) noexcept
+    {
+        if ( !HasComponent<T>( inEntity ) ) AddComponent<T>( inEntity, T{} );
+        return GetComponent<T>( inEntity ).Value();
+    }
+
     /**
      * @brief Returns a lazy view over entities that have every component in Ts.
      *

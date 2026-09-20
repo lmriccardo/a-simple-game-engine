@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <type_traits>
 
 namespace
@@ -10,7 +11,10 @@ namespace
 using asge::math::Double2;
 using asge::math::Float2;
 using asge::math::Int2;
+using asge::math::Rotate;
 using asge::math::Vec2;
+
+constexpr float kPi = 3.14159265358979323846f;
 
 TEST(Vector2, ConstructsFromInitializerListAndExposesNamedComponents)
 {
@@ -107,6 +111,51 @@ TEST(Vector2, CompoundVectorArithmeticReturnsMutableVec2Reference)
     vector -= Int2{1, 2};
     EXPECT_EQ(vector.x(), 4);
     EXPECT_EQ(vector.y(), 8);
+}
+
+// ─── Rotate ───────────────────────────────────────────────────────────────────
+
+TEST(Rotate, ZeroAngle_LeavesTheVectorUnchanged)
+{
+    Float2 const rotated = Rotate(Float2{3.0f, -4.0f}, 0.0f);
+
+    EXPECT_NEAR(rotated.x(), 3.0f, 1e-5f);
+    EXPECT_NEAR(rotated.y(), -4.0f, 1e-5f);
+}
+
+TEST(Rotate, NinetyDegrees_IsClockwiseOnScreen)
+{
+    Float2 const rotated = Rotate(Float2{1.0f, 0.0f}, kPi * 0.5f);
+
+    EXPECT_NEAR(rotated.x(), 0.0f, 1e-5f);
+    EXPECT_NEAR(rotated.y(), 1.0f, 1e-5f);
+}
+
+TEST(Rotate, OneEightyDegrees_NegatesTheVector)
+{
+    Float2 const rotated = Rotate(Float2{2.0f, 5.0f}, kPi);
+
+    EXPECT_NEAR(rotated.x(), -2.0f, 1e-4f);
+    EXPECT_NEAR(rotated.y(), -5.0f, 1e-4f);
+}
+
+TEST(Rotate, ArbitraryAngle_PreservesTheVectorsMagnitude)
+{
+    Float2 const original{7.0f, -3.0f};
+    Float2 const rotated = Rotate(original, 0.83f);
+
+    float const originalLength = std::sqrt(original.x() * original.x() + original.y() * original.y());
+    float const rotatedLength = std::sqrt(rotated.x() * rotated.x() + rotated.y() * rotated.y());
+    EXPECT_NEAR(rotatedLength, originalLength, 1e-4f);
+}
+
+TEST(Rotate, RotatingByTheOppositeAngleUndoesIt)
+{
+    Float2 const original{4.0f, 9.0f};
+    Float2 const roundTripped = Rotate(Rotate(original, 1.2f), -1.2f);
+
+    EXPECT_NEAR(roundTripped.x(), original.x(), 1e-4f);
+    EXPECT_NEAR(roundTripped.y(), original.y(), 1e-4f);
 }
 
 }

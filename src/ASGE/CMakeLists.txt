@@ -69,6 +69,7 @@ add_library(ASGE STATIC
     # ECS components and their TOML (de)serialization
     Game/Components/Serialize.cpp
     Game/Components/Transform.cpp
+    Game/Components/Hierarchy.cpp
     Game/Components/Velocity.cpp
     Game/Components/Rigidbody.cpp
     Game/Components/Collider.cpp

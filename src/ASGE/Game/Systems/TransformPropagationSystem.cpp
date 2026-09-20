@@ -10,6 +10,8 @@ using namespace asge::ecs;
 using namespace asge::game::components;
 using namespace asge::math;
 
+/** @brief Composes inChild's World fields from its own Local fields and
+ *  inParentWorld's already-computed World fields, then clears m_Dirty. */
 void ApplyPropagation( Transform& inChild, Transform const& inParentWorld ) noexcept
 {
     inChild.m_WorldRotation = inParentWorld.m_WorldRotation + inChild.m_LocalRotation;
@@ -29,8 +31,12 @@ void ApplyPropagation( Transform& inChild, Transform const& inParentWorld ) noex
     inChild.m_Dirty = false;
 }
 
-void PropagateToChildren( 
-    Registry& inRegistry, Entity inParent, Transform const& inParentWorld, bool inParentMoved 
+/** @brief Recursively walks inParent's Hierarchy children, applying
+ *  ApplyPropagation to each one whose own m_Dirty is set or whose parent
+ *  moved this pass (inParentMoved), then descending into its children in
+ *  turn. A child with no Transform is skipped, along with its own subtree. */
+void PropagateToChildren(
+    Registry& inRegistry, Entity inParent, Transform const& inParentWorld, bool inParentMoved
 ) noexcept
 {
     auto parentResult = inRegistry.GetComponent<Hierarchy>(inParent);
@@ -45,7 +51,7 @@ void PropagateToChildren(
         auto transformR = inRegistry.GetComponent<Transform>( child );
         if ( transformR.IsOk() )
         {
-            auto childT = transformR.Value().get();
+            auto& childT = transformR.Value().get();
             bool childMoved = childT.m_Dirty || inParentMoved;
             if ( childMoved )
             {
