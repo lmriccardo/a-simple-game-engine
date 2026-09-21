@@ -1,5 +1,6 @@
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Components/Name.hpp>
+#include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Core/Configuration/TOML_Builder.hpp>
 
 #include <gtest/gtest.h>
@@ -16,9 +17,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchy)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyUIButton)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 11);
+    static_assert(std::tuple_size_v<SerializableComponents> == 12);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -30,6 +31,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
     static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
     static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
+    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, UIButton>);
     SUCCEED();
 }
 
@@ -47,6 +49,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
     EXPECT_EQ(Serializer<Name>::kTableName, "Name");
     EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
+    EXPECT_EQ(Serializer<UIButton>::kTableName, "UIButton");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -705,6 +708,81 @@ TEST(HierarchySerializerTest, RoundTripsThroughToTomlAndFromTomlWithMatchingCont
     EXPECT_EQ(restored.m_LastChild, newLastChild);
     EXPECT_EQ(restored.m_PrevSibling, newPrevSibling);
     EXPECT_EQ(restored.m_NextSibling, newNextSibling);
+}
+
+// ─── UIButton ───────────────────────────────────────────────────────────────
+
+TEST(UIButtonSerializerTest, ToToml_WritesFieldsUnderUIButtonTable)
+{
+    TOMLBuilder builder;
+    UIButton value{};
+    value.m_FontVirtualPath = "fonts/ui.ttf";
+    value.m_Text = "Start";
+    value.m_TextAlignment = asge::str::TextAlign::Center;
+    value.m_Size = asge::math::Float2{ 100.0f, 30.0f };
+    Serializer<UIButton>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIButton]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_FontVirtualPath = "fonts/ui.ttf")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Text = "Start")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_TextAlign = "center")"), std::string::npos);
+    EXPECT_NE(dump.find("m_SizeX = 100.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_SizeY = 30.0"), std::string::npos);
+}
+
+TEST(UIButtonSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    UIButton original{};
+    original.m_FontVirtualPath = "fonts/ui.ttf";
+    original.m_Text = "Quit";
+    original.m_TextAlignment = asge::str::TextAlign::Right;
+    original.m_Size = asge::math::Float2{ 64.0f, 20.0f };
+    Serializer<UIButton>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_FontVirtualPath, original.m_FontVirtualPath);
+    EXPECT_EQ(restored.m_Text, original.m_Text);
+    EXPECT_EQ(restored.m_TextAlignment, original.m_TextAlignment);
+    EXPECT_FLOAT_EQ(restored.m_Size.x(), original.m_Size.x());
+    EXPECT_FLOAT_EQ(restored.m_Size.y(), original.m_Size.y());
+}
+
+TEST(UIButtonSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIButton"); // present but empty
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_TRUE(restored.m_FontVirtualPath.empty());
+    EXPECT_EQ(restored.m_Text, "Click Me"); // UIButton's own default, not empty
+    EXPECT_EQ(restored.m_TextAlignment, asge::str::TextAlign::None);
+    EXPECT_FLOAT_EQ(restored.m_Size.x(), 80.0f);
+    EXPECT_FLOAT_EQ(restored.m_Size.y(), 24.0f);
+}
+
+TEST(UIButtonSerializerTest, FromToml_UnrecognizedTextAlignValueBecomesNone)
+{
+    TOMLBuilder builder;
+    builder.Table("UIButton").Set<std::string>( "m_TextAlign", "diagonal" );
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_TextAlignment, asge::str::TextAlign::None);
+}
+
+TEST(UIButtonSerializerTest, FromToml_ClickAndHoverStateAlwaysResetToStructDefaults)
+{
+    // Serializer<UIButton> only round-trips the four authored fields --
+    // FromToml must never carry over m_Hovered/m_PressedThisFrame (neither
+    // is something a scene file describes) or reconstruct m_OnClick's
+    // subscribers, since a Signal isn't serializable at all.
+    TOMLBuilder builder;
+    Serializer<UIButton>::ToToml( UIButton{ .m_Text = "Ok" }, builder, asge::game::scene::SaveContext{} );
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FALSE(restored.m_Hovered);
+    EXPECT_FALSE(restored.m_PressedThisFrame);
 }
 
 }

@@ -19,6 +19,21 @@ using WStringView = std::wstring_view;
 
 using U8String = std::u8string;
 
+/** @brief How Justify pads a string to a target width — None pads nothing (see Justify's default case). */
+enum class TextAlign
+{
+    None = 0,
+    Left,
+    Center,
+    Right
+};
+
+/** @brief TextAlign -> its lowercase TOML/display representation ("none" for anything unrecognized). */
+str::String ToString( TextAlign inAlign ) noexcept;
+
+/** @brief The read-side counterpart to ToString — any string other than "left"/"center"/"right" maps to None. */
+TextAlign FromString( StringView inStr ) noexcept;
+
 /**
  * @brief Removes leading and trailing whitespace from a string_view.
  *
@@ -63,5 +78,25 @@ String EncodeUTF8( std::uint32_t inCp ) noexcept;
  * @brief Converts UTF-8 string into a simple string
  */
 String ToUTF8( U8String const& inStr ) noexcept;
+
+/**
+ * @brief Counts inStr's Unicode code points rather than its bytes.
+ *
+ * Walks inStr one UTF-8 sequence at a time via each byte's leading-byte
+ * pattern; a byte that doesn't match a valid 1-4 byte UTF-8 lead is treated
+ * as its own 1-byte code point (malformed input still terminates instead
+ * of looping forever, at the cost of an inflated count for that byte).
+ */
+std::size_t CodePointLength( StringView inStr ) noexcept;
+
+/**
+ * @brief Pads inStr with spaces to inWidth code points, per inAlignment.
+ *
+ * Returns inStr unchanged (no truncation) if it's already at least inWidth
+ * code points long. TextAlign::Center splits an odd remainder with the
+ * extra space on the right; TextAlign::None pads nothing, same as an
+ * already-wide-enough string.
+ */
+String Justify( StringView inStr, TextAlign inAlignment, std::size_t inWidth ) noexcept;
 
 }

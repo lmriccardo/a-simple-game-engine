@@ -1,5 +1,6 @@
 add_executable(ASGE_UtilsTests
     FunctoolsTests.cpp
+    StringsTests.cpp
 )
 
 target_link_libraries(ASGE_UtilsTests
