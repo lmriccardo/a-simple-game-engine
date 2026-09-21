@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 
@@ -185,12 +186,99 @@ void DrawInspector( PathFollow& inPathFollow ) noexcept
     }
 }
 
+// One entry per DrawSection<T> call below -- reused to drive "Add
+// Component"'s list, since the set of addable types is exactly the set of
+// drawable types. Function pointers (not std::function) since every
+// closure is capture-less; T is erased here so the array can hold every
+// type uniformly.
+struct ComponentEntry
+{
+    char const* m_Name;
+    bool (*m_Has)( asge::ecs::Registry&, asge::ecs::Entity ) noexcept;
+    void (*m_Add)( asge::ecs::Registry&, asge::ecs::Entity ) noexcept;
+    void (*m_Remove)( asge::ecs::Registry&, asge::ecs::Entity ) noexcept;
+};
+
+template<typename T>
+constexpr ComponentEntry MakeComponentEntry( char const* inName ) noexcept
+{
+    return ComponentEntry{
+        inName,
+        []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+        { return inRegistry.HasComponent<T>( inEntity ); },
+        []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+        { inRegistry.AddComponent<T>( inEntity, T{} ); },
+        []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+        { if ( auto const result = inRegistry.RemoveComponent<T>( inEntity ); !result ) result.LogError(); }
+    };
+}
+
+ComponentEntry const kComponentEntries[]{
+    MakeComponentEntry<Name>( "Name" ),
+    MakeComponentEntry<Transform>( "Transform" ),
+    MakeComponentEntry<Velocity>( "Velocity" ),
+    MakeComponentEntry<Rigidbody>( "Rigidbody" ),
+    MakeComponentEntry<Sprite>( "Sprite" ),
+    MakeComponentEntry<Collider>( "Collider" ),
+    MakeComponentEntry<Camera>( "Camera" ),
+    MakeComponentEntry<AudioSource>( "AudioSource" ),
+    MakeComponentEntry<Animation>( "Animation" ),
+    MakeComponentEntry<PathFollow>( "PathFollow" ),
+};
+
+// Linear scan over kComponentEntries by name -- only ever called once per
+// DrawSection<T> per frame (10 entries, 10 sections), not worth a map.
+ComponentEntry const* FindComponentEntry( char const* inName ) noexcept
+{
+    for ( auto const& entry : kComponentEntries )
+    {
+        if ( std::strcmp( entry.m_Name, inName ) == 0 ) return &entry;
+    }
+    return nullptr;
+}
+
+// Combo of component types inSelected doesn't already have; picking one and
+// hitting "Add" default-constructs it onto the entity. Combo selection index
+// is a function-local static -- fine here since only one Inspector panel is
+// ever drawn at a time (same convention Registry's own internals use).
+void DrawAddComponentControl( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    char const* missingNames[std::size( kComponentEntries )];
+    ComponentEntry const* missingEntries[std::size( kComponentEntries )];
+    int missingCount = 0;
+    for ( auto const& entry : kComponentEntries )
+    {
+        if ( !entry.m_Has( inRegistry, inEntity ) )
+        {
+            missingNames[missingCount] = entry.m_Name;
+            missingEntries[missingCount] = &entry;
+            ++missingCount;
+        }
+    }
+
+    if ( missingCount == 0 ) return;
+
+    static int selected = 0;
+    if ( selected >= missingCount ) selected = 0;
+
+    ImGui::Separator();
+    ImGui::SetNextItemWidth( 150.0f );
+    ImGui::Combo( "##AddComponentType", &selected, missingNames, missingCount );
+    ImGui::SameLine();
+    if ( ImGui::Button( "Add Component" ) )
+    {
+        missingEntries[selected]->m_Add( inRegistry, inEntity );
+    }
+}
+
 // Draws inName's section (if inEntity has a T) under its own ID scope, so
 // two component types that happen to use the same field label (e.g. Sprite
 // and Collider both have a "Layer") don't collide onto the same ImGui ID
 // within the shared Inspector window -- SeparatorText is a label, not an ID
 // scope, so without this every widget past the first "Layer" field would
-// silently share state with it.
+// silently share state with it. The trailing "x" button removes T via
+// kComponentEntries' erased m_Remove, looked up by inName rather than
+// threading a second template through the call site.
 template<typename T>
 void DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, char const* inName ) noexcept
 {
@@ -198,6 +286,13 @@ void DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
     {
         ImGui::PushID( inName );
         ImGui::SeparatorText( inName );
+        ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
+        if ( ImGui::SmallButton( "x" ) )
+        {
+            FindComponentEntry( inName )->m_Remove( inRegistry, inEntity );
+            ImGui::PopID();
+            return;
+        }
         DrawInspector( r.Value().get() );
         ImGui::PopID();
     }
@@ -276,6 +371,8 @@ EntityAction DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Ent
     DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource" );
     DrawSection<Animation>( inRegistry, inSelected, "Animation" );
     DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
+
+    DrawAddComponentControl( inRegistry, inSelected );
 
     ImGui::End();
 
