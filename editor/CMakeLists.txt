@@ -2,10 +2,7 @@ add_executable(asge-editor main.cpp Inspector.cpp ViewportOverlay.cpp)
 
 target_link_libraries(asge-editor PRIVATE ASGE imgui::imgui)
 
-# Phase 1's hardcoded test scene reuses scene_demo's fixture rather than
-# duplicating it -- see main.cpp's own comment.
 target_compile_definitions(asge-editor PRIVATE
-    ASGE_EDITOR_TEST_SCENE_DIR="${CMAKE_SOURCE_DIR}/examples/scene_demo/assets"
     ASGE_EDITOR_ICON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png")
 
 target_compile_options(asge-editor

@@ -15,8 +15,11 @@
 #include <backends/imgui_impl_sdlrenderer3.h>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_dialog.h>
 
 #include <filesystem>
+#include <mutex>
+#include <optional>
 
 #include "Inspector.hpp"
 #include "ViewportOverlay.hpp"
@@ -24,6 +27,44 @@
 namespace
 {
 using asge::game::components::Transform;
+
+// SDL_Show{Open,Save}FileDialog are async: the callback below may run on a
+// different thread than the main loop (SDL's own doc note), so the result is
+// handed off through a mutex rather than touched directly -- the actual
+// SceneManager::LoadScene/SaveScene call happens back on the main thread,
+// once per frame, in main()'s drain checks. One instance each for Open and
+// Save -- both dialogs use the same callback and result shape.
+struct FileDialogResult
+{
+    std::mutex m_Mutex;
+    bool m_Ready = false;
+    bool m_Accepted = false; // false covers both "user canceled" and "error"
+    std::string m_Path;
+};
+
+void OnFileDialogResult( void* inUserdata, char const* const* inFileList, int ) noexcept
+{
+    auto* result = static_cast<FileDialogResult*>( inUserdata );
+    std::lock_guard const lock( result->m_Mutex );
+
+    if ( inFileList == nullptr )
+    {
+        LOG_ERROR( "File dialog failed: ", SDL_GetError() );
+        result->m_Accepted = false;
+    }
+    else if ( inFileList[0] == nullptr )
+    {
+        result->m_Accepted = false; // user canceled
+    }
+    else
+    {
+        result->m_Accepted = true;
+        result->m_Path = inFileList[0];
+    }
+    result->m_Ready = true;
+}
+
+constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.toml)", "toml" } };
 
 /**
  * @brief Finds the topmost entity (by iteration order) whose
@@ -133,29 +174,20 @@ int main(int, char**)
     asge::game::asset::AssetManager assets(vfs);
     asge::game::scene::SceneManager sceneManager(vfs);
 
-    // Hardcoded test scene for now (Phase 1/2 scope): staged into a scratch
-    // copy of scene_demo's fixture rather than mounting it directly, so
-    // Phase 2's Save can freely overwrite it without dirtying checked-in
-    // example content. Replaced once the editor grows its own asset
-    // browsing/authoring (later phases).
-    //
-    // Only seeded once -- a saved edit must survive closing and reopening
-    // the editor, not get overwritten by the pristine fixture on next launch.
+    // No scene is auto-loaded on startup -- the editor opens with an empty
+    // Registry, same as File > New (see below), rather than a hardcoded test
+    // fixture that would only ever exist on the machine that built it.
+    // "assets" is still mounted to a scratch dir up front so Save/Save As
+    // (which write straight to scratchAssetsDir, not through vfs) have
+    // somewhere to land before the user has saved anything themselves.
     namespace fs = std::filesystem;
     fs::path const scratchAssetsDir = fs::temp_directory_path() / "asge_editor_scratch_assets";
-    std::error_code copyEc;
-    if (!fs::exists(scratchAssetsDir))
-    {
-        fs::copy(ASGE_EDITOR_TEST_SCENE_DIR, scratchAssetsDir, fs::copy_options::recursive, copyEc);
-    }
-    if (copyEc) LOG_ERROR("Failed to stage editor scratch assets: ", copyEc.message());
+    std::error_code createEc;
+    fs::create_directories(scratchAssetsDir, createEc);
+    if (createEc) LOG_ERROR("Failed to create editor scratch assets dir: ", createEc.message());
 
     auto const mountResult = vfs.Mount("assets", scratchAssetsDir.string());
     if (!mountResult) mountResult.LogError();
-
-    auto const loadResult = sceneManager.LoadScene("assets/scene.toml");
-    if (!loadResult) loadResult.LogError();
-    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
 
     auto* window   = static_cast<SDL_Window*>(videoSys.GetWindow().NativeHandle());
     auto* renderer = static_cast<SDL_Renderer*>(videoSys.GetRenderer().NativeHandle());
@@ -169,15 +201,27 @@ int main(int, char**)
     auto selectedEntity = asge::ecs::Entity::Null();
     float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the Scene window
 
-    // Phase 5: just the filename under the mounted "assets" dir -- the real
-    // disk path (scratchAssetsDir / this) is built directly rather than via
-    // vfs.Resolve, which only finds files that already exist and so can't
-    // resolve a brand new one from File > New/Save As. sceneManager's own
-    // "assets/<this>" virtual path stays in sync via RenameActiveScene, so
-    // ActiveEntities()/SaveScene (SceneId-filtered) keep seeing the right
-    // entities regardless of which file they end up written to.
-    std::string currentSceneFilename = "scene.toml";
-    char saveAsBuffer[128] = "scene.toml";
+    // The real disk path Save writes to once the user has actually chosen one
+    // (via the native Save/Save As dialog) -- nullopt for a fresh/untitled
+    // scene, which is exactly what makes Save behave like Save As until then.
+    // sceneManager's own SceneId-tagging identity (RenameActiveScene) is a
+    // separate, purely internal bookkeeping string -- it doesn't need to
+    // match this real path, so a fresh scene gets a placeholder identity
+    // before any real location is known.
+    std::optional<fs::path> currentScenePath;
+    FileDialogResult saveDialogResult;
+    FileDialogResult openDialogResult;
+
+    // "opened" is the virtual root Open (re)mounts to whatever real directory
+    // the user last picked a scene from -- LoadScene only takes a virtual
+    // path (SceneSerializer resolves it through vfs), unlike SaveScene, which
+    // takes a real path directly. Re-mounted (not left to accumulate) each
+    // time so Resolve can't pick a same-named file under a stale, previously
+    // opened directory. std::string since that's what Mount/Unmount actually
+    // take -- no reason to round-trip through fs::path for this one.
+    std::optional<std::string> openedMountDir;
+
+    sceneManager.RenameActiveScene("untitled");
 
     // Phase 4: viewport free-drag + translate gizmo. draggingEntity is the
     // entity currently being moved (Null() when nothing is); dragAxis is
@@ -251,7 +295,83 @@ int main(int, char**)
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        bool openSaveAsPopup = false;
+        // Results queued by OnFileDialogResult (possibly from another thread)
+        // are drained here, once per frame, on the main thread --
+        // SceneManager/Registry/vfs are never touched from the dialog
+        // callback itself.
+        {
+            bool ready = false;
+            bool accepted = false;
+            std::string chosenPath;
+            {
+                std::lock_guard const lock(saveDialogResult.m_Mutex);
+                ready = saveDialogResult.m_Ready;
+                accepted = saveDialogResult.m_Accepted;
+                chosenPath = saveDialogResult.m_Path;
+                saveDialogResult.m_Ready = false;
+            }
+            if (ready && accepted)
+            {
+                fs::path path = chosenPath;
+                if (path.extension().empty()) path += ".toml"; // native dialogs don't all enforce the filter's extension
+                sceneManager.RenameActiveScene(path.string());
+                auto const saveResult = sceneManager.SaveScene(path);
+                if (!saveResult) saveResult.LogError();
+                else
+                {
+                    currentScenePath = path;
+                    LOG_INFO("Scene saved to ", path.string());
+                }
+            }
+        }
+        {
+            bool ready = false;
+            bool accepted = false;
+            std::string chosenPath;
+            {
+                std::lock_guard const lock(openDialogResult.m_Mutex);
+                ready = openDialogResult.m_Ready;
+                accepted = openDialogResult.m_Accepted;
+                chosenPath = openDialogResult.m_Path;
+                openDialogResult.m_Ready = false;
+            }
+            if (ready && accepted)
+            {
+                fs::path const path = chosenPath;
+
+                // LoadScene only takes a virtual path (SceneSerializer resolves
+                // it through vfs), unlike SaveScene -- so the file's own
+                // directory is (re)mounted as "opened" first. Unmounting
+                // whatever "opened" pointed at before stops Resolve from ever
+                // finding a same-named file under a stale, previously opened
+                // directory (mounts accumulate otherwise; Resolve tries the
+                // oldest matching one first).
+                if (openedMountDir)
+                {
+                    if (auto const r = vfs.Unmount("opened", *openedMountDir); !r) r.LogError();
+                }
+                openedMountDir = path.parent_path().string();
+                if (auto const r = vfs.Mount("opened", *openedMountDir); !r) r.LogError();
+
+                sceneManager.UnloadScene();
+                auto const loadResult = sceneManager.LoadScene("opened/" + path.filename().string());
+                if (!loadResult)
+                {
+                    loadResult.LogError();
+                }
+                else
+                {
+                    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                    currentScenePath = path;
+                    selectedEntity = asge::ecs::Entity::Null();
+                    ResetEntityDisplayIds();
+                    LOG_INFO("Scene loaded from ", path.string());
+                }
+            }
+        }
+
+        bool openSaveDialog = false;
+        bool openOpenDialog = false;
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
@@ -259,54 +379,48 @@ int main(int, char**)
                 if (ImGui::MenuItem("New"))
                 {
                     sceneManager.UnloadScene();
-                    currentSceneFilename = "untitled.toml";
-                    sceneManager.RenameActiveScene("assets/" + currentSceneFilename);
+                    sceneManager.RenameActiveScene("untitled");
+                    currentScenePath.reset();
                     selectedEntity = asge::ecs::Entity::Null();
                     ResetEntityDisplayIds();
                 }
+                if (ImGui::MenuItem("Open...")) openOpenDialog = true;
                 if (ImGui::MenuItem("Save"))
                 {
-                    // Exactly the game's own save path: SceneManager::SaveScene
-                    // -> SceneSerializer -> Serializer<Transform>, unmodified.
-                    auto const diskPath = scratchAssetsDir / currentSceneFilename;
-                    auto const saveResult = sceneManager.SaveScene(diskPath);
-                    if (!saveResult) saveResult.LogError();
-                    else LOG_INFO("Scene saved to ", diskPath.string());
+                    if (currentScenePath)
+                    {
+                        // Exactly the game's own save path: SceneManager::SaveScene
+                        // -> SceneSerializer -> Serializer<Transform>, unmodified.
+                        auto const saveResult = sceneManager.SaveScene(*currentScenePath);
+                        if (!saveResult) saveResult.LogError();
+                        else LOG_INFO("Scene saved to ", currentScenePath->string());
+                    }
+                    else
+                    {
+                        // Never saved anywhere real yet -- behave like Save As
+                        // rather than silently writing under the scratch dir.
+                        openSaveDialog = true;
+                    }
                 }
-                if (ImGui::MenuItem("Save As..."))
-                {
-                    std::snprintf(saveAsBuffer, sizeof(saveAsBuffer), "%s", currentSceneFilename.c_str());
-                    openSaveAsPopup = true; // OpenPopup deferred to outside the menu's ID scope, see below
-                }
+                if (ImGui::MenuItem("Save As...")) openSaveDialog = true;
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
         }
 
-        // OpenPopup/BeginPopupModal must run at the same ID-stack depth to
-        // find each other -- calling OpenPopup while still inside the File
-        // menu (a different ID scope) would hash to a different ID than
-        // this top-level BeginPopupModal, and the popup would never open.
-        if (openSaveAsPopup) ImGui::OpenPopup("Save As");
-
-        if (ImGui::BeginPopupModal("Save As", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (openSaveDialog)
         {
-            ImGui::InputText("Filename", saveAsBuffer, sizeof(saveAsBuffer));
-            if (ImGui::Button("Save"))
-            {
-                currentSceneFilename = saveAsBuffer;
-                sceneManager.RenameActiveScene("assets/" + currentSceneFilename);
-
-                auto const diskPath = scratchAssetsDir / currentSceneFilename;
-                auto const saveResult = sceneManager.SaveScene(diskPath);
-                if (!saveResult) saveResult.LogError();
-                else LOG_INFO("Scene saved to ", diskPath.string());
-
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
+            auto const defaultLocation = currentScenePath ? currentScenePath->parent_path().string() : std::string{};
+            SDL_ShowSaveFileDialog(
+                OnFileDialogResult, &saveDialogResult, window,
+                kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str());
+        }
+        if (openOpenDialog)
+        {
+            auto const defaultLocation = currentScenePath ? currentScenePath->parent_path().string() : std::string{};
+            SDL_ShowOpenFileDialog(
+                OnFileDialogResult, &openDialogResult, window,
+                kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str(), false);
         }
 
         // Right-aligned, stacked above Entities/Inspector (see Inspector.hpp's
