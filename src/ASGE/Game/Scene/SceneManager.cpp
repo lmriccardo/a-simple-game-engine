@@ -74,6 +74,18 @@ void asge::game::scene::SceneManager::UnloadScene() noexcept
     m_CurrentScenePath.reset();
 }
 
+void asge::game::scene::SceneManager::RenameActiveScene(str::String const &inNewVirtualPath) noexcept
+{
+    for ( auto entity : ActiveEntities() ) // old path's entities, read before we change it below
+    {
+        if ( auto sceneId = m_Registry.GetComponent<SceneId>( entity ) )
+        {
+            sceneId.Value().get().m_Path = inNewVirtualPath;
+        }
+    }
+    m_CurrentScenePath = inNewVirtualPath;
+}
+
 asge::BoolResult asge::game::scene::SceneManager::SaveScene(filesystem::Path const &inPath) const noexcept
 {
     // SceneSerializer::Save has no notion of "just these entities" -- it

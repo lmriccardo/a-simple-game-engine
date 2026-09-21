@@ -141,6 +141,50 @@ TEST_F(SceneManagerTest, UnloadScene_OnlyDestroysTheActiveScenesEntitiesLeavingO
     EXPECT_EQ(manager.EntitiesInScene("scenes/scene.toml").size(), 1u); // untouched
 }
 
+// ─── RenameActiveScene ──────────────────────────────────────────────────────
+
+TEST_F(SceneManagerTest, RenameActiveScene_RetagsActiveEntitiesAndUpdatesCurrentPath)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+
+    manager.RenameActiveScene("scenes/renamed.toml");
+
+    ASSERT_TRUE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(*manager.CurrentScenePath(), "scenes/renamed.toml");
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u); // still findable, now under the new path
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty()); // nothing left under the old one
+}
+
+TEST_F(SceneManagerTest, RenameActiveScene_LeavesOtherResidentScenesUntouched)
+{
+    WriteValidScene(m_ScenePath);
+    auto const pathB = m_Root / "b.toml";
+    WriteValidScene(pathB);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // b.toml active, scene.toml resident-inactive
+
+    manager.RenameActiveScene("scenes/renamed.toml");
+
+    EXPECT_EQ(manager.EntitiesInScene("scenes/scene.toml").size(), 1u); // untouched
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/b.toml").empty());
+    EXPECT_EQ(manager.EntitiesInScene("scenes/renamed.toml").size(), 1u);
+}
+
+TEST_F(SceneManagerTest, RenameActiveScene_WithNothingActiveJustEstablishesThePath)
+{
+    SceneManager manager{ m_Vfs }; // nothing loaded -- the File > New case, nothing to retag
+
+    manager.RenameActiveScene("scenes/untitled.toml");
+
+    ASSERT_TRUE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(*manager.CurrentScenePath(), "scenes/untitled.toml");
+    EXPECT_TRUE(manager.ActiveEntities().empty());
+}
+
 // ─── SaveScene ──────────────────────────────────────────────────────────────
 
 TEST_F(SceneManagerTest, SaveScene_SavesOnlyTheActiveScenesEntities)

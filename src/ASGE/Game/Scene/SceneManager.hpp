@@ -55,6 +55,20 @@ public:
     /** @brief Destroys every entity belonging to the active scene, leaving nothing active. */
     void UnloadScene() noexcept;
 
+    /**
+     * @brief Makes inNewVirtualPath the active scene's identity going
+     *        forward, retagging every currently-active entity's SceneId to
+     *        match -- so ActiveEntities()/SaveScene() keep seeing them
+     *        under the new path. Touches neither disk nor the Registry's
+     *        actual entity set.
+     *
+     * Used for "Save As" (retags a populated active scene under a new
+     * path) and, paired with a prior UnloadScene(), for starting a scene
+     * from scratch -- nothing active left to retag, so this just
+     * establishes the identity newly-created entities get tagged under.
+     */
+    void RenameActiveScene( str::String const& inNewVirtualPath ) noexcept;
+
     /** @brief Saves only the active scene's entities to inPath, not every resident scene. */
     BoolResult SaveScene( filesystem::Path const& inPath ) const noexcept;
 
