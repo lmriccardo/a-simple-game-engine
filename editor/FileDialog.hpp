@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL_dialog.h>
 
+#include <filesystem>
 #include <mutex>
 #include <string>
 
@@ -32,3 +33,16 @@ void OnFileDialogResult( void* inUserdata, char const* const* inFileList, int in
  *         was canceled/errored.
  */
 bool DrainFileDialogResult( FileDialogResult& inResult, std::string& outPath ) noexcept;
+
+/**
+ * @brief inDir formatted for a native dialog's default_location parameter,
+ *        with a trailing separator forced on.
+ *
+ * Without it, a bare directory path (no trailing separator -- the normal
+ * shape of e.g. a canonicalized VirtualFileSystem mount or a scene's
+ * parent_path()) gets its last path segment treated by some native dialog
+ * backends as a suggested *filename* rather than the folder to open in,
+ * landing the dialog one level up from where it was actually meant to
+ * start. Empty in, empty out (the caller's own "no default" case).
+ */
+std::string DialogDefaultLocation( std::filesystem::path const& inDir ) noexcept;

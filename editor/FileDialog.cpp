@@ -42,3 +42,9 @@ bool DrainFileDialogResult( FileDialogResult& inResult, std::string& outPath ) n
     outPath = std::move( path );
     return true;
 }
+
+std::string DialogDefaultLocation( std::filesystem::path const& inDir ) noexcept
+{
+    if ( inDir.empty() ) return {};
+    return ( inDir / "" ).string(); // forces a trailing separator -- see this function's own doc comment
+}
