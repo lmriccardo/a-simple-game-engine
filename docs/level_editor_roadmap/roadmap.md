@@ -401,6 +401,44 @@ game's actual window will show.
 
 ---
 
+## Phase 9 — Editor session persistence (`.asges`)
+
+**Goal:** reopening the editor on a project already being worked on doesn't
+mean re-adding every mount point by hand and re-opening the same scene file
+— one Save Session / Open Session round trip restores exactly that working
+state.
+
+- [ ] `.asges` session file format: plain TOML, going through the exact same
+      `asge::toml` machinery scene files already serialize through — no
+      second parser, no invented binary format for what's really two flat
+      lists. A `[[Mount]]` table array (`Name`, `RealDirectory` — one entry
+      per (name, dir) pair, since Phase 7's VFS panel already established
+      that a root can legitimately map to more than one real directory) and
+      a `[Session]` table with `ScenePath` (the currently open scene's
+      absolute real path, omitted if none is open).
+- [ ] "Save Session..." / "Open Session..." in the same File menu as
+      Save/Open Scene, reusing the same native-dialog + `FileDialogResult`/
+      `DrainFileDialogResult` plumbing every other dialog in the editor
+      already goes through, filtered to `*.asges`.
+- [ ] Save Session writes every current `VirtualFileSystem::ListMounts()`
+      entry plus `currentScenePath` (if set) to the chosen file.
+- [ ] Open Session unmounts everything currently mounted, mounts every
+      `[[Mount]]` entry from the file, then — if `ScenePath` is present —
+      loads that scene the same way Open Scene does
+      (`LoadSceneFromRealPath`, `ResolveAssets`, `RegisterSceneAssets`).
+      Replaces the current working state outright rather than merging with
+      it, matching what Open Scene already does to `currentScenePath`.
+- [ ] A `[[Mount]]` entry whose `RealDirectory` no longer exists (moved or
+      deleted on disk since the session was saved) is skipped with a
+      logged warning instead of mounting a dead path or failing the whole
+      load.
+
+**Done when:** Save Session then Open Session round-trips mounts and the
+active scene exactly, and a moved/missing mount directory logs a warning
+instead of failing silently or aborting the rest of the load.
+
+---
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no
