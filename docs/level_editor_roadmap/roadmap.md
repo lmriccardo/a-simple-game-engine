@@ -179,6 +179,19 @@ to the running game.
       Also retags every active entity's `SceneId` to the new path via the
       same `RenameActiveScene`, so `Save`/`ActiveEntities()` keep seeing
       them post-rename instead of silently going empty.
+
+**Done when:** a level can be authored from an empty scene — via File > New,
+not by deleting everything out of an existing one — and saved to a new file
+of its own via File > Save As.
+
+---
+
+## Phase 6 — Editor polish: component editing, native dialogs, diagnostics
+
+Everything that came out of actually using Phase 5's editor day to day,
+rather than a planned milestone — each item below is a gap that only
+showed up once entities could be created/saved/reopened for real.
+
 - [x] Add/remove components on an existing entity from the Inspector, not
       just create/delete/duplicate the entity itself — a combo of whichever
       serializable types the selection doesn't already have (default-
@@ -195,30 +208,163 @@ to the running game.
       location (`nullopt` disk path). `SceneManager::LoadScene` only takes
       a virtual path, so Open (re)mounts the chosen file's parent directory
       as a virtual root each time, unmounting the previous one first.
+      `editor/FileDialog.hpp/.cpp` extracts the async result hand-off
+      (`FileDialogResult`/`OnFileDialogResult`) shared by Save/Save As/Open/
+      the log console's own Save button below, rather than duplicating a
+      mutex-guarded callback a third time.
 - [x] Editor window/taskbar icon and `.exe` icon set from the project logo
       (`docsite/site/assets/img/logo.svg`, rasterized since no SVG loader
       is available at either build or runtime).
+- [x] In-editor log console: `Logger` gained an `OnLog` signal (existing
+      `Signal`/`Connection` pattern, not a new mechanism) that
+      `editor/ConsolePanel` connects to once at startup, keeping the last
+      500 `LogRecord`s in a mutex-guarded ring buffer — there's no terminal
+      to read `LOG_*` output from once the editor is launched normally.
+      Found and fixed a real engine bug along the way: `FormatTimestamp`
+      ignored its own timestamp argument and always formatted "now",
+      invisible until something (this panel) re-rendered a stored
+      `LogRecord` every frame instead of printing it once.
+- [x] Log panel anchored flush to both side edges and the bottom of the
+      editor window — forced every frame via `SetNextWindowSizeConstraints`
+      (width's min/max equal, so only height is draggable) — with a
+      horizontal scrollbar for lines wider than the panel, colored
+      error/warning count badges (drawn shapes next to Clear, not title-bar
+      text — ImGui can't host a custom draw call there) and a right-anchored
+      "Save Log" button that writes the current buffer to a `.log` file
+      through the same native-dialog plumbing as Save/Open.
 
-**Done when:** a level can be authored from an empty scene — via File > New,
-not by deleting everything out of an existing one — and saved to a new file
-of its own via File > Save As.
+**Done when:** every entity's exact component makeup is editable from the
+Inspector alone, opening/saving a scene never touches an invisible scratch
+path, and every `LOG_*` message the editor produces is visible somewhere on
+screen instead of only on a terminal that may not exist.
 
 ---
 
-## Phase 6 — Asset awareness
+## Phase 7 — Asset awareness
 
-- [ ] Read-only panel listing textures / `FrameTable` sidecars known to
-      `AssetManager`, so you can see what's available without leaving the
-      editor.
-- [ ] Assigning a sprite/animation to an entity picks from this list
-      instead of typing a path string into a `DragFloat`-style field.
+- [x] `editor/AssetBrowser` lists every texture/animation-clip virtual path
+      the editor currently knows about, in two sections. Went through three
+      designs before landing here: first a live recursive scan of the
+      current scene's own folder (broke on a real project where scenes and
+      assets are siblings under a shared root, e.g.
+      `assets/scenes/level.toml` referencing `assets/characters/...`,
+      neither nested in the other — found nothing despite the scene's
+      sprites rendering correctly); then a scan of *every* mounted root
+      (correct, but showed every file under a mount whether or not it was
+      actually an asset anyone cared about); settled on driving the list
+      from the registry itself instead of the filesystem at all — every
+      distinct, non-empty `Sprite::m_VirtualPath`/`Animation::m_ClipPath`
+      currently in use, so nothing shows up that isn't actually meaningful
+      to this scene.
+- [x] "Load Asset..." covers the gap the registry-driven list can't: an
+      empty or freshly-opened scene has no entities to derive anything
+      from at all. Picks a mount first (native dialogs have no notion of a
+      virtual root, so the mount supplies both the dialog's starting
+      folder and the prefix for the resulting virtual path), then opens a
+      native open-file dialog scoped to that mount's real directory; the
+      picked file is classified the same way the old directory-scan design
+      did (image extension -> texture; `.toml` containing a `[FrameTable]`
+      table -> animation clip, since a scene file and a clip file are both
+      plain `.toml` and only distinguishable by content). Imported paths
+      go into a small persistent set alongside the registry-derived ones,
+      with their own "x" to un-import — the "x" only shows for entries
+      actually in that persistent set, since a purely registry-derived one
+      has nothing here to remove; it'd just reappear next frame from the
+      entity itself. `ImGuiSelectableFlags_AllowOverlap` was needed on the
+      row's `Selectable` for that "x" to be clickable at all — a plain
+      Selectable's hit box otherwise spans the full row and silently eats
+      clicks meant for anything drawn on top of it further right.
+- [x] A scene that finishes loading registers every asset path it
+      references into that same persistent set (`RegisterSceneAssets`) --
+      without this, an asset that only ever appeared because some entity
+      referenced it (never actually "Load Asset..."-ed) vanished from the
+      panel the instant that entity's component was removed or the entity
+      deleted, even though nothing about the asset itself changed. An
+      asset's presence in the panel isn't supposed to depend on whether
+      anything currently happens to be using it.
+- [x] Clicking an entry no longer assigns it to the selected entity —
+      instead it opens `editor/AssetInspector`, a panel showing the
+      asset's absolute path, mountpoint, file size, and (for textures)
+      pixel dimensions, then a full-width separator and a thumbnail
+      preview below it (no preview for animation clips). The preview loads
+      through the same `AssetManager::GetImage` + `CreateTexture` path
+      Sprite resolution itself uses, `ImGui::Image`'d via the SDL3
+      renderer backend's documented convention of using a raw
+      `SDL_Texture*` (`ITexture::NativeHandle()`) as the texture ID
+      directly; cached and reloaded only when the inspected path changes,
+      since `CreateTexture` allocates a fresh GPU texture on every call.
+      Has its own title-bar close button, clearing the caller's selection
+      back to "nothing inspected" rather than the panel just staying open
+      forever once something's been clicked once.
+- [x] Assignment instead happens at Add Component time: adding a `Sprite`
+      now requires picking one of the known texture paths from a combo
+      first (`editor/AssetBrowser`'s `KnownTexturePaths`) — "Add Component"
+      stays disabled with a hint if nothing's loaded yet — rather than
+      starting from a blank, unresolved `m_VirtualPath` the user would
+      have had to fill in by hand anyway. Animation clips still use the
+      older manual-text-field approach for now; only Sprite was asked for.
+- [x] `editor/VfsPanel`: an always-on panel (not tied to a loaded scene)
+      listing `VirtualFileSystem`'s current mounts, letting the user add
+      new ones (a name plus `SDL_ShowOpenFolderDialog`), and surfacing any
+      virtual root the *currently loaded* scene's Sprite/Animation/
+      AudioSource paths reference but isn't mounted — a real gap Phase 7
+      first shipped without: a scene authored by an actual game references
+      whatever mount *that game's own code* set up (e.g. `assets` pointing
+      at its own project folder), which the editor can't see or infer from
+      the scene file's location alone, so opening a real-world scene (not
+      one round-tripped through the editor's own "opened" convention)
+      logged "mount not found" for every asset. `AssetManager`/`AssetPool`
+      never cache a resolve failure (see `AssetPool::GetOrLoad`'s own doc
+      comment) and `Resolver<T>`'s guard only checks success, not "already
+      tried" — so nothing needed to change engine-side to make a fresh
+      mount retroactively fix already-failed assets; `ResolveAssets` just
+      needed calling again after the mount. That surfaced the real risk:
+      `ResolveAssets` was briefly called unconditionally every frame (this
+      phase's first pass), which would re-log the same failure 60 times a
+      second for anything that stayed broken. Fixed by calling it only at
+      specific triggers instead — scene loaded, `Inspector`'s Add/Remove
+      Component (`EntityAction::ComponentsChanged`, new), an asset-browser
+      pick, and a successful mount — never unconditionally per frame.
+      Verified end to end with a hand-authored scene referencing an
+      unmounted root: the panel correctly flagged it as Missing, mounting
+      the right folder made the sprite resolve and render with no further
+      errors logged.
+- [x] Adding a mount under a name that's already bound to a different real
+      directory now replaces it instead of sitting alongside it as a second
+      candidate `Resolve()` might try first and get a stale answer (or
+      none) from — `Mount()` on its own just appends. Hit this re-pointing
+      the default `assets` mount (which used to start bound to the editor's
+      own scratch dir) at a real project's actual assets folder: both ended
+      up mounted under the same name, and since `Resolve()` tries matches
+      in registration order, the AssetBrowser also needed to scan every
+      mount rather than just the newest one (previous item) for this
+      specific case to surface at all.
+- [x] The editor no longer auto-creates any mount, ever — no `assets`
+      scratch-dir mount on startup, and File > Open no longer leaves an
+      `opened` mount pointing at whatever directory a scene was last
+      opened from either. Both existed only because `SceneManager::
+      LoadScene` takes a virtual path (unlike `SaveScene`, which takes a
+      real one directly), and turned out to actively fight the VFS panel:
+      a "replaced" `assets` mount from the previous item is exactly the
+      kind of surprise a silent auto-mount produces once the user is
+      expected to manage mounts themselves. Open now resolves its file via
+      `LoadSceneFromRealPath`, which mounts a private, uniquely-named root
+      just long enough for that one `LoadScene` call and unmounts it again
+      immediately after — nothing user-visible is bound as a side effect,
+      so every entry the VFS panel ever shows is one the user put there.
+      Verified: a fresh launch's Mounted list is empty, and opening a scene
+      whose assets reference an unmounted root now correctly shows it under
+      Missing immediately, with no residual mount masking the gap.
 
 **Done when:** authoring a new entity's visuals doesn't require knowing
-asset filenames by memory.
+asset filenames by memory. Verified end to end: saved a scene next to a
+real `.png` and a `[FrameTable]`-bearing `.toml`, both appeared correctly
+classified in the browser, clicking the texture set the Sprite's virtual
+path and it rendered in the viewport with no resolve error logged.
 
 ---
 
-## Phase 7 — Viewport navigation & window ergonomics
+## Phase 8 — Viewport navigation & window ergonomics
 
 **Goal:** a level bigger than the editor window is still fully reachable,
 and the editor's own window size stops being confused with the target
