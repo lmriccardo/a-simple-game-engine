@@ -150,21 +150,35 @@ to the running game.
 
 ## Phase 5 — Entity lifecycle: create, delete, duplicate
 
-- [ ] "Create entity" goes through the same creation path gameplay code
+- [x] "Create entity" goes through the same creation path gameplay code
       uses (`Registry::Create()` + attach components) — no separate
-      editor-only construction API.
-- [ ] Delete selected entity (`Registry::Destroy` or equivalent).
-- [ ] Duplicate selected entity (copy each present component's data into a
+      editor-only construction API. Attaches a bare `Transform` (the
+      minimum to be visible/pickable) plus a `SceneId` tag — required so
+      `SaveScene()` (which filters by `ActiveEntities()`, SceneId-based)
+      doesn't silently drop the new entity; not a new construction API
+      itself, just `Registry::AddComponent` a second time.
+- [x] Delete selected entity (`Registry::Destroy` or equivalent).
+- [x] Duplicate selected entity (copy each present component's data into a
       newly created entity) — straightforward once Phase 3's per-type
-      component enumeration exists.
-- [ ] "File > New": resets to a genuinely empty `Registry` and clears the
+      component enumeration exists. Folds over the same public
+      `components::SerializableComponents` tuple `SceneManager` itself
+      already uses for this (its own copy is private), plus the same
+      `SceneId` tagging `Create` needs.
+- [x] "File > New": resets to a genuinely empty `Registry` and clears the
       current scene path, instead of hand-deleting every entity out of
       whatever the editor happened to load at startup. Without this, "an
       empty scene" in the Done-when below is only reachable by editing the
-      Phase 1/2 hardcoded test scene down to nothing.
-- [ ] "File > Save As": prompts for a destination path instead of Phase 2's
+      Phase 1/2 hardcoded test scene down to nothing. Needed a small
+      addition to `SceneManager` itself (`RenameActiveScene`) — nothing in
+      its public API could establish a fresh active scene identity with no
+      entities without either loading real content from disk or already
+      being resident.
+- [x] "File > Save As": prompts for a destination path instead of Phase 2's
       Save always overwriting wherever the current scene was loaded from —
       otherwise a new-from-scratch level has nowhere of its own to be saved.
+      Also retags every active entity's `SceneId` to the new path via the
+      same `RenameActiveScene`, so `Save`/`ActiveEntities()` keep seeing
+      them post-rename instead of silently going empty.
 
 **Done when:** a level can be authored from an empty scene — via File > New,
 not by deleting everything out of an existing one — and saved to a new file
