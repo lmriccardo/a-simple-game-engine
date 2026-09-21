@@ -179,6 +179,25 @@ to the running game.
       Also retags every active entity's `SceneId` to the new path via the
       same `RenameActiveScene`, so `Save`/`ActiveEntities()` keep seeing
       them post-rename instead of silently going empty.
+- [x] Add/remove components on an existing entity from the Inspector, not
+      just create/delete/duplicate the entity itself — a combo of whichever
+      serializable types the selection doesn't already have (default-
+      constructed on click) plus a per-section "x" to remove one, both
+      driven by one type-erased `Has`/`Add`/`Remove` table shared with
+      `DrawSection<T>` rather than a second hardcoded type list.
+- [x] No scene is auto-loaded on startup — the editor opens genuinely empty
+      (same state as File > New), replacing the Phase 1/2 hardcoded test
+      fixture that only ever existed on the machine that built it.
+- [x] File > Save/Save As/Open all go through native OS file dialogs
+      (`SDL_Show{Save,Open}FileDialog`) instead of an ImGui text-input
+      popup that silently wrote under a scratch temp directory. Save
+      behaves like Save As until the active scene has a real saved
+      location (`nullopt` disk path). `SceneManager::LoadScene` only takes
+      a virtual path, so Open (re)mounts the chosen file's parent directory
+      as a virtual root each time, unmounting the previous one first.
+- [x] Editor window/taskbar icon and `.exe` icon set from the project logo
+      (`docsite/site/assets/img/logo.svg`, rasterized since no SVG loader
+      is available at either build or runtime).
 
 **Done when:** a level can be authored from an empty scene — via File > New,
 not by deleting everything out of an existing one — and saved to a new file
