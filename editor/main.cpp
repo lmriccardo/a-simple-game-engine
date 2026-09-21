@@ -23,46 +23,12 @@
 
 #include "Inspector.hpp"
 #include "ViewportOverlay.hpp"
+#include "ConsolePanel.hpp"
+#include "FileDialog.hpp"
 
 namespace
 {
 using asge::game::components::Transform;
-
-// SDL_Show{Open,Save}FileDialog are async: the callback below may run on a
-// different thread than the main loop (SDL's own doc note), so the result is
-// handed off through a mutex rather than touched directly -- the actual
-// SceneManager::LoadScene/SaveScene call happens back on the main thread,
-// once per frame, in main()'s drain checks. One instance each for Open and
-// Save -- both dialogs use the same callback and result shape.
-struct FileDialogResult
-{
-    std::mutex m_Mutex;
-    bool m_Ready = false;
-    bool m_Accepted = false; // false covers both "user canceled" and "error"
-    std::string m_Path;
-};
-
-void OnFileDialogResult( void* inUserdata, char const* const* inFileList, int ) noexcept
-{
-    auto* result = static_cast<FileDialogResult*>( inUserdata );
-    std::lock_guard const lock( result->m_Mutex );
-
-    if ( inFileList == nullptr )
-    {
-        LOG_ERROR( "File dialog failed: ", SDL_GetError() );
-        result->m_Accepted = false;
-    }
-    else if ( inFileList[0] == nullptr )
-    {
-        result->m_Accepted = false; // user canceled
-    }
-    else
-    {
-        result->m_Accepted = true;
-        result->m_Path = inFileList[0];
-    }
-    result->m_Ready = true;
-}
 
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.toml)", "toml" } };
 
@@ -198,6 +164,8 @@ int main(int, char**)
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
 
+    InitConsolePanel(); // connects to Logger's OnLog signal -- there's no terminal to read LOG_* output from otherwise
+
     auto selectedEntity = asge::ecs::Entity::Null();
     float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the Scene window
 
@@ -300,17 +268,8 @@ int main(int, char**)
         // SceneManager/Registry/vfs are never touched from the dialog
         // callback itself.
         {
-            bool ready = false;
-            bool accepted = false;
             std::string chosenPath;
-            {
-                std::lock_guard const lock(saveDialogResult.m_Mutex);
-                ready = saveDialogResult.m_Ready;
-                accepted = saveDialogResult.m_Accepted;
-                chosenPath = saveDialogResult.m_Path;
-                saveDialogResult.m_Ready = false;
-            }
-            if (ready && accepted)
+            if (DrainFileDialogResult(saveDialogResult, chosenPath))
             {
                 fs::path path = chosenPath;
                 if (path.extension().empty()) path += ".toml"; // native dialogs don't all enforce the filter's extension
@@ -325,17 +284,8 @@ int main(int, char**)
             }
         }
         {
-            bool ready = false;
-            bool accepted = false;
             std::string chosenPath;
-            {
-                std::lock_guard const lock(openDialogResult.m_Mutex);
-                ready = openDialogResult.m_Ready;
-                accepted = openDialogResult.m_Accepted;
-                chosenPath = openDialogResult.m_Path;
-                openDialogResult.m_Ready = false;
-            }
-            if (ready && accepted)
+            if (DrainFileDialogResult(openDialogResult, chosenPath))
             {
                 fs::path const path = chosenPath;
 
@@ -477,6 +427,8 @@ int main(int, char**)
         case EntityAction::None:
             break;
         }
+
+        DrawConsolePanel(window);
 
         // Phase 4: viewport overlays, so a position/collider is readable
         // directly off the scene instead of only through the inspector.

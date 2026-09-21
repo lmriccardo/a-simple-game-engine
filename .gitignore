@@ -7,3 +7,4 @@ docsite/_site/
 docsite/site/api/
 docsite/site/playable/
 docsite/__pycache__/
+editor/assets/imgui.ini
