@@ -6,6 +6,8 @@
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Game/Components.hpp>
+#include <ASGE/Game/Scene/SceneId.hpp>
 
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
@@ -43,6 +45,37 @@ asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Flo
         if ( hit ) picked = entity;
     }
     return picked;
+}
+
+/**
+ * @brief Copies every serializable component inSource has onto a freshly
+ *        created entity, tagged with inScenePath's SceneId so it's included
+ *        in ActiveEntities()/SaveScene() alongside everything else -- the
+ *        same fold-over-SerializableComponents pattern SceneManager itself
+ *        already uses for its own save-snapshot and cross-scene copies
+ *        (SceneId isn't serializable data, so that generic copy can't
+ *        carry it; this tags it separately as the one extra step needed).
+ */
+asge::ecs::Entity DuplicateEntity(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inSource, asge::str::String const& inScenePath ) noexcept
+{
+    auto created = inRegistry.CreateEntity();
+    if ( !created ) return asge::ecs::Entity::Null();
+
+    std::apply( [&]( auto ... component )
+    {
+        ( [&]
+        {
+            using T = decltype(component);
+            if ( inRegistry.HasComponent<T>( inSource ) )
+            {
+                inRegistry.AddComponent<T>( created.Value(), inRegistry.GetComponent<T>( inSource ).Value().get() );
+            }
+        }(), ... );
+    }, asge::game::components::SerializableComponents{} );
+
+    inRegistry.AddComponent<asge::game::scene::SceneId>( created.Value(), asge::game::scene::SceneId{ inScenePath } );
+    return created.Value();
 }
 }
 
@@ -103,6 +136,16 @@ int main(int, char**)
 
     auto selectedEntity = asge::ecs::Entity::Null();
     float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the Scene window
+
+    // Phase 5: just the filename under the mounted "assets" dir -- the real
+    // disk path (scratchAssetsDir / this) is built directly rather than via
+    // vfs.Resolve, which only finds files that already exist and so can't
+    // resolve a brand new one from File > New/Save As. sceneManager's own
+    // "assets/<this>" virtual path stays in sync via RenameActiveScene, so
+    // ActiveEntities()/SaveScene (SceneId-filtered) keep seeing the right
+    // entities regardless of which file they end up written to.
+    std::string currentSceneFilename = "scene.toml";
+    char saveAsBuffer[128] = "scene.toml";
 
     // Phase 4: viewport free-drag + translate gizmo. draggingEntity is the
     // entity currently being moved (Null() when nothing is); dragAxis is
@@ -176,26 +219,62 @@ int main(int, char**)
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
+        bool openSaveAsPopup = false;
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
             {
+                if (ImGui::MenuItem("New"))
+                {
+                    sceneManager.UnloadScene();
+                    currentSceneFilename = "untitled.toml";
+                    sceneManager.RenameActiveScene("assets/" + currentSceneFilename);
+                    selectedEntity = asge::ecs::Entity::Null();
+                    ResetEntityDisplayIds();
+                }
                 if (ImGui::MenuItem("Save"))
                 {
                     // Exactly the game's own save path: SceneManager::SaveScene
                     // -> SceneSerializer -> Serializer<Transform>, unmodified.
-                    auto const resolved = vfs.Resolve("assets/scene.toml");
-                    if (resolved)
-                    {
-                        auto const saveResult = sceneManager.SaveScene(resolved.Value());
-                        if (!saveResult) saveResult.LogError();
-                        else LOG_INFO("Scene saved to ", resolved.Value().string());
-                    }
-                    else resolved.LogError();
+                    auto const diskPath = scratchAssetsDir / currentSceneFilename;
+                    auto const saveResult = sceneManager.SaveScene(diskPath);
+                    if (!saveResult) saveResult.LogError();
+                    else LOG_INFO("Scene saved to ", diskPath.string());
+                }
+                if (ImGui::MenuItem("Save As..."))
+                {
+                    std::snprintf(saveAsBuffer, sizeof(saveAsBuffer), "%s", currentSceneFilename.c_str());
+                    openSaveAsPopup = true; // OpenPopup deferred to outside the menu's ID scope, see below
                 }
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
+        }
+
+        // OpenPopup/BeginPopupModal must run at the same ID-stack depth to
+        // find each other -- calling OpenPopup while still inside the File
+        // menu (a different ID scope) would hash to a different ID than
+        // this top-level BeginPopupModal, and the popup would never open.
+        if (openSaveAsPopup) ImGui::OpenPopup("Save As");
+
+        if (ImGui::BeginPopupModal("Save As", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::InputText("Filename", saveAsBuffer, sizeof(saveAsBuffer));
+            if (ImGui::Button("Save"))
+            {
+                currentSceneFilename = saveAsBuffer;
+                sceneManager.RenameActiveScene("assets/" + currentSceneFilename);
+
+                auto const diskPath = scratchAssetsDir / currentSceneFilename;
+                auto const saveResult = sceneManager.SaveScene(diskPath);
+                if (!saveResult) saveResult.LogError();
+                else LOG_INFO("Scene saved to ", diskPath.string());
+
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
         }
 
         // Right-aligned, stacked above Entities/Inspector (see Inspector.hpp's
@@ -212,8 +291,46 @@ int main(int, char**)
 
         // Phase 3: entity list panel drives the same selection state as
         // viewport picking (Phase 2) -- one selection state, two input paths.
-        DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity);
-        DrawInspectorPanel(sceneManager.GetRegistry(), selectedEntity);
+        if (DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity))
+        {
+            // Phase 5: "Create entity" goes through the same Registry::
+            // CreateEntity() + AddComponent() gameplay code uses -- no
+            // separate editor-only construction API. A bare Transform is
+            // the minimum needed for the new entity to be visible/pickable
+            // here; SceneId tags it into the active scene so Save doesn't
+            // silently drop it (see DuplicateEntity's own comment).
+            auto created = sceneManager.GetRegistry().CreateEntity();
+            if (created)
+            {
+                sceneManager.GetRegistry().AddComponent<Transform>(created.Value(), Transform{});
+                if (auto const& path = sceneManager.CurrentScenePath())
+                {
+                    sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                        created.Value(), asge::game::scene::SceneId{*path});
+                }
+                selectedEntity = created.Value();
+            }
+            else created.LogError();
+        }
+
+        switch (DrawInspectorPanel(sceneManager.GetRegistry(), selectedEntity))
+        {
+        case EntityAction::Delete:
+            if (auto const destroyResult = sceneManager.GetRegistry().DestroyEntity(selectedEntity); !destroyResult)
+            {
+                destroyResult.LogError();
+            }
+            selectedEntity = asge::ecs::Entity::Null();
+            break;
+        case EntityAction::Duplicate:
+            if (auto const& path = sceneManager.CurrentScenePath())
+            {
+                selectedEntity = DuplicateEntity(sceneManager.GetRegistry(), selectedEntity, *path);
+            }
+            break;
+        case EntityAction::None:
+            break;
+        }
 
         // Phase 4: viewport overlays, so a position/collider is readable
         // directly off the scene instead of only through the inspector.

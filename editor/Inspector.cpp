@@ -13,26 +13,50 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdint>
 #include <string>
+#include <unordered_map>
 
 using namespace asge::game::components;
 
 namespace
 {
 
+// inEntity.m_Index is a recyclable ECS storage slot (FreeList reuses freed
+// indices LIFO -- see its own doc comment), not a creation-order counter --
+// using it directly (for the "Entity #N" fallback label, or for list
+// ordering via Registry::AllEntities(), itself just a raw slot scan) made
+// both jump around non-monotonically after any delete. This assigns every
+// entity (named or not, index+generation so a recycled slot's new
+// generation is correctly a fresh key) a stable, ever-increasing id the
+// first time it's seen, reset to 0 per scene by ResetEntityDisplayIds (see
+// main.cpp's File > New handler) -- both GetEntityLabel's numbering and
+// DrawEntityListPanel's ordering are built on this one shared source.
+std::unordered_map<asge::ecs::Entity, std::uint32_t> g_EntityDisplayIds;
+std::uint32_t g_NextEntityDisplayId = 0;
+
+std::uint32_t GetOrAssignDisplayId( asge::ecs::Entity inEntity ) noexcept
+{
+    auto const [it, inserted] = g_EntityDisplayIds.try_emplace( inEntity, g_NextEntityDisplayId );
+    if ( inserted ) ++g_NextEntityDisplayId;
+    return it->second;
+}
+
 // inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
 // -- used for both the entity list and the inspector header, so the two
 // panels never disagree about what to call an entity.
 std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
 {
+    auto const displayId = GetOrAssignDisplayId( inEntity ); // always assigned, even if Name ends up used instead
     if ( auto r = inRegistry.GetComponent<Name>( inEntity ); r && !r.Value().get().m_Name.empty() )
     {
         return r.Value().get().m_Name;
     }
 
     char buf[32];
-    std::snprintf( buf, sizeof(buf), "Entity #%u", inEntity.m_Index );
+    std::snprintf( buf, sizeof(buf), "Entity #%u", displayId );
     return buf;
 }
 
@@ -181,14 +205,34 @@ void DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
 
 }
 
-void DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected ) noexcept
+void ResetEntityDisplayIds() noexcept
+{
+    g_EntityDisplayIds.clear();
+    g_NextEntityDisplayId = 0;
+}
+
+bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected ) noexcept
 {
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
     ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, 160.0f ), ImGuiCond_FirstUseEver );
 
     ImGui::Begin( "Entities" );
-    for ( auto entity : inRegistry.AllEntities() )
+    bool const createClicked = ImGui::Button( "Create Entity" );
+    ImGui::Separator();
+
+    // AllEntities() is a raw storage-slot scan (ascending Entity::m_Index),
+    // not creation order -- listing in that order let a newly created
+    // entity land in a low, just-freed slot and appear above older ones
+    // instead of after them. Sorted by the same creation-order id
+    // GetEntityLabel's numbering is built on instead.
+    auto entities = inRegistry.AllEntities();
+    std::sort( entities.begin(), entities.end(), []( asge::ecs::Entity inA, asge::ecs::Entity inB ) noexcept
+    {
+        return GetOrAssignDisplayId( inA ) < GetOrAssignDisplayId( inB );
+    } );
+
+    for ( auto entity : entities )
     {
         // "##<index>" suffix keeps each row's ImGui ID unique even when two
         // entities share the same (or default, unnamed) display label --
@@ -198,19 +242,28 @@ void DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
         if ( ImGui::Selectable( label.c_str(), entity == ioSelected ) ) ioSelected = entity;
     }
     ImGui::End();
+
+    return createClicked;
 }
 
-void DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected ) noexcept
+EntityAction DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected ) noexcept
 {
-    if ( inSelected == asge::ecs::Entity::Null() ) return;
+    if ( inSelected == asge::ecs::Entity::Null() ) return EntityAction::None;
 
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
     float const remainingHeight = ImGui::GetIO().DisplaySize.y - 265.0f - 20.0f; // fills down to a bottom margin
     ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, remainingHeight ), ImGuiCond_FirstUseEver );
 
+    EntityAction action = EntityAction::None;
+
     ImGui::Begin( "Inspector" );
     ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );
+
+    if ( ImGui::Button( "Duplicate" ) ) action = EntityAction::Duplicate;
+    ImGui::SameLine();
+    if ( ImGui::Button( "Delete" ) ) action = EntityAction::Delete;
+
     ImGui::Separator();
 
     DrawSection<Name>( inRegistry, inSelected, "Name" );
@@ -225,4 +278,6 @@ void DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inSe
     DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
 
     ImGui::End();
+
+    return action;
 }
