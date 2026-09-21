@@ -2,6 +2,7 @@
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Time/Time.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
+#include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
@@ -77,6 +78,36 @@ asge::ecs::Entity DuplicateEntity(
     inRegistry.AddComponent<asge::game::scene::SceneId>( created.Value(), asge::game::scene::SceneId{ inScenePath } );
     return created.Value();
 }
+
+/**
+ * @brief Sets inWindow's title-bar/taskbar icon from ASGE_EDITOR_ICON_PATH
+ *        (assets/icon.png, rasterized from docsite/site/assets/img/logo.svg).
+ *        SDL copies the pixel data on SDL_SetWindowIcon, so the source Image
+ *        need not outlive the call.
+ */
+void SetWindowIcon( SDL_Window* inWindow ) noexcept
+{
+    auto imageResult = asge::media::Image::Load( ASGE_EDITOR_ICON_PATH );
+    if ( !imageResult )
+    {
+        imageResult.LogError();
+        return;
+    }
+
+    auto const& image = imageResult.Value();
+    auto const dims = image.Dimensions();
+    auto* surface = SDL_CreateSurfaceFrom(
+        dims.x(), dims.y(), SDL_PIXELFORMAT_RGBA32,
+        const_cast<std::uint8_t*>( image.Data() ), static_cast<int>( image.Stride() ) );
+    if ( surface == nullptr )
+    {
+        LOG_ERROR( "Failed to build window icon surface: ", SDL_GetError() );
+        return;
+    }
+
+    SDL_SetWindowIcon( inWindow, surface );
+    SDL_DestroySurface( surface );
+}
 }
 
 // Phase 2 proved select -> edit -> save -> reload round-trips through the
@@ -128,6 +159,7 @@ int main(int, char**)
 
     auto* window   = static_cast<SDL_Window*>(videoSys.GetWindow().NativeHandle());
     auto* renderer = static_cast<SDL_Renderer*>(videoSys.GetRenderer().NativeHandle());
+    SetWindowIcon(window);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
