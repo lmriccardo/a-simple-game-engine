@@ -20,10 +20,9 @@ std::string asge::time::FormatTimestamp(Timestamp const &inTimestamp, char const
 {
     using namespace std::chrono;
 
-    Timestamp currNow = Now();
-    std::tm currTimeCalendar = LocalTime( currNow );
-    auto currSeconds = time_point_cast<seconds>( currNow );
-    auto currMillisec = duration_cast<milliseconds>( currNow - currSeconds ).count();
+    std::tm currTimeCalendar = LocalTime( inTimestamp );
+    auto currSeconds = time_point_cast<seconds>( inTimestamp );
+    auto currMillisec = duration_cast<milliseconds>( inTimestamp - currSeconds ).count();
 
     std::ostringstream outStream;
     outStream << std::put_time(&currTimeCalendar, inFormat)

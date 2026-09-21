@@ -41,9 +41,11 @@ template<typename ...Args>
 class Signal
 {
     friend class Connection<Args...>; // Used for auto-disconnection
-private:
+public:
     using conn_type = Connection<Args...>;
     using slot_type = std::function<void(Args...)>;
+
+private:
     using lifetime_ptr = std::shared_ptr<void>;
     using lifetime_token = std::weak_ptr<void>;
 

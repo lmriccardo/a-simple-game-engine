@@ -11,6 +11,8 @@
 #include <utility>
 
 #include <ASGE/Core/Time/TimeUtils.hpp>
+#include <ASGE/Core/Patterns/Signal.hpp>
+#include <ASGE/Core/Strings.hpp>
 
 #if defined(__clang__) || defined(__GNUC__)
     #define FUNC_NAME __FUNCTION__
@@ -102,6 +104,14 @@ void BuildMessage( std::ostringstream& oss, First&& inFirst, Rest&& ...inRest ) 
 
 }
 
+struct LogRecord
+{
+    LogLevel        m_Level     { LogLevel::Info };
+    str::String     m_Function  {};
+    str::String     m_Message   {};
+    time::Timestamp m_Timestamp {};
+};
+
 class Logger
 {
 private:
@@ -109,6 +119,8 @@ private:
 
     atomic_ll          m_Level; // The current logging level of the logger
     mutable std::mutex m_Mutex; // Mutex for console/file output contention
+
+    mutable signals::Signal<LogRecord const&> m_OnLog; // Signal emitting the log record
 
     Logger(): m_Level{LogLevel::Info} {} // The constructor is private
 
@@ -153,7 +165,14 @@ public:
                   << "[" << inFunction << "] "
                   << oss.str()
                   << "\n";
+
+        LogRecord record { inLevel, inFunction, oss.str(), currTimestamp };
+        m_OnLog.Emit( record );
     }
+
+    /** @brief Connects an input callback to the on log signal. */
+    signals::Signal<LogRecord const&>::conn_type
+    OnLogConnect( signals::Signal<LogRecord const&>::slot_type inCallback );
 };
 
 }
