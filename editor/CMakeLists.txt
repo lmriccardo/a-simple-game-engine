@@ -1,4 +1,4 @@
-add_executable(asge-editor main.cpp Inspector.cpp ViewportOverlay.cpp ConsolePanel.cpp FileDialog.cpp)
+add_executable(asge-editor main.cpp Inspector.cpp ViewportOverlay.cpp ConsolePanel.cpp FileDialog.cpp AssetBrowser.cpp AssetInspector.cpp VfsPanel.cpp)
 
 target_link_libraries(asge-editor PRIVATE ASGE imgui::imgui)
 

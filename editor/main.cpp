@@ -25,12 +25,41 @@
 #include "ViewportOverlay.hpp"
 #include "ConsolePanel.hpp"
 #include "FileDialog.hpp"
+#include "AssetBrowser.hpp"
+#include "AssetInspector.hpp"
+#include "VfsPanel.hpp"
 
 namespace
 {
 using asge::game::components::Transform;
 
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.toml)", "toml" } };
+
+/**
+ * @brief Loads the scene at inRealPath into inSceneManager without binding
+ *        any lasting mount -- SceneManager::LoadScene only takes a virtual
+ *        path (SceneSerializer resolves it through the vfs), unlike
+ *        SaveScene, which takes a real path directly. A private root is
+ *        mounted just long enough to resolve this one file and unmounted
+ *        again immediately after, so Open never leaves an "opened"/"assets"
+ *        mount sitting in the VFS panel as a side effect -- every mount the
+ *        user sees there is one they set up themselves.
+ */
+asge::BoolResult LoadSceneFromRealPath(
+    asge::filesystem::VirtualFileSystem& inVfs, asge::game::scene::SceneManager& inSceneManager,
+    std::filesystem::path const& inRealPath ) noexcept
+{
+    constexpr char kTempMount[] = "__open_scene__";
+    auto const realDir = inRealPath.parent_path().string();
+
+    if ( auto const r = inVfs.Mount( kTempMount, realDir ); !r ) return r;
+
+    auto loadResult = inSceneManager.LoadScene( std::string( kTempMount ) + "/" + inRealPath.filename().string() );
+
+    if ( auto const r = inVfs.Unmount( kTempMount, realDir ); !r ) r.LogError();
+
+    return loadResult;
+}
 
 /**
  * @brief Finds the topmost entity (by iteration order) whose
@@ -142,18 +171,12 @@ int main(int, char**)
 
     // No scene is auto-loaded on startup -- the editor opens with an empty
     // Registry, same as File > New (see below), rather than a hardcoded test
-    // fixture that would only ever exist on the machine that built it.
-    // "assets" is still mounted to a scratch dir up front so Save/Save As
-    // (which write straight to scratchAssetsDir, not through vfs) have
-    // somewhere to land before the user has saved anything themselves.
+    // fixture that would only ever exist on the machine that built it. No
+    // mount is auto-created either: vfs starts with nothing bound, and stays
+    // that way until the user sets one up via the Virtual File System panel
+    // (or opens a scene, which resolves its own file without leaving a
+    // mount behind -- see LoadSceneFromRealPath).
     namespace fs = std::filesystem;
-    fs::path const scratchAssetsDir = fs::temp_directory_path() / "asge_editor_scratch_assets";
-    std::error_code createEc;
-    fs::create_directories(scratchAssetsDir, createEc);
-    if (createEc) LOG_ERROR("Failed to create editor scratch assets dir: ", createEc.message());
-
-    auto const mountResult = vfs.Mount("assets", scratchAssetsDir.string());
-    if (!mountResult) mountResult.LogError();
 
     auto* window   = static_cast<SDL_Window*>(videoSys.GetWindow().NativeHandle());
     auto* renderer = static_cast<SDL_Renderer*>(videoSys.GetRenderer().NativeHandle());
@@ -167,6 +190,7 @@ int main(int, char**)
     InitConsolePanel(); // connects to Logger's OnLog signal -- there's no terminal to read LOG_* output from otherwise
 
     auto selectedEntity = asge::ecs::Entity::Null();
+    AssetPick selectedAsset; // last entry clicked in the Assets panel, kept across frames for the Asset Inspector to show
     float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the Scene window
 
     // The real disk path Save writes to once the user has actually chosen one
@@ -179,15 +203,6 @@ int main(int, char**)
     std::optional<fs::path> currentScenePath;
     FileDialogResult saveDialogResult;
     FileDialogResult openDialogResult;
-
-    // "opened" is the virtual root Open (re)mounts to whatever real directory
-    // the user last picked a scene from -- LoadScene only takes a virtual
-    // path (SceneSerializer resolves it through vfs), unlike SaveScene, which
-    // takes a real path directly. Re-mounted (not left to accumulate) each
-    // time so Resolve can't pick a same-named file under a stale, previously
-    // opened directory. std::string since that's what Mount/Unmount actually
-    // take -- no reason to round-trip through fs::path for this one.
-    std::optional<std::string> openedMountDir;
 
     sceneManager.RenameActiveScene("untitled");
 
@@ -289,33 +304,27 @@ int main(int, char**)
             {
                 fs::path const path = chosenPath;
 
-                // LoadScene only takes a virtual path (SceneSerializer resolves
-                // it through vfs), unlike SaveScene -- so the file's own
-                // directory is (re)mounted as "opened" first. Unmounting
-                // whatever "opened" pointed at before stops Resolve from ever
-                // finding a same-named file under a stale, previously opened
-                // directory (mounts accumulate otherwise; Resolve tries the
-                // oldest matching one first).
-                if (openedMountDir)
-                {
-                    if (auto const r = vfs.Unmount("opened", *openedMountDir); !r) r.LogError();
-                }
-                openedMountDir = path.parent_path().string();
-                if (auto const r = vfs.Mount("opened", *openedMountDir); !r) r.LogError();
-
                 sceneManager.UnloadScene();
-                auto const loadResult = sceneManager.LoadScene("opened/" + path.filename().string());
+                auto const loadResult = LoadSceneFromRealPath(vfs, sceneManager, path);
                 if (!loadResult)
                 {
                     loadResult.LogError();
                 }
                 else
                 {
-                    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
                     currentScenePath = path;
                     selectedEntity = asge::ecs::Entity::Null();
                     ResetEntityDisplayIds();
                     LOG_INFO("Scene loaded from ", path.string());
+                    // A freshly loaded scene's Sprite/Animation/AudioSource
+                    // paths need resolving; anything whose virtual root isn't
+                    // mounted yet fails here and shows up as "Missing" in the
+                    // VFS panel, which re-resolves once the user sets it.
+                    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                    // So the Assets panel keeps showing these independently
+                    // of whether any entity still references them -- see
+                    // RegisterSceneAssets's own doc comment.
+                    RegisterSceneAssets(sceneManager.GetRegistry());
                 }
             }
         }
@@ -360,14 +369,16 @@ int main(int, char**)
 
         if (openSaveDialog)
         {
-            auto const defaultLocation = currentScenePath ? currentScenePath->parent_path().string() : std::string{};
+            auto const defaultLocation = currentScenePath
+                ? DialogDefaultLocation(currentScenePath->parent_path()) : std::string{};
             SDL_ShowSaveFileDialog(
                 OnFileDialogResult, &saveDialogResult, window,
                 kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str());
         }
         if (openOpenDialog)
         {
-            auto const defaultLocation = currentScenePath ? currentScenePath->parent_path().string() : std::string{};
+            auto const defaultLocation = currentScenePath
+                ? DialogDefaultLocation(currentScenePath->parent_path()) : std::string{};
             SDL_ShowOpenFileDialog(
                 OnFileDialogResult, &openDialogResult, window,
                 kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str(), false);
@@ -409,7 +420,8 @@ int main(int, char**)
             else created.LogError();
         }
 
-        switch (DrawInspectorPanel(sceneManager.GetRegistry(), selectedEntity))
+        switch (DrawInspectorPanel(
+            sceneManager.GetRegistry(), selectedEntity, KnownTexturePaths(sceneManager.GetRegistry())))
         {
         case EntityAction::Delete:
             if (auto const destroyResult = sceneManager.GetRegistry().DestroyEntity(selectedEntity); !destroyResult)
@@ -424,9 +436,33 @@ int main(int, char**)
                 selectedEntity = DuplicateEntity(sceneManager.GetRegistry(), selectedEntity, *path);
             }
             break;
+        case EntityAction::ComponentsChanged:
+            // A newly-added Sprite/Animation/AudioSource has nothing
+            // resolved yet -- called here rather than unconditionally every
+            // frame so a component that's still unresolved (missing mount,
+            // bad path) doesn't re-log the same failure every single frame.
+            assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+            break;
         case EntityAction::None:
             break;
         }
+
+        // Phase 7: browse what's known (scene usage + "Load Asset..."
+        // imports) instead of typing/memorizing a virtual path. Clicking an
+        // entry no longer assigns it to the selected entity -- it just
+        // opens the Asset Inspector below on that entry; a Sprite gets its
+        // texture by picking one at Add Component time instead (see
+        // Inspector.hpp's DrawInspectorPanel).
+        AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window);
+        if (assetPick.m_Kind != AssetPickKind::None) selectedAsset = assetPick;
+        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer());
+
+        // Always-on panel: lists/adds VirtualFileSystem mounts, and surfaces
+        // any root the current scene's assets reference but isn't mounted --
+        // resolves internally right after a successful mount (see its own
+        // doc comment), same "call on change, not every frame" reasoning as
+        // the ComponentsChanged/asset-browser resolves above.
+        DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window);
 
         DrawConsolePanel(window);
 

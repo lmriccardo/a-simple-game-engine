@@ -241,7 +241,13 @@ ComponentEntry const* FindComponentEntry( char const* inName ) noexcept
 // hitting "Add" default-constructs it onto the entity. Combo selection index
 // is a function-local static -- fine here since only one Inspector panel is
 // ever drawn at a time (same convention Registry's own internals use).
-void DrawAddComponentControl( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+// Sprite is special-cased: it's the one type whose whole point is naming an
+// asset, so it also requires picking one of inKnownTextures up front rather
+// than defaulting to a blank, unresolved m_VirtualPath -- see
+// editor/AssetBrowser.hpp's KnownTexturePaths for where that list comes from.
+// @return True the one frame "Add Component" was actually clicked.
+bool DrawAddComponentControl(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, std::vector<std::string> const& inKnownTextures ) noexcept
 {
     char const* missingNames[std::size( kComponentEntries )];
     ComponentEntry const* missingEntries[std::size( kComponentEntries )];
@@ -256,7 +262,7 @@ void DrawAddComponentControl( asge::ecs::Registry& inRegistry, asge::ecs::Entity
         }
     }
 
-    if ( missingCount == 0 ) return;
+    if ( missingCount == 0 ) return false;
 
     static int selected = 0;
     if ( selected >= missingCount ) selected = 0;
@@ -264,11 +270,42 @@ void DrawAddComponentControl( asge::ecs::Registry& inRegistry, asge::ecs::Entity
     ImGui::Separator();
     ImGui::SetNextItemWidth( 150.0f );
     ImGui::Combo( "##AddComponentType", &selected, missingNames, missingCount );
+
+    if ( std::strcmp( missingNames[selected], "Sprite" ) == 0 )
+    {
+        if ( inKnownTextures.empty() )
+        {
+            ImGui::TextDisabled( "No textures loaded yet -- use Load Asset in the Assets panel." );
+            return false;
+        }
+
+        static int textureIndex = 0;
+        if ( textureIndex >= static_cast<int>( inKnownTextures.size() ) ) textureIndex = 0;
+
+        std::vector<char const*> textureNames;
+        textureNames.reserve( inKnownTextures.size() );
+        for ( auto const& path : inKnownTextures ) textureNames.push_back( path.c_str() );
+
+        ImGui::SetNextItemWidth( 150.0f );
+        ImGui::Combo( "##SpriteTexture", &textureIndex, textureNames.data(), static_cast<int>( textureNames.size() ) );
+        ImGui::SameLine();
+        if ( ImGui::Button( "Add Component" ) )
+        {
+            Sprite sprite{};
+            sprite.m_VirtualPath = inKnownTextures[textureIndex];
+            inRegistry.AddComponent<Sprite>( inEntity, sprite );
+            return true;
+        }
+        return false;
+    }
+
     ImGui::SameLine();
     if ( ImGui::Button( "Add Component" ) )
     {
         missingEntries[selected]->m_Add( inRegistry, inEntity );
+        return true;
     }
+    return false;
 }
 
 // Draws inName's section (if inEntity has a T) under its own ID scope, so
@@ -279,8 +316,9 @@ void DrawAddComponentControl( asge::ecs::Registry& inRegistry, asge::ecs::Entity
 // silently share state with it. The trailing "x" button removes T via
 // kComponentEntries' erased m_Remove, looked up by inName rather than
 // threading a second template through the call site.
+// @return True the one frame the "x" button actually removed T.
 template<typename T>
-void DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, char const* inName ) noexcept
+bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, char const* inName ) noexcept
 {
     if ( auto r = inRegistry.GetComponent<T>( inEntity ) )
     {
@@ -291,11 +329,12 @@ void DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
         {
             FindComponentEntry( inName )->m_Remove( inRegistry, inEntity );
             ImGui::PopID();
-            return;
+            return true;
         }
         DrawInspector( r.Value().get() );
         ImGui::PopID();
     }
+    return false;
 }
 
 }
@@ -341,7 +380,9 @@ bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
     return createClicked;
 }
 
-EntityAction DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected ) noexcept
+EntityAction DrawInspectorPanel(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
+    std::vector<std::string> const& inKnownTextures ) noexcept
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return EntityAction::None;
 
@@ -361,20 +402,25 @@ EntityAction DrawInspectorPanel( asge::ecs::Registry& inRegistry, asge::ecs::Ent
 
     ImGui::Separator();
 
-    DrawSection<Name>( inRegistry, inSelected, "Name" );
-    DrawSection<Transform>( inRegistry, inSelected, "Transform" );
-    DrawSection<Velocity>( inRegistry, inSelected, "Velocity" );
-    DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
-    DrawSection<Sprite>( inRegistry, inSelected, "Sprite" );
-    DrawSection<Collider>( inRegistry, inSelected, "Collider" );
-    DrawSection<Camera>( inRegistry, inSelected, "Camera" );
-    DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource" );
-    DrawSection<Animation>( inRegistry, inSelected, "Animation" );
-    DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
+    // Bitwise-OR (not ||, so every section still draws even once one
+    // reports a change -- short-circuiting would skip the rest of the
+    // entity's components for the remainder of this frame).
+    bool componentsChanged = false;
+    componentsChanged |= DrawSection<Name>( inRegistry, inSelected, "Name" );
+    componentsChanged |= DrawSection<Transform>( inRegistry, inSelected, "Transform" );
+    componentsChanged |= DrawSection<Velocity>( inRegistry, inSelected, "Velocity" );
+    componentsChanged |= DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
+    componentsChanged |= DrawSection<Sprite>( inRegistry, inSelected, "Sprite" );
+    componentsChanged |= DrawSection<Collider>( inRegistry, inSelected, "Collider" );
+    componentsChanged |= DrawSection<Camera>( inRegistry, inSelected, "Camera" );
+    componentsChanged |= DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource" );
+    componentsChanged |= DrawSection<Animation>( inRegistry, inSelected, "Animation" );
+    componentsChanged |= DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
 
-    DrawAddComponentControl( inRegistry, inSelected );
+    componentsChanged |= DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
 
     ImGui::End();
 
+    if ( action == EntityAction::None && componentsChanged ) action = EntityAction::ComponentsChanged;
     return action;
 }
