@@ -364,7 +364,73 @@ path and it rendered in the viewport with no resolve error logged.
 
 ---
 
-## Phase 8 — Viewport navigation & window ergonomics
+## Phase 8 — Editor session persistence (`.asges`)
+
+**Goal:** reopening the editor on a project already being worked on doesn't
+mean re-adding every mount point by hand and re-opening the same scene file
+— one Save Session / Open Session round trip restores exactly that working
+state.
+
+- [x] `.asges` session file format: plain TOML, going through the exact same
+      `asge::toml` machinery scene files already serialize through — no
+      second parser, no invented binary format for what's really two flat
+      lists. A `[[Mount]]` table array (`Name`, `RealDirectory` — one entry
+      per (name, dir) pair, since Phase 7's VFS panel already established
+      that a root can legitimately map to more than one real directory) and
+      a `[Session]` table with `ScenePath` (the currently open scene's
+      absolute real path, omitted if none is open). Grew a third piece
+      beyond the original scope once actually used: `[[Texture]]`/
+      `[[Animation]]` table arrays (`Path`) holding every asset
+      `editor/AssetBrowser`'s panel currently knows about — not just what
+      the open scene's entities reference. Without these, an asset imported
+      via "Load Asset..." but never assigned to any entity vanished from the
+      Assets panel on the next Open Session, since `RegisterSceneAssets`
+      alone can only re-derive paths from the reloaded scene's registry.
+      `editor/SessionManager.hpp/.cpp` is the new module holding
+      `SaveSession`/`LoadSession` plus `LoadSceneFromRealPath` (moved here
+      verbatim from `main.cpp`'s anonymous namespace, since Open Session
+      needed it as a second call site alongside Open Scene's existing one).
+- [x] "Save Session..." / "Open Session..." in the same File menu as
+      Save/Open Scene, reusing the same native-dialog + `FileDialogResult`/
+      `DrainFileDialogResult` plumbing every other dialog in the editor
+      already goes through, filtered to `*.asges`. Both dialogs (and, once
+      the same latent bug was spotted there too, Save/Open Scene's own
+      pre-existing dialogs) gained a guard against a native backend handing
+      back an empty or directory-only path instead of failing outright —
+      without it, saving would silently write a bare `.asges`/`.toml` file
+      instead of erroring.
+- [x] Save Session writes every current `VirtualFileSystem::ListMounts()`
+      entry, every path `AssetBrowser::KnownTexturePaths`/
+      `KnownAnimationPaths` currently return, plus `currentScenePath` (if
+      set), to the chosen file.
+- [x] Open Session unmounts everything currently mounted, mounts every
+      `[[Mount]]` entry from the file, restores every `[[Texture]]`/
+      `[[Animation]]` path into the Assets panel via the new
+      `AssetBrowser::ImportAssets` (a path already there from the
+      about-to-load scene's own usage is just a no-op `std::set` insert, not
+      a duplicate entry), then — if `ScenePath` is present — loads that
+      scene the same way Open Scene does (`LoadSceneFromRealPath`,
+      `ResolveAssets`, `RegisterSceneAssets`). Replaces the current working
+      state outright rather than merging with it, matching what Open Scene
+      already does to `currentScenePath`.
+- [x] A `[[Mount]]` entry whose `RealDirectory` no longer exists (moved or
+      deleted on disk since the session was saved) is skipped with a
+      logged warning instead of mounting a dead path or failing the whole
+      load. The file is parsed in full before any live state is touched
+      (mounts unmounted, scene unloaded), so a bad/missing `.asges` itself
+      can't half-clobber the editor either.
+
+**Done when:** Save Session then Open Session round-tripped mounts, the
+active scene, and every known asset (including ones unused by any entity)
+exactly; a moved/missing mount directory logged a warning instead of
+failing silently or aborting the rest of the load; and an empty/canceled
+save dialog no longer wrote a nameless `.asges`/`.toml` file. Verified
+manually end to end, including on the WSL/Linux path via the new
+`linux-editor` CMake preset.
+
+---
+
+## Phase 9 — Viewport navigation & window ergonomics
 
 **Goal:** a level bigger than the editor window is still fully reachable,
 and the editor's own window size stops being confused with the target
@@ -401,41 +467,61 @@ game's actual window will show.
 
 ---
 
-## Phase 9 — Editor session persistence (`.asges`)
+## Phase 10 — Asset path dropdowns & resolver correctness
 
-**Goal:** reopening the editor on a project already being worked on doesn't
-mean re-adding every mount point by hand and re-opening the same scene file
-— one Save Session / Open Session round trip restores exactly that working
-state.
+**Goal:** an asset-owning field (Sprite/Animation/AudioSource today, whatever
+else grows one later — a Font component included) is always picked from
+what's actually known to be loaded, never hand-typed, and changing or
+clearing that pick actually changes what renders/plays instead of leaving a
+stale previously-resolved handle in place.
 
-- [ ] `.asges` session file format: plain TOML, going through the exact same
-      `asge::toml` machinery scene files already serialize through — no
-      second parser, no invented binary format for what's really two flat
-      lists. A `[[Mount]]` table array (`Name`, `RealDirectory` — one entry
-      per (name, dir) pair, since Phase 7's VFS panel already established
-      that a root can legitimately map to more than one real directory) and
-      a `[Session]` table with `ScenePath` (the currently open scene's
-      absolute real path, omitted if none is open).
-- [ ] "Save Session..." / "Open Session..." in the same File menu as
-      Save/Open Scene, reusing the same native-dialog + `FileDialogResult`/
-      `DrainFileDialogResult` plumbing every other dialog in the editor
-      already goes through, filtered to `*.asges`.
-- [ ] Save Session writes every current `VirtualFileSystem::ListMounts()`
-      entry plus `currentScenePath` (if set) to the chosen file.
-- [ ] Open Session unmounts everything currently mounted, mounts every
-      `[[Mount]]` entry from the file, then — if `ScenePath` is present —
-      loads that scene the same way Open Scene does
-      (`LoadSceneFromRealPath`, `ResolveAssets`, `RegisterSceneAssets`).
-      Replaces the current working state outright rather than merging with
-      it, matching what Open Scene already does to `currentScenePath`.
-- [ ] A `[[Mount]]` entry whose `RealDirectory` no longer exists (moved or
-      deleted on disk since the session was saved) is skipped with a
-      logged warning instead of mounting a dead path or failing the whole
-      load.
+- [ ] Sprite/Animation/AudioSource's virtual-path fields (`m_VirtualPath`,
+      `m_ClipPath`, `m_VirtualClipPath`) become dropdown selections in the
+      Inspector instead of raw `DrawTextField` text inputs — restricted to
+      whatever `AssetBrowser`'s `KnownTexturePaths`/`KnownAnimationPaths`
+      (plus an equivalent for audio clips, not currently exposed) actually
+      knows about, with an explicit "None" entry for "no asset yet."
+      Mirrors the combo `editor/Inspector.cpp`'s `DrawAddComponentControl`
+      already uses at Sprite-add time (the `##SpriteTexture` combo,
+      `Inspector.cpp:290`) rather than inventing a second selection widget.
+      A freshly loaded scene's already-set path must appear pre-selected in
+      the dropdown, not reset to "None" — the combo's current index is
+      whichever `KnownXPaths()` entry matches the component's existing
+      field, not always 0. Applies to every current virtual-path field
+      listed above, and should be the obvious place to plug in a future
+      Font (or similar) component's own path field too.
+- [ ] The underlying resolve-staleness bug this surfaced:
+      `src/ASGE/Game/Assets/AssetResolver.cpp`'s `Resolver<Sprite>`/
+      `Resolver<Animation>`/`Resolver<AudioSource>` all resolve **once**
+      (`if (inSprite.m_Texture || inSprite.m_VirtualPath.empty()) return;`,
+      and the same pattern for the other two) and never again — an empty
+      path is treated as "nothing to do," not "clear what's there," so a
+      Sprite whose `m_VirtualPath` gets cleared or repointed keeps
+      rendering whatever `m_Texture` it resolved to before, indefinitely.
+      Needs each resolver to track which path it last resolved from (a new
+      runtime-only field alongside `m_Texture`/`m_Clip`, the same
+      "non-owning, doesn't round-trip through TOML" treatment those already
+      get) and re-resolve — or clear back to `nullptr`/`nullopt` on an empty
+      path — whenever the component's current path differs from that.
+- [ ] `editor/Inspector.cpp`'s `DrawInspector(Sprite&)`/
+      `DrawInspector(Animation&)`/`DrawInspector(AudioSource&)` currently
+      discard whatever `DrawTextField` returns, so `EntityAction::
+      ComponentsChanged` (the trigger `main.cpp` uses to call
+      `AssetManager::ResolveAssets`, see `main.cpp:507-512`) never fires
+      from an edited path field at all today, independent of the resolver
+      bug above. Once these become dropdowns (previous item), a changed
+      selection should propagate through that same `componentsChanged`
+      plumbing `DrawSection<T>`'s "x" removal already uses — resolving on
+      selection-changed, not on every keystroke of a since-removed text
+      field, which sidesteps the "re-resolve on every character typed" cost
+      a naive keystroke-driven trigger would otherwise have had.
 
-**Done when:** Save Session then Open Session round-trips mounts and the
-active scene exactly, and a moved/missing mount directory logs a warning
-instead of failing silently or aborting the rest of the load.
+**Done when:** every Sprite/Animation/AudioSource in the Inspector is
+assigned its asset by picking from a dropdown of known assets (or "None")
+rather than typing one by hand; a scene's existing paths show up
+pre-selected on load; and changing a selection (including back to "None")
+actually changes what's rendered/played immediately, rather than leaving a
+stale previously-resolved handle in place.
 
 ---
 
