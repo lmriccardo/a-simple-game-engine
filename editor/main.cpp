@@ -28,38 +28,14 @@
 #include "AssetBrowser.hpp"
 #include "AssetInspector.hpp"
 #include "VfsPanel.hpp"
+#include "SessionManager.hpp"
 
 namespace
 {
 using asge::game::components::Transform;
 
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.toml)", "toml" } };
-
-/**
- * @brief Loads the scene at inRealPath into inSceneManager without binding
- *        any lasting mount -- SceneManager::LoadScene only takes a virtual
- *        path (SceneSerializer resolves it through the vfs), unlike
- *        SaveScene, which takes a real path directly. A private root is
- *        mounted just long enough to resolve this one file and unmounted
- *        again immediately after, so Open never leaves an "opened"/"assets"
- *        mount sitting in the VFS panel as a side effect -- every mount the
- *        user sees there is one they set up themselves.
- */
-asge::BoolResult LoadSceneFromRealPath(
-    asge::filesystem::VirtualFileSystem& inVfs, asge::game::scene::SceneManager& inSceneManager,
-    std::filesystem::path const& inRealPath ) noexcept
-{
-    constexpr char kTempMount[] = "__open_scene__";
-    auto const realDir = inRealPath.parent_path().string();
-
-    if ( auto const r = inVfs.Mount( kTempMount, realDir ); !r ) return r;
-
-    auto loadResult = inSceneManager.LoadScene( std::string( kTempMount ) + "/" + inRealPath.filename().string() );
-
-    if ( auto const r = inVfs.Unmount( kTempMount, realDir ); !r ) r.LogError();
-
-    return loadResult;
-}
+constexpr SDL_DialogFileFilter kSessionFileFilters[]{ { "Session (*.asges)", "asges" } };
 
 /**
  * @brief Finds the topmost entity (by iteration order) whose
@@ -203,6 +179,8 @@ int main(int, char**)
     std::optional<fs::path> currentScenePath;
     FileDialogResult saveDialogResult;
     FileDialogResult openDialogResult;
+    FileDialogResult saveSessionDialogResult;
+    FileDialogResult openSessionDialogResult;
 
     sceneManager.RenameActiveScene("untitled");
 
@@ -328,9 +306,41 @@ int main(int, char**)
                 }
             }
         }
+        {
+            std::string chosenPath;
+            if (DrainFileDialogResult(saveSessionDialogResult, chosenPath))
+            {
+                fs::path path = chosenPath;
+                if (path.extension().empty()) path += ".asges";
+                auto const saveResult = SaveSession(vfs, currentScenePath, path);
+                if (!saveResult) saveResult.LogError();
+                else LOG_INFO("Session saved to ", path.string());
+            }
+        }
+        {
+            std::string chosenPath;
+            if (DrainFileDialogResult(openSessionDialogResult, chosenPath))
+            {
+                fs::path const path = chosenPath;
+                auto const loadResult = LoadSession(
+                    vfs, sceneManager, assets, videoSys.GetRenderer(), path, currentScenePath);
+                if (!loadResult)
+                {
+                    loadResult.LogError();
+                }
+                else
+                {
+                    selectedEntity = asge::ecs::Entity::Null();
+                    ResetEntityDisplayIds();
+                    LOG_INFO("Session loaded from ", path.string());
+                }
+            }
+        }
 
         bool openSaveDialog = false;
         bool openOpenDialog = false;
+        bool openSaveSessionDialog = false;
+        bool openOpenSessionDialog = false;
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
@@ -362,6 +372,9 @@ int main(int, char**)
                     }
                 }
                 if (ImGui::MenuItem("Save As...")) openSaveDialog = true;
+                ImGui::Separator();
+                if (ImGui::MenuItem("Save Session...")) openSaveSessionDialog = true;
+                if (ImGui::MenuItem("Open Session...")) openOpenSessionDialog = true;
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -382,6 +395,16 @@ int main(int, char**)
             SDL_ShowOpenFileDialog(
                 OnFileDialogResult, &openDialogResult, window,
                 kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str(), false);
+        }
+        if (openSaveSessionDialog)
+        {
+            SDL_ShowSaveFileDialog(
+                OnFileDialogResult, &saveSessionDialogResult, window, kSessionFileFilters, 1, nullptr);
+        }
+        if (openOpenSessionDialog)
+        {
+            SDL_ShowOpenFileDialog(
+                OnFileDialogResult, &openSessionDialogResult, window, kSessionFileFilters, 1, nullptr, false);
         }
 
         // Right-aligned, stacked above Entities/Inspector (see Inspector.hpp's
