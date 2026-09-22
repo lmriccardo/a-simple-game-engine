@@ -84,6 +84,18 @@
             }
         },
         {
+            "name": "linux-editor",
+            "displayName": "Linux (editor: tests, no examples)",
+            "description": "For iterating on asge-editor without paying for every examples/ demo to rebuild -- tests stay on.",
+            "inherits": "linux-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_BUILD_EDITOR": "ON"
+            }
+        },
+        {
             "name": "linux-package",
             "displayName": "Linux (package)",
             "inherits": "linux-base",
@@ -138,6 +150,19 @@
             }
         },
         {
+            "name": "macos-editor",
+            "displayName": "macOS (editor: tests, no examples)",
+            "description": "For iterating on asge-editor without paying for every examples/ demo to rebuild -- tests stay on.",
+            "inherits": "macos-base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SDL3_DIR": "/opt/homebrew/lib/cmake/SDL3",
+                "BUILD_TESTING": "ON",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_BUILD_EDITOR": "ON"
+            }
+        },
+        {
             "name": "macos-package",
             "displayName": "macOS (package)",
             "inherits": "macos-base",
@@ -180,6 +205,10 @@
             "configurePreset": "linux-ci"
         },
         {
+            "name": "linux-editor",
+            "configurePreset": "linux-editor"
+        },
+        {
             "name": "linux-package",
             "configurePreset": "linux-package"
         },
@@ -195,6 +224,10 @@
         {
             "name": "macos-ci",
             "configurePreset": "macos-ci"
+        },
+        {
+            "name": "macos-editor",
+            "configurePreset": "macos-editor"
         },
         {
             "name": "macos-package",
@@ -241,6 +274,13 @@
             }
         },
         {
+            "name": "linux-editor",
+            "configurePreset": "linux-editor",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
             "name": "macos",
             "configurePreset": "macos",
             "output": {
@@ -250,6 +290,13 @@
         {
             "name": "macos-ci",
             "configurePreset": "macos-ci",
+            "output": {
+                "outputOnFailure": true
+            }
+        },
+        {
+            "name": "macos-editor",
+            "configurePreset": "macos-editor",
             "output": {
                 "outputOnFailure": true
             }
