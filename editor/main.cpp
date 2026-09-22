@@ -160,6 +160,12 @@ int main(int, char**)
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    // Draw the cursor ourselves rather than relying on SDL/X11's system
+    // cursor -- under WSLg, the nested compositor's cursor-theme lookup can
+    // silently fail, leaving the real OS cursor invisible (but still
+    // functional) with no fix on the engine/editor side. This bypasses that
+    // entirely instead of chasing an environment-specific rendering bug.
+    ImGui::GetIO().MouseDrawCursor = true;
     ImGui_ImplSDL3_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer3_Init(renderer);
 
@@ -265,14 +271,26 @@ int main(int, char**)
             if (DrainFileDialogResult(saveDialogResult, chosenPath))
             {
                 fs::path path = chosenPath;
-                if (path.extension().empty()) path += ".toml"; // native dialogs don't all enforce the filter's extension
-                sceneManager.RenameActiveScene(path.string());
-                auto const saveResult = sceneManager.SaveScene(path);
-                if (!saveResult) saveResult.LogError();
+                if (path.filename().empty())
+                {
+                    // Dialog closed/canceled without a real filename (some
+                    // backends hand back an empty or directory-only path
+                    // instead of failing outright) -- checked before the
+                    // extension is appended below, since after that a blank
+                    // path would otherwise silently become a bare ".toml".
+                    LOG_WARNING("Save dialog returned no filename -- scene not saved");
+                }
                 else
                 {
-                    currentScenePath = path;
-                    LOG_INFO("Scene saved to ", path.string());
+                    if (path.extension().empty()) path += ".toml"; // native dialogs don't all enforce the filter's extension
+                    sceneManager.RenameActiveScene(path.string());
+                    auto const saveResult = sceneManager.SaveScene(path);
+                    if (!saveResult) saveResult.LogError();
+                    else
+                    {
+                        currentScenePath = path;
+                        LOG_INFO("Scene saved to ", path.string());
+                    }
                 }
             }
         }
@@ -280,29 +298,39 @@ int main(int, char**)
             std::string chosenPath;
             if (DrainFileDialogResult(openDialogResult, chosenPath))
             {
-                fs::path const path = chosenPath;
-
-                sceneManager.UnloadScene();
-                auto const loadResult = LoadSceneFromRealPath(vfs, sceneManager, path);
-                if (!loadResult)
+                if (chosenPath.empty())
                 {
-                    loadResult.LogError();
+                    // Same defensive check as Save's -- a dialog closed
+                    // without a real selection shouldn't be treated as "open
+                    // whatever the empty path resolves to".
+                    LOG_WARNING("Open dialog returned no file -- nothing loaded");
                 }
                 else
                 {
-                    currentScenePath = path;
-                    selectedEntity = asge::ecs::Entity::Null();
-                    ResetEntityDisplayIds();
-                    LOG_INFO("Scene loaded from ", path.string());
-                    // A freshly loaded scene's Sprite/Animation/AudioSource
-                    // paths need resolving; anything whose virtual root isn't
-                    // mounted yet fails here and shows up as "Missing" in the
-                    // VFS panel, which re-resolves once the user sets it.
-                    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
-                    // So the Assets panel keeps showing these independently
-                    // of whether any entity still references them -- see
-                    // RegisterSceneAssets's own doc comment.
-                    RegisterSceneAssets(sceneManager.GetRegistry());
+                    fs::path const path = chosenPath;
+
+                    sceneManager.UnloadScene();
+                    auto const loadResult = LoadSceneFromRealPath(vfs, sceneManager, path);
+                    if (!loadResult)
+                    {
+                        loadResult.LogError();
+                    }
+                    else
+                    {
+                        currentScenePath = path;
+                        selectedEntity = asge::ecs::Entity::Null();
+                        ResetEntityDisplayIds();
+                        LOG_INFO("Scene loaded from ", path.string());
+                        // A freshly loaded scene's Sprite/Animation/AudioSource
+                        // paths need resolving; anything whose virtual root isn't
+                        // mounted yet fails here and shows up as "Missing" in the
+                        // VFS panel, which re-resolves once the user sets it.
+                        assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                        // So the Assets panel keeps showing these independently
+                        // of whether any entity still references them -- see
+                        // RegisterSceneAssets's own doc comment.
+                        RegisterSceneAssets(sceneManager.GetRegistry());
+                    }
                 }
             }
         }
@@ -311,28 +339,45 @@ int main(int, char**)
             if (DrainFileDialogResult(saveSessionDialogResult, chosenPath))
             {
                 fs::path path = chosenPath;
-                if (path.extension().empty()) path += ".asges";
-                auto const saveResult = SaveSession(vfs, currentScenePath, path);
-                if (!saveResult) saveResult.LogError();
-                else LOG_INFO("Session saved to ", path.string());
+                if (path.filename().empty())
+                {
+                    // Same guard as Save Scene's -- an empty/directory-only
+                    // path here would otherwise become a bare ".asges".
+                    LOG_WARNING("Save Session dialog returned no filename -- session not saved");
+                }
+                else
+                {
+                    if (path.extension().empty()) path += ".asges";
+                    auto const saveResult = SaveSession(vfs, sceneManager.GetRegistry(), currentScenePath, path);
+                    if (!saveResult) saveResult.LogError();
+                    else LOG_INFO("Session saved to ", path.string());
+                }
             }
         }
         {
             std::string chosenPath;
             if (DrainFileDialogResult(openSessionDialogResult, chosenPath))
             {
-                fs::path const path = chosenPath;
-                auto const loadResult = LoadSession(
-                    vfs, sceneManager, assets, videoSys.GetRenderer(), path, currentScenePath);
-                if (!loadResult)
+                if (chosenPath.empty())
                 {
-                    loadResult.LogError();
+                    // Same guard as Open Scene's.
+                    LOG_WARNING("Open Session dialog returned no file -- nothing loaded");
                 }
                 else
                 {
-                    selectedEntity = asge::ecs::Entity::Null();
-                    ResetEntityDisplayIds();
-                    LOG_INFO("Session loaded from ", path.string());
+                    fs::path const path = chosenPath;
+                    auto const loadResult = LoadSession(
+                        vfs, sceneManager, assets, videoSys.GetRenderer(), path, currentScenePath);
+                    if (!loadResult)
+                    {
+                        loadResult.LogError();
+                    }
+                    else
+                    {
+                        selectedEntity = asge::ecs::Entity::Null();
+                        ResetEntityDisplayIds();
+                        LOG_INFO("Session loaded from ", path.string());
+                    }
                 }
             }
         }
