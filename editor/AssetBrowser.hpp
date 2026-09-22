@@ -71,3 +71,16 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
  * shouldn't depend on whether anything currently happens to be using it.
  */
 void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
+
+/**
+ * @brief Adds inTexturePaths/inAnimationPaths to the browser's persistent
+ *        "known asset" set, as if each had been explicitly "Load Asset..."-ed.
+ *
+ * Lets Open Session restore assets that were imported but never assigned to
+ * any entity -- RegisterSceneAssets alone can't recover those purely from
+ * the reloaded scene's registry, since they were never referenced by it in
+ * the first place. A path already present is just a no-op insert (std::set
+ * semantics), not a duplicate entry.
+ */
+void ImportAssets(
+    std::vector<std::string> const& inTexturePaths, std::vector<std::string> const& inAnimationPaths ) noexcept;

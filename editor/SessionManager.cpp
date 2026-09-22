@@ -26,6 +26,7 @@ asge::BoolResult LoadSceneFromRealPath(
 
 asge::BoolResult SaveSession(
     asge::filesystem::VirtualFileSystem const& inVfs,
+    asge::ecs::Registry& inRegistry,
     std::optional<std::filesystem::path> const& inCurrentScenePath,
     std::filesystem::path const& inPath ) noexcept
 {
@@ -36,6 +37,21 @@ asge::BoolResult SaveSession(
         auto mountTable = builder.ArrayTable( "Mount" );
         mountTable.Set( "Name", std::string( mount.m_VirtualRoot ) );
         mountTable.Set( "RealDirectory", mount.m_RealDirectory.string() );
+    }
+
+    // Every texture/animation path the Assets panel currently knows about --
+    // not just what the open scene's entities reference -- so an asset
+    // imported via "Load Asset..." but never assigned to anything doesn't
+    // silently vanish from the panel on the next Open Session.
+    for ( auto const& path : KnownTexturePaths( inRegistry ) )
+    {
+        auto textureTable = builder.ArrayTable( "Texture" );
+        textureTable.Set( "Path", path );
+    }
+    for ( auto const& path : KnownAnimationPaths( inRegistry ) )
+    {
+        auto animationTable = builder.ArrayTable( "Animation" );
+        animationTable.Set( "Path", path );
     }
 
     if ( inCurrentScenePath )
@@ -91,6 +107,36 @@ asge::BoolResult LoadSession(
 
         if ( auto r = inVfs.Mount( name, dir ); !r ) r.LogError();
     }
+
+    // Restore every texture/animation path the session recorded -- including
+    // ones no entity in the about-to-load scene references -- before the
+    // scene load below unions in whatever it uses via RegisterSceneAssets;
+    // a path already present here is just a no-op insert (std::set
+    // semantics), not a duplicate entry in the Assets panel.
+    std::vector<std::string> textures;
+    for ( int textureIndex = 0; ; ++textureIndex )
+    {
+        auto getResult = doc.GetTable( "Texture", textureIndex );
+        if ( !getResult )
+        {
+            if ( getResult.Code() == make_error_code( asge::errors::ConfError::TomlNoSubtable ) ) break;
+            return asge::BoolResult::Err( getResult.Error() );
+        }
+        textures.push_back( getResult.Value().Get<std::string>( "Path", {} ) );
+    }
+
+    std::vector<std::string> animations;
+    for ( int animationIndex = 0; ; ++animationIndex )
+    {
+        auto getResult = doc.GetTable( "Animation", animationIndex );
+        if ( !getResult )
+        {
+            if ( getResult.Code() == make_error_code( asge::errors::ConfError::TomlNoSubtable ) ) break;
+            return asge::BoolResult::Err( getResult.Error() );
+        }
+        animations.push_back( getResult.Value().Get<std::string>( "Path", {} ) );
+    }
+    ImportAssets( textures, animations );
 
     // Outright replace, matching File > New / Open -- no dirty-check.
     inSceneManager.UnloadScene();

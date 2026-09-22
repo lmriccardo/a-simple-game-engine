@@ -113,6 +113,13 @@ void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept
     g_LoadedAnimations.insert( animations.begin(), animations.end() );
 }
 
+void ImportAssets(
+    std::vector<std::string> const& inTexturePaths, std::vector<std::string> const& inAnimationPaths ) noexcept
+{
+    g_LoadedTextures.insert( inTexturePaths.begin(), inTexturePaths.end() );
+    g_LoadedAnimations.insert( inAnimationPaths.begin(), inAnimationPaths.end() );
+}
+
 AssetPick DrawAssetBrowserPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow ) noexcept
 {
@@ -152,6 +159,16 @@ AssetPick DrawAssetBrowserPanel(
 
     std::set<std::string> const textures = MergedTextures( inRegistry );
     std::set<std::string> const animations = MergedAnimations( inRegistry );
+
+    // Whether an entity's Sprite/Animation actually references a path right
+    // now -- checked before the "x" is allowed to remove it. The already-
+    // loaded ITexture/clip an entity is using stays cached regardless of
+    // this panel's own bookkeeping, so silently un-importing a path still in
+    // use wouldn't stop it rendering; it would just make the panel lie about
+    // what's actually bound.
+    std::set<std::string> usedTextures;
+    std::set<std::string> usedAnimations;
+    CollectUsedPaths( inRegistry, usedTextures, usedAnimations );
 
     AssetPick pick;
 
@@ -208,7 +225,17 @@ AssetPick DrawAssetBrowserPanel(
             if ( g_LoadedTextures.count( path ) )
             {
                 ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-                if ( ImGui::SmallButton( "x" ) ) g_LoadedTextures.erase( path );
+                if ( ImGui::SmallButton( "x" ) )
+                {
+                    if ( usedTextures.count( path ) )
+                    {
+                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
+                    }
+                    else
+                    {
+                        g_LoadedTextures.erase( path );
+                    }
+                }
             }
             ImGui::PopID();
         }
@@ -228,7 +255,17 @@ AssetPick DrawAssetBrowserPanel(
             if ( g_LoadedAnimations.count( path ) )
             {
                 ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-                if ( ImGui::SmallButton( "x" ) ) g_LoadedAnimations.erase( path );
+                if ( ImGui::SmallButton( "x" ) )
+                {
+                    if ( usedAnimations.count( path ) )
+                    {
+                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
+                    }
+                    else
+                    {
+                        g_LoadedAnimations.erase( path );
+                    }
+                }
             }
             ImGui::PopID();
         }
