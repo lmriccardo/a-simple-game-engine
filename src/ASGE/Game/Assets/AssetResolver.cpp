@@ -45,3 +45,13 @@ void asge::game::asset::Resolver<asge::game::components::PathFollow>::operator()
     inPathFollow.m_Path = std::move( spline );
     inPathFollow.m_Waypoints = inPathFollow.m_Path.Waypoints();
 }
+
+void asge::game::asset::Resolver<asge::game::components::UIButton>::operator()(
+    AssetManager &inAssetManager, ecs::Registry &inRegistry, 
+    video::IRenderer &inRenderer, C &inButton) const noexcept
+{
+    if ( inButton.m_FontVirtualPath.empty() || inButton.m_Font ) return;
+    auto fontAsset = inAssetManager.GetFont( inButton.m_FontVirtualPath, inButton.m_FontWeight );
+    if ( !fontAsset ) { fontAsset.LogError(); return; }
+    inButton.m_Font = fontAsset.Value();
+}

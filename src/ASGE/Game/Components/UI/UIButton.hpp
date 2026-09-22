@@ -1,9 +1,14 @@
 #pragma once
 
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Patterns/Signal.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
+#include <ASGE/Core/Media/Font.hpp>
+#include <ASGE/Game/Assets/Asset.hpp>
+
+#include "../Transform.hpp"
 
 namespace asge::game::components
 {
@@ -20,16 +25,22 @@ namespace asge::game::components
  */
 struct UIButton
 {
-    str::String    m_FontVirtualPath{};                     // VFS path of the font m_Text is drawn with
+    using FontAsset = std::shared_ptr<asset::Asset<media::Font>>;
+
+    str::String    m_FontVirtualPath{};                      // VFS path of the font m_Text is drawn with
+    int            m_FontWeight     {16};                    // Font size
     str::String    m_Text           {"Click Me"};            // Label drawn on the button
     str::TextAlign m_TextAlignment  {str::TextAlign::None};  // How m_Text is justified within m_Size
     math::Float2   m_Size           {80.0f, 24.0f};          // Button extent, same units/origin as Transform
 
-    bool m_Hovered          {false}; // Whether the pointer is currently over the button -- runtime-only, never serialized
-    bool m_PressedThisFrame {false}; // Whether the pointer is currently held down on the button -- runtime-only, never serialized
+    bool      m_Hovered          {false};   // Whether the pointer is currently over the button
+    bool      m_PressedThisFrame {false};   // Whether the pointer is currently held down on the button
+    FontAsset m_Font             {nullptr}; // Asset pointer to the Font asset
 
     signals::Signal<> m_OnClick; // Fired on click by whatever system drives UI input; connect via Signal::Connect
 };
+
+math::Rect CreateButtonBounds( Transform const& inWorld, UIButton const& inButton ) noexcept;
 
 }
 

@@ -82,4 +82,16 @@ struct Resolver<components::PathFollow>
     ) const noexcept;
 };
 
+template<>
+struct Resolver<components::UIButton>
+{
+    using C = components::UIButton;
+    void operator()(
+                         AssetManager&      inAssetManager,
+        [[maybe_unused]] ecs::Registry&     inRegistry,
+        [[maybe_unused]] video::IRenderer&  inRenderer,
+                         C&                 inButton
+    ) const noexcept;
+};
+
 }

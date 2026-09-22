@@ -5,6 +5,7 @@ void asge::game::scene::Serializer<asge::game::components::UIButton>::ToToml(
 {
     inTview.Table( str::String( kTableName ) )
            .Set( "m_FontVirtualPath", inValue.m_FontVirtualPath )
+           .Set( "m_FontWeight", inValue.m_FontWeight )
            .Set( "m_Text", inValue.m_Text )
            .Set( "m_TextAlign", str::ToString( inValue.m_TextAlignment ) )
            .Set( "m_SizeX", inValue.m_Size.x() )
@@ -19,6 +20,7 @@ asge::game::scene::Serializer<asge::game::components::UIButton>::FromToml(
 
     components::UIButton result;
     result.m_FontVirtualPath = table.Get( "m_FontVirtualPath", str::String{} );
+    result.m_FontWeight = table.Get( "m_FontWeight", result.m_FontWeight );
     result.m_Text = table.Get( "m_Text", result.m_Text );
 
     auto defaultAlign = str::ToString( str::TextAlign::None );
@@ -30,4 +32,15 @@ asge::game::scene::Serializer<asge::game::components::UIButton>::FromToml(
     };
 
     return result;
+}
+
+asge::math::Rect asge::game::components::CreateButtonBounds(
+    Transform const &inWorld, UIButton const &inButton) noexcept
+{
+    return math::Rect
+    {
+        inWorld.m_WorldCoordinates.x(),
+        inWorld.m_WorldCoordinates.y(),
+        
+    };
 }
