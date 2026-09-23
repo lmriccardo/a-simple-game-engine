@@ -183,6 +183,40 @@ TEST_F(ReadImageTest, ValidBmpFileDecodesSuccessfully)
     ExpectDecodedSolidRedImage(result.Value());
 }
 
+// ─── IsSupportedFile ────────────────────────────────────────────────────────
+
+TEST(IsSupportedFileTest, RecognizesEverySupportedExtension)
+{
+    EXPECT_TRUE(Image::IsSupportedFile("hero.png"));
+    EXPECT_TRUE(Image::IsSupportedFile("hero.jpg"));
+    EXPECT_TRUE(Image::IsSupportedFile("hero.jpeg"));
+    EXPECT_TRUE(Image::IsSupportedFile("hero.bmp"));
+    EXPECT_TRUE(Image::IsSupportedFile("hero.tga"));
+    EXPECT_TRUE(Image::IsSupportedFile("hero.gif"));
+}
+
+TEST(IsSupportedFileTest, IsCaseInsensitive)
+{
+    EXPECT_TRUE(Image::IsSupportedFile("hero.PNG"));
+    EXPECT_TRUE(Image::IsSupportedFile("hero.Jpg"));
+}
+
+TEST(IsSupportedFileTest, UnsupportedExtensionReturnsFalse)
+{
+    EXPECT_FALSE(Image::IsSupportedFile("clip.toml"));
+    EXPECT_FALSE(Image::IsSupportedFile("readme.md"));
+}
+
+TEST(IsSupportedFileTest, NoExtensionReturnsFalse)
+{
+    EXPECT_FALSE(Image::IsSupportedFile("hero"));
+}
+
+TEST(IsSupportedFileTest, DoesNotRequireTheFileToActuallyExist)
+{
+    EXPECT_TRUE(Image::IsSupportedFile("/does/not/exist/hero.png"));
+}
+
 // ─── AlphaContentBounds ─────────────────────────────────────────────────────
 
 // Builds an RGBA8 image where the pixel at (x, y) is opaque iff inGetAlpha(x, y)

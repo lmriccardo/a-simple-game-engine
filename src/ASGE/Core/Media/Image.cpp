@@ -1,6 +1,7 @@
 #include "Image.hpp"
 
 #include <algorithm>
+#include <cctype>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -104,6 +105,17 @@ asge::Result<asge::media::Image> asge::media::Image::Image::Load(filesystem::Pat
     auto byteResult = filesystem::ReadBinary( inImagePath );
     if (!byteResult) return Result<Image>::Err(byteResult.Error());
     return DecodeImage(byteResult.Value());
+}
+
+bool asge::media::Image::IsSupportedFile(filesystem::Path const &inPath) noexcept
+{
+    static str::StringView const kExtensions[]{ ".png", ".jpg", ".jpeg", ".bmp", ".tga", ".gif" };
+
+    auto ext = inPath.extension().string();
+    std::transform( ext.begin(), ext.end(), ext.begin(),
+        []( unsigned char c ) { return static_cast<char>( std::tolower(c) ); } );
+
+    return std::find( std::begin(kExtensions), std::end(kExtensions), ext ) != std::end(kExtensions);
 }
 
 asge::Result<asge::media::Image> asge::media::DecodeImage(std::span<const std::byte> inBytes) noexcept
