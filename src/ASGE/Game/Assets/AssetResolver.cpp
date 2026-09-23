@@ -7,12 +7,9 @@ void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(
     video::IRenderer &inRenderer, C& inSprite) const noexcept
 {
     if ( inSprite.m_Texture || inSprite.m_VirtualPath.empty() ) return;
-    auto image = inAssetManager.GetImage( inSprite.m_VirtualPath );
-    if ( !image ) { image.LogError(); return; }
-
-    auto* texture = inAssetManager.CreateTexture( inRenderer, image.Value()->Get() );
-    if ( !texture ) return;
-    inSprite.m_Texture = texture;
+    auto texture = inAssetManager.GetTexture( inSprite.m_VirtualPath, inRenderer );
+    if ( !texture ) { texture.LogError(); return; }
+    inSprite.m_Texture = texture.Value();
 }
 
 void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(

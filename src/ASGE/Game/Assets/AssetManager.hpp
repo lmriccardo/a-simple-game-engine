@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <vector>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Media/Image.hpp>
@@ -41,6 +42,10 @@ class AssetManager
     // nothing -- Sprite::m_Texture only ever points into here, so these must
     // outlive every entity holding one (see ResolveAssets' own doc comment).
     std::vector<std::unique_ptr<video::ITexture>> m_Textures;
+
+    // GetTexture()'s cache, keyed by virtual path -- non-owning, since the
+    // texture itself is already kept alive by m_Textures above.
+    std::unordered_map<str::String, video::ITexture*> m_TextureCache;
 
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
@@ -93,6 +98,18 @@ public:
      */
     [[nodiscard]] video::ITexture* CreateTexture(
         video::IRenderer& inRenderer, media::Image const& inImage ) noexcept;
+
+    /**
+     * @brief Loads (or returns the cached) GPU texture for a virtual path,
+     *        creating it via CreateTexture() on first request.
+     *
+     * Cached by virtual path like GetImage — later calls for the same path
+     * return the same `ITexture*` rather than allocating a new one. A
+     * failed image resolve/decode or texture creation is returned as-is
+     * and nothing is cached, so a later call retries.
+     */
+    [[nodiscard]] Result<video::ITexture*> GetTexture(
+        str::StringCRef inVirtualPath, video::IRenderer& inRenderer ) noexcept;
 
     /**
      * @brief Deferred-loads every still-unresolved asset-owning component

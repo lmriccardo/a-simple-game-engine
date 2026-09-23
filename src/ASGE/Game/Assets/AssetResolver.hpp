@@ -26,7 +26,7 @@ struct Resolver
     void operator()( AssetManager&, ecs::Registry&, video::IRenderer&, C& ) const noexcept {}
 };
 
-/** @brief Resolves Sprite::m_VirtualPath into m_Texture via AssetManager::GetImage + CreateTexture, once. */
+/** @brief Resolves Sprite::m_VirtualPath into m_Texture via AssetManager::GetTexture, once. */
 template<>
 struct Resolver<components::Sprite>
 {
