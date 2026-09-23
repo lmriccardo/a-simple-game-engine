@@ -1,7 +1,7 @@
 #pragma once
 
 #include <memory>
-#include <vector>
+#include <unordered_map>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Core/Media/Font.hpp>
@@ -37,10 +37,11 @@ class AssetManager
     AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load       };
     AssetPool<media::AudioClip>  m_AudioPool  { &media::AudioClip::Load };
 
-    // GPU textures CreateTexture() creates from a resolved Image, keyed by
-    // nothing -- Sprite::m_Texture only ever points into here, so these must
-    // outlive every entity holding one (see ResolveAssets' own doc comment).
-    std::vector<std::unique_ptr<video::ITexture>> m_Textures;
+    // GetTexture()'s cache, keyed by virtual path -- the sole owner of every
+    // GPU texture this AssetManager creates. Sprite::m_Texture only ever
+    // points into here, so an entry must outlive every entity holding one
+    // (see ResolveAssets' own doc comment) until UnloadTexture() drops it.
+    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache;
 
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
@@ -83,16 +84,23 @@ public:
     [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
 
     /**
-     * @brief Creates a GPU texture from inImage via inRenderer and keeps it
-     *        alive for this AssetManager's own lifetime.
+     * @brief Loads (or returns the cached) GPU texture for a virtual path,
+     *        creating it via inRenderer on first request.
      *
-     * Returns a non-owning raw pointer — the texture itself lives in
-     * `m_Textures` until this AssetManager is destroyed, so it (and
-     * whichever `Sprite::m_Texture` ends up pointing at it) must not
-     * outlive it. Returns `nullptr` if `inRenderer` fails to create one.
+     * Cached by virtual path like GetImage — later calls for the same path
+     * return the same `ITexture*` rather than allocating a new one. A
+     * failed image resolve/decode or texture creation is returned as-is
+     * and nothing is cached, so a later call retries.
      */
-    [[nodiscard]] video::ITexture* CreateTexture(
-        video::IRenderer& inRenderer, media::Image const& inImage ) noexcept;
+    [[nodiscard]] Result<video::ITexture*> GetTexture(
+        str::StringCRef inVirtualPath, video::IRenderer& inRenderer ) noexcept;
+
+    /**
+     * @brief Frees the GPU texture cached for inVirtualPath, if any.
+     * No-op if nothing is cached for that path; a later GetTexture() call
+     * recreates it.
+     */
+    void UnloadTexture( str::StringCRef inVirtualPath ) noexcept;
 
     /**
      * @brief Deferred-loads every still-unresolved asset-owning component

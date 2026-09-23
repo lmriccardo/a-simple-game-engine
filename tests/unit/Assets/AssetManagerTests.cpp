@@ -5,6 +5,7 @@
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Rendering/RenderError.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
@@ -25,6 +26,7 @@ namespace
 using namespace asge::game::asset;
 using asge::errors::VfsError;
 using asge::errors::ImageError;
+using asge::errors::RenderError;
 
 std::vector<std::byte> MakeSolidRedBmp()
 {
@@ -95,6 +97,7 @@ protected:
         std::filesystem::create_directories(m_ImagesDir);
 
         WriteBytes(m_ImagesDir / "hero.bmp", MakeSolidRedBmp());
+        WriteBytes(m_ImagesDir / "other.bmp", MakeSolidRedBmp());
         WriteText(m_ImagesDir / "garbage.bmp", "not a bmp");
         WriteText(m_ImagesDir / "walk.toml",
             "[FrameTable]\n"
@@ -249,7 +252,7 @@ TEST_F(AssetManagerTest, GetFrameTable_SamePathTwiceReturnsSameCachedAsset)
     EXPECT_EQ(first.Value(), second.Value());
 }
 
-// ─── CreateTexture / ResolveAssets test doubles ─────────────────────────────
+// ─── GetTexture / ResolveAssets test doubles ────────────────────────────────
 
 // Minimal ITexture stub tracking how many instances are currently alive, so
 // tests can assert on AssetManager actually owning (and eventually freeing)
@@ -322,9 +325,9 @@ private:
     asge::video::Viewport m_Viewport{};
 };
 
-// ─── CreateTexture ───────────────────────────────────────────────────────────
+// ─── GetTexture ──────────────────────────────────────────────────────────────
 
-class CreateTextureTest : public AssetManagerTest
+class GetTextureTest : public AssetManagerTest
 {
 protected:
     FakeRenderer m_Renderer;
@@ -336,45 +339,108 @@ protected:
     }
 };
 
-TEST_F(CreateTextureTest, ValidImageReturnsANonOwningPointerToALiveTexture)
+TEST_F(GetTextureTest, ValidPathReturnsALiveTexture)
 {
     AssetManager mgr(m_Vfs);
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
 
-    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto result = mgr.GetTexture("images/hero.bmp", m_Renderer);
 
-    ASSERT_NE(texture, nullptr);
-    EXPECT_TRUE(texture->IsValid());
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value()->IsValid());
     EXPECT_EQ(FakeTexture::s_LiveCount, 1);
 }
 
-TEST_F(CreateTextureTest, RendererFailureReturnsNullRatherThanCrashing)
+TEST_F(GetTextureTest, SamePathTwiceReturnsSameCachedTexture)
 {
     AssetManager mgr(m_Vfs);
-    m_Renderer.m_FailCreate = true;
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
 
-    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
 
-    EXPECT_EQ(texture, nullptr);
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(first.Value(), second.Value());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
+
+TEST_F(GetTextureTest, DifferentPathsReturnDifferentTextures)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    auto second = mgr.GetTexture("images/other.bmp", m_Renderer);
+
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_NE(first.Value(), second.Value());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 2);
+}
+
+TEST_F(GetTextureTest, UnresolvableVirtualPathReturnsNotMountedErrorAndIsNotCached)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto first = mgr.GetTexture("images/missing.bmp", m_Renderer);
+    ASSERT_FALSE(first.IsOk());
+    EXPECT_EQ(first.Code(), make_error_code(VfsError::NotMounted));
+
+    // Not cached as a failure -- a later call retries rather than reusing a stale error.
+    auto second = mgr.GetTexture("images/missing.bmp", m_Renderer);
+    ASSERT_FALSE(second.IsOk());
+    EXPECT_EQ(second.Code(), make_error_code(VfsError::NotMounted));
     EXPECT_EQ(FakeTexture::s_LiveCount, 0);
 }
 
-TEST_F(CreateTextureTest, EachCallCreatesAndKeepsAliveASeparateTexture)
+TEST_F(GetTextureTest, RendererFailureReturnsTextureCreationFailedAndIsNotCached)
 {
     AssetManager mgr(m_Vfs);
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
+    m_Renderer.m_FailCreate = true;
 
-    auto* first = mgr.CreateTexture(m_Renderer, image.Value()->Get());
-    auto* second = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_FALSE(first.IsOk());
+    EXPECT_EQ(first.Code(), make_error_code(RenderError::TextureCreationFailed));
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
 
-    ASSERT_NE(first, nullptr);
-    ASSERT_NE(second, nullptr);
-    EXPECT_NE(first, second); // no caching here -- that's GetImage's job, not CreateTexture's
-    EXPECT_EQ(FakeTexture::s_LiveCount, 2);
+    // Not cached as a failure -- a later call, once the renderer recovers, succeeds.
+    m_Renderer.m_FailCreate = false;
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
+
+// ─── UnloadTexture ───────────────────────────────────────────────────────────
+
+TEST_F(GetTextureTest, RemovesTheCacheEntrySoTheNextGetTextureRecreatesIt)
+{
+    AssetManager mgr(m_Vfs);
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_EQ(FakeTexture::s_LiveCount, 1);
+
+    mgr.UnloadTexture("images/hero.bmp");
+    // Freed immediately, not just uncached -- not comparing the stale pointer
+    // value against the next GetTexture's result, since a freed-then-reused
+    // address could legitimately coincide with it.
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
+
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1); // recreated, not still missing
+}
+
+TEST_F(GetTextureTest, UnknownPathIsANoOp)
+{
+    AssetManager mgr(m_Vfs);
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(first.IsOk());
+
+    mgr.UnloadTexture("images/never-loaded.bmp");
+
+    // The unrelated cache entry survives untouched.
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(second.Value(), first.Value());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
 }
 
 // ─── ResolveAssets ───────────────────────────────────────────────────────────
@@ -461,6 +527,27 @@ TEST_F(ResolveAssetsTest, TextureCreationFailureLeavesSpriteTextureNullRatherTha
     auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
     auto const& sprite = spriteResult.Value().get();
     EXPECT_EQ(sprite.m_Texture, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, TwoSpritesWithTheSameVirtualPathShareOneTexture)
+{
+    AssetManager mgr(m_Vfs);
+    auto entityA = m_Registry.CreateEntity();
+    auto entityB = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entityA.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entityB.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto spriteAResult = m_Registry.GetComponent<asge::game::components::Sprite>(entityA.Value());
+    auto spriteBResult = m_Registry.GetComponent<asge::game::components::Sprite>(entityB.Value());
+    auto const& spriteA = spriteAResult.Value().get();
+    auto const& spriteB = spriteBResult.Value().get();
+    ASSERT_NE(spriteA.m_Texture, nullptr);
+    EXPECT_EQ(spriteA.m_Texture, spriteB.m_Texture);
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1); // one texture shared, not two
 }
 
 TEST_F(ResolveAssetsTest, AnimationWithClipPathGetsClipAssigned)
