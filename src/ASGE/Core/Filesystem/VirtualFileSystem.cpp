@@ -1,5 +1,7 @@
 #include "VirtualFileSystem.hpp"
 
+#include <algorithm>
+
 namespace
 {
 
