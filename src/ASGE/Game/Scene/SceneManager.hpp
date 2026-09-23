@@ -105,6 +105,22 @@ public:
     /** @brief EntitiesInScene() for the active scene, or empty if none is active. */
     [[nodiscard]] std::vector<ecs::Entity> ActiveEntities() const noexcept;
 
+    /**
+     * @brief Creates a fresh entity already tagged with the active scene's
+     *        SceneId, so it shows up in ActiveEntities() and SaveScene()
+     *        without the caller having to tag it by hand.
+     * @return The new entity, or an error if no scene is active.
+     */
+    [[nodiscard]] Result<ecs::Entity> CreateEntity() noexcept;
+
+    /**
+     * @brief Creates a new entity carrying a copy of every serializable
+     *        component inEntity has, tagged into the active scene.
+     * @return The new entity, or an error if no scene is active or
+     *         inEntity isn't currently alive.
+     */
+    [[nodiscard]] Result<ecs::Entity> DuplicateEntity( ecs::Entity inEntity ) noexcept;
+
     /** @brief The Registry backing every resident scene, not just the active one — see ActiveEntities(). */
     [[nodiscard]] ecs::Registry& GetRegistry() noexcept { return m_Registry; }
     

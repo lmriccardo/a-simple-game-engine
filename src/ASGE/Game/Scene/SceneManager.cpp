@@ -1,6 +1,7 @@
 #include "SceneManager.hpp"
 
 #include <algorithm>
+#include <string>
 #include <unordered_set>
 #include <utility>
 
@@ -197,4 +198,42 @@ std::vector<asge::ecs::Entity> asge::game::scene::SceneManager::EntitiesInScene(
 std::vector<asge::ecs::Entity> asge::game::scene::SceneManager::ActiveEntities() const noexcept
 {
     return m_CurrentScenePath ? EntitiesInScene( *m_CurrentScenePath ) : std::vector<ecs::Entity>{};
+}
+
+asge::Result<asge::ecs::Entity> asge::game::scene::SceneManager::CreateEntity() noexcept
+{
+    if ( !m_CurrentScenePath )
+        return Result<ecs::Entity>::Err( make_error_code( errors::SceneError::NoActiveScene ) );
+
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) return entity;
+
+    if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity.Value(), SceneId{ *m_CurrentScenePath } ); !tagResult )
+        return Result<ecs::Entity>::Err( tagResult.Error() );
+
+    return entity;
+}
+
+asge::Result<asge::ecs::Entity> asge::game::scene::SceneManager::DuplicateEntity( ecs::Entity inEntity ) noexcept
+{
+    if ( !m_CurrentScenePath )
+        return Result<ecs::Entity>::Err( make_error_code( errors::SceneError::NoActiveScene ) );
+
+    auto const alive = m_Registry.AllEntities();
+    if ( std::find( alive.begin(), alive.end(), inEntity ) == alive.end() )
+    {
+        return Result<ecs::Entity>::Err(
+            make_error_code( errors::EcsError::EntityIsNotAlive ),
+            "Id " + std::to_string( inEntity.m_Index ) );
+    }
+
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) return entity;
+
+    CopyEntityComponents( m_Registry, inEntity, m_Registry, entity.Value() );
+
+    if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity.Value(), SceneId{ *m_CurrentScenePath } ); !tagResult )
+        return Result<ecs::Entity>::Err( tagResult.Error() );
+
+    return entity;
 }
