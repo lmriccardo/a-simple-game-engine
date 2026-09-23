@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -35,9 +36,16 @@ class SceneManager
     str::String m_PendingPath;
 
     // Copies every serializable component inSrcEntity has, in inSrc, onto inDstEntity in inDst
-    void CopyEntityComponents( 
+    void CopyEntityComponents(
         ecs::Registry const& inSrc, ecs::Entity inSrcEntity,
         ecs::Registry& inDst, ecs::Entity inDstEntity ) const noexcept;
+
+    // Shared body of LoadScene()/LoadSceneFromFile(): handles the
+    // already-active/already-resident short-circuits and SceneId tagging
+    // once inLoad has actually populated the Registry, however it got there.
+    BoolResult LoadSceneCommon(
+        str::String const& inSceneId,
+        std::function<BoolResult( ecs::Registry& )> const& inLoad ) noexcept;
 
 public:
     explicit SceneManager( filesystem::VirtualFileSystem const& inVfs ) noexcept
@@ -51,6 +59,14 @@ public:
      * @return Ok on success; a failed disk load disturbs nothing resident.
      */
     BoolResult LoadScene( str::String const& inVirtualPath ) noexcept;
+
+    /**
+     * @brief LoadScene()'s counterpart for a scene file addressed by a real
+     *        filesystem path rather than a VFS one — symmetric with SaveScene().
+     *        The SceneId its entities are tagged with defaults to inPath's string form.
+     * @return Ok on success; a failed disk load disturbs nothing resident.
+     */
+    BoolResult LoadSceneFromFile( filesystem::Path const& inPath ) noexcept;
 
     /** @brief Destroys every entity belonging to the active scene, leaving nothing active. */
     void UnloadScene() noexcept;

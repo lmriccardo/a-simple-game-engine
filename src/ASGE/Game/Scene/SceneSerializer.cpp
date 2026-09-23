@@ -38,8 +38,18 @@ asge::BoolResult asge::game::scene::SceneSerializer::Load(
     // Resolve the input virtual path
     auto resolveResult = m_Vfs.Resolve( inVirtualPath );
     if ( !resolveResult ) return BoolResult::Err( resolveResult.Error() );
-    filesystem::Path scenePath = resolveResult.Value();
+    return LoadResolved( dstRegistry, resolveResult.Value() );
+}
 
+asge::BoolResult asge::game::scene::SceneSerializer::LoadFromFile(
+    ecs::Registry &dstRegistry, filesystem::Path const &inPath) const noexcept
+{
+    return LoadResolved( dstRegistry, inPath );
+}
+
+asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
+    ecs::Registry &dstRegistry, filesystem::Path const &scenePath) const noexcept
+{
     // Read the content of the file
     auto readResult = filesystem::ReadText( scenePath );
     if ( !readResult ) return BoolResult::Err( readResult.Error() );
