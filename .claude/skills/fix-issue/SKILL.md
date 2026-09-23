@@ -25,11 +25,15 @@ to stage them later. Branch from an up-to-date `main`:
 
 ```
 git fetch origin main
-git checkout -b fix/<short-kebab-slug> main
+git branch fix/<short-kebab-slug>
+git worktree add worktrees/fix/<short-kebab-slug> fix/<short-kebab-slug>
+cd worktrees/fix/<short-kebab-slug>
 ```
 
 Name the slug from the issue's subject, not `issue-N` — e.g.
 `fix/rendersystem-destrect-sourcecrop`, not `fix/issue-35`.
+
+If the worktrees folder do not exists create it. Remember that u **MUST** work on a worktree.
 
 ## 3. Implement the fix
 
