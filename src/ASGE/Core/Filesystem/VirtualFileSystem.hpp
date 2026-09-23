@@ -29,6 +29,13 @@ class VirtualFileSystem
     };
     std::vector<MountInfo> m_Mounts{};
 public:
+    /** @brief A virtual path split into its root (first segment) and the remainder after it. */
+    struct SplitPath
+    {
+        str::String m_Root; // The path's first segment, e.g. "textures"
+        str::String m_Rest; // Everything after the root's slash, or empty if there wasn't one
+    };
+
     VirtualFileSystem() = default;
 
     VirtualFileSystem( VirtualFileSystem const& ) = delete;
@@ -72,6 +79,33 @@ public:
 
     /** @brief Returns the currently registered mounts, in resolution order. */
     [[nodiscard]] std::vector<MountInfo> const& ListMounts() const noexcept;
+
+    /**
+     * @brief Splits a virtual path into its root and the remainder after it —
+     *        the same split Resolve() does internally to find a matching
+     *        mount, exposed for callers that just need the root.
+     *
+     * Normalizes @p inVirtualPath first, same as Mount()/Resolve(), so
+     * equivalent forms (slashes, leading/trailing whitespace) split the same.
+     */
+    [[nodiscard]] static SplitPath SplitRoot( str::StringCRef inVirtualPath ) noexcept;
+
+    /**
+     * @brief Checks whether @p inRoot is currently a registered mount point.
+     * @p inRoot is normalized the same way as a Mount() call's mount point.
+     */
+    [[nodiscard]] bool IsMounted( str::StringCRef inRoot ) const noexcept;
+
+    /**
+     * @brief Finds a mount whose real directory contains @p inRealPath and
+     *        returns the corresponding virtual path.
+     *
+     * Tries every mount in registration order, like Resolve() does in
+     * reverse; a path that only reaches a mount's directory by escaping it
+     * via `..` doesn't count as contained. @p inRealPath does not need to
+     * exist. Returns a VfsError::NotMounted error if no mount contains it.
+     */
+    [[nodiscard]] Result<str::String> ToVirtualPath( Path const& inRealPath ) const noexcept;
 };
 
 }

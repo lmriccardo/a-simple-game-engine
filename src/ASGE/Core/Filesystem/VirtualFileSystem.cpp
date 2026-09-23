@@ -140,8 +140,58 @@ bool asge::filesystem::VirtualFileSystem::Exists(str::StringCRef inVirtualPath) 
     return Resolve( inVirtualPath ).IsOk();
 }
 
-std::vector<asge::filesystem::VirtualFileSystem::MountInfo> 
+std::vector<asge::filesystem::VirtualFileSystem::MountInfo>
 const &asge::filesystem::VirtualFileSystem::ListMounts() const noexcept
 {
     return m_Mounts;
+}
+
+asge::filesystem::VirtualFileSystem::SplitPath
+asge::filesystem::VirtualFileSystem::SplitRoot(str::StringCRef inVirtualPath) noexcept
+{
+    str::String normalized = NormalizeVirtualPath( inVirtualPath );
+    auto const slash = normalized.find( '/' );
+    if ( slash == str::String::npos )
+    {
+        return SplitPath{ std::move( normalized ), {} };
+    }
+    return SplitPath{ normalized.substr( 0, slash ), normalized.substr( slash + 1 ) };
+}
+
+bool asge::filesystem::VirtualFileSystem::IsMounted(str::StringCRef inRoot) const noexcept
+{
+    str::String const root = NormalizeVirtualPath( inRoot );
+    return std::any_of( m_Mounts.begin(), m_Mounts.end(),
+        [&]( MountInfo const& m ) { return m.m_VirtualRoot == root; } );
+}
+
+asge::Result<asge::str::String> asge::filesystem::VirtualFileSystem::ToVirtualPath(
+    Path const &inRealPath) const noexcept
+{
+    std::error_code ec;
+    Path const target = std::filesystem::weakly_canonical( inRealPath, ec );
+    if ( ec )
+    {
+        return Result<str::String>::Err( ec, str::ToUTF8( inRealPath.u8string() ) );
+    }
+
+    for ( auto const& mountInfo : m_Mounts )
+    {
+        std::error_code relEc;
+        Path const rel = std::filesystem::relative( target, mountInfo.m_RealDirectory, relEc );
+        if ( relEc || rel.empty() ) continue;
+
+        str::String const relStr = rel.generic_string();
+        if ( relStr == "." )
+        {
+            return Result<str::String>::Ok( mountInfo.m_VirtualRoot );
+        }
+        if ( relStr == ".." || relStr.starts_with( "../" ) ) continue; // escapes this mount's directory
+
+        return Result<str::String>::Ok( mountInfo.m_VirtualRoot + "/" + relStr );
+    }
+
+    return Result<str::String>::Err(
+        make_error_code( errors::VfsError::NotMounted ),
+        str::ToUTF8( inRealPath.u8string() ) );
 }
