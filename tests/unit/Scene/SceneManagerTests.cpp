@@ -15,6 +15,8 @@ namespace
 
 using namespace asge::game::scene;
 using asge::game::components::Velocity;
+using asge::errors::EcsError;
+using asge::errors::SceneError;
 
 class SceneManagerTest : public ::testing::Test
 {
@@ -473,6 +475,114 @@ TEST_F(SceneManagerTest, UnloadScene_DoesNotLeaveTheUnloadedSceneResident)
     auto active = manager.ActiveEntities();
     ASSERT_EQ(active.size(), 1u);
     EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 5.0f);
+}
+
+// ─── CreateEntity ───────────────────────────────────────────────────────────
+
+TEST_F(SceneManagerTest, CreateEntity_ActiveSceneTagsEntityAndItAppearsInActiveEntities)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk()); // one entity already resident
+
+    auto created = manager.CreateEntity();
+    ASSERT_TRUE(created.IsOk());
+
+    auto active = manager.ActiveEntities();
+    ASSERT_EQ(active.size(), 2u);
+    EXPECT_NE(std::find(active.begin(), active.end(), created.Value()), active.end());
+}
+
+TEST_F(SceneManagerTest, CreateEntity_SurvivesASaveSceneRoundTrip)
+{
+    WriteValidScene(m_ScenePath, 5.0f);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk()); // one entity already resident
+
+    ASSERT_TRUE(manager.CreateEntity().IsOk());
+    EXPECT_EQ(manager.ActiveEntities().size(), 2u);
+
+    auto const outPath = m_Root / "created.toml";
+    ASSERT_TRUE(manager.SaveScene(outPath).IsOk());
+
+    SceneManager reloaded{ m_Vfs };
+    ASSERT_TRUE(reloaded.LoadScene("scenes/created.toml").IsOk());
+    EXPECT_EQ(reloaded.ActiveEntities().size(), 2u);
+}
+
+TEST_F(SceneManagerTest, CreateEntity_NoActiveSceneReturnsNoActiveSceneError)
+{
+    SceneManager manager{ m_Vfs }; // never loaded/created anything
+
+    auto result = manager.CreateEntity();
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(SceneError::NoActiveScene));
+}
+
+// ─── DuplicateEntity ────────────────────────────────────────────────────────
+
+TEST_F(SceneManagerTest, DuplicateEntity_CopiesSerializableComponentsAndTagsIntoActiveScene)
+{
+    WriteValidScene(m_ScenePath, 5.0f);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    auto const source = manager.ActiveEntities().at(0);
+
+    auto duplicated = manager.DuplicateEntity(source);
+    ASSERT_TRUE(duplicated.IsOk());
+    EXPECT_NE(duplicated.Value(), source);
+
+    auto active = manager.ActiveEntities();
+    ASSERT_EQ(active.size(), 2u);
+    EXPECT_FLOAT_EQ(
+        manager.GetRegistry().GetComponent<Velocity>(duplicated.Value()).Value().get().m_DX, 5.0f);
+}
+
+TEST_F(SceneManagerTest, DuplicateEntity_SurvivesASaveSceneRoundTripAsTwoEntities)
+{
+    WriteValidScene(m_ScenePath, 5.0f);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    auto const source = manager.ActiveEntities().at(0);
+    ASSERT_TRUE(manager.DuplicateEntity(source).IsOk());
+
+    auto const outPath = m_Root / "duplicated.toml";
+    ASSERT_TRUE(manager.SaveScene(outPath).IsOk());
+
+    SceneManager reloaded{ m_Vfs };
+    ASSERT_TRUE(reloaded.LoadScene("scenes/duplicated.toml").IsOk());
+
+    auto active = reloaded.ActiveEntities();
+    ASSERT_EQ(active.size(), 2u);
+    EXPECT_FLOAT_EQ(reloaded.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 5.0f);
+    EXPECT_FLOAT_EQ(reloaded.GetRegistry().GetComponent<Velocity>(active[1]).Value().get().m_DX, 5.0f);
+}
+
+TEST_F(SceneManagerTest, DuplicateEntity_NoActiveSceneReturnsNoActiveSceneError)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    auto const source = manager.ActiveEntities().at(0);
+
+    manager.UnloadScene(); // nothing active anymore, but source's handle is now stale too -- see below
+
+    auto result = manager.DuplicateEntity(source);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(SceneError::NoActiveScene));
+}
+
+TEST_F(SceneManagerTest, DuplicateEntity_DeadEntityReturnsEntityIsNotAliveError)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    auto const source = manager.ActiveEntities().at(0);
+    ASSERT_TRUE(manager.GetRegistry().DestroyEntity(source).IsOk());
+
+    auto result = manager.DuplicateEntity(source);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(EcsError::EntityIsNotAlive));
 }
 
 }

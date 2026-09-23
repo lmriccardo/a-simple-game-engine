@@ -436,6 +436,24 @@ inline str::String ToErrorString(AudioError e) noexcept
     return "unknown audio error";
 }
 
+// ---------------------------------------------------------------------------------------------
+// SCENE ERRORS
+// ---------------------------------------------------------------------------------------------
+
+enum class SceneError : std::uint8_t
+{
+    NoActiveScene = 1,
+};
+
+inline str::String ToErrorString(SceneError e) noexcept
+{
+    switch (e)
+    {
+    case SceneError::NoActiveScene: return "no scene is currently active";
+    }
+    return "unknown scene error";
+}
+
 }
 
 // REGISTERING ERRORS CATEGORIES TO THE ERROR DB
@@ -447,3 +465,4 @@ REGISTER_ASGE_ERROR(asge::errors::FontError, "asge.media.font")
 REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
 REGISTER_ASGE_ERROR(asge::errors::VfsError, "asge.filesystem.vfs")
 REGISTER_ASGE_ERROR(asge::errors::AudioError, "asge.media.audio")
+REGISTER_ASGE_ERROR(asge::errors::SceneError, "asge.scene")
