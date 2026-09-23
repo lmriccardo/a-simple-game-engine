@@ -20,6 +20,7 @@
         "build",
         "audio",
         "versioning",
-        "claude-skills"
+        "claude-skills",
+        "agent"
     ]
 }
