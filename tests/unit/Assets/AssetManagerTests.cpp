@@ -252,7 +252,7 @@ TEST_F(AssetManagerTest, GetFrameTable_SamePathTwiceReturnsSameCachedAsset)
     EXPECT_EQ(first.Value(), second.Value());
 }
 
-// ─── CreateTexture / ResolveAssets test doubles ─────────────────────────────
+// ─── GetTexture / ResolveAssets test doubles ────────────────────────────────
 
 // Minimal ITexture stub tracking how many instances are currently alive, so
 // tests can assert on AssetManager actually owning (and eventually freeing)
@@ -325,61 +325,6 @@ private:
     asge::video::Viewport m_Viewport{};
 };
 
-// ─── CreateTexture ───────────────────────────────────────────────────────────
-
-class CreateTextureTest : public AssetManagerTest
-{
-protected:
-    FakeRenderer m_Renderer;
-
-    void SetUp() override
-    {
-        AssetManagerTest::SetUp();
-        FakeTexture::s_LiveCount = 0;
-    }
-};
-
-TEST_F(CreateTextureTest, ValidImageReturnsANonOwningPointerToALiveTexture)
-{
-    AssetManager mgr(m_Vfs);
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
-
-    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
-
-    ASSERT_NE(texture, nullptr);
-    EXPECT_TRUE(texture->IsValid());
-    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
-}
-
-TEST_F(CreateTextureTest, RendererFailureReturnsNullRatherThanCrashing)
-{
-    AssetManager mgr(m_Vfs);
-    m_Renderer.m_FailCreate = true;
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
-
-    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
-
-    EXPECT_EQ(texture, nullptr);
-    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
-}
-
-TEST_F(CreateTextureTest, EachCallCreatesAndKeepsAliveASeparateTexture)
-{
-    AssetManager mgr(m_Vfs);
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
-
-    auto* first = mgr.CreateTexture(m_Renderer, image.Value()->Get());
-    auto* second = mgr.CreateTexture(m_Renderer, image.Value()->Get());
-
-    ASSERT_NE(first, nullptr);
-    ASSERT_NE(second, nullptr);
-    EXPECT_NE(first, second); // no caching here -- that's GetImage's job, not CreateTexture's
-    EXPECT_EQ(FakeTexture::s_LiveCount, 2);
-}
-
 // ─── GetTexture ──────────────────────────────────────────────────────────────
 
 class GetTextureTest : public AssetManagerTest
@@ -393,6 +338,17 @@ protected:
         FakeTexture::s_LiveCount = 0;
     }
 };
+
+TEST_F(GetTextureTest, ValidPathReturnsALiveTexture)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto result = mgr.GetTexture("images/hero.bmp", m_Renderer);
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value()->IsValid());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
 
 TEST_F(GetTextureTest, SamePathTwiceReturnsSameCachedTexture)
 {
@@ -449,6 +405,41 @@ TEST_F(GetTextureTest, RendererFailureReturnsTextureCreationFailedAndIsNotCached
     m_Renderer.m_FailCreate = false;
     auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
     ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
+
+// ─── UnloadTexture ───────────────────────────────────────────────────────────
+
+TEST_F(GetTextureTest, RemovesTheCacheEntrySoTheNextGetTextureRecreatesIt)
+{
+    AssetManager mgr(m_Vfs);
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_EQ(FakeTexture::s_LiveCount, 1);
+
+    mgr.UnloadTexture("images/hero.bmp");
+    // Freed immediately, not just uncached -- not comparing the stale pointer
+    // value against the next GetTexture's result, since a freed-then-reused
+    // address could legitimately coincide with it.
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
+
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1); // recreated, not still missing
+}
+
+TEST_F(GetTextureTest, UnknownPathIsANoOp)
+{
+    AssetManager mgr(m_Vfs);
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(first.IsOk());
+
+    mgr.UnloadTexture("images/never-loaded.bmp");
+
+    // The unrelated cache entry survives untouched.
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(second.Value(), first.Value());
     EXPECT_EQ(FakeTexture::s_LiveCount, 1);
 }
 
