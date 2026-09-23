@@ -8,3 +8,15 @@ docsite/site/api/
 docsite/site/playable/
 docsite/__pycache__/
 editor/assets/imgui.ini
+imgui.ini
+
+# graphify: keep the shareable graph outputs and the LLM-paid semantic cache;
+# everything else is machine-specific or free to rebuild (graphify update .)
+graphify-out/*
+!graphify-out/graph.json
+!graphify-out/graph.html
+!graphify-out/GRAPH_REPORT.md
+!graphify-out/cache/
+graphify-out/cache/*
+!graphify-out/cache/semantic/
+.claude/settings.json.graphify-bak
