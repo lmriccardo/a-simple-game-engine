@@ -17,9 +17,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyUIButton)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyUIButtonRenderInfo)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 12);
+    static_assert(std::tuple_size_v<SerializableComponents> == 13);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -32,6 +32,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
     static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
     static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, UIButton>);
+    static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, RenderInfo>);
     SUCCEED();
 }
 
@@ -50,6 +51,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Name>::kTableName, "Name");
     EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
     EXPECT_EQ(Serializer<UIButton>::kTableName, "UIButton");
+    EXPECT_EQ(Serializer<RenderInfo>::kTableName, "RenderInfo");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -783,6 +785,57 @@ TEST(UIButtonSerializerTest, FromToml_ClickAndHoverStateAlwaysResetToStructDefau
     UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
     EXPECT_FALSE(restored.m_Hovered);
     EXPECT_FALSE(restored.m_PressedThisFrame);
+}
+
+// ─── RenderInfo ─────────────────────────────────────────────────────────────
+
+TEST(RenderInfoSerializerTest, ToToml_WritesAllFieldsUnderRenderInfoTable)
+{
+    TOMLBuilder builder;
+    Serializer<RenderInfo>::ToToml(
+        RenderInfo{
+            .m_Layer = 3, .m_YSort = true, .m_ScreenSpace = true,
+            .m_InheritSortFromParent = true, .m_LocalOrder = -1
+        },
+        builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[RenderInfo]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Layer = 3"), std::string::npos);
+    EXPECT_NE(dump.find("m_YSort = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_ScreenSpace = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_InheritSortFromParent = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_LocalOrder = -1"), std::string::npos);
+}
+
+TEST(RenderInfoSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    RenderInfo const original{
+        .m_Layer = 5, .m_YSort = true, .m_ScreenSpace = true,
+        .m_InheritSortFromParent = true, .m_LocalOrder = 2
+    };
+    Serializer<RenderInfo>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    RenderInfo const restored = Serializer<RenderInfo>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Layer, original.m_Layer);
+    EXPECT_EQ(restored.m_YSort, original.m_YSort);
+    EXPECT_EQ(restored.m_ScreenSpace, original.m_ScreenSpace);
+    EXPECT_EQ(restored.m_InheritSortFromParent, original.m_InheritSortFromParent);
+    EXPECT_EQ(restored.m_LocalOrder, original.m_LocalOrder);
+}
+
+TEST(RenderInfoSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("RenderInfo"); // present but empty
+
+    RenderInfo const restored = Serializer<RenderInfo>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Layer, 0);
+    EXPECT_FALSE(restored.m_YSort);
+    EXPECT_FALSE(restored.m_ScreenSpace);
+    EXPECT_FALSE(restored.m_InheritSortFromParent);
+    EXPECT_EQ(restored.m_LocalOrder, 0);
 }
 
 }

@@ -5,8 +5,10 @@
 #include <cmath>
 
 #include <ASGE/Game/Components/Animation.hpp>
-#include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Game/Components/RenderInfo.hpp>
+#include <ASGE/Game/Components/Hierarchy.hpp>
+#include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 
@@ -14,6 +16,55 @@ namespace
 {
 
 using namespace asge;
+using namespace asge::game::components;
+
+/** @brief RenderInfo resolved up an entity's Hierarchy chain: layer/y-sort/screen-space plus which entity "owns" the group for tie-breaking. */
+struct RenderInfoResolved
+{
+    int           m_Layer;      // Resolved draw-order bucket
+    bool          m_YSort;      // Resolved y-sort opt-in
+    bool          m_ScreenSpace;// Resolved screen-space flag
+    ecs::Entity   m_Owner;      // Entity whose sort key this item shares (self, unless inheriting)
+    std::uint32_t m_Depth;      // Hops up the inheritance chain to m_Owner; 0 if this entity owns its own sort key
+    int           m_LocalOrder; // This entity's own RenderInfo::m_LocalOrder, tie-break among entities sharing m_Owner
+};
+
+static constexpr RenderInfo kDefaultRenderInfo = RenderInfo{}; // Fallback for entities with no RenderInfo component of their own
+
+/**
+ * @brief Resolves inTarget's effective RenderInfoResolved, walking up its
+ *        Hierarchy chain when RenderInfo::m_InheritSortFromParent is set.
+ *
+ * m_ScreenSpace always propagates from an inheriting ancestor even when
+ * m_InheritSortFromParent is false; layer, y-sort and the sort owner only
+ * propagate when it's true.
+ */
+RenderInfoResolved ResolveRenderInfo( ecs::Registry const& inReg, ecs::Entity inTarget )
+{
+    auto riResult = inReg.GetComponent<RenderInfo>( inTarget );
+    RenderInfo const& targetRi = riResult ? riResult.Value().get() : kDefaultRenderInfo;
+
+    RenderInfoResolved resolved{
+        targetRi.m_Layer, targetRi.m_YSort, targetRi.m_ScreenSpace,
+        inTarget, 0, targetRi.m_LocalOrder
+    };
+
+    auto hResult = inReg.GetComponent<Hierarchy>( inTarget );
+    if ( !hResult || hResult.Value().get().m_Parent == ecs::Entity::Null() ) return resolved;
+
+    auto const parent = ResolveRenderInfo( inReg, hResult.Value().get().m_Parent );
+
+    // Screen space always propagates, independent of sort inheritance
+    resolved.m_ScreenSpace = resolved.m_ScreenSpace || parent.m_ScreenSpace;
+
+    if ( !targetRi.m_InheritSortFromParent ) return resolved;
+
+    resolved.m_Layer = parent.m_Layer;
+    resolved.m_YSort = parent.m_YSort;
+    resolved.m_Owner = parent.m_Owner;
+    resolved.m_Depth = parent.m_Depth + 1;
+    return resolved;
+}
 
 /** @brief One drawable entity's precomputed sort keys and destination rect for a single frame. */
 struct DrawItem
@@ -21,35 +72,66 @@ struct DrawItem
     ecs::Entity                        m_Entity;    // Source entity; index is the tie-break of last resort
     game::components::Transform const* m_Transform;
     game::components::Sprite const*    m_Sprite;
-    int                                m_Layer;     // Copied from Sprite::m_Layer
+    RenderInfoResolved                 m_RenderInfo;
     float                              m_SortY;     // Bottom edge (position.y + drawn height), for y-sort
-    bool                               m_YSort;     // Copied from Sprite::m_YSort
     math::Rect                         m_DstRect;
 };
 
-/** @brief Orders DrawItems by layer, then bottom-edge Y when either side opts into y-sort, then entity index. */
+/**
+ * @brief Orders DrawItems for RenderSystem: world-space before screen-space,
+ *        then by resolved layer, then bottom-edge Y when either side opted
+ *        into y-sort, then by sort owner, RenderInfo::m_LocalOrder,
+ *        inheritance depth, and finally entity index.
+ */
 bool operator<(DrawItem const& a, DrawItem const& b) noexcept
 {
-    if (a.m_Layer != b.m_Layer) return a.m_Layer < b.m_Layer;
-    if (a.m_YSort || b.m_YSort)
+    auto const& ra = a.m_RenderInfo;
+    auto const& rb = b.m_RenderInfo;
+
+    // For different screenspaces the one with True value must be rendered at the end
+    // ScreenSpace always renders on top of everything
+    if ( ra.m_ScreenSpace != rb.m_ScreenSpace ) return !ra.m_ScreenSpace;
+    if ( ra.m_Layer != rb.m_Layer ) return ra.m_Layer < rb.m_Layer;
+    if ( ( ra.m_YSort || rb.m_YSort ) && a.m_SortY != b.m_SortY ) return a.m_SortY < b.m_SortY;
+    if ( ra.m_Owner.m_Index != rb.m_Owner.m_Index ) return ra.m_Owner.m_Index < rb.m_Owner.m_Index;
+    if ( ra.m_LocalOrder != rb.m_LocalOrder ) return ra.m_LocalOrder < rb.m_LocalOrder;
+    if ( ra.m_Depth != rb.m_Depth ) return ra.m_Depth < rb.m_Depth;
+    return a.m_Entity.m_Index < b.m_Entity.m_Index; 
+}
+
+/** @brief inOwner's own bottom-edge Y (Transform + Sprite, if it has one), for an item inheriting inOwner's sort key -- or inFallback if inOwner has no Transform. */
+float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float inFallback )
+{
+    auto tResult = inReg.GetComponent<Transform>( inOwner );
+    if ( !tResult ) return inFallback;
+    auto const& transform = tResult.Value().get();
+
+    if ( auto s = inReg.GetComponent<Sprite>( inOwner ) )
     {
-        if (a.m_SortY != b.m_SortY) return a.m_SortY < b.m_SortY;
+        if ( auto rect = SpriteGetDstRect( s.Value().get(), transform ) )
+        {
+            return transform.m_WorldCoordinates.y() + rect->m_Height;
+        }
     }
-    return a.m_Entity.m_Index < b.m_Entity.m_Index;
+    return transform.m_WorldCoordinates.y();
 }
 
 /** @brief Builds a DrawItem from an entity's Transform + Sprite, or nullopt if the sprite has no texture. */
 std::optional<DrawItem> ConstructFrom(
-    ecs::Entity inE, game::components::Transform const& inT,
-    game::components::Sprite const& inS
-) noexcept {
-    auto const& result = game::components::SpriteGetDstRect( inS, inT );
-    if ( !result.has_value() ) return std::nullopt;
-    return DrawItem
-    {
-        inE, &inT, &inS, inS.m_Layer, inT.m_WorldCoordinates.y() + (*result).m_Height,
-        inS.m_YSort, *result
-    };
+    ecs::Registry const& inReg, ecs::Entity inE, 
+    game::components::Transform const& inT, game::components::Sprite const& inS
+) noexcept 
+{
+    auto const dst = game::components::SpriteGetDstRect( inS, inT );
+    if ( !dst.has_value() ) return std::nullopt;
+
+    RenderInfoResolved const render = ResolveRenderInfo( inReg, inE );
+    float const ownSortY = inT.m_WorldCoordinates.y() + dst->m_Height;
+    float const sortY = ( render.m_Owner == inE )
+        ? ownSortY
+        : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
+
+    return DrawItem{ inE, &inT, &inS, render, sortY, *dst };
 }
 
 }
@@ -132,25 +214,40 @@ void asge::game::systems::RenderSystem(
     for ( auto [ entity, transform, sprite ]
             : inRegistry.View<components::Transform, components::Sprite>() )
     {
-        if ( auto item = ConstructFrom( entity, transform.get(), sprite.get() ); item.has_value() )
+        if ( auto item = ConstructFrom( inRegistry, entity, transform.get(), sprite.get() ); item.has_value() )
         {
-            if ( !math::AabbOverlap( item->m_DstRect, visible ) ) continue;
+            if ( !item->m_RenderInfo.m_ScreenSpace && !math::AabbOverlap( item->m_DstRect, visible ) )
+            {
+                continue;
+            }
+
             drawItems.push_back( *item );
         }
     }
 
     std::sort( drawItems.begin(), drawItems.end());
 
+    video::Camera const worldCamera = inRenderer.GetCamera();
+    bool inScreenSpace = false;
+
     for ( auto const& drawItem : drawItems )
     {
+        // Screen-space items sort last, so this switch happens at most once per frame
+        if ( drawItem.m_RenderInfo.m_ScreenSpace && !inScreenSpace )
+        {
+            video::Camera screenCamera = worldCamera;
+            screenCamera.m_X    = 0.0f;
+            screenCamera.m_Y    = 0.0f;
+            screenCamera.m_Zoom = 1.0f;
+            inRenderer.SetCamera( screenCamera );
+            inScreenSpace = true;
+        }
+
         video::ITexture* texture = drawItem.m_Sprite->m_Texture;
         auto const& src = drawItem.m_Sprite->m_SourceRect;
 
         if ( drawItem.m_Transform->m_WorldRotation == 0.0f )
         {
-            // Fast, common path: the overwhelming majority of sprites are
-            // unrotated, and IRenderer's Rect-based DrawTexture overloads
-            // are cheaper than routing everything through an affine draw.
             if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, drawItem.m_DstRect );
             else inRenderer.DrawTexture( *texture, drawItem.m_DstRect );
             continue;
@@ -166,6 +263,10 @@ void asge::game::systems::RenderSystem(
             inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
         }
     }
+
+    // Required: CameraSystem smooths from inRenderer.GetCamera() next frame,
+    // so leaving the screen camera set would make it restart from (0, 0).
+    if ( inScreenSpace ) inRenderer.SetCamera( worldCamera );
 }
 
 void asge::game::systems::RenderPipeline(

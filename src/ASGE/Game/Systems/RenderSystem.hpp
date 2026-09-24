@@ -40,16 +40,19 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
 
 /**
  * @brief Draws every entity that has both a Transform and a Sprite whose
- *        destination rect overlaps the camera's currently visible area.
+ *        destination rect overlaps the camera's currently visible area
+ *        (unless it resolves to screen space -- see below).
  *
  * Transform::m_WorldCoordinates is the sprite's top-left corner (before
  * rotation — see below); m_WorldScale stretches the drawn size — the
  * texture's native size, or Sprite::m_SourceRect's size when set, so a
  * cropped cell of a larger spritesheet is scaled from its own dimensions
  * rather than the whole sheet's. Entities whose Sprite::m_Texture is null
- * are skipped, as is any entity whose destination rect doesn't overlap
- * IRenderer's current camera/viewport at all (see video::VisibleWorldRect)
- * — cheaper than submitting a draw call the backend would just clip away.
+ * are skipped, as is any world-space entity whose destination rect doesn't
+ * overlap IRenderer's current camera/viewport at all (see
+ * video::VisibleWorldRect) — cheaper than submitting a draw call the
+ * backend would just clip away; a screen-space entity (see below) is never
+ * culled this way.
  *
  * Transform::m_WorldRotation == 0 (the overwhelming majority of sprites) takes
  * IRenderer's plain Rect-based DrawTexture path; a non-zero rotation
@@ -57,12 +60,15 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
  * components::SpriteGetDrawCorners, rotating the sprite around its own
  * center (positive m_Rotation is clockwise on screen).
  *
- * Draw order is sorted, not insertion order: entities are batched by
- * Sprite::m_Layer first (lower layers draw first, so higher layers draw on
- * top); within a layer, entities where either side has Sprite::m_YSort set
- * are further ordered by the sprite's bottom edge (position.y + drawn
- * height) for a 2D painter's-algorithm depth effect; anything still tied
- * falls back to entity index for a stable order.
+ * Draw order is sorted, not insertion order, by each entity's resolved
+ * components::RenderInfo -- an entity with none of its own sorts as
+ * RenderInfo{} (layer 0, no y-sort, world space). World-space entities draw
+ * first, screen-space ones last, under a temporary origin/zoom-1 camera
+ * restored to the world camera once the last one is drawn; within that, by
+ * RenderInfo::m_Layer, then bottom-edge Y when either side opted into
+ * RenderInfo::m_YSort, then by sort owner and m_LocalOrder for entities
+ * under a components::Hierarchy parent with m_InheritSortFromParent set,
+ * and finally by entity index for a stable order.
  */
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 

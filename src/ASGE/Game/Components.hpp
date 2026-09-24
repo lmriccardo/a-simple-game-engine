@@ -13,6 +13,7 @@
 #include "Components/PathFollow.hpp"
 #include "Components/Hierarchy.hpp"
 #include "Components/Name.hpp"
+#include "Components/RenderInfo.hpp"
 #include "Components/UI/UIButton.hpp"
 
 namespace asge::game::components
@@ -30,7 +31,11 @@ namespace asge::game::components
  */
 using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation, 
-    AudioSource, Camera, PathFollow, Name, Hierarchy, UIButton
+    AudioSource, Camera, PathFollow, Name, Hierarchy, UIButton,
+    RenderInfo
 >;
+
+/** @brief Every component type belonging to the UI subsystem. */
+using UIComponents = std::tuple<UIButton>;
 
 }
