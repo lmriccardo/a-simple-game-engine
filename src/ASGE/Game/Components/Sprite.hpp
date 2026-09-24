@@ -25,12 +25,19 @@ namespace asge::game::components
  * the path it was loaded from instead. FromToml leaves m_Texture null;
  * asset::AssetManager::ResolveAssets is what resolves m_VirtualPath back
  * into a live texture for every Sprite that still needs one.
+ *
+ * m_ResolvedVirtualPath (also runtime-only) is what m_Texture was actually
+ * last resolved from — Resolver<Sprite> compares it against m_VirtualPath
+ * to notice a change (repointing to a new texture) or a clear (path emptied
+ * out, m_Texture released back to nullptr), rather than resolving once and
+ * never again.
  */
 struct Sprite
 {
     video::ITexture*            m_Texture{nullptr}; // Non-owning; nullptr means "not drawn"
     std::optional<math::Rect>   m_SourceRect{};     // Sub-region to draw; nullopt = whole texture
     std::string                 m_VirtualPath{};    // VFS path m_Texture was (or will be) loaded from
+    std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
     int                         m_Layer{0};         // Draw-order bucket; higher layers draw on top
     bool                        m_YSort{false};     // Opt into sorting by bottom-edge Y within the layer
 };

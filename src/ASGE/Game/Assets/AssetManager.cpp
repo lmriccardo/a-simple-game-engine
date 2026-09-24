@@ -3,6 +3,7 @@
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
+#include <ASGE/Video/Graphics/Rendering/RenderError.hpp>
 
 #include "AssetResolver.hpp"
 
@@ -30,14 +31,27 @@ asge::game::asset::AssetManager::GetAudio(str::StringCRef inVirtualPath)
     return m_AudioPool.GetOrLoad( m_Vfs, inVirtualPath );
 }
 
-asge::video::ITexture *asge::game::asset::AssetManager::CreateTexture(
-    video::IRenderer &inRenderer, media::Image const &inImage) noexcept
+asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetTexture(
+    str::StringCRef inVirtualPath, video::IRenderer &inRenderer) noexcept
 {
-    auto texture = inRenderer.CreateTexture( inImage );
-    if ( !texture ) return nullptr;
+    if ( auto it = m_TextureCache.find( inVirtualPath ); it != m_TextureCache.end() )
+        return Result<video::ITexture*>::Ok( it->second.get() );
+
+    auto image = GetImage( inVirtualPath );
+    if ( !image ) return Result<video::ITexture*>::Err( image.Error() );
+
+    auto texture = inRenderer.CreateTexture( image.Value()->Get() );
+    if ( !texture )
+        return Result<video::ITexture*>::Err( make_error_code( errors::RenderError::TextureCreationFailed ) );
+
     auto* raw = texture.get();
-    m_Textures.push_back( std::move( texture ) );
-    return raw; 
+    m_TextureCache.emplace( str::String( inVirtualPath ), std::move( texture ) );
+    return Result<video::ITexture*>::Ok( raw );
+}
+
+void asge::game::asset::AssetManager::UnloadTexture(str::StringCRef inVirtualPath) noexcept
+{
+    m_TextureCache.erase( inVirtualPath );
 }
 
 void asge::game::asset::AssetManager::ResolveAssets(

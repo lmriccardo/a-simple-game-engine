@@ -1,3 +1,33 @@
+## [0.8.4] - 2026-09-24
+
+
+### Bug Fixes
+
+- :bug: Make asset resolvers re-resolve on path change or clear (#107)
+
+
+
+
+### Features
+
+- :sparkles: Add AssetRefs<T>/CollectAssetRefs, plus a const Registry::View() (#106)
+
+- :sparkles: Add Image::IsSupportedFile and FrameTable::IsFrameTable (#105)
+
+- :sparkles: Add SplitRoot/IsMounted/ToVirtualPath to VirtualFileSystem (#104)
+
+- :sparkles:  Add AssetManager::GetTexture, a path-cached CreateTexture (#103)
+
+- :sparkles: Add SceneManager::CreateEntity/DuplicateEntity for the active scene (#102)
+
+- :sparkle: Add SceneManager::LoadSceneFromFile as SaveScene's real-path counterpart (#101)
+
+
+
+
+### Contributors
+
+- La Marca Riccardo
 ## [0.8.3] - 2026-09-18
 
 
@@ -454,6 +484,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.4]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.0...v0.8.1

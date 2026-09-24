@@ -25,11 +25,15 @@ to stage them later. Branch from an up-to-date `main`:
 
 ```
 git fetch origin main
-git checkout -b fix/<short-kebab-slug> main
+git branch fix/<short-kebab-slug>
+git worktree add worktrees/fix/<short-kebab-slug> fix/<short-kebab-slug>
+cd worktrees/fix/<short-kebab-slug>
 ```
 
 Name the slug from the issue's subject, not `issue-N` — e.g.
 `fix/rendersystem-destrect-sourcecrop`, not `fix/issue-35`.
+
+If the worktrees folder do not exists create it. Remember that u **MUST** work on a worktree.
 
 ## 3. Implement the fix
 
@@ -79,3 +83,19 @@ what was actually run (e.g. `ctest --preset windows-debug` pass count) —
 never claim a test run that didn't happen.
 
 Report the PR URL back to the user; don't merge it yourself.
+
+## 7. Clean up
+
+Once the fix is committed and pushed (the PR is open), remove the scratch
+worktree and local branch created in step 2 — they're no longer needed once
+the remote branch backs the PR:
+
+```
+cd <original repo root, not the worktree you're removing>
+git worktree remove worktrees/fix/<short-kebab-slug>
+git branch -D fix/<short-kebab-slug>
+```
+
+Do this only after the push succeeded (the remote branch is what the PR
+tracks, so the local copies are safe to discard). Don't remove the worktree
+you're currently running from — `cd` out of it first.
