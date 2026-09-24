@@ -1,6 +1,7 @@
 #pragma once
 
 #include <tuple>
+#include <type_traits>
 #include <ASGE/Core/TraitFunctions.hpp>
 #include <ASGE/Core/Functools.hpp>
 #include "Entity.hpp"
@@ -26,6 +27,11 @@ namespace asge::ecs
  * @warning Holds raw pointers into the pools it was built from; must not
  *          outlive the Registry (or ComponentPool instances) that produced them.
  *
+ * Ts may be const-qualified (e.g. `View<Sprite const>`, what
+ * Registry::View<Ts...>() const returns) to get (Entity, Ts const&...)
+ * instead — the same pools, just read-only, for a Registry the caller only
+ * holds a const reference to.
+ *
  * @tparam Ts Component types an entity must have to appear in this view.
  */
 template<typename ... Ts>
@@ -34,23 +40,31 @@ class View
 public:
     using value_type = std::tuple<Entity, std::reference_wrapper<Ts>...>;
 private:
-    template<typename T> using Pool = ComponentPool<T, component_cap_v<T>>;
-    
+    // Pool<T> is const-qualified whenever T is, so a const Ts yields a
+    // ComponentPool<T,Cap> const* -- Cap is always looked up via T's
+    // unqualified form, so this names the exact same pool type
+    // Registry::pool_t<T> does regardless of Ts's constness here.
+    template<typename T> using Pool = std::conditional_t<
+        std::is_const_v<T>,
+        ComponentPool<std::remove_const_t<T>, component_cap_v<std::remove_const_t<T>>> const,
+        ComponentPool<T, component_cap_v<T>>
+    >;
+
     using Tuple_t   = std::tuple<Pool<Ts>*...>;
     using Variant_t = std::variant<Pool<Ts>*...>;
 
-    Tuple_t         m_Pools;         // Pointers to every pool contributing to the View
-    bool            m_Valid;         // false if any pool is nullptr
-    IComponentPool* m_SmallestPool;  // The least dense pool, drives iteration
+    Tuple_t               m_Pools;         // Pointers to every pool contributing to the View
+    bool                  m_Valid;         // false if any pool is nullptr
+    IComponentPool const* m_SmallestPool;  // The least dense pool, drives iteration -- only ever read from, so const regardless of Ts
 
     // Forward iterator over (Entity, Ts&...) tuples for entities present in
     // every pool in m_ActivePools; steps through the smallest pool's dense
     // storage, skipping entities the other pools don't also contain.
     class Iterator
     {
-        Tuple_t         m_ActivePools;
-        IComponentPool* m_SmallestPool;
-        std::size_t     m_Index{};
+        Tuple_t               m_ActivePools;
+        IComponentPool const* m_SmallestPool;
+        std::size_t           m_Index{};
 
         // True only if every pool in m_ActivePools contains this entity.
         bool PassesAllPools( Entity entity ) const
@@ -83,7 +97,7 @@ private:
         using pointer           = void;
         using reference         = value_type;
 
-        Iterator( Tuple_t const& inPools, IComponentPool* inSmallestPool, std::size_t inIndex )
+        Iterator( Tuple_t const& inPools, IComponentPool const* inSmallestPool, std::size_t inIndex )
             : m_ActivePools( inPools ), m_SmallestPool( inSmallestPool )
             , m_Index( inIndex )
         {
@@ -113,11 +127,11 @@ private:
     };
 
     /** @brief Returns the smallest pool based on entity density */
-    IComponentPool* GetSmallestPool() const noexcept
+    IComponentPool const* GetSmallestPool() const noexcept
     {
-        return std::apply([](auto* first, auto*... rest) -> IComponentPool*
+        return std::apply([](auto* first, auto*... rest) -> IComponentPool const*
         {
-            IComponentPool* smallest = first;
+            IComponentPool const* smallest = first;
             ( (rest->Size() < smallest->Size() ? (smallest = rest) : smallest), ... );
             return smallest;
         }, m_Pools);
