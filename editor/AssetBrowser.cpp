@@ -3,15 +3,14 @@
 
 #include <ASGE/Core/Filesystem/FileIO.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
-#include <ASGE/Game/Components/Sprite.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Core/Media/Image.hpp>
+#include <ASGE/Game/Assets/AssetResolver.hpp>
+#include <ASGE/Game/Assets/FrameTable.hpp>
 
 #include <SDL3/SDL_dialog.h>
 
 #include <imgui.h>
 
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <set>
 #include <string>
@@ -19,8 +18,8 @@
 namespace
 {
 namespace fs = std::filesystem;
-using asge::game::components::Sprite;
-using asge::game::components::Animation;
+using asge::game::asset::AssetKind;
+using asge::game::asset::CollectAssetRefs;
 
 // Explicitly imported via "Load Asset..." -- kept separate from (and merged
 // with, at draw time) whatever's derived from the current scene's entities,
@@ -39,39 +38,13 @@ constexpr SDL_DialogFileFilter kAssetFilters[]{
     { "Animation clip (*.toml)", "toml" },
 };
 
-bool HasImageExtension( fs::path const& inPath ) noexcept
-{
-    static std::string const kImageExtensions[]{ ".png", ".jpg", ".jpeg", ".bmp", ".tga", ".gif" };
-    auto ext = inPath.extension().string();
-    std::transform( ext.begin(), ext.end(), ext.begin(),
-        []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
-    return std::find( std::begin( kImageExtensions ), std::end( kImageExtensions ), ext )
-        != std::end( kImageExtensions );
-}
-
-// FrameTable meta-files are plain ".toml", indistinguishable from a scene
-// file by extension alone -- a cheap content sniff for the "[FrameTable]"
-// table name tells them apart without a full TOML parse.
-bool IsFrameTableFile( fs::path const& inPath ) noexcept
-{
-    if ( inPath.extension() != ".toml" ) return false;
-    auto const content = asge::filesystem::ReadText( inPath );
-    return content && content.Value().find( "[FrameTable]" ) != asge::str::String::npos;
-}
-
 void CollectUsedPaths(
     asge::ecs::Registry& inRegistry, std::set<std::string>& outTextures, std::set<std::string>& outAnimations ) noexcept
 {
-    for ( auto entity : inRegistry.AllEntities() )
+    for ( auto const& ref : CollectAssetRefs( inRegistry ) )
     {
-        if ( auto r = inRegistry.GetComponent<Sprite>( entity ); r && !r.Value().get().m_VirtualPath.empty() )
-        {
-            outTextures.insert( r.Value().get().m_VirtualPath );
-        }
-        if ( auto r = inRegistry.GetComponent<Animation>( entity ); r && !r.Value().get().m_ClipPath.empty() )
-        {
-            outAnimations.insert( r.Value().get().m_ClipPath );
-        }
+        if ( ref.m_Kind == AssetKind::Texture ) outTextures.insert( ref.m_VirtualPath );
+        else if ( ref.m_Kind == AssetKind::AnimationClip ) outAnimations.insert( ref.m_VirtualPath );
     }
 }
 
@@ -139,12 +112,12 @@ AssetPick DrawAssetBrowserPanel(
             else
             {
                 std::string const virtualPath = g_PendingLoadRoot + "/" + relative.generic_string();
-                if ( HasImageExtension( picked ) )
+                if ( asge::media::Image::IsSupportedFile( picked ) )
                 {
                     g_LoadedTextures.insert( virtualPath );
                     LOG_INFO( "Loaded texture ", virtualPath );
                 }
-                else if ( IsFrameTableFile( picked ) )
+                else if ( asge::game::asset::FrameTable::IsFrameTable( picked ) )
                 {
                     g_LoadedAnimations.insert( virtualPath );
                     LOG_INFO( "Loaded animation clip ", virtualPath );

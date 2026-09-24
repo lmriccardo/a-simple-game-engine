@@ -14,11 +14,9 @@
  *        (no preview for animation clips). A no-op if nothing's been picked
  *        yet this session.
  *
- * The preview texture is loaded through the same AssetManager::GetImage +
- * CreateTexture path Sprite resolution uses, cached and only reloaded when
- * the inspected path changes -- CreateTexture allocates a fresh GPU texture
- * on every call, so calling it once per frame regardless would leak one
- * every frame.
+ * The preview texture is loaded through AssetManager::GetTexture, the same
+ * path-cached call Sprite resolution uses -- later calls for an already-
+ * inspected path just return the cached ITexture* rather than reloading it.
  *
  * @param ioSelectedAsset Cleared back to AssetPickKind::None if the user
  *        closes the panel via its title-bar (x) button -- same

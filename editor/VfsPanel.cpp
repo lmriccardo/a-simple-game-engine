@@ -30,13 +30,6 @@ std::string      g_PendingMountName; // set right before opening the dialog, con
 
 char g_NewMountNameBuf[64] = "";
 
-/** @brief The part of inVirtualPath before its first '/' -- the mount name it's meant to resolve against. */
-std::string VirtualRootOf( std::string const& inVirtualPath ) noexcept
-{
-    auto const slash = inVirtualPath.find( '/' );
-    return slash == std::string::npos ? inVirtualPath : inVirtualPath.substr( 0, slash );
-}
-
 // Every distinct, non-empty virtual root the current scene's asset-owning
 // components reference. Sprite/Animation/AudioSource are the only
 // SerializableComponents types with a virtual-path field (see
@@ -44,32 +37,25 @@ std::string VirtualRootOf( std::string const& inVirtualPath ) noexcept
 // waypoints, nothing else owns an asset.
 std::set<std::string> ReferencedRoots( asge::ecs::Registry& inRegistry ) noexcept
 {
+    using asge::filesystem::VirtualFileSystem;
+
     std::set<std::string> roots;
     for ( auto entity : inRegistry.AllEntities() )
     {
         if ( auto r = inRegistry.GetComponent<Sprite>( entity ); r && !r.Value().get().m_VirtualPath.empty() )
         {
-            roots.insert( VirtualRootOf( r.Value().get().m_VirtualPath ) );
+            roots.insert( VirtualFileSystem::SplitRoot( r.Value().get().m_VirtualPath ).m_Root );
         }
         if ( auto r = inRegistry.GetComponent<Animation>( entity ); r && !r.Value().get().m_ClipPath.empty() )
         {
-            roots.insert( VirtualRootOf( r.Value().get().m_ClipPath ) );
+            roots.insert( VirtualFileSystem::SplitRoot( r.Value().get().m_ClipPath ).m_Root );
         }
         if ( auto r = inRegistry.GetComponent<AudioSource>( entity ); r && !r.Value().get().m_VirtualClipPath.empty() )
         {
-            roots.insert( VirtualRootOf( r.Value().get().m_VirtualClipPath ) );
+            roots.insert( VirtualFileSystem::SplitRoot( r.Value().get().m_VirtualClipPath ).m_Root );
         }
     }
     return roots;
-}
-
-bool IsMounted( asge::filesystem::VirtualFileSystem const& inVfs, std::string const& inRoot ) noexcept
-{
-    for ( auto const& mount : inVfs.ListMounts() )
-    {
-        if ( mount.m_VirtualRoot == inRoot ) return true;
-    }
-    return false;
 }
 
 void RequestMountFolder( std::string const& inName, SDL_Window* inWindow ) noexcept
@@ -197,7 +183,7 @@ void DrawVfsPanel(
     std::set<std::string> missing;
     for ( auto const& root : ReferencedRoots( inRegistry ) )
     {
-        if ( !IsMounted( inVfs, root ) ) missing.insert( root );
+        if ( !inVfs.IsMounted( root ) ) missing.insert( root );
     }
 
     if ( !missing.empty() )

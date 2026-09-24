@@ -1,5 +1,7 @@
 #include "AssetInspector.hpp"
 
+#include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
+
 #include <imgui.h>
 
 #include <algorithm>
@@ -32,37 +34,6 @@ std::string FormatSize( std::uintmax_t inBytes ) noexcept
     }
     return oss.str();
 }
-
-/** @brief The part of inVirtualPath before its first '/' -- the mount it resolves against. */
-std::string VirtualRootOf( std::string const& inVirtualPath ) noexcept
-{
-    auto const slash = inVirtualPath.find( '/' );
-    return slash == std::string::npos ? inVirtualPath : inVirtualPath.substr( 0, slash );
-}
-
-// The preview texture for whichever path was last inspected -- reloaded
-// only when that path changes, not every frame (CreateTexture allocates a
-// fresh GPU texture on every call; calling it unconditionally every frame
-// would leak one each time).
-std::string           g_CachedPath;
-asge::video::ITexture* g_CachedTexture = nullptr;
-
-void RefreshPreviewIfNeeded(
-    std::string const& inVirtualPath, asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer ) noexcept
-{
-    if ( g_CachedPath == inVirtualPath ) return;
-
-    g_CachedPath = inVirtualPath;
-    g_CachedTexture = nullptr;
-
-    auto image = inAssets.GetImage( inVirtualPath );
-    if ( !image )
-    {
-        image.LogError();
-        return;
-    }
-    g_CachedTexture = inAssets.CreateTexture( inRenderer, image.Value()->Get() );
-}
 }
 
 void DrawAssetInspectorPanel(
@@ -89,21 +60,30 @@ void DrawAssetInspectorPanel(
 
     std::string const absPath = resolved.Value().string();
     ImGui::TextWrapped( "Absolute Path: %s", absPath.c_str() );
-    ImGui::Text( "Mountpoint: %s", VirtualRootOf( inSelectedAsset.m_VirtualPath ).c_str() );
+    ImGui::Text( "Mountpoint: %s",
+        asge::filesystem::VirtualFileSystem::SplitRoot( inSelectedAsset.m_VirtualPath ).m_Root.c_str() );
 
     std::error_code ec;
     auto const bytes = fs::file_size( resolved.Value(), ec );
     ImGui::Text( "File Size: %s", ec ? "unknown" : FormatSize( bytes ).c_str() );
+
+    // GetTexture is path-cached by AssetManager itself, so calling it every
+    // frame just returns the same ITexture* rather than reloading anything.
+    asge::video::ITexture* texture = nullptr;
+    if ( inSelectedAsset.m_Kind == AssetPickKind::Texture )
+    {
+        if ( auto r = inAssets.GetTexture( inSelectedAsset.m_VirtualPath, inRenderer ) ) texture = r.Value();
+        else r.LogError();
+    }
 
     // Loaded here (not just below, next to the thumbnail) so Dimensions can
     // sit with the rest of the generic info, above the separator -- pixel
     // size is a fact about the asset, not part of the visual preview itself.
     if ( inSelectedAsset.m_Kind == AssetPickKind::Texture )
     {
-        RefreshPreviewIfNeeded( inSelectedAsset.m_VirtualPath, inAssets, inRenderer );
-        if ( g_CachedTexture )
+        if ( texture )
         {
-            auto const size = g_CachedTexture->Size();
+            auto const size = texture->Size();
             ImGui::Text( "Dimensions: %d x %d px", size.x(), size.y() );
         }
         else
@@ -116,14 +96,14 @@ void DrawAssetInspectorPanel(
 
     if ( inSelectedAsset.m_Kind == AssetPickKind::Texture )
     {
-        if ( g_CachedTexture )
+        if ( texture )
         {
-            auto const size = g_CachedTexture->Size();
+            auto const size = texture->Size();
             float const maxDim = 128.0f;
             float const largest = static_cast<float>( std::max( size.x(), size.y() ) );
             float const scale = largest > maxDim ? maxDim / largest : 1.0f;
             ImGui::Image(
-                g_CachedTexture->NativeHandle(),
+                texture->NativeHandle(),
                 ImVec2( static_cast<float>( size.x() ) * scale, static_cast<float>( size.y() ) * scale ) );
         }
         else
