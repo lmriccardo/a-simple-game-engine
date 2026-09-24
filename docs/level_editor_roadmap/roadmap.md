@@ -475,46 +475,43 @@ what's actually known to be loaded, never hand-typed, and changing or
 clearing that pick actually changes what renders/plays instead of leaving a
 stale previously-resolved handle in place.
 
-- [ ] Sprite/Animation/AudioSource's virtual-path fields (`m_VirtualPath`,
-      `m_ClipPath`, `m_VirtualClipPath`) become dropdown selections in the
-      Inspector instead of raw `DrawTextField` text inputs — restricted to
-      whatever `AssetBrowser`'s `KnownTexturePaths`/`KnownAnimationPaths`
-      (plus an equivalent for audio clips, not currently exposed) actually
-      knows about, with an explicit "None" entry for "no asset yet."
-      Mirrors the combo `editor/Inspector.cpp`'s `DrawAddComponentControl`
-      already uses at Sprite-add time (the `##SpriteTexture` combo,
-      `Inspector.cpp:290`) rather than inventing a second selection widget.
-      A freshly loaded scene's already-set path must appear pre-selected in
-      the dropdown, not reset to "None" — the combo's current index is
-      whichever `KnownXPaths()` entry matches the component's existing
-      field, not always 0. Applies to every current virtual-path field
-      listed above, and should be the obvious place to plug in a future
-      Font (or similar) component's own path field too.
-- [ ] The underlying resolve-staleness bug this surfaced:
-      `src/ASGE/Game/Assets/AssetResolver.cpp`'s `Resolver<Sprite>`/
-      `Resolver<Animation>`/`Resolver<AudioSource>` all resolve **once**
-      (`if (inSprite.m_Texture || inSprite.m_VirtualPath.empty()) return;`,
-      and the same pattern for the other two) and never again — an empty
-      path is treated as "nothing to do," not "clear what's there," so a
-      Sprite whose `m_VirtualPath` gets cleared or repointed keeps
-      rendering whatever `m_Texture` it resolved to before, indefinitely.
-      Needs each resolver to track which path it last resolved from (a new
-      runtime-only field alongside `m_Texture`/`m_Clip`, the same
-      "non-owning, doesn't round-trip through TOML" treatment those already
-      get) and re-resolve — or clear back to `nullptr`/`nullopt` on an empty
-      path — whenever the component's current path differs from that.
-- [ ] `editor/Inspector.cpp`'s `DrawInspector(Sprite&)`/
-      `DrawInspector(Animation&)`/`DrawInspector(AudioSource&)` currently
-      discard whatever `DrawTextField` returns, so `EntityAction::
-      ComponentsChanged` (the trigger `main.cpp` uses to call
-      `AssetManager::ResolveAssets`, see `main.cpp:507-512`) never fires
-      from an edited path field at all today, independent of the resolver
-      bug above. Once these become dropdowns (previous item), a changed
-      selection should propagate through that same `componentsChanged`
-      plumbing `DrawSection<T>`'s "x" removal already uses — resolving on
-      selection-changed, not on every keystroke of a since-removed text
-      field, which sidesteps the "re-resolve on every character typed" cost
-      a naive keystroke-driven trigger would otherwise have had.
+- [x] Sprite/Animation/AudioSource's virtual-path fields (`m_VirtualPath`,
+      `m_ClipPath`, `m_VirtualClipPath`) are dropdown selections in the
+      Inspector (`DrawAssetPathCombo`) instead of raw `DrawTextField` text
+      inputs — restricted to whatever `AssetBrowser`'s `KnownTexturePaths`/
+      `KnownAnimationPaths`/`KnownAudioPaths` actually knows about, with an
+      explicit "None" entry for "no asset yet." Audio wasn't exposed by
+      `AssetBrowser` at all before this — it gained its own "Audio Clips"
+      section, `KnownAudioPaths`, and a matching `[[Audio]]` table in the
+      `.asges` session format, using `AssetKind::AudioClip` out of the
+      already-existing `CollectAssetRefs` (the engine was already reporting
+      it; nothing in the editor was listening). A freshly loaded scene's
+      already-set path appears pre-selected, not reset to "None" — the
+      combo's current index is whichever `KnownXPaths()` entry matches the
+      component's existing field. `DrawAddComponentControl`'s own
+      `##SpriteTexture` combo at Sprite-add time was left as-is (no "None"
+      entry there by design — a Sprite is always given a real texture up
+      front) rather than unified with the Inspector's combo, since the two
+      have different mandatory-vs-optional semantics.
+- [x] The underlying resolve-staleness bug this surfaced turned out to
+      already be fixed — merging main's v0.8.4 brought `Resolver<Sprite>`/
+      `Resolver<Animation>`/`Resolver<AudioSource>` forward with exactly
+      this behavior already built in: each now tracks
+      `m_ResolvedVirtualPath`/`m_ResolvedClipPath`/
+      `m_ResolvedVirtualClipPath` alongside `m_Texture`/`m_Clip` and
+      re-resolves, or clears back to `nullptr`/`nullopt`, whenever the
+      component's current path differs from what it last resolved. No
+      `src/ASGE/` change was needed for this phase.
+- [x] `editor/Inspector.cpp`'s `DrawInspector(Sprite&)`/
+      `DrawInspector(Animation&)`/`DrawInspector(AudioSource&)` now return
+      `bool` (true only when the path dropdown's selection changed, not for
+      an unrelated edit like Animation's Frame Duration), and `DrawSection<T>`
+      forwards extra args (the known-paths list) to `DrawInspector` and
+      detects a `bool` return via `decltype`/`if constexpr` — so a changed
+      selection propagates through the same `componentsChanged` plumbing
+      the "x" removal button already used, triggering `AssetManager::
+      ResolveAssets` on selection-changed rather than never (the old
+      `DrawTextField`-discarding behavior) or on every keystroke.
 
 **Done when:** every Sprite/Animation/AudioSource in the Inspector is
 assigned its asset by picking from a dropdown of known assets (or "None")
