@@ -8,7 +8,7 @@
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Filesystem/FileIO.hpp>
-#include "PixelFormat.hpp"
+#include <ASGE/Core/Graphics/PixelFormat.hpp>
 
 namespace asge::media
 {
@@ -21,12 +21,12 @@ public:
 private:
     std::size_t m_Width;  // The width of the image in pixels
     std::size_t m_Height; // The heigth of the image in pixels
-    PixelFormat m_Format; // The format of the pixels
+    graphics::PixelFormat m_Format; // The format of the pixels
     data_t      m_Data;   // Bytes representing the image
 
 public:
     Image() = delete;
-    Image( std::size_t inW, std::size_t inH, PixelFormat inFormat, data_t const& inData );
+    Image( std::size_t inW, std::size_t inH, graphics::PixelFormat inFormat, data_t const& inData );
 
     Image(Image const&) = delete;
     Image(Image&&) = default;
@@ -34,7 +34,7 @@ public:
     Image& operator=(Image&&) = default;
 
     [[nodiscard]] math::Int2 Dimensions() const noexcept;
-    [[nodiscard]] PixelFormat Format() const noexcept;
+    [[nodiscard]] graphics::PixelFormat Format() const noexcept;
     [[nodiscard]] std::uint8_t const* Data() const noexcept;
     [[nodiscard]] std::size_t Stride() const noexcept;
 

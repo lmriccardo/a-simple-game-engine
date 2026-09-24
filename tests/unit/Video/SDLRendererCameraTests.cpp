@@ -11,7 +11,7 @@
 namespace
 {
 
-using asge::media::RGBA_Color;
+using asge::graphics::RGBA_Color;
 using asge::video::Camera;
 using asge::video::SDLRenderer;
 using asge::video::Viewport;

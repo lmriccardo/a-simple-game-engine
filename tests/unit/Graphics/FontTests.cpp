@@ -21,6 +21,7 @@ namespace
 {
 
 using namespace asge::media;
+using namespace asge::graphics;
 using asge::errors::FontError;
 
 std::filesystem::path AhemPath()

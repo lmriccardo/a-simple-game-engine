@@ -3,7 +3,7 @@
 #include <random>
 #include <ASGE/ASGE.hpp>
 
-namespace asge_g = asge::media;
+namespace asge_g = asge::graphics;
 
 class BackgroundComponent
 {

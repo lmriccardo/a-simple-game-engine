@@ -7,7 +7,7 @@ namespace
 {
 
 using asge::input::Keycode;
-using asge::media::RGBA_Color;
+using asge::graphics::RGBA_Color;
 using asge::video::Camera;
 using asge::video::Viewport;
 

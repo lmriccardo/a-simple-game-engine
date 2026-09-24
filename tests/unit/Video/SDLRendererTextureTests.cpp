@@ -22,8 +22,8 @@ namespace
 
 using asge::media::Font;
 using asge::media::Image;
-using asge::media::PixelFormat;
-using asge::media::RGBA_Color;
+using asge::graphics::PixelFormat;
+using asge::graphics::RGBA_Color;
 using asge::video::ITexture;
 using asge::video::SDLRenderer;
 

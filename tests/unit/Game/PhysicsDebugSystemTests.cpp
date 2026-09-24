@@ -21,25 +21,25 @@ using asge::game::components::Transform;
 class RecordingRenderer final : public asge::video::IRenderer
 {
 public:
-    struct RectCall   { asge::math::Rect m_Rect; asge::media::RGBA_Color m_Color; bool m_Fill; };
-    struct CircleCall { asge::math::Int2 m_Center; int m_Radius; asge::media::RGBA_Color m_Color; bool m_Fill; };
+    struct RectCall   { asge::math::Rect m_Rect; asge::graphics::RGBA_Color m_Color; bool m_Fill; };
+    struct CircleCall { asge::math::Int2 m_Center; int m_Radius; asge::graphics::RGBA_Color m_Color; bool m_Fill; };
 
     mutable std::vector<RectCall>   m_RectCalls;
     mutable std::vector<CircleCall> m_CircleCalls;
 
-    void Clear(asge::media::RGBA_Color const&) const override {}
+    void Clear(asge::graphics::RGBA_Color const&) const override {}
 
     void DrawRect(asge::math::Rect const& inRect,
-        asge::media::RGBA_Color const& inColor, bool inFill) const override
+        asge::graphics::RGBA_Color const& inColor, bool inFill) const override
     {
         m_RectCalls.push_back({ inRect, inColor, inFill });
     }
 
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
-        asge::media::RGBA_Color const&) const override {}
+        asge::graphics::RGBA_Color const&) const override {}
 
     void DrawCircle(asge::math::Int2 const& inCenter, int inRadius,
-        asge::media::RGBA_Color const& inColor, bool inFill) const override
+        asge::graphics::RGBA_Color const& inColor, bool inFill) const override
     {
         m_CircleCalls.push_back({ inCenter, inRadius, inColor, inFill });
     }
@@ -56,7 +56,7 @@ public:
     void DrawTextureAffine(asge::video::ITexture const&, asge::math::Rect const&, asge::math::Float2 const&,
         asge::math::Float2 const&, asge::math::Float2 const&) const noexcept override {}
     void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
-        asge::math::Float2 const&, asge::media::RGBA_Color const&) const noexcept override {}
+        asge::math::Float2 const&, asge::graphics::RGBA_Color const&) const noexcept override {}
 
     void Present() const override {}
     [[nodiscard]] std::unique_ptr<asge::video::ITexture> CreateTexture(
@@ -144,7 +144,7 @@ TEST(PhysicsDebugSystemTest, EmptyRegistry_DrawsNothing)
 
 // ─── DebugDrawColliders — color by ResolutionType ───────────────────────────
 
-void ExpectColor(asge::media::RGBA_Color const& inColor,
+void ExpectColor(asge::graphics::RGBA_Color const& inColor,
     std::uint8_t inR, std::uint8_t inG, std::uint8_t inB, std::uint8_t inA)
 {
     EXPECT_EQ(inColor.r, inR);

@@ -33,8 +33,9 @@ add_library(ASGE STATIC
     Core/Math/Geometry/Collision.cpp
     Core/Math/Geometry/CatmullRomSpline.cpp
 
-    # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
-    # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
+    # Core media assets (loaded/decoded resources: Image, Font, AudioClip)
+    # Color and PixelFormat are header-only, backend-agnostic value types
+    # under Core/Graphics -- see Video/Graphics for the rendering backend
     Core/Media/Image.cpp
     Core/Media/Font.cpp
     Core/Media/AudioClip.cpp

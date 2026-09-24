@@ -9,7 +9,7 @@ constexpr float HUE_CYCLE_SPEED = 0.6f; // full cycles per ~10 seconds
 
 // Cheap HSV(hue in turns, full sat/value) -> RGB, just enough to cycle the
 // headline's color smoothly without needing a real color-space library.
-asge::media::RGBA_Color HueToColor(float inHueTurns)
+asge::graphics::RGBA_Color HueToColor(float inHueTurns)
 {
     float const h = (inHueTurns - std::floor(inHueTurns)) * 6.0f;
     float const x = 1.0f - std::fabs(std::fmod(h, 2.0f) - 1.0f);

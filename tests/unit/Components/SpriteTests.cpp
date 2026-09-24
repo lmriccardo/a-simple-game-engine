@@ -28,11 +28,11 @@ public:
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const noexcept override { return true; }
 
-    void SetColorMod(asge::media::RGBA_Color) noexcept override {}
+    void SetColorMod(asge::graphics::RGBA_Color) noexcept override {}
 
-    [[nodiscard]] asge::Result<asge::media::RGBA_Color> GetColorMod() const noexcept override
+    [[nodiscard]] asge::Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
     {
-        return asge::Result<asge::media::RGBA_Color>::Ok(asge::media::RGBA_Color{});
+        return asge::Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
     }
 
 private:

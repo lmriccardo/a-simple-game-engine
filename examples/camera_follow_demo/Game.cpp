@@ -6,7 +6,7 @@
 namespace
 {
 using asge::input::Keycode;
-using asge::media::RGBA_Color;
+using asge::graphics::RGBA_Color;
 using asge::game::components::Camera;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;

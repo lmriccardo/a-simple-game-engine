@@ -8,7 +8,7 @@ using asge::input::Keycode;
 using asge::math::Float2;
 using asge::math::Int2;
 using asge::math::Rect;
-using asge::media::RGBA_Color;
+using asge::graphics::RGBA_Color;
 using asge::game::components::PathFollow;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;

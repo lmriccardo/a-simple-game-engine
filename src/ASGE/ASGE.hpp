@@ -43,7 +43,7 @@
 #include <ASGE/Core/ECS/Entity.hpp>
 
 // ASGE Core Graphics
-#include <ASGE/Core/Media/Color.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Core/Media/Font.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 

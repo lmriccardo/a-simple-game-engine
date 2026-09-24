@@ -67,7 +67,7 @@ bool asge::video::SDLTexture::IsValid() const noexcept
     return SDL_GetTextureProperties( m_Handle ) != 0;
 }
 
-void asge::video::SDLTexture::SetColorMod(media::RGBA_Color inColor) noexcept
+void asge::video::SDLTexture::SetColorMod(graphics::RGBA_Color inColor) noexcept
 {
     if ( !SDL_SetTextureColorMod( m_Handle, inColor.r, inColor.g, inColor.b ) )
     {
@@ -80,25 +80,25 @@ void asge::video::SDLTexture::SetColorMod(media::RGBA_Color inColor) noexcept
     }
 }
 
-asge::Result<asge::media::RGBA_Color> asge::video::SDLTexture::GetColorMod() const noexcept
+asge::Result<asge::graphics::RGBA_Color> asge::video::SDLTexture::GetColorMod() const noexcept
 {
-    media::RGBA_Color outColor;
+    graphics::RGBA_Color outColor;
 
     if ( !SDL_GetTextureColorMod( m_Handle, &outColor.r, &outColor.g, &outColor.b ) )
     {
-        return Result<media::RGBA_Color>::Err(
-            make_error_code( errors::RenderError::TextureGetColorModFailed ), 
+        return Result<graphics::RGBA_Color>::Err(
+            make_error_code( errors::RenderError::TextureGetColorModFailed ),
             SDL_GetError());
     }
 
     if ( !SDL_GetTextureAlphaMod( m_Handle, &outColor.a ) )
     {
-        return Result<media::RGBA_Color>::Err(
-            make_error_code( errors::RenderError::TextureGetColorModFailed ), 
+        return Result<graphics::RGBA_Color>::Err(
+            make_error_code( errors::RenderError::TextureGetColorModFailed ),
             SDL_GetError());
     }
 
-    return Result<media::RGBA_Color>::Ok( outColor );
+    return Result<graphics::RGBA_Color>::Ok( outColor );
 }
 
 void asge::video::SDLTexture::Destroy()

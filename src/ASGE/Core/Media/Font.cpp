@@ -104,7 +104,7 @@ asge::Result<asge::media::Font> asge::media::Font::Load(const filesystem::Path &
 
     // Wrap the baked bitmap in an Image so it flows through the existing
     // Image -> ITexture upload path, same as any other texture.
-    Image atlasImage(kAtlasW, kAtlasH, PixelFormat::A8, atlasPixels);
+    Image atlasImage(kAtlasW, kAtlasH, graphics::PixelFormat::A8, atlasPixels);
     return Result<Font>::Ok( Font( std::move(glyphs), std::move(atlasImage),
         lineHeight, scaledAscent, scaledDescent ) 
     );

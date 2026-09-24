@@ -330,11 +330,11 @@ public:
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const noexcept override { return true; }
 
-    void SetColorMod(asge::media::RGBA_Color) noexcept override {}
+    void SetColorMod(asge::graphics::RGBA_Color) noexcept override {}
 
-    [[nodiscard]] asge::Result<asge::media::RGBA_Color> GetColorMod() const noexcept override
+    [[nodiscard]] asge::Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
     {
-        return asge::Result<asge::media::RGBA_Color>::Ok(asge::media::RGBA_Color{});
+        return asge::Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
     }
 };
 
@@ -347,11 +347,11 @@ class FakeRenderer final : public asge::video::IRenderer
 public:
     bool m_FailCreate{ false };
 
-    void Clear(asge::media::RGBA_Color const&) const override {}
-    void DrawRect(asge::math::Rect const&, asge::media::RGBA_Color const&, bool) const override {}
+    void Clear(asge::graphics::RGBA_Color const&) const override {}
+    void DrawRect(asge::math::Rect const&, asge::graphics::RGBA_Color const&, bool) const override {}
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
-        asge::media::RGBA_Color const&) const override {}
-    void DrawCircle(asge::math::Int2 const&, int, asge::media::RGBA_Color const&, bool) const override {}
+        asge::graphics::RGBA_Color const&) const override {}
+    void DrawCircle(asge::math::Int2 const&, int, asge::graphics::RGBA_Color const&, bool) const override {}
     void DrawTexture(asge::video::ITexture const&, asge::math::Rect const&) const noexcept override {}
     void DrawTexture(asge::video::ITexture const&, asge::math::Float2 const&) const noexcept override {}
     void DrawTexture(asge::video::ITexture const&, asge::math::Rect const&,
@@ -364,7 +364,7 @@ public:
     void DrawTextureAffine(asge::video::ITexture const&, asge::math::Rect const&, asge::math::Float2 const&,
         asge::math::Float2 const&, asge::math::Float2 const&) const noexcept override {}
     void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
-        asge::math::Float2 const&, asge::media::RGBA_Color const&) const noexcept override {}
+        asge::math::Float2 const&, asge::graphics::RGBA_Color const&) const noexcept override {}
 
     void Present() const override {}
 
