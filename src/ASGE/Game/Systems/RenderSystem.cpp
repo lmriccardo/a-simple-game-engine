@@ -3,11 +3,14 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <variant>
 
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
+#include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
@@ -30,6 +33,8 @@ struct RenderInfoResolved
 };
 
 static constexpr RenderInfo kDefaultRenderInfo = RenderInfo{}; // Fallback for entities with no RenderInfo component of their own
+
+using Visual = std::variant<Sprite const*, UIButton const*>;
 
 /**
  * @brief Resolves inTarget's effective RenderInfoResolved, walking up its
@@ -71,7 +76,7 @@ struct DrawItem
 {
     ecs::Entity                        m_Entity;    // Source entity; index is the tie-break of last resort
     game::components::Transform const* m_Transform;
-    game::components::Sprite const*    m_Sprite;
+    Visual                             m_Visual;
     RenderInfoResolved                 m_RenderInfo;
     float                              m_SortY;     // Bottom edge (position.y + drawn height), for y-sort
     math::Rect                         m_DstRect;
@@ -96,42 +101,97 @@ bool operator<(DrawItem const& a, DrawItem const& b) noexcept
     if ( ra.m_Owner.m_Index != rb.m_Owner.m_Index ) return ra.m_Owner.m_Index < rb.m_Owner.m_Index;
     if ( ra.m_LocalOrder != rb.m_LocalOrder ) return ra.m_LocalOrder < rb.m_LocalOrder;
     if ( ra.m_Depth != rb.m_Depth ) return ra.m_Depth < rb.m_Depth;
-    return a.m_Entity.m_Index < b.m_Entity.m_Index; 
+    if ( a.m_Entity.m_Index != b.m_Entity.m_Index ) return a.m_Entity.m_Index < b.m_Entity.m_Index;
+    return a.m_Visual.index() < b.m_Visual.index(); 
+}
+
+// ---- Size : The only per-type part of collection ----------------------------------------------
+
+math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noexcept
+{
+    return math::Rect{
+        inT.m_WorldCoordinates.x(), inT.m_WorldCoordinates.y(),
+        inSize.x() * inT.m_WorldScale.x(), inSize.y() * inT.m_WorldScale.y() };
+}
+
+std::optional<math::Rect> ComputeDstRect( Sprite const& inS, Transform const& inT ) noexcept
+{
+    auto const r = SpriteGetDstRect( inS, inT );
+    return r.has_value() ? std::optional<math::Rect>{ *r } : std::nullopt;
+}
+
+std::optional<math::Rect> ComputeDstRect( UIButton const& inB, Transform const& inT ) noexcept
+{
+    return RectFromSize( inT, inB.m_Size );
+}
+
+/** @brief Destination rect of whatever visual the entity has, for computing an owner's bottom edge. */
+std::optional<math::Rect> GetAnyDstRect( ecs::Registry const& inReg, ecs::Entity inE, Transform const& inT ) noexcept
+{
+    if ( auto s = inReg.GetComponent<Sprite>( inE ) ) return ComputeDstRect( s.Value().get(), inT );
+    if ( auto b = inReg.GetComponent<UIButton>( inE ) ) return ComputeDstRect( b.Value().get(), inT );
+    return std::nullopt;
 }
 
 /** @brief inOwner's own bottom-edge Y (Transform + Sprite, if it has one), for an item inheriting inOwner's sort key -- or inFallback if inOwner has no Transform. */
-float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float inFallback )
+float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float inFallback ) noexcept
 {
     auto tResult = inReg.GetComponent<Transform>( inOwner );
     if ( !tResult ) return inFallback;
-    auto const& transform = tResult.Value().get();
 
-    if ( auto s = inReg.GetComponent<Sprite>( inOwner ) )
-    {
-        if ( auto rect = SpriteGetDstRect( s.Value().get(), transform ) )
-        {
-            return transform.m_WorldCoordinates.y() + rect->m_Height;
-        }
-    }
-    return transform.m_WorldCoordinates.y();
+    auto const& transform = tResult.Value().get();
+    auto const  dst = GetAnyDstRect( inReg, inOwner, transform );
+    return transform.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f );
 }
 
+// ---- Collection: identical for every visual type ------------------------------
+
 /** @brief Builds a DrawItem from an entity's Transform + Sprite, or nullopt if the sprite has no texture. */
-std::optional<DrawItem> ConstructFrom(
-    ecs::Registry const& inReg, ecs::Entity inE, 
-    game::components::Transform const& inT, game::components::Sprite const& inS
-) noexcept 
+template<typename T>
+void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<DrawItem>& outItems ) noexcept
 {
-    auto const dst = game::components::SpriteGetDstRect( inS, inT );
-    if ( !dst.has_value() ) return std::nullopt;
+    for ( auto [ entity, transform, visual ] : inReg.View<Transform, T>() )
+    {
+        auto const& t = transform.get();
+        auto const  dst = ComputeDstRect( visual.get(), t );
+        if ( !dst ) continue;
 
-    RenderInfoResolved const render = ResolveRenderInfo( inReg, inE );
-    float const ownSortY = inT.m_WorldCoordinates.y() + dst->m_Height;
-    float const sortY = ( render.m_Owner == inE )
-        ? ownSortY
-        : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
+        RenderInfoResolved const render = ResolveRenderInfo( inReg, inE );
+        if ( !render.m_ScreenSpace && !math::AabbOverlap( *dst, inVisible ) ) continue;
 
-    return DrawItem{ inE, &inT, &inS, render, sortY, *dst };
+        float const ownSortY = inT.m_WorldCoordinates.y() + dst->m_Height;
+        float const sortY = ( render.m_Owner == inE )
+            ? ownSortY
+            : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
+
+        outItems.push_back( DrawItem{ entity, &t, &visual.get(), render, sortY, *dst } );
+    }
+}
+
+// ---- Drawing: one overload per visual type ------------------------------------
+
+void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& inSprite )
+{
+    video::ITexture* texture = inSprite.m_Texture;
+    auto const& src = inSprite.m_SourceRect;
+
+    if ( inItem.m_Transform->m_WorldRotation == 0.0f )
+    {
+        if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, inItem.m_DstRect );
+        else inRenderer.DrawTexture( *texture, inItem.m_DstRect );
+        return;
+    }
+
+    auto const corners = SpriteGetDrawCorners( inItem.m_DstRect, inItem.m_Transform->m_WorldRotation );
+    if ( src.has_value() )
+        inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
+    else
+        inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
+}
+
+void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, UIButton const& inButton )
+{
+
 }
 
 }
@@ -211,19 +271,8 @@ void asge::game::systems::RenderSystem(
     std::vector<DrawItem> drawItems;
     math::Rect const visible = video::VisibleWorldRect( inRenderer.GetCamera(), inRenderer.GetViewport() );
 
-    for ( auto [ entity, transform, sprite ]
-            : inRegistry.View<components::Transform, components::Sprite>() )
-    {
-        if ( auto item = ConstructFrom( inRegistry, entity, transform.get(), sprite.get() ); item.has_value() )
-        {
-            if ( !item->m_RenderInfo.m_ScreenSpace && !math::AabbOverlap( item->m_DstRect, visible ) )
-            {
-                continue;
-            }
-
-            drawItems.push_back( *item );
-        }
-    }
+    Collect<components::Sprite>( inRegistry, visible, drawItems );
+    Collect<components::UIButton>( inRegistry, visible, drawItems );
 
     std::sort( drawItems.begin(), drawItems.end());
 
@@ -243,25 +292,10 @@ void asge::game::systems::RenderSystem(
             inScreenSpace = true;
         }
 
-        video::ITexture* texture = drawItem.m_Sprite->m_Texture;
-        auto const& src = drawItem.m_Sprite->m_SourceRect;
-
-        if ( drawItem.m_Transform->m_WorldRotation == 0.0f )
-        {
-            if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, drawItem.m_DstRect );
-            else inRenderer.DrawTexture( *texture, drawItem.m_DstRect );
-            continue;
-        }
-
-        auto const corners = components::SpriteGetDrawCorners( drawItem.m_DstRect, drawItem.m_Transform->m_WorldRotation );
-        if ( src.has_value() )
-        {
-            inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
-        }
-        else
-        {
-            inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
-        }
+        std::visit( 
+            [&]( auto const *visual ) { Draw( inRenderer, drawItem, *visual ); },
+            drawItem.m_Visual
+        );
     }
 
     // Required: CameraSystem smooths from inRenderer.GetCamera() next frame,
