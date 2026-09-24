@@ -489,7 +489,10 @@ int main(int, char**)
         }
 
         switch (DrawInspectorPanel(
-            sceneManager.GetRegistry(), selectedEntity, KnownTexturePaths(sceneManager.GetRegistry())))
+            sceneManager.GetRegistry(), selectedEntity,
+            KnownTexturePaths(sceneManager.GetRegistry()),
+            KnownAnimationPaths(sceneManager.GetRegistry()),
+            KnownAudioPaths(sceneManager.GetRegistry())))
         {
         case EntityAction::Delete:
             if (auto const destroyResult = sceneManager.GetRegistry().DestroyEntity(selectedEntity); !destroyResult)

@@ -9,7 +9,7 @@
 struct SDL_Window;
 
 /** @brief Which kind of asset an AssetBrowser entry the user clicked names. */
-enum class AssetPickKind { None, Texture, Animation };
+enum class AssetPickKind { None, Texture, Animation, Audio };
 
 /**
  * @brief This frame's pick (if any) from DrawAssetBrowserPanel -- which
@@ -25,23 +25,27 @@ struct AssetPick
 };
 
 /**
- * @brief Panel listing every texture/animation-clip virtual path known to
- *        the editor: every distinct, non-empty Sprite::m_VirtualPath/
- *        Animation::m_ClipPath currently in inRegistry, unioned with
- *        whatever's been explicitly imported via "Load Asset..." -- the
- *        latter exists so an empty, freshly-opened scene (no entities, so
- *        nothing to derive usage from) still has a way to bring an asset
- *        into the list before any entity references it.
+ * @brief Panel listing every texture/animation-clip/audio-clip virtual path
+ *        known to the editor: every distinct, non-empty Sprite::m_VirtualPath/
+ *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
+ *        inRegistry (see asset::CollectAssetRefs), unioned with whatever's
+ *        been explicitly imported via "Load Asset..." -- the latter exists
+ *        so an empty, freshly-opened scene (no entities, so nothing to
+ *        derive usage from) still has a way to bring an asset into the list
+ *        before any entity references it.
  *
  * "Load Asset..." first asks which mount to browse (native dialogs have no
  * notion of a virtual root, so the mount picks the real starting directory
  * and supplies the prefix for the resulting virtual path), then opens a
  * native open-file dialog scoped to that mount's real directory. The picked
- * file is classified the same way a directory scan would (image extension
- * -> texture; ".toml" containing a "[FrameTable]" table -> animation clip).
+ * file is classified the same way a directory scan would (image extension ->
+ * texture, via media::Image::IsSupportedFile; ".toml" containing a
+ * "[FrameTable]" table -> animation clip, via asset::FrameTable::IsFrameTable;
+ * ".wav"/".ogg" -> audio clip, matching media::AudioClip::Load's own
+ * extension dispatch).
  *
- * Clicking an entry (of either kind) just returns it here -- the caller
- * shows it in DrawAssetInspectorPanel, it doesn't assign anything.
+ * Clicking an entry (of any kind) just returns it here -- the caller shows
+ * it in DrawAssetInspectorPanel, it doesn't assign anything.
  */
 AssetPick DrawAssetBrowserPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow ) noexcept;
@@ -49,19 +53,23 @@ AssetPick DrawAssetBrowserPanel(
 /**
  * @brief The same texture virtual paths DrawAssetBrowserPanel's "Textures"
  *        section would list (scene usage unioned with "Load Asset..."
- *        imports), for editor/Inspector.hpp's Sprite-add flow to pick from
- *        -- a Sprite must be given one of these up front rather than
- *        starting with a blank, unresolved m_VirtualPath.
+ *        imports), for editor/Inspector.hpp's Sprite dropdown (both at
+ *        Add-Component time and when editing an existing Sprite) to pick
+ *        from -- a Sprite must be given one of these rather than typing an
+ *        unresolved m_VirtualPath by hand.
  */
 std::vector<std::string> KnownTexturePaths( asge::ecs::Registry& inRegistry ) noexcept;
 
 /** @brief Same as KnownTexturePaths, but the "Animation Clips" section's paths. */
 std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) noexcept;
 
+/** @brief Same as KnownTexturePaths, but the "Audio Clips" section's paths. */
+std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept;
+
 /**
  * @brief Registers every distinct, non-empty Sprite::m_VirtualPath/
- *        Animation::m_ClipPath currently in inRegistry as if each had been
- *        explicitly "Load Asset..."-ed.
+ *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
+ *        inRegistry as if each had been explicitly "Load Asset..."-ed.
  *
  * Call once, right after a scene finishes loading -- without this, an
  * asset that only ever appeared here because some entity referenced it
@@ -73,8 +81,9 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
 void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
 
 /**
- * @brief Adds inTexturePaths/inAnimationPaths to the browser's persistent
- *        "known asset" set, as if each had been explicitly "Load Asset..."-ed.
+ * @brief Adds inTexturePaths/inAnimationPaths/inAudioPaths to the browser's
+ *        persistent "known asset" set, as if each had been explicitly
+ *        "Load Asset..."-ed.
  *
  * Lets Open Session restore assets that were imported but never assigned to
  * any entity -- RegisterSceneAssets alone can't recover those purely from
@@ -83,4 +92,6 @@ void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
  * semantics), not a duplicate entry.
  */
 void ImportAssets(
-    std::vector<std::string> const& inTexturePaths, std::vector<std::string> const& inAnimationPaths ) noexcept;
+    std::vector<std::string> const& inTexturePaths,
+    std::vector<std::string> const& inAnimationPaths,
+    std::vector<std::string> const& inAudioPaths ) noexcept;

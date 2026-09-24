@@ -25,10 +25,10 @@ asge::BoolResult LoadSceneFromRealPath(
 
 /**
  * @brief Writes every current VirtualFileSystem mount, every texture/
- *        animation path the Assets panel currently knows about (scene usage
- *        unioned with "Load Asset..." imports -- see AssetBrowser.hpp's
- *        KnownTexturePaths/KnownAnimationPaths), and inCurrentScenePath
- *        (omitted if unset) to inPath as `.asges` TOML.
+ *        animation/audio path the Assets panel currently knows about (scene
+ *        usage unioned with "Load Asset..." imports -- see AssetBrowser.hpp's
+ *        KnownTexturePaths/KnownAnimationPaths/KnownAudioPaths), and
+ *        inCurrentScenePath (omitted if unset) to inPath as `.asges` TOML.
  */
 asge::BoolResult SaveSession(
     asge::filesystem::VirtualFileSystem const& inVfs,
@@ -39,8 +39,9 @@ asge::BoolResult SaveSession(
 /**
  * @brief Replaces inVfs's entire mount table with inPath's `[[Mount]]`
  *        entries (skipping any whose RealDirectory no longer exists, with a
- *        logged warning); restores every `[[Texture]]`/`[[Animation]]` path
- *        into the Assets panel's known-asset set (AssetBrowser::ImportAssets)
+ *        logged warning); restores every `[[Texture]]`/`[[Animation]]`/
+ *        `[[Audio]]` path into the Assets panel's known-asset set
+ *        (AssetBrowser::ImportAssets)
  *        so one imported but unused by any entity isn't lost just because it
  *        isn't in the reloaded scene's registry; unconditionally drops
  *        whatever scene was open; then, if `[Session].ScenePath` is present,

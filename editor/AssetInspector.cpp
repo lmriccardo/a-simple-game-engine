@@ -111,9 +111,13 @@ void DrawAssetInspectorPanel(
             ImGui::TextDisabled( "(preview unavailable)" );
         }
     }
-    else
+    else if ( inSelectedAsset.m_Kind == AssetPickKind::Animation )
     {
         ImGui::TextDisabled( "No preview for animation clips." );
+    }
+    else
+    {
+        ImGui::TextDisabled( "No preview for audio clips." );
     }
 
     ImGui::End();

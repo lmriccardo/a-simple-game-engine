@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 
 using namespace asge::game::components;
@@ -76,6 +77,34 @@ bool DrawTextField( char const* inLabel, std::string& ioValue ) noexcept
     return false;
 }
 
+// A dropdown restricted to inKnownPaths plus a leading "None" entry -- same
+// shape as DrawAddComponentControl's own "##SpriteTexture" combo below, but
+// with "None" for "no asset assigned yet" (Add-Component's combo has no such
+// option since a Sprite there always gets a real texture up front). The
+// current selection is whichever inKnownPaths entry equals ioPath (or
+// "None" if it's empty or not present in the list, e.g. a freshly-added
+// component). ImGui::Combo only returns true on the frame the picked index
+// actually changes, so this naturally resolves on selection-changed rather
+// than on every frame or keystroke.
+bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept
+{
+    std::vector<char const*> items;
+    items.reserve( inKnownPaths.size() + 1 );
+    items.push_back( "None" );
+    for ( auto const& path : inKnownPaths ) items.push_back( path.c_str() );
+
+    int current = 0;
+    for ( std::size_t i = 0; i < inKnownPaths.size(); ++i )
+    {
+        if ( inKnownPaths[i] == ioPath ) { current = static_cast<int>( i ) + 1; break; }
+    }
+
+    if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
+
+    ioPath = current == 0 ? std::string{} : inKnownPaths[current - 1];
+    return true;
+}
+
 void DrawInspector( Name& inName ) noexcept
 {
     DrawTextField( "Name", inName.m_Name );
@@ -104,17 +133,20 @@ void DrawInspector( Rigidbody& inRigidbody ) noexcept
     ImGui::Checkbox( "Affected By Gravity", &inRigidbody.m_AffectedByGravity );
 }
 
-// Only m_VirtualPath/m_Layer/m_YSort are edited here -- m_SourceRect editing
-// and re-resolving a changed path into a live m_Texture are asset-browsing
-// concerns for Phase 6, not this generalized-inspector phase.
-void DrawInspector( Sprite& inSprite ) noexcept
+// m_SourceRect editing is out of scope here (asset-browsing/viewport gizmo
+// territory). m_VirtualPath is a dropdown restricted to inKnownTextures
+// (Phase 10) -- its return reports only whether the path selection changed,
+// not m_Layer/m_YSort edits, since only a path change needs AssetManager::
+// ResolveAssets re-run.
+bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
-    DrawTextField( "Virtual Path", inSprite.m_VirtualPath );
+    bool const pathChanged = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
 
     int layer = inSprite.m_Layer;
     if ( ImGui::DragInt( "Layer", &layer ) ) inSprite.m_Layer = layer;
 
     ImGui::Checkbox( "Y-Sort", &inSprite.m_YSort );
+    return pathChanged;
 }
 
 void DrawInspector( Collider& inCollider ) noexcept
@@ -156,17 +188,23 @@ void DrawInspector( Camera& inCamera ) noexcept
 
 // Only m_VirtualClipPath round-trips through save (see Serializer<AudioSource>'s
 // doc comment) -- playback state is runtime-only, so it isn't exposed here.
-void DrawInspector( AudioSource& inAudioSource ) noexcept
+// m_VirtualClipPath is a dropdown restricted to inKnownAudio (Phase 10); the
+// return reports whether that selection changed.
+bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& inKnownAudio ) noexcept
 {
-    DrawTextField( "Clip Path", inAudioSource.m_VirtualClipPath );
+    return DrawAssetPathCombo( "Clip Path", inAudioSource.m_VirtualClipPath, inKnownAudio );
 }
 
 // Only m_ClipPath/m_FrameDuration round-trip (see Serializer<Animation>'s
-// doc comment) -- playback progress is runtime-only.
-void DrawInspector( Animation& inAnimation ) noexcept
+// doc comment) -- playback progress is runtime-only. m_ClipPath is a
+// dropdown restricted to inKnownAnimations (Phase 10); the return reports
+// only whether that selection changed, not a m_FrameDuration edit, since
+// only a clip change needs AssetManager::ResolveAssets re-run.
+bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
 {
-    DrawTextField( "Clip Path", inAnimation.m_ClipPath );
+    bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
     ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
+    return clipChanged;
 }
 
 // Waypoint list editing is skipped -- a raw DragFloat2 list is a poor way to
@@ -316,9 +354,19 @@ bool DrawAddComponentControl(
 // silently share state with it. The trailing "x" button removes T via
 // kComponentEntries' erased m_Remove, looked up by inName rather than
 // threading a second template through the call site.
-// @return True the one frame the "x" button actually removed T.
-template<typename T>
-bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, char const* inName ) noexcept
+//
+// inExtra is forwarded straight to DrawInspector, so a type needing more
+// context than just its own component (Sprite/Animation/AudioSource's known-
+// paths list, Phase 10) can take it as an extra parameter without this
+// template itself knowing anything about that -- overload resolution alone
+// picks the right DrawInspector. Whether DrawInspector's return is bool
+// (a path-selection change that should trigger ComponentsChanged) or void
+// (nothing here needs re-resolving) is likewise detected via decltype
+// rather than this template hardcoding which types report one.
+// @return True the one frame the "x" button removed T, or DrawInspector
+//         reported a change worth re-resolving assets for.
+template<typename T, typename... Extra>
+bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, char const* inName, Extra&&... inExtra ) noexcept
 {
     if ( auto r = inRegistry.GetComponent<T>( inEntity ) )
     {
@@ -331,8 +379,19 @@ bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
             ImGui::PopID();
             return true;
         }
-        DrawInspector( r.Value().get() );
+
+        bool changed = false;
+        if constexpr ( std::is_same_v<decltype( DrawInspector( r.Value().get(), std::forward<Extra>( inExtra )... ) ), bool> )
+        {
+            changed = DrawInspector( r.Value().get(), std::forward<Extra>( inExtra )... );
+        }
+        else
+        {
+            DrawInspector( r.Value().get(), std::forward<Extra>( inExtra )... );
+        }
+
         ImGui::PopID();
+        return changed;
     }
     return false;
 }
@@ -382,7 +441,9 @@ bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
 
 EntityAction DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
-    std::vector<std::string> const& inKnownTextures ) noexcept
+    std::vector<std::string> const& inKnownTextures,
+    std::vector<std::string> const& inKnownAnimations,
+    std::vector<std::string> const& inKnownAudio ) noexcept
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return EntityAction::None;
 
@@ -410,11 +471,11 @@ EntityAction DrawInspectorPanel(
     componentsChanged |= DrawSection<Transform>( inRegistry, inSelected, "Transform" );
     componentsChanged |= DrawSection<Velocity>( inRegistry, inSelected, "Velocity" );
     componentsChanged |= DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
-    componentsChanged |= DrawSection<Sprite>( inRegistry, inSelected, "Sprite" );
+    componentsChanged |= DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
     componentsChanged |= DrawSection<Collider>( inRegistry, inSelected, "Collider" );
     componentsChanged |= DrawSection<Camera>( inRegistry, inSelected, "Camera" );
-    componentsChanged |= DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource" );
-    componentsChanged |= DrawSection<Animation>( inRegistry, inSelected, "Animation" );
+    componentsChanged |= DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource", inKnownAudio );
+    componentsChanged |= DrawSection<Animation>( inRegistry, inSelected, "Animation", inKnownAnimations );
     componentsChanged |= DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
 
     componentsChanged |= DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );

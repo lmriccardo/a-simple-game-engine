@@ -26,6 +26,7 @@ using asge::game::asset::CollectAssetRefs;
 // since an empty/freshly-opened scene has nothing to derive from at all.
 std::set<std::string> g_LoadedTextures;
 std::set<std::string> g_LoadedAnimations;
+std::set<std::string> g_LoadedAudio;
 
 // SDL_ShowOpenFileDialog's async result -- same FileDialogResult/
 // DrainFileDialogResult plumbing main.cpp's scene dialogs use.
@@ -36,32 +37,55 @@ fs::path         g_PendingLoadDir;  // that root's real directory, for relative-
 constexpr SDL_DialogFileFilter kAssetFilters[]{
     { "Images", "png;jpg;jpeg;bmp;tga;gif" },
     { "Animation clip (*.toml)", "toml" },
+    { "Audio", "wav;ogg" },
 };
 
+// media::AudioClip has no IsSupportedFile equivalent to Image's -- it
+// dispatches strictly by exact-case ".wav"/".ogg" (see AudioClip::Load), so
+// this mirrors that exact match rather than being more permissive than what
+// actually decodes.
+bool HasAudioExtension( fs::path const& inPath ) noexcept
+{
+    return inPath.extension() == ".wav" || inPath.extension() == ".ogg";
+}
+
 void CollectUsedPaths(
-    asge::ecs::Registry& inRegistry, std::set<std::string>& outTextures, std::set<std::string>& outAnimations ) noexcept
+    asge::ecs::Registry& inRegistry,
+    std::set<std::string>& outTextures, std::set<std::string>& outAnimations, std::set<std::string>& outAudio ) noexcept
 {
     for ( auto const& ref : CollectAssetRefs( inRegistry ) )
     {
-        if ( ref.m_Kind == AssetKind::Texture ) outTextures.insert( ref.m_VirtualPath );
-        else if ( ref.m_Kind == AssetKind::AnimationClip ) outAnimations.insert( ref.m_VirtualPath );
+        switch ( ref.m_Kind )
+        {
+        case AssetKind::Texture:       outTextures.insert( ref.m_VirtualPath ); break;
+        case AssetKind::AnimationClip: outAnimations.insert( ref.m_VirtualPath ); break;
+        case AssetKind::AudioClip:     outAudio.insert( ref.m_VirtualPath ); break;
+        }
     }
 }
 
 std::set<std::string> MergedTextures( asge::ecs::Registry& inRegistry ) noexcept
 {
     std::set<std::string> textures = g_LoadedTextures;
-    std::set<std::string> animations; // discarded -- caller only wants textures
-    CollectUsedPaths( inRegistry, textures, animations );
+    std::set<std::string> animations, audio; // discarded -- caller only wants textures
+    CollectUsedPaths( inRegistry, textures, animations, audio );
     return textures;
 }
 
 std::set<std::string> MergedAnimations( asge::ecs::Registry& inRegistry ) noexcept
 {
-    std::set<std::string> textures; // discarded -- caller only wants animations
+    std::set<std::string> textures, audio; // discarded -- caller only wants animations
     std::set<std::string> animations = g_LoadedAnimations;
-    CollectUsedPaths( inRegistry, textures, animations );
+    CollectUsedPaths( inRegistry, textures, animations, audio );
     return animations;
+}
+
+std::set<std::string> MergedAudio( asge::ecs::Registry& inRegistry ) noexcept
+{
+    std::set<std::string> textures, animations; // discarded -- caller only wants audio
+    std::set<std::string> audio = g_LoadedAudio;
+    CollectUsedPaths( inRegistry, textures, animations, audio );
+    return audio;
 }
 }
 
@@ -77,20 +101,29 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
     return { animations.begin(), animations.end() };
 }
 
+std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept
+{
+    auto const audio = MergedAudio( inRegistry );
+    return { audio.begin(), audio.end() };
+}
+
 void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept
 {
-    std::set<std::string> textures;
-    std::set<std::string> animations;
-    CollectUsedPaths( inRegistry, textures, animations );
+    std::set<std::string> textures, animations, audio;
+    CollectUsedPaths( inRegistry, textures, animations, audio );
     g_LoadedTextures.insert( textures.begin(), textures.end() );
     g_LoadedAnimations.insert( animations.begin(), animations.end() );
+    g_LoadedAudio.insert( audio.begin(), audio.end() );
 }
 
 void ImportAssets(
-    std::vector<std::string> const& inTexturePaths, std::vector<std::string> const& inAnimationPaths ) noexcept
+    std::vector<std::string> const& inTexturePaths,
+    std::vector<std::string> const& inAnimationPaths,
+    std::vector<std::string> const& inAudioPaths ) noexcept
 {
     g_LoadedTextures.insert( inTexturePaths.begin(), inTexturePaths.end() );
     g_LoadedAnimations.insert( inAnimationPaths.begin(), inAnimationPaths.end() );
+    g_LoadedAudio.insert( inAudioPaths.begin(), inAudioPaths.end() );
 }
 
 AssetPick DrawAssetBrowserPanel(
@@ -122,9 +155,14 @@ AssetPick DrawAssetBrowserPanel(
                     g_LoadedAnimations.insert( virtualPath );
                     LOG_INFO( "Loaded animation clip ", virtualPath );
                 }
+                else if ( HasAudioExtension( picked ) )
+                {
+                    g_LoadedAudio.insert( virtualPath );
+                    LOG_INFO( "Loaded audio clip ", virtualPath );
+                }
                 else
                 {
-                    LOG_WARNING( "\"", virtualPath, "\" is neither a recognized image nor a FrameTable clip" );
+                    LOG_WARNING( "\"", virtualPath, "\" is not a recognized image, FrameTable clip, or audio file" );
                 }
             }
         }
@@ -132,16 +170,16 @@ AssetPick DrawAssetBrowserPanel(
 
     std::set<std::string> const textures = MergedTextures( inRegistry );
     std::set<std::string> const animations = MergedAnimations( inRegistry );
+    std::set<std::string> const audio = MergedAudio( inRegistry );
 
-    // Whether an entity's Sprite/Animation actually references a path right
-    // now -- checked before the "x" is allowed to remove it. The already-
-    // loaded ITexture/clip an entity is using stays cached regardless of
-    // this panel's own bookkeeping, so silently un-importing a path still in
-    // use wouldn't stop it rendering; it would just make the panel lie about
-    // what's actually bound.
-    std::set<std::string> usedTextures;
-    std::set<std::string> usedAnimations;
-    CollectUsedPaths( inRegistry, usedTextures, usedAnimations );
+    // Whether an entity's Sprite/Animation/AudioSource actually references a
+    // path right now -- checked before the "x" is allowed to remove it. The
+    // already-loaded ITexture/clip an entity is using stays cached regardless
+    // of this panel's own bookkeeping, so silently un-importing a path still
+    // in use wouldn't stop it rendering/playing; it would just make the
+    // panel lie about what's actually bound.
+    std::set<std::string> usedTextures, usedAnimations, usedAudio;
+    CollectUsedPaths( inRegistry, usedTextures, usedAnimations, usedAudio );
 
     AssetPick pick;
 
@@ -166,7 +204,7 @@ AssetPick DrawAssetBrowserPanel(
                 auto const defaultLocation = DialogDefaultLocation( g_PendingLoadDir );
                 SDL_ShowOpenFileDialog(
                     OnFileDialogResult, &g_LoadDialogResult, inWindow,
-                    kAssetFilters, 2, defaultLocation.c_str(), false );
+                    kAssetFilters, 3, defaultLocation.c_str(), false );
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -243,6 +281,36 @@ AssetPick DrawAssetBrowserPanel(
             ImGui::PopID();
         }
         if ( animations.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
+        ImGui::TreePop();
+    }
+
+    if ( ImGui::TreeNodeEx( "Audio Clips", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        for ( auto const& path : audio )
+        {
+            ImGui::PushID( path.c_str() );
+            if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
+            {
+                pick = { AssetPickKind::Audio, path };
+            }
+            if ( g_LoadedAudio.count( path ) )
+            {
+                ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
+                if ( ImGui::SmallButton( "x" ) )
+                {
+                    if ( usedAudio.count( path ) )
+                    {
+                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
+                    }
+                    else
+                    {
+                        g_LoadedAudio.erase( path );
+                    }
+                }
+            }
+            ImGui::PopID();
+        }
+        if ( audio.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
         ImGui::TreePop();
     }
 

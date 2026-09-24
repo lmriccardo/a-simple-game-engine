@@ -43,16 +43,22 @@ enum class EntityAction { None, Delete, Duplicate, ComponentsChanged };
  *
  * @param inKnownTextures Every texture virtual path the editor currently
  *        knows about (see editor/AssetBrowser.hpp's KnownTexturePaths) --
- *        adding a Sprite requires picking one of these up front instead of
- *        starting with a blank, unresolved m_VirtualPath the user would
- *        have to fill in by hand anyway.
+ *        both Sprite Add-Component and an existing Sprite's "Virtual Path"
+ *        dropdown are restricted to these (plus "None" for the latter)
+ *        instead of a hand-typed, unresolved m_VirtualPath.
+ * @param inKnownAnimations Same as inKnownTextures, for Animation::m_ClipPath
+ *        (see KnownAnimationPaths).
+ * @param inKnownAudio Same as inKnownTextures, for
+ *        AudioSource::m_VirtualClipPath (see KnownAudioPaths).
  * @return Which lifecycle action (if any) its buttons requested -- performed
  *         by the caller, same reasoning as DrawEntityListPanel's Create
  *         signal.
  */
 EntityAction DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
-    std::vector<std::string> const& inKnownTextures ) noexcept;
+    std::vector<std::string> const& inKnownTextures,
+    std::vector<std::string> const& inKnownAnimations,
+    std::vector<std::string> const& inKnownAudio ) noexcept;
 
 /**
  * @brief Restarts the "Entity #N" fallback numbering (see GetEntityLabel)

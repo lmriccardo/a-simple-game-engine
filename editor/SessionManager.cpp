@@ -39,10 +39,10 @@ asge::BoolResult SaveSession(
         mountTable.Set( "RealDirectory", mount.m_RealDirectory.string() );
     }
 
-    // Every texture/animation path the Assets panel currently knows about --
-    // not just what the open scene's entities reference -- so an asset
-    // imported via "Load Asset..." but never assigned to anything doesn't
-    // silently vanish from the panel on the next Open Session.
+    // Every texture/animation/audio path the Assets panel currently knows
+    // about -- not just what the open scene's entities reference -- so an
+    // asset imported via "Load Asset..." but never assigned to anything
+    // doesn't silently vanish from the panel on the next Open Session.
     for ( auto const& path : KnownTexturePaths( inRegistry ) )
     {
         auto textureTable = builder.ArrayTable( "Texture" );
@@ -52,6 +52,11 @@ asge::BoolResult SaveSession(
     {
         auto animationTable = builder.ArrayTable( "Animation" );
         animationTable.Set( "Path", path );
+    }
+    for ( auto const& path : KnownAudioPaths( inRegistry ) )
+    {
+        auto audioTable = builder.ArrayTable( "Audio" );
+        audioTable.Set( "Path", path );
     }
 
     if ( inCurrentScenePath )
@@ -108,11 +113,11 @@ asge::BoolResult LoadSession(
         if ( auto r = inVfs.Mount( name, dir ); !r ) r.LogError();
     }
 
-    // Restore every texture/animation path the session recorded -- including
-    // ones no entity in the about-to-load scene references -- before the
-    // scene load below unions in whatever it uses via RegisterSceneAssets;
-    // a path already present here is just a no-op insert (std::set
-    // semantics), not a duplicate entry in the Assets panel.
+    // Restore every texture/animation/audio path the session recorded --
+    // including ones no entity in the about-to-load scene references --
+    // before the scene load below unions in whatever it uses via
+    // RegisterSceneAssets; a path already present here is just a no-op
+    // insert (std::set semantics), not a duplicate entry in the Assets panel.
     std::vector<std::string> textures;
     for ( int textureIndex = 0; ; ++textureIndex )
     {
@@ -136,7 +141,19 @@ asge::BoolResult LoadSession(
         }
         animations.push_back( getResult.Value().Get<std::string>( "Path", {} ) );
     }
-    ImportAssets( textures, animations );
+
+    std::vector<std::string> audio;
+    for ( int audioIndex = 0; ; ++audioIndex )
+    {
+        auto getResult = doc.GetTable( "Audio", audioIndex );
+        if ( !getResult )
+        {
+            if ( getResult.Code() == make_error_code( asge::errors::ConfError::TomlNoSubtable ) ) break;
+            return asge::BoolResult::Err( getResult.Error() );
+        }
+        audio.push_back( getResult.Value().Get<std::string>( "Path", {} ) );
+    }
+    ImportAssets( textures, animations, audio );
 
     // Outright replace, matching File > New / Open -- no dirty-check.
     inSceneManager.UnloadScene();
