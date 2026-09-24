@@ -21,8 +21,17 @@ asge::Result<asge::game::asset::FrameTable> asge::game::asset::FrameTable::Load(
     auto const columns = static_cast<std::size_t>( table.Get<int>( "columns", 0 ) );
     auto const count    = static_cast<std::size_t>( table.Get<int>( "count", 0 ) );
 
-    return Result<FrameTable>::Ok( 
+    return Result<FrameTable>::Ok(
         FrameTable{ MakeGridFrames( cell, columns, count ) } );
+}
+
+bool asge::game::asset::FrameTable::IsFrameTable(filesystem::Path const &inPath)
+{
+    auto parsed = asge::config::toml::Parse( inPath );
+    if ( !parsed ) return false;
+
+    asge::config::toml::TOMLTableView const root( parsed.Value() );
+    return root.HasTable( str::String(kTableName) );
 }
 
 std::vector<asge::math::Rect> asge::game::asset::MakeGridFrames(

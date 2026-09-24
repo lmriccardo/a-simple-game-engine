@@ -108,6 +108,50 @@ TEST_F(FrameTableLoadTest, MalformedTomlReturnsError)
     EXPECT_FALSE(result.IsOk());
 }
 
+// ─── FrameTable::IsFrameTable ──────────────────────────────────────────────
+
+class IsFrameTableTest : public FrameTableLoadTest {};
+
+TEST_F(IsFrameTableTest, FileWithFrameTableTableReturnsTrue)
+{
+    Write(
+        "[FrameTable]\n"
+        "x = 0.0\n"
+        "y = 0.0\n"
+        "w = 8.0\n"
+        "h = 8.0\n"
+        "columns = 2\n"
+        "count = 4\n"
+    );
+
+    EXPECT_TRUE(FrameTable::IsFrameTable(m_Path));
+}
+
+TEST_F(IsFrameTableTest, WellFormedTomlWithoutFrameTableTableReturnsFalse)
+{
+    // A scene file is also plain .toml -- IsFrameTable must actually check
+    // for the [FrameTable] table, not just "is this valid TOML".
+    Write(
+        "[[entity]]\n"
+        "[entity.Transform]\n"
+        "x = 1.0\n"
+    );
+
+    EXPECT_FALSE(FrameTable::IsFrameTable(m_Path));
+}
+
+TEST_F(IsFrameTableTest, MalformedTomlReturnsFalseRatherThanError)
+{
+    Write("not a valid line\n");
+
+    EXPECT_FALSE(FrameTable::IsFrameTable(m_Path));
+}
+
+TEST_F(IsFrameTableTest, NonExistentPathReturnsFalse)
+{
+    EXPECT_FALSE(FrameTable::IsFrameTable(m_Path)); // never written by this test
+}
+
 // ─── MakeGridFrames ─────────────────────────────────────────────────────────
 
 TEST(MakeGridFramesTest, LaysOutFramesInRowMajorOrderAcrossColumns)
