@@ -3,33 +3,60 @@
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
 
 void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(
-    AssetManager &inAssetManager, ecs::Registry &inRegistry, 
+    AssetManager &inAssetManager, ecs::Registry &inRegistry,
     video::IRenderer &inRenderer, C& inSprite) const noexcept
 {
-    if ( inSprite.m_Texture || inSprite.m_VirtualPath.empty() ) return;
+    if ( inSprite.m_VirtualPath == inSprite.m_ResolvedVirtualPath ) return;
+
+    if ( inSprite.m_VirtualPath.empty() )
+    {
+        inSprite.m_Texture = nullptr;
+        inSprite.m_ResolvedVirtualPath.clear();
+        return;
+    }
+
     auto texture = inAssetManager.GetTexture( inSprite.m_VirtualPath, inRenderer );
     if ( !texture ) { texture.LogError(); return; }
     inSprite.m_Texture = texture.Value();
+    inSprite.m_ResolvedVirtualPath = inSprite.m_VirtualPath;
 }
 
 void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(
-    AssetManager &inAssetManager, ecs::Registry &inRegistry, 
+    AssetManager &inAssetManager, ecs::Registry &inRegistry,
     video::IRenderer &inRenderer, C &inAnimation) const noexcept
 {
-    if ( inAnimation.m_Clip || inAnimation.m_ClipPath.empty() ) return;
+    if ( inAnimation.m_ClipPath == inAnimation.m_ResolvedClipPath ) return;
+
+    if ( inAnimation.m_ClipPath.empty() )
+    {
+        inAnimation.m_Clip = nullptr;
+        inAnimation.m_ResolvedClipPath.clear();
+        return;
+    }
+
     auto frameTable = inAssetManager.GetFrameTable( inAnimation.m_ClipPath );
     if ( !frameTable ) { frameTable.LogError(); return; }
     inAnimation.m_Clip = frameTable.Value();
+    inAnimation.m_ResolvedClipPath = inAnimation.m_ClipPath;
 }
 
 void asge::game::asset::Resolver<asge::game::components::AudioSource>::operator()(
-    AssetManager &inAssetManager, ecs::Registry &inRegistry, 
+    AssetManager &inAssetManager, ecs::Registry &inRegistry,
     video::IRenderer &inRenderer, C &inAudioSource) const noexcept
 {
-    if ( inAudioSource.m_Clip || inAudioSource.m_VirtualClipPath.empty() ) return;
+    if ( inAudioSource.m_VirtualClipPath == inAudioSource.m_ResolvedVirtualClipPath ) return;
+
+    if ( inAudioSource.m_VirtualClipPath.empty() )
+    {
+        inAudioSource.m_Clip = nullptr;
+        inAudioSource.m_ResolvedVirtualClipPath.clear();
+        return;
+    }
+
     auto audioclip = inAssetManager.GetAudio( inAudioSource.m_VirtualClipPath );
     if ( !audioclip ) { audioclip.LogError(); return; }
     inAudioSource.m_Clip = audioclip.Value();
+    inAudioSource.m_ResolvedVirtualClipPath = inAudioSource.m_VirtualClipPath;
 }
 
 void asge::game::asset::Resolver<asge::game::components::PathFollow>::operator()(

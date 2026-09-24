@@ -22,6 +22,11 @@ namespace asge::game::components
  * ResolveAssets resolves it (the same deferred-load step Sprite::m_Texture
  * goes through), so AnimationSystem has nothing to advance for a freshly
  * loaded/spawned entity until that's run at least once.
+ *
+ * m_ResolvedClipPath (also runtime-only) is what m_Clip was actually last
+ * resolved from — Resolver<Animation> compares it against m_ClipPath to
+ * notice a change (repointing to a new clip) or a clear (path emptied out,
+ * m_Clip released back to null), rather than resolving once and never again.
  */
 struct Animation
 {
@@ -29,6 +34,7 @@ struct Animation
 
     str::String m_ClipPath{}; // Virtual path of the clip's FrameTable TOML meta-file
     frame_table m_Clip{};     // Resolved FrameTable asset -- null until AssetManager::ResolveAssets runs
+    str::String m_ResolvedClipPath{}; // Runtime-only: the path m_Clip was actually last resolved from
 
     float       m_FrameDuration{0.1f}; // Seconds each frame is shown before advancing
     std::size_t m_CurrentFrame{0};     // Index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
@@ -50,11 +56,11 @@ void StopAnimation( Animation& inAnim ) noexcept;
 /**
  * @brief Round-trips m_ClipPath and m_FrameDuration only — which clip to
  *        play and how fast, not the live playback progress. FromToml leaves
- *        m_Clip null (resolved later by AssetManager::ResolveAssets, same
- *        as Sprite::m_Texture) and m_CurrentFrame/m_ElapsedTime/m_Loop/
- *        m_Playing at Animation's in-code defaults; a scene file describes
- *        what an entity's animation is, not where a previous run happened
- *        to leave it.
+ *        m_Clip null and m_ResolvedClipPath empty (both resolved later by
+ *        AssetManager::ResolveAssets, same as Sprite::m_Texture) and
+ *        m_CurrentFrame/m_ElapsedTime/m_Loop/m_Playing at Animation's
+ *        in-code defaults; a scene file describes what an entity's
+ *        animation is, not where a previous run happened to leave it.
  */
 template<>
 struct Serializer<Animation>
