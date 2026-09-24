@@ -43,6 +43,17 @@ public:
      *         dstRegistry before the call is never touched, win or lose.
      */
     BoolResult Load( ecs::Registry& dstRegistry, str::String const& inVirtualPath ) const noexcept;
+
+    /**
+     * @brief Same as Load(), but for a scene file addressed by a real
+     *        filesystem path instead of one resolved through the VFS.
+     * @return Ok on success, with the same partial-load rollback guarantee as Load().
+     */
+    BoolResult LoadFromFile( ecs::Registry& dstRegistry, filesystem::Path const& inPath ) const noexcept;
+
+private:
+    // Shared body of Load()/LoadFromFile() once inPath has been resolved to a real path.
+    BoolResult LoadResolved( ecs::Registry& dstRegistry, filesystem::Path const& inPath ) const noexcept;
 };
 
 }

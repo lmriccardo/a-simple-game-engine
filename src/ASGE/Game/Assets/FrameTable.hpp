@@ -31,6 +31,14 @@ struct FrameTable
 
     /** @brief Parses inPath's `[FrameTable]` TOML table into m_Frames — see the struct doc comment for its schema. */
     static Result<FrameTable> Load( filesystem::Path const& inPath );
+
+    /**
+     * @brief Checks whether inPath is a FrameTable clip — a TOML file with
+     *        a top-level `[FrameTable]` table — without building the frame
+     *        grid. Parses the real TOML, unlike a substring search.
+     * @return false for a missing, malformed, or non-matching file alike.
+     */
+    [[nodiscard]] static bool IsFrameTable( filesystem::Path const& inPath );
 };
 
 /**

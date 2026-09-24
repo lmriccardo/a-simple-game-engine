@@ -1,6 +1,7 @@
 add_executable(ASGE_AssetsTests
     AssetPoolTests.cpp
     AssetManagerTests.cpp
+    AssetResolverTests.cpp
     FrameTableTests.cpp
 )
 

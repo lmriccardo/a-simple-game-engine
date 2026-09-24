@@ -60,6 +60,13 @@ public:
      * @return The decoded Image, or an error if the file couldn't be read or decoded
      */
     static Result<Image> Load( filesystem::Path const& inImagePath );
+
+    /**
+     * @brief Checks whether inPath's extension is one Load()/DecodeImage()
+     *        can decode — a cheap, content-blind pre-filter for a file
+     *        picker, not a guarantee the bytes themselves are valid.
+     */
+    [[nodiscard]] static bool IsSupportedFile( filesystem::Path const& inPath ) noexcept;
 };
 
 /**

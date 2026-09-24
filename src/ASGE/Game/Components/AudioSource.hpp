@@ -24,19 +24,26 @@ namespace asge::game::components
  * PlayAudioSource/StopAudioSource/DetachAudioSource rather than touching
  * m_Playing/m_Stream directly, so m_Loop and m_Restart stay in sync with
  * the request.
+ *
+ * m_ResolvedVirtualClipPath (also runtime-only) is what m_Clip was actually
+ * last resolved from — Resolver<AudioSource> compares it against
+ * m_VirtualClipPath to notice a change (repointing to a new clip) or a
+ * clear (path emptied out, m_Clip released back to null), rather than
+ * resolving once and never again.
  */
 struct AudioSource
 {
     using audio_clip_asset = std::shared_ptr<asset::Asset<media::AudioClip>>;
     using stream = std::shared_ptr<audio::AudioStream>;
 
-    audio_clip_asset    m_Clip              { nullptr }; // Not serialized -- resolved clip asset, or null until ResolveAssets runs
-    stream              m_Stream            { nullptr }; // Not serialized -- this source's slot in the AudioDevice pool, once played
-    str::String         m_VirtualClipPath   {};          // Serialized. VFS path resolved into m_Clip
-    bool                m_Playing           { false };   // Not serialized -- whether AudioSystem should be advancing playback
-    bool                m_Loop              { false };   // Not serialized -- whether AudioSystem restarts the clip when it runs out
-    bool                m_Restart           { false };   // Not serialized -- set by PlayAudioSource; consumed once by AudioSystem to force an immediate (re)start, independent of m_Loop or how much data is still queued
-    float               m_Volume            { 1.0f };    // Not serialized -- this source's own playback gain; applied to m_Stream via SetAudioGain whenever AudioSystem (re)starts it
+    audio_clip_asset    m_Clip              { nullptr }; // resolved clip asset, or null until ResolveAssets runs
+    stream              m_Stream            { nullptr }; // this source's slot in the AudioDevice pool, once played
+    str::String         m_VirtualClipPath   {};          // VFS path resolved into m_Clip
+    str::String         m_ResolvedVirtualClipPath {};    // Runtime-only: the path m_Clip was actually last resolved from
+    bool                m_Playing           { false };   // whether AudioSystem should be advancing playback
+    bool                m_Loop              { false };   // whether AudioSystem restarts the clip when it runs out
+    bool                m_Restart           { false };   // set by PlayAudioSource; consumed once by AudioSystem to force an immediate (re)start, independent of m_Loop or how much data is still queued
+    float               m_Volume            { 1.0f };    // this source's own playback gain; applied to m_Stream via SetAudioGain whenever AudioSystem (re)starts it
 };
 
 /**
@@ -76,8 +83,9 @@ namespace asge::game::scene
 
 /**
  * @brief Round-trips m_VirtualClipPath only — which clip to play, not the
- *        live playback state. FromToml leaves m_Clip null (resolved later
- *        by AssetManager::ResolveAssets, same as Sprite::m_Texture) and
+ *        live playback state. FromToml leaves m_Clip null and
+ *        m_ResolvedVirtualClipPath empty (both resolved later by
+ *        AssetManager::ResolveAssets, same as Sprite::m_Texture) and
  *        m_Stream/m_Playing/m_Loop/m_Volume at AudioSource's in-code
  *        defaults; a scene file describes what an entity plays, not
  *        whether a previous run happened to be mid-playback.

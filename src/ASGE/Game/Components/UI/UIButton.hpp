@@ -29,6 +29,7 @@ struct UIButton
 
     // Serialized properties
     str::String    m_FontVirtualPath{};                      // VFS path of the font m_Text is drawn with
+    str::String    m_ResolvedVirtualPath{};                  // Resolved virtual path for font texture
     int            m_FontWeight     {16};                    // Font size
     str::String    m_Text           {"Click Me"};            // Label drawn on the button
     str::TextAlign m_TextAlignment  {str::TextAlign::None};  // How m_Text is justified within m_Size

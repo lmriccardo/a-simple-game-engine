@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <type_traits>
 #include <vector>
 
 namespace
@@ -201,6 +202,85 @@ TEST(RegistryTest, View_ExcludesEntityAfterDestroy)
 
     ASSERT_EQ(seen.size(), 1u);
     EXPECT_EQ(seen[0], keep.m_Index);
+}
+
+// ─── Registry::View — const overload ───────────────────────────────────────────
+
+TEST(RegistryTest, View_ConstRegistryVisitsAllEntitiesWithIt)
+{
+    Registry registry;
+    for (int i = 0; i < 3; ++i)
+    {
+        auto e = registry.CreateEntity();
+        ASSERT_TRUE(e.IsOk());
+        ASSERT_TRUE(registry.AddComponent<Position>(e.Value(), Position{ float(i), 0.0f }).IsOk());
+    }
+
+    Registry const& constRegistry = registry;
+    std::vector<float> seen;
+    for (auto [entity, pos] : constRegistry.View<Position>())
+    {
+        (void)entity;
+        seen.push_back(pos.get().x);
+    }
+
+    std::sort(seen.begin(), seen.end());
+    EXPECT_EQ(seen, (std::vector<float>{ 0.0f, 1.0f, 2.0f }));
+}
+
+TEST(RegistryTest, View_ConstRegistryReturnsReadOnlyReferences)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(e, Position{ 1.0f, 1.0f }).IsOk());
+
+    Registry const& constRegistry = registry;
+    for (auto [entity, pos] : constRegistry.View<Position>())
+    {
+        (void)entity;
+        static_assert(std::is_const_v<std::remove_reference_t<decltype(pos.get())>>,
+            "Registry::View() const must yield read-only references");
+        EXPECT_EQ(pos.get().x, 1.0f);
+    }
+}
+
+TEST(RegistryTest, View_ConstRegistryEmptyForNeverUsedComponentType)
+{
+    Registry registry;
+    auto e = registry.CreateEntity();
+    ASSERT_TRUE(e.IsOk());
+    ASSERT_TRUE(registry.AddComponent<Position>(e.Value(), Position{ 1.0f, 2.0f }).IsOk());
+
+    // Velocity's pool was never created -- must stay empty through the const
+    // overload exactly like the non-const one (View_NeverUsedComponentTypeIsEmpty).
+    Registry const& constRegistry = registry;
+    auto view = constRegistry.View<Position, Velocity>();
+
+    std::size_t count = 0;
+    for (auto it = view.begin(); it != view.end(); ++it) ++count;
+    EXPECT_EQ(count, 0u);
+}
+
+TEST(RegistryTest, View_ConstRegistryOnlyVisitsEntitiesWithEveryRequestedComponent)
+{
+    Registry registry;
+    auto both = registry.CreateEntity().Value();
+    auto onlyPosition = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(both, Position{ 1.0f, 1.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Velocity>(both, Velocity{ 2.0f, 2.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Position>(onlyPosition, Position{ 9.0f, 9.0f }).IsOk());
+
+    Registry const& constRegistry = registry;
+    std::vector<EntityIndex> seen;
+    for (auto [entity, pos, vel] : constRegistry.View<Position, Velocity>())
+    {
+        (void)pos;
+        (void)vel;
+        seen.push_back(entity.m_Index);
+    }
+
+    ASSERT_EQ(seen.size(), 1u);
+    EXPECT_EQ(seen[0], both.m_Index);
 }
 
 // ─── Registry::GetComponent / HasComponent — const and non-const access ───────

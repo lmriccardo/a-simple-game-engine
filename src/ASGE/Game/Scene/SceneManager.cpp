@@ -1,6 +1,7 @@
 #include "SceneManager.hpp"
 
 #include <algorithm>
+#include <string>
 #include <unordered_set>
 #include <utility>
 
@@ -25,40 +26,57 @@ void asge::game::scene::SceneManager::CopyEntityComponents(
 
 asge::BoolResult asge::game::scene::SceneManager::LoadScene(str::String const &inVirtualPath) noexcept
 {
-    if ( m_CurrentScenePath && *m_CurrentScenePath == inVirtualPath )
+    return LoadSceneCommon( inVirtualPath, [&]( ecs::Registry& inRegistry )
+    {
+        return m_Serializer.Load( inRegistry, inVirtualPath );
+    } );
+}
+
+asge::BoolResult asge::game::scene::SceneManager::LoadSceneFromFile(filesystem::Path const &inPath) noexcept
+{
+    return LoadSceneCommon( inPath.string(), [&]( ecs::Registry& inRegistry )
+    {
+        return m_Serializer.LoadFromFile( inRegistry, inPath );
+    } );
+}
+
+asge::BoolResult asge::game::scene::SceneManager::LoadSceneCommon(
+    str::String const &inSceneId, std::function<BoolResult( ecs::Registry& )> const &inLoad) noexcept
+{
+    if ( m_CurrentScenePath && *m_CurrentScenePath == inSceneId )
         return BoolResult::Ok(); // already active
 
     // Already resident from an earlier load -- just switch which SceneId
     // counts as active. No Registry work at all.
-    if ( !EntitiesInScene( inVirtualPath ).empty() )
+    if ( !EntitiesInScene( inSceneId ).empty() )
     {
-        m_CurrentScenePath = inVirtualPath;
+        m_CurrentScenePath = inSceneId;
         return BoolResult::Ok();
     }
 
     // Not resident -- load straight into the shared Registry.
-    // SceneSerializer::Load only ever creates new entities and only ever
-    // rolls back ones it created this call on failure, so this can't
-    // disturb any other resident scene, active or not.
+    // SceneSerializer::Load/LoadFromFile only ever create new entities and
+    // only ever roll back ones they created this call on failure, so this
+    // can't disturb any other resident scene, active or not.
     auto const before = m_Registry.AllEntities();
-    auto result = m_Serializer.Load( m_Registry, inVirtualPath );
+    auto result = inLoad( m_Registry );
     if ( !result ) return result;
 
-    // Tag every entity Load just created (present now, absent before) with
-    // this scene's identity, so EntitiesInScene()/eviction/unload can find
-    // them again.
+    // Tag every entity the load just created (present now, absent before)
+    // with this scene's identity, so EntitiesInScene()/eviction/unload can
+    // find them again.
     for ( auto entity : m_Registry.AllEntities() )
     {
         bool const isNew = std::find( before.begin(), before.end(), entity ) == before.end();
         if ( !isNew ) continue;
 
-        if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity, SceneId{ inVirtualPath } ); !tagResult )
+        if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity, SceneId{ inSceneId } ); !tagResult )
         {
             tagResult.LogError(); // not fatal to the load itself, but leaves this entity untaggable
         }
     }
 
-    m_CurrentScenePath = inVirtualPath;
+    m_CurrentScenePath = inSceneId;
     return BoolResult::Ok();
 }
 
@@ -180,4 +198,42 @@ std::vector<asge::ecs::Entity> asge::game::scene::SceneManager::EntitiesInScene(
 std::vector<asge::ecs::Entity> asge::game::scene::SceneManager::ActiveEntities() const noexcept
 {
     return m_CurrentScenePath ? EntitiesInScene( *m_CurrentScenePath ) : std::vector<ecs::Entity>{};
+}
+
+asge::Result<asge::ecs::Entity> asge::game::scene::SceneManager::CreateEntity() noexcept
+{
+    if ( !m_CurrentScenePath )
+        return Result<ecs::Entity>::Err( make_error_code( errors::SceneError::NoActiveScene ) );
+
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) return entity;
+
+    if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity.Value(), SceneId{ *m_CurrentScenePath } ); !tagResult )
+        return Result<ecs::Entity>::Err( tagResult.Error() );
+
+    return entity;
+}
+
+asge::Result<asge::ecs::Entity> asge::game::scene::SceneManager::DuplicateEntity( ecs::Entity inEntity ) noexcept
+{
+    if ( !m_CurrentScenePath )
+        return Result<ecs::Entity>::Err( make_error_code( errors::SceneError::NoActiveScene ) );
+
+    auto const alive = m_Registry.AllEntities();
+    if ( std::find( alive.begin(), alive.end(), inEntity ) == alive.end() )
+    {
+        return Result<ecs::Entity>::Err(
+            make_error_code( errors::EcsError::EntityIsNotAlive ),
+            "Id " + std::to_string( inEntity.m_Index ) );
+    }
+
+    auto entity = m_Registry.CreateEntity();
+    if ( !entity ) return entity;
+
+    CopyEntityComponents( m_Registry, inEntity, m_Registry, entity.Value() );
+
+    if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity.Value(), SceneId{ *m_CurrentScenePath } ); !tagResult )
+        return Result<ecs::Entity>::Err( tagResult.Error() );
+
+    return entity;
 }

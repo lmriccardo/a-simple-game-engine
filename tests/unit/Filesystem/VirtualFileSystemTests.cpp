@@ -262,4 +262,149 @@ TEST_F(VirtualFileSystemTest, ListMounts_ShrinksAfterUnmount)
     EXPECT_TRUE(vfs.ListMounts().empty());
 }
 
+// ─── SplitRoot ──────────────────────────────────────────────────────────────────
+
+TEST_F(VirtualFileSystemTest, SplitRoot_PathWithSlashSplitsIntoRootAndRest)
+{
+    auto const split = VirtualFileSystem::SplitRoot("textures/hero.png");
+    EXPECT_EQ(split.m_Root, "textures");
+    EXPECT_EQ(split.m_Rest, "hero.png");
+}
+
+TEST_F(VirtualFileSystemTest, SplitRoot_PathWithNoSlashReturnsWholeStringAsRootAndEmptyRest)
+{
+    auto const split = VirtualFileSystem::SplitRoot("textures");
+    EXPECT_EQ(split.m_Root, "textures");
+    EXPECT_TRUE(split.m_Rest.empty());
+}
+
+TEST_F(VirtualFileSystemTest, SplitRoot_NestedPathKeepsRemainingSlashesInRest)
+{
+    auto const split = VirtualFileSystem::SplitRoot("textures/players/hero.png");
+    EXPECT_EQ(split.m_Root, "textures");
+    EXPECT_EQ(split.m_Rest, "players/hero.png");
+}
+
+TEST_F(VirtualFileSystemTest, SplitRoot_NormalizesBackslashesAndSurroundingSlashes)
+{
+    auto const split = VirtualFileSystem::SplitRoot("/textures\\hero.png/");
+    EXPECT_EQ(split.m_Root, "textures");
+    EXPECT_EQ(split.m_Rest, "hero.png");
+}
+
+// ─── IsMounted ──────────────────────────────────────────────────────────────────
+
+TEST_F(VirtualFileSystemTest, IsMounted_RegisteredRootReturnsTrue)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+    EXPECT_TRUE(vfs.IsMounted("textures"));
+}
+
+TEST_F(VirtualFileSystemTest, IsMounted_UnregisteredRootReturnsFalse)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+    EXPECT_FALSE(vfs.IsMounted("audio"));
+}
+
+TEST_F(VirtualFileSystemTest, IsMounted_NoMountsReturnsFalse)
+{
+    VirtualFileSystem vfs;
+    EXPECT_FALSE(vfs.IsMounted("textures"));
+}
+
+TEST_F(VirtualFileSystemTest, IsMounted_NormalizesInputBeforeComparing)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+    EXPECT_TRUE(vfs.IsMounted("/textures/"));
+}
+
+TEST_F(VirtualFileSystemTest, IsMounted_OverlayMountStillReportsTrueOnce)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+    ASSERT_TRUE(vfs.Mount("textures", m_ModDir.string()).IsOk());
+    EXPECT_TRUE(vfs.IsMounted("textures"));
+}
+
+// ─── ToVirtualPath ──────────────────────────────────────────────────────────────
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_FileInsideMountedDirectoryReturnsVirtualPath)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+
+    auto result = vfs.ToVirtualPath(m_AssetsDir / "hero.png");
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value(), "textures/hero.png");
+}
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_FileOutsideEveryMountReturnsNotMountedError)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+
+    auto result = vfs.ToVirtualPath(m_Root / "unrelated.png");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(VfsError::NotMounted));
+}
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_PathEscapingTheMountedDirectoryIsNotMounted)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+
+    // Lexically m_AssetsDir/../outside.png -- one level above the mounted
+    // "textures" directory, i.e. relative() to it comes out as "../outside.png".
+    auto result = vfs.ToVirtualPath(m_AssetsDir / ".." / "outside.png");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(VfsError::NotMounted));
+}
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_NestedFileKeepsIntermediateDirectoriesInRest)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("all", m_Root.string()).IsOk());
+
+    auto result = vfs.ToVirtualPath(m_AssetsDir / "hero.png");
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value(), "all/assets/textures/hero.png");
+}
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_OverlayMountFindsTheDirectoryThePathActuallyBelongsTo)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk()); // registered first
+    ASSERT_TRUE(vfs.Mount("textures", m_ModDir.string()).IsOk());    // registered second
+
+    // hero.png here only lives under m_ModDir -- relative() escapes (and is
+    // rejected) against the first-tried mount, so this falls through to the
+    // second, overlay-registered one instead of failing outright.
+    auto result = vfs.ToVirtualPath(m_ModDir / "hero.png");
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value(), "textures/hero.png");
+}
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_MountDirectoryItselfReturnsBareRoot)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+
+    auto result = vfs.ToVirtualPath(m_AssetsDir);
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value(), "textures");
+}
+
+TEST_F(VirtualFileSystemTest, ToVirtualPath_NonExistentPathStillResolvesIfLexicallyInsideAMount)
+{
+    VirtualFileSystem vfs;
+    ASSERT_TRUE(vfs.Mount("textures", m_AssetsDir.string()).IsOk());
+
+    auto result = vfs.ToVirtualPath(m_AssetsDir / "not_created_yet.png");
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value(), "textures/not_created_yet.png");
+}
+
 }

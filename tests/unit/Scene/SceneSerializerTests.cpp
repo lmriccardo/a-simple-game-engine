@@ -316,6 +316,54 @@ TEST_F(SceneSerializerTest, Load_MalformedTomlReturnsErrorAndLeavesRegistryUntou
     EXPECT_EQ(all[0], preexisting.Value());
 }
 
+// ─── LoadFromFile ───────────────────────────────────────────────────────────
+
+TEST_F(SceneSerializerTest, LoadFromFile_ValidSceneFile_RecreatesEntitiesWithSavedComponents)
+{
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+
+    Velocity const velocity{ 7.0f, 8.0f };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), velocity ).IsOk());
+
+    SceneSerializer serializer{ m_Vfs }; // nothing mounted -- LoadFromFile never needs the VFS
+    ASSERT_TRUE(serializer.Save( m_Registry, m_ScenePath ).IsOk());
+
+    asge::ecs::Registry loaded;
+    ASSERT_TRUE(serializer.LoadFromFile( loaded, m_ScenePath ).IsOk());
+
+    auto all = loaded.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    ASSERT_TRUE(loaded.HasComponent<Velocity>(all[0]));
+    EXPECT_FLOAT_EQ(loaded.GetComponent<Velocity>(all[0]).Value().get().m_DX, 7.0f);
+    EXPECT_FLOAT_EQ(loaded.GetComponent<Velocity>(all[0]).Value().get().m_DY, 8.0f);
+}
+
+TEST_F(SceneSerializerTest, LoadFromFile_FileDoesNotExistReturnsError)
+{
+    SceneSerializer serializer{ m_Vfs };
+    asge::ecs::Registry loaded;
+
+    auto result = serializer.LoadFromFile( loaded, m_Root / "does_not_exist.toml" );
+    EXPECT_FALSE(result.IsOk());
+}
+
+TEST_F(SceneSerializerTest, LoadFromFile_MalformedTomlReturnsErrorAndLeavesRegistryUntouched)
+{
+    ASSERT_TRUE(asge::filesystem::WriteText( m_ScenePath, "not [ valid toml" ).IsOk());
+
+    auto preexisting = m_Registry.CreateEntity();
+    ASSERT_TRUE(preexisting.IsOk());
+
+    SceneSerializer serializer{ m_Vfs };
+    auto result = serializer.LoadFromFile( m_Registry, m_ScenePath );
+    EXPECT_FALSE(result.IsOk());
+
+    auto all = m_Registry.AllEntities();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0], preexisting.Value());
+}
+
 TEST_F(SceneSerializerTest, Load_MidLoopFailureRollsBackOnlyThisCallsEntitiesLeavingPreexistingOnesIntact)
 {
     // Two entities to load.

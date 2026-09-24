@@ -33,6 +33,7 @@ struct Sprite
     video::ITexture*            m_Texture{nullptr}; // Not serialized -- non-owning; nullptr means "not drawn"
     std::optional<math::Rect>   m_SourceRect{};     // Serialized. Sub-region to draw; nullopt = whole texture
     std::string                 m_VirtualPath{};    // Serialized. VFS path m_Texture was (or will be) loaded from
+    std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
 
 /** @brief inSprite's on-screen destination rect at inT's position/scale, or nullopt if it has no texture yet. */

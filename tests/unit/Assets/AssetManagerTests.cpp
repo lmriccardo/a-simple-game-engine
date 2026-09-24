@@ -3,8 +3,10 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Rendering/RenderError.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
@@ -25,6 +27,7 @@ namespace
 using namespace asge::game::asset;
 using asge::errors::VfsError;
 using asge::errors::ImageError;
+using asge::errors::RenderError;
 
 std::vector<std::byte> MakeSolidRedBmp()
 {
@@ -81,6 +84,55 @@ std::vector<std::byte> MakeSolidRedBmp()
     return bmp;
 }
 
+// A minimal 16-bit PCM mono RIFF/WAVE file -- same fixture as
+// AudioClipTests.cpp's MakeMinimalWav, duplicated locally for the same
+// reason MakeSolidRedBmp above is.
+std::vector<std::byte> MakeMinimalWav()
+{
+    auto push_u16 = [](std::vector<std::byte>& out, std::uint16_t v) {
+        out.push_back(static_cast<std::byte>(v & 0xFF));
+        out.push_back(static_cast<std::byte>((v >> 8) & 0xFF));
+    };
+    auto push_u32 = [](std::vector<std::byte>& out, std::uint32_t v) {
+        out.push_back(static_cast<std::byte>(v & 0xFF));
+        out.push_back(static_cast<std::byte>((v >> 8) & 0xFF));
+        out.push_back(static_cast<std::byte>((v >> 16) & 0xFF));
+        out.push_back(static_cast<std::byte>((v >> 24) & 0xFF));
+    };
+    auto push_tag = [](std::vector<std::byte>& out, char const (&tag)[5]) {
+        for (int i = 0; i < 4; ++i) out.push_back(static_cast<std::byte>(tag[i]));
+    };
+
+    constexpr std::uint32_t kSampleRate = 8000;
+    constexpr std::uint16_t kChannels = 1;
+    constexpr std::uint16_t kBitsPerSample = 16;
+    constexpr std::int16_t kSamples[] = { 0, 1000, -1000, 0 };
+    constexpr std::uint32_t kDataSize = sizeof(kSamples);
+    constexpr std::uint16_t kBlockAlign = kChannels * kBitsPerSample / 8;
+    constexpr std::uint32_t kByteRate = kSampleRate * kBlockAlign;
+
+    std::vector<std::byte> wav;
+
+    push_tag(wav, "RIFF");
+    push_u32(wav, 36 + kDataSize);
+    push_tag(wav, "WAVE");
+
+    push_tag(wav, "fmt ");
+    push_u32(wav, 16); // fmt chunk size
+    push_u16(wav, 1);  // PCM
+    push_u16(wav, kChannels);
+    push_u32(wav, kSampleRate);
+    push_u32(wav, kByteRate);
+    push_u16(wav, kBlockAlign);
+    push_u16(wav, kBitsPerSample);
+
+    push_tag(wav, "data");
+    push_u32(wav, kDataSize);
+    for (auto sample : kSamples) push_u16(wav, static_cast<std::uint16_t>(sample));
+
+    return wav;
+}
+
 class AssetManagerTest : public ::testing::Test
 {
 protected:
@@ -95,6 +147,7 @@ protected:
         std::filesystem::create_directories(m_ImagesDir);
 
         WriteBytes(m_ImagesDir / "hero.bmp", MakeSolidRedBmp());
+        WriteBytes(m_ImagesDir / "other.bmp", MakeSolidRedBmp());
         WriteText(m_ImagesDir / "garbage.bmp", "not a bmp");
         WriteText(m_ImagesDir / "walk.toml",
             "[FrameTable]\n"
@@ -105,6 +158,17 @@ protected:
             "columns = 2\n"
             "count = 4\n"
         );
+        WriteText(m_ImagesDir / "walk2.toml",
+            "[FrameTable]\n"
+            "x = 0.0\n"
+            "y = 0.0\n"
+            "w = 8.0\n"
+            "h = 8.0\n"
+            "columns = 3\n"
+            "count = 6\n"
+        );
+        WriteBytes(m_ImagesDir / "theme.wav", MakeMinimalWav());
+        WriteBytes(m_ImagesDir / "other-theme.wav", MakeMinimalWav());
 
         ASSERT_TRUE(m_Vfs.Mount("images", m_ImagesDir.string()).IsOk());
         ASSERT_TRUE(m_Vfs.Mount("fonts", std::string(ASGE_TEST_FONTS_DIR)).IsOk());
@@ -249,7 +313,7 @@ TEST_F(AssetManagerTest, GetFrameTable_SamePathTwiceReturnsSameCachedAsset)
     EXPECT_EQ(first.Value(), second.Value());
 }
 
-// ─── CreateTexture / ResolveAssets test doubles ─────────────────────────────
+// ─── GetTexture / ResolveAssets test doubles ────────────────────────────────
 
 // Minimal ITexture stub tracking how many instances are currently alive, so
 // tests can assert on AssetManager actually owning (and eventually freeing)
@@ -322,9 +386,9 @@ private:
     asge::video::Viewport m_Viewport{};
 };
 
-// ─── CreateTexture ───────────────────────────────────────────────────────────
+// ─── GetTexture ──────────────────────────────────────────────────────────────
 
-class CreateTextureTest : public AssetManagerTest
+class GetTextureTest : public AssetManagerTest
 {
 protected:
     FakeRenderer m_Renderer;
@@ -336,45 +400,108 @@ protected:
     }
 };
 
-TEST_F(CreateTextureTest, ValidImageReturnsANonOwningPointerToALiveTexture)
+TEST_F(GetTextureTest, ValidPathReturnsALiveTexture)
 {
     AssetManager mgr(m_Vfs);
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
 
-    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto result = mgr.GetTexture("images/hero.bmp", m_Renderer);
 
-    ASSERT_NE(texture, nullptr);
-    EXPECT_TRUE(texture->IsValid());
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value()->IsValid());
     EXPECT_EQ(FakeTexture::s_LiveCount, 1);
 }
 
-TEST_F(CreateTextureTest, RendererFailureReturnsNullRatherThanCrashing)
+TEST_F(GetTextureTest, SamePathTwiceReturnsSameCachedTexture)
 {
     AssetManager mgr(m_Vfs);
-    m_Renderer.m_FailCreate = true;
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
 
-    auto* texture = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
 
-    EXPECT_EQ(texture, nullptr);
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(first.Value(), second.Value());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
+
+TEST_F(GetTextureTest, DifferentPathsReturnDifferentTextures)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    auto second = mgr.GetTexture("images/other.bmp", m_Renderer);
+
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_NE(first.Value(), second.Value());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 2);
+}
+
+TEST_F(GetTextureTest, UnresolvableVirtualPathReturnsNotMountedErrorAndIsNotCached)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto first = mgr.GetTexture("images/missing.bmp", m_Renderer);
+    ASSERT_FALSE(first.IsOk());
+    EXPECT_EQ(first.Code(), make_error_code(VfsError::NotMounted));
+
+    // Not cached as a failure -- a later call retries rather than reusing a stale error.
+    auto second = mgr.GetTexture("images/missing.bmp", m_Renderer);
+    ASSERT_FALSE(second.IsOk());
+    EXPECT_EQ(second.Code(), make_error_code(VfsError::NotMounted));
     EXPECT_EQ(FakeTexture::s_LiveCount, 0);
 }
 
-TEST_F(CreateTextureTest, EachCallCreatesAndKeepsAliveASeparateTexture)
+TEST_F(GetTextureTest, RendererFailureReturnsTextureCreationFailedAndIsNotCached)
 {
     AssetManager mgr(m_Vfs);
-    auto image = mgr.GetImage("images/hero.bmp");
-    ASSERT_TRUE(image.IsOk());
+    m_Renderer.m_FailCreate = true;
 
-    auto* first = mgr.CreateTexture(m_Renderer, image.Value()->Get());
-    auto* second = mgr.CreateTexture(m_Renderer, image.Value()->Get());
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_FALSE(first.IsOk());
+    EXPECT_EQ(first.Code(), make_error_code(RenderError::TextureCreationFailed));
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
 
-    ASSERT_NE(first, nullptr);
-    ASSERT_NE(second, nullptr);
-    EXPECT_NE(first, second); // no caching here -- that's GetImage's job, not CreateTexture's
-    EXPECT_EQ(FakeTexture::s_LiveCount, 2);
+    // Not cached as a failure -- a later call, once the renderer recovers, succeeds.
+    m_Renderer.m_FailCreate = false;
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+}
+
+// ─── UnloadTexture ───────────────────────────────────────────────────────────
+
+TEST_F(GetTextureTest, RemovesTheCacheEntrySoTheNextGetTextureRecreatesIt)
+{
+    AssetManager mgr(m_Vfs);
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_EQ(FakeTexture::s_LiveCount, 1);
+
+    mgr.UnloadTexture("images/hero.bmp");
+    // Freed immediately, not just uncached -- not comparing the stale pointer
+    // value against the next GetTexture's result, since a freed-then-reused
+    // address could legitimately coincide with it.
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
+
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1); // recreated, not still missing
+}
+
+TEST_F(GetTextureTest, UnknownPathIsANoOp)
+{
+    AssetManager mgr(m_Vfs);
+    auto first = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(first.IsOk());
+
+    mgr.UnloadTexture("images/never-loaded.bmp");
+
+    // The unrelated cache entry survives untouched.
+    auto second = mgr.GetTexture("images/hero.bmp", m_Renderer);
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(second.Value(), first.Value());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
 }
 
 // ─── ResolveAssets ───────────────────────────────────────────────────────────
@@ -412,7 +539,8 @@ TEST_F(ResolveAssetsTest, SpriteAlreadyHavingATextureIsLeftUntouched)
     auto entity = m_Registry.CreateEntity();
     FakeTexture preExisting;
     ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
-        entity.Value(), { .m_Texture = &preExisting, .m_VirtualPath = "images/hero.bmp" }).IsOk());
+        entity.Value(), { .m_Texture = &preExisting, .m_VirtualPath = "images/hero.bmp",
+            .m_ResolvedVirtualPath = "images/hero.bmp" }).IsOk());
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
@@ -463,6 +591,27 @@ TEST_F(ResolveAssetsTest, TextureCreationFailureLeavesSpriteTextureNullRatherTha
     EXPECT_EQ(sprite.m_Texture, nullptr);
 }
 
+TEST_F(ResolveAssetsTest, TwoSpritesWithTheSameVirtualPathShareOneTexture)
+{
+    AssetManager mgr(m_Vfs);
+    auto entityA = m_Registry.CreateEntity();
+    auto entityB = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entityA.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entityB.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto spriteAResult = m_Registry.GetComponent<asge::game::components::Sprite>(entityA.Value());
+    auto spriteBResult = m_Registry.GetComponent<asge::game::components::Sprite>(entityB.Value());
+    auto const& spriteA = spriteAResult.Value().get();
+    auto const& spriteB = spriteBResult.Value().get();
+    ASSERT_NE(spriteA.m_Texture, nullptr);
+    EXPECT_EQ(spriteA.m_Texture, spriteB.m_Texture);
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1); // one texture shared, not two
+}
+
 TEST_F(ResolveAssetsTest, AnimationWithClipPathGetsClipAssigned)
 {
     AssetManager mgr(m_Vfs);
@@ -485,7 +634,8 @@ TEST_F(ResolveAssetsTest, AnimationAlreadyHavingAClipIsLeftUntouched)
     auto preResolved = mgr.GetFrameTable("images/walk.toml");
     ASSERT_TRUE(preResolved.IsOk());
     ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml", .m_Clip = preResolved.Value() }).IsOk());
+        entity.Value(), { .m_ClipPath = "images/walk.toml", .m_Clip = preResolved.Value(),
+            .m_ResolvedClipPath = "images/walk.toml" }).IsOk());
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
@@ -505,6 +655,50 @@ TEST_F(ResolveAssetsTest, AnimationWithEmptyClipPathIsSkipped)
     auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
     auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_Clip, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, AudioSourceWithVirtualClipPathGetsClipAssigned)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(
+        entity.Value(), { .m_VirtualClipPath = "images/theme.wav" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    auto const& audioSource = audioResult.Value().get();
+    ASSERT_NE(audioSource.m_Clip, nullptr);
+    EXPECT_EQ(audioSource.m_Clip->VirtualPath(), "images/theme.wav");
+    EXPECT_EQ(audioSource.m_ResolvedVirtualClipPath, "images/theme.wav");
+}
+
+TEST_F(ResolveAssetsTest, AudioSourceAlreadyHavingAClipIsLeftUntouched)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    auto preResolved = mgr.GetAudio("images/theme.wav");
+    ASSERT_TRUE(preResolved.IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(
+        entity.Value(), { .m_Clip = preResolved.Value(), .m_VirtualClipPath = "images/theme.wav",
+            .m_ResolvedVirtualClipPath = "images/theme.wav" }).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    EXPECT_EQ(audioResult.Value().get().m_Clip, preResolved.Value());
+}
+
+TEST_F(ResolveAssetsTest, AudioSourceWithEmptyVirtualClipPathIsSkipped)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(entity.Value(), {}).IsOk());
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    EXPECT_EQ(audioResult.Value().get().m_Clip, nullptr);
 }
 
 TEST_F(ResolveAssetsTest, PathFollowWithWaypointsGetsPathBuilt)
@@ -599,6 +793,265 @@ TEST_F(ResolveAssetsTest, CreatedTexturesAreOwnedByAssetManagerAndFreedWithIt)
     }
 
     EXPECT_EQ(FakeTexture::s_LiveCount, 0);
+}
+
+// ─── Re-resolving on a path change (issue #99) ───────────────────────────────
+
+TEST_F(ResolveAssetsTest, Sprite_RepointingVirtualPathResolvesTheNewTexture)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    auto* firstTexture = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_Texture;
+    ASSERT_NE(firstTexture, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_VirtualPath = "images/other.bmp";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
+    ASSERT_NE(sprite.m_Texture, nullptr);
+    EXPECT_NE(sprite.m_Texture, firstTexture); // a distinct cache entry for "other.bmp"
+    EXPECT_EQ(sprite.m_ResolvedVirtualPath, "images/other.bmp");
+}
+
+TEST_F(ResolveAssetsTest, Sprite_ClearingVirtualPathReleasesTheTexture)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    ASSERT_NE(m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_Texture, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_VirtualPath.clear();
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
+    EXPECT_EQ(sprite.m_Texture, nullptr);
+    EXPECT_TRUE(sprite.m_ResolvedVirtualPath.empty());
+}
+
+TEST_F(ResolveAssetsTest, Sprite_UnchangedVirtualPathDoesNotReResolve)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    // A sentinel the resolver did not create -- if the unchanged-path guard
+    // didn't skip, the next ResolveAssets call would overwrite it back with
+    // AssetManager's own cached "hero.bmp" texture.
+    FakeTexture sentinel;
+    m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_Texture = &sentinel;
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    EXPECT_EQ(spriteResult.Value().get().m_Texture, &sentinel);
+}
+
+TEST_F(ResolveAssetsTest, Sprite_FailedRepointLeavesOldTextureAndRetriesNextCall)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    auto* originalTexture = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_Texture;
+    ASSERT_NE(originalTexture, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_VirtualPath = "images/missing.bmp";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    {
+        auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+        auto const& sprite = spriteResult.Value().get();
+        EXPECT_EQ(sprite.m_Texture, originalTexture); // stale but not nulled out on a failed repoint
+        EXPECT_EQ(sprite.m_ResolvedVirtualPath, "images/hero.bmp"); // not advanced -- next call retries
+    }
+
+    // Fix the path -- the earlier failure must not have gotten permanently "stuck".
+    m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get().m_VirtualPath = "images/other.bmp";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto spriteResult = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value());
+    auto const& sprite = spriteResult.Value().get();
+    EXPECT_NE(sprite.m_Texture, originalTexture);
+    EXPECT_EQ(sprite.m_ResolvedVirtualPath, "images/other.bmp");
+}
+
+TEST_F(ResolveAssetsTest, Animation_RepointingClipPathResolvesTheNewClip)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
+        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    ASSERT_NE(m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath = "images/walk2.toml";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
+    ASSERT_NE(anim.m_Clip, nullptr);
+    EXPECT_EQ(anim.m_Clip->VirtualPath(), "images/walk2.toml");
+    EXPECT_EQ(anim.m_Clip->Get().m_Frames.size(), 6u);
+    EXPECT_EQ(anim.m_ResolvedClipPath, "images/walk2.toml");
+}
+
+TEST_F(ResolveAssetsTest, Animation_ClearingClipPathReleasesTheClip)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
+        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    ASSERT_NE(m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath.clear();
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
+    EXPECT_EQ(anim.m_Clip, nullptr);
+    EXPECT_TRUE(anim.m_ResolvedClipPath.empty());
+}
+
+TEST_F(ResolveAssetsTest, Animation_UnchangedClipPathDoesNotReResolve)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
+        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto otherClip = mgr.GetFrameTable("images/walk2.toml");
+    ASSERT_TRUE(otherClip.IsOk());
+    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip = otherClip.Value();
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    EXPECT_EQ(animResult.Value().get().m_Clip, otherClip.Value());
+}
+
+TEST_F(ResolveAssetsTest, Animation_FailedRepointLeavesOldClipAndRetriesNextCall)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
+        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    auto originalClip = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip;
+    ASSERT_NE(originalClip, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath = "images/missing.toml";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    {
+        auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+        auto const& anim = animResult.Value().get();
+        EXPECT_EQ(anim.m_Clip, originalClip);
+        EXPECT_EQ(anim.m_ResolvedClipPath, "images/walk.toml");
+    }
+
+    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath = "images/walk2.toml";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
+    auto const& anim = animResult.Value().get();
+    EXPECT_NE(anim.m_Clip, originalClip);
+    EXPECT_EQ(anim.m_ResolvedClipPath, "images/walk2.toml");
+}
+
+TEST_F(ResolveAssetsTest, AudioSource_RepointingVirtualClipPathResolvesTheNewClip)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(
+        entity.Value(), { .m_VirtualClipPath = "images/theme.wav" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    ASSERT_NE(m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_Clip, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_VirtualClipPath = "images/other-theme.wav";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    auto const& audioSource = audioResult.Value().get();
+    ASSERT_NE(audioSource.m_Clip, nullptr);
+    EXPECT_EQ(audioSource.m_Clip->VirtualPath(), "images/other-theme.wav");
+    EXPECT_EQ(audioSource.m_ResolvedVirtualClipPath, "images/other-theme.wav");
+}
+
+TEST_F(ResolveAssetsTest, AudioSource_ClearingVirtualClipPathReleasesTheClip)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(
+        entity.Value(), { .m_VirtualClipPath = "images/theme.wav" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    ASSERT_NE(m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_Clip, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_VirtualClipPath.clear();
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    auto const& audioSource = audioResult.Value().get();
+    EXPECT_EQ(audioSource.m_Clip, nullptr);
+    EXPECT_TRUE(audioSource.m_ResolvedVirtualClipPath.empty());
+}
+
+TEST_F(ResolveAssetsTest, AudioSource_UnchangedVirtualClipPathDoesNotReResolve)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(
+        entity.Value(), { .m_VirtualClipPath = "images/theme.wav" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto otherClip = mgr.GetAudio("images/other-theme.wav");
+    ASSERT_TRUE(otherClip.IsOk());
+    m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_Clip = otherClip.Value();
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    EXPECT_EQ(audioResult.Value().get().m_Clip, otherClip.Value());
+}
+
+TEST_F(ResolveAssetsTest, AudioSource_FailedRepointLeavesOldClipAndRetriesNextCall)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::AudioSource>(
+        entity.Value(), { .m_VirtualClipPath = "images/theme.wav" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    auto originalClip = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_Clip;
+    ASSERT_NE(originalClip, nullptr);
+
+    m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_VirtualClipPath = "images/missing.wav";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    {
+        auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+        auto const& audioSource = audioResult.Value().get();
+        EXPECT_EQ(audioSource.m_Clip, originalClip);
+        EXPECT_EQ(audioSource.m_ResolvedVirtualClipPath, "images/theme.wav");
+    }
+
+    m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value()).Value().get().m_VirtualClipPath = "images/other-theme.wav";
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto audioResult = m_Registry.GetComponent<asge::game::components::AudioSource>(entity.Value());
+    auto const& audioSource = audioResult.Value().get();
+    EXPECT_NE(audioSource.m_Clip, originalClip);
+    EXPECT_EQ(audioSource.m_ResolvedVirtualClipPath, "images/other-theme.wav");
 }
 
 }
