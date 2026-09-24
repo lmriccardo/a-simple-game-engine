@@ -211,6 +211,18 @@ public:
     }
 
     /**
+     * @brief Read-only counterpart to View() — same lookup, but returns
+     *        View<Ts const...>, so iterating yields (Entity, Ts const&...)
+     *        instead of mutable references. The only overload callable
+     *        through a Registry const&.
+     */
+    template<typename ... Ts>
+    [[nodiscard]] asge::ecs::View<Ts const...> View() const noexcept
+    {
+        return asge::ecs::View<Ts const...>(FindPool<Ts>()...);
+    }
+
+    /**
      * @brief Stores inValue as the registry-wide instance of type T,
      *        replacing any previous one.
      *
