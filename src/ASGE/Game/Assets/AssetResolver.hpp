@@ -44,7 +44,14 @@ struct Resolver
     void operator()( AssetManager&, ecs::Registry&, video::IRenderer&, C& ) const noexcept {}
 };
 
-/** @brief Resolves Sprite::m_VirtualPath into m_Texture via AssetManager::GetTexture, once. */
+/**
+ * @brief Resolves Sprite::m_VirtualPath into m_Texture via
+ *        AssetManager::GetTexture, re-resolving whenever m_VirtualPath
+ *        differs from m_ResolvedVirtualPath — so repointing it to a new
+ *        path loads the new texture, and clearing it to empty releases
+ *        m_Texture back to nullptr — rather than resolving once and never
+ *        again.
+ */
 template<>
 struct Resolver<components::Sprite>
 {
@@ -57,7 +64,13 @@ struct Resolver<components::Sprite>
     ) const noexcept;
 };
 
-/** @brief Resolves Animation::m_ClipPath into m_Clip via AssetManager::GetFrameTable, once. */
+/**
+ * @brief Resolves Animation::m_ClipPath into m_Clip via
+ *        AssetManager::GetFrameTable, re-resolving whenever m_ClipPath
+ *        differs from m_ResolvedClipPath — so repointing it to a new clip
+ *        loads it, and clearing it to empty releases m_Clip back to null —
+ *        rather than resolving once and never again.
+ */
 template<>
 struct Resolver<components::Animation>
 {
@@ -70,7 +83,13 @@ struct Resolver<components::Animation>
     ) const noexcept;
 };
 
-/** @brief Resolves AudioSource::m_VirtualClipPath into m_Clip via AssetManager::GetAudio, once. */
+/**
+ * @brief Resolves AudioSource::m_VirtualClipPath into m_Clip via
+ *        AssetManager::GetAudio, re-resolving whenever m_VirtualClipPath
+ *        differs from m_ResolvedVirtualClipPath — so repointing it to a
+ *        new clip loads it, and clearing it to empty releases m_Clip back
+ *        to null — rather than resolving once and never again.
+ */
 template<>
 struct Resolver<components::AudioSource>
 {

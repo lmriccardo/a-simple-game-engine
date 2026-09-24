@@ -103,16 +103,18 @@ public:
     void UnloadTexture( str::StringCRef inVirtualPath ) noexcept;
 
     /**
-     * @brief Deferred-loads every still-unresolved asset-owning component
-     *        in inRegistry, for every entity that has one.
+     * @brief Deferred-loads every asset-owning component in inRegistry
+     *        whose asset still needs (re)resolving, for every entity that
+     *        has one.
      *
      * Folds over `components::SerializableComponents` and, for each type T,
      * calls `Resolver<T>{}` on every entity's T — a no-op for most
      * component types (nothing to load), and an actual resolve for the
-     * ones that do own an asset (`Sprite`, `Animation`, `AudioSource`,
-     * `PathFollow` — see their own `Resolver<T>` specializations in
-     * AssetResolver.hpp for exactly what each one does and what it skips
-     * once already resolved).
+     * ones that do own an asset (`Sprite`, `Animation`, `AudioSource` —
+     * re-resolved whenever their virtual path changes, released back to
+     * null when it's cleared to empty; `PathFollow` builds its path once
+     * — see their own `Resolver<T>` specializations in AssetResolver.hpp
+     * for exactly what each one does).
      *
      * Any resolve failure (VFS resolve, decode, texture creation) is logged
      * and that entity is left unresolved — retried on the next call rather
