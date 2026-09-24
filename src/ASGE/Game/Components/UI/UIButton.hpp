@@ -7,6 +7,7 @@
 #include <ASGE/Game/Scene/Serialize.hpp>
 #include <ASGE/Core/Media/Font.hpp>
 #include <ASGE/Game/Assets/Asset.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 
 #include "../Transform.hpp"
 
@@ -18,7 +19,7 @@ namespace asge::game::components
  *
  * m_Size is authored in the same units as Transform; the owning entity's
  * Transform positions the button (top-left, same convention as Sprite).
- * m_Hovered/m_PressedThisFrame are recomputed every frame by whatever
+ * m_Hovered/m_Held are recomputed every frame by whatever
  * system drives UI input — not something a scene file describes — and
  * m_OnClick is fired by that same system, once, the frame the button
  * transitions from pressed to released while still hovered.
@@ -28,22 +29,23 @@ struct UIButton
     using FontAsset = std::shared_ptr<asset::Asset<media::Font>>;
 
     // Serialized properties
-    str::String    m_FontVirtualPath{};                      // VFS path of the font m_Text is drawn with
-    str::String    m_ResolvedVirtualPath{};                  // Resolved virtual path for font texture
-    int            m_FontWeight     {16};                    // Font size
-    str::String    m_Text           {"Click Me"};            // Label drawn on the button
-    str::TextAlign m_TextAlignment  {str::TextAlign::None};  // How m_Text is justified within m_Size
-    math::Float2   m_Size           {80.0f, 24.0f};          // Button extent, same units/origin as Transform
+    str::String          m_FontVirtualPath      {}; // VFS path of the font m_Text is drawn with
+    str::String          m_ResolvedVirtualPath  {}; // Resolved virtual path for font texture
+    graphics::RGBA_Color m_Color                { graphics::colors::s_ButtonLight };         // Fill color when neither hovered nor held
+    graphics::RGBA_Color m_HoverColor           { graphics::colors::s_ButtonLightHover };     // Fill color while the pointer is over the button
+    graphics::RGBA_Color m_PressedColor         { graphics::colors::s_ButtonLightPressed };   // Fill color while held (takes priority over hover)
+    int                  m_FontWeight           {16};                    // Font size
+    str::String          m_Text                 {"Click Me"};            // Label drawn on the button
+    str::TextAlign       m_TextAlignment        {str::TextAlign::None};  // How m_Text is justified within m_Size
+    math::Float2         m_Size                 {80.0f, 24.0f};          // Button extent, same units/origin as Transform
 
     // Runtime-only state -- never round-tripped through TOML, always reset to these defaults by FromToml
-    bool      m_Hovered          {false};   // Whether the pointer is currently over the button
-    bool      m_PressedThisFrame {false};   // Whether the pointer is currently held down on the button
-    FontAsset m_Font             {nullptr}; // Asset pointer to the Font asset
+    bool      m_Hovered {false};   // Whether the pointer is currently over the button
+    bool      m_Held    {false};   // Whether the pointer is currently held down on the button
+    FontAsset m_Font    {nullptr}; // Asset pointer to the Font asset
 
     signals::Signal<> m_OnClick; // Not serialized -- fired on click by whatever system drives UI input; connect via Signal::Connect
 };
-
-math::Rect CreateButtonBounds( Transform const& inWorld, UIButton const& inButton ) noexcept;
 
 }
 
@@ -55,7 +57,7 @@ namespace asge::game::scene
  *        m_Size only — see AudioSource's Serializer doc comment for why a
  *        scene file describes what a button looks like, not its live
  *        hover/press state or click subscribers. FromToml leaves
- *        m_Hovered/m_PressedThisFrame/m_Font/m_OnClick at UIButton's
+ *        m_Hovered/m_Held/m_Font/m_OnClick at UIButton's
  *        in-code defaults.
  */
 template<>

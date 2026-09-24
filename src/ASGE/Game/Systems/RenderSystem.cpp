@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <cmath>
 #include <variant>
+#include <utility>
+#include <tuple>
 
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
@@ -14,6 +16,7 @@
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 
 namespace
 {
@@ -32,9 +35,44 @@ struct RenderInfoResolved
     int           m_LocalOrder; // This entity's own RenderInfo::m_LocalOrder, tie-break among entities sharing m_Owner
 };
 
+using Visual = std::variant<Sprite const*, UIButton const*>;
+
+/** @brief One drawable entity's precomputed sort keys and destination rect for a single frame. */
+struct DrawItem
+{
+    ecs::Entity                        m_Entity;    // Source entity; index is the tie-break of last resort
+    game::components::Transform const* m_Transform;
+    Visual                             m_Visual;
+    RenderInfoResolved                 m_RenderInfo;
+    float                              m_SortY;     // Bottom edge (position.y + drawn height), for y-sort
+    math::Rect                         m_DstRect;
+};
+
 static constexpr RenderInfo kDefaultRenderInfo = RenderInfo{}; // Fallback for entities with no RenderInfo component of their own
 
-using Visual = std::variant<Sprite const*, UIButton const*>;
+/** @brief Maps a visual component type T to the tuple of other component types that, if also present on the same entity, mean T should not be collected/drawn for it. Defaults to none. */
+template<typename T> struct should_collect_trait { using Excludes = std::tuple<>; };
+/** @brief A UIButton is skipped in favor of a Sprite on the same entity -- lets a scene author swap one for the other without both drawing on top of each other. */
+template<> struct should_collect_trait<UIButton> { using Excludes = std::tuple<Sprite>; };
+
+/** @brief Checks inE against each type in should_collect_trait<T>::Excludes via GetComponent, folded with ||. */
+template<typename T, std::size_t ...Is>
+bool ShouldExcludeImpl(
+    ecs::Registry const& inReg, ecs::Entity const& inE, std::index_sequence<Is...>) noexcept
+{
+    using Excludes = should_collect_trait<T>::Excludes;
+    return ( ( static_cast<bool>( inReg.GetComponent<std::tuple_element_t<Is, Excludes>>(inE) ) ) || ... );
+}
+
+/** @brief True if inE has any of the component types should_collect_trait<T>::Excludes lists, meaning Collect<T> should skip it. */
+template<typename T>
+bool ShouldExclude( ecs::Registry const& inReg, ecs::Entity const& inE ) noexcept
+{
+    using Excludes = should_collect_trait<T>::Excludes;
+    static constexpr std::size_t Size = std::tuple_size_v<Excludes>;
+    if ( Size == 0 ) return false;
+    return ShouldExcludeImpl<T>( inReg, inE, std::make_index_sequence<Size>{} );
+}
 
 /**
  * @brief Resolves inTarget's effective RenderInfoResolved, walking up its
@@ -71,17 +109,6 @@ RenderInfoResolved ResolveRenderInfo( ecs::Registry const& inReg, ecs::Entity in
     return resolved;
 }
 
-/** @brief One drawable entity's precomputed sort keys and destination rect for a single frame. */
-struct DrawItem
-{
-    ecs::Entity                        m_Entity;    // Source entity; index is the tie-break of last resort
-    game::components::Transform const* m_Transform;
-    Visual                             m_Visual;
-    RenderInfoResolved                 m_RenderInfo;
-    float                              m_SortY;     // Bottom edge (position.y + drawn height), for y-sort
-    math::Rect                         m_DstRect;
-};
-
 /**
  * @brief Orders DrawItems for RenderSystem: world-space before screen-space,
  *        then by resolved layer, then bottom-edge Y when either side opted
@@ -102,11 +129,12 @@ bool operator<(DrawItem const& a, DrawItem const& b) noexcept
     if ( ra.m_LocalOrder != rb.m_LocalOrder ) return ra.m_LocalOrder < rb.m_LocalOrder;
     if ( ra.m_Depth != rb.m_Depth ) return ra.m_Depth < rb.m_Depth;
     if ( a.m_Entity.m_Index != b.m_Entity.m_Index ) return a.m_Entity.m_Index < b.m_Entity.m_Index;
-    return a.m_Visual.index() < b.m_Visual.index(); 
+    return a.m_Visual.index() < b.m_Visual.index();
 }
 
 // ---- Size : The only per-type part of collection ----------------------------------------------
 
+/** @brief Builds a world-space rect from inT's position/scale and a size authored in Transform-local units (e.g. UIButton::m_Size). */
 math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noexcept
 {
     return math::Rect{
@@ -114,12 +142,14 @@ math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noex
         inSize.x() * inT.m_WorldScale.x(), inSize.y() * inT.m_WorldScale.y() };
 }
 
+/** @brief Sprite's destination rect, or nullopt if it has no texture (see SpriteGetDstRect). */
 std::optional<math::Rect> ComputeDstRect( Sprite const& inS, Transform const& inT ) noexcept
 {
     auto const r = SpriteGetDstRect( inS, inT );
     return r.has_value() ? std::optional<math::Rect>{ *r } : std::nullopt;
 }
 
+/** @brief UIButton's destination rect -- always present, unlike Sprite's (a button has no missing-texture case). */
 std::optional<math::Rect> ComputeDstRect( UIButton const& inB, Transform const& inT ) noexcept
 {
     return RectFromSize( inT, inB.m_Size );
@@ -133,7 +163,8 @@ std::optional<math::Rect> GetAnyDstRect( ecs::Registry const& inReg, ecs::Entity
     return std::nullopt;
 }
 
-/** @brief inOwner's own bottom-edge Y (Transform + Sprite, if it has one), for an item inheriting inOwner's sort key -- or inFallback if inOwner has no Transform. */
+/** @brief inOwner's own bottom-edge Y (Transform + Sprite, if it has one), for an item inheriting inOwner's sort key 
+ * -- or inFallback if inOwner has no Transform. */
 float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float inFallback ) noexcept
 {
     auto tResult = inReg.GetComponent<Transform>( inOwner );
@@ -152,24 +183,33 @@ void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<Dra
 {
     for ( auto [ entity, transform, visual ] : inReg.View<Transform, T>() )
     {
+        if ( ShouldExclude<T>( inReg, entity ) ) continue;
+
         auto const& t = transform.get();
         auto const  dst = ComputeDstRect( visual.get(), t );
         if ( !dst ) continue;
 
-        RenderInfoResolved const render = ResolveRenderInfo( inReg, inE );
+        RenderInfoResolved const render = ResolveRenderInfo( inReg, entity );
         if ( !render.m_ScreenSpace && !math::AabbOverlap( *dst, inVisible ) ) continue;
 
-        float const ownSortY = inT.m_WorldCoordinates.y() + dst->m_Height;
-        float const sortY = ( render.m_Owner == inE )
+        float const ownSortY = t.m_WorldCoordinates.y() + dst->m_Height;
+        float const sortY = ( render.m_Owner == entity )
             ? ownSortY
             : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
 
-        outItems.push_back( DrawItem{ entity, &t, &visual.get(), render, sortY, *dst } );
+        outItems.push_back( DrawItem{ 
+            entity, 
+            &t, 
+            &visual.get(),
+            render, 
+            sortY, 
+            *dst } );
     }
 }
 
 // ---- Drawing: one overload per visual type ------------------------------------
 
+/** @brief Draws a Sprite's texture into inItem.m_DstRect, routing through the affine overloads when the entity's Transform is rotated. */
 void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& inSprite )
 {
     video::ITexture* texture = inSprite.m_Texture;
@@ -189,9 +229,14 @@ void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& i
         inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
 }
 
-void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, UIButton const& inButton )
+/** @brief Draws a UIButton as a filled rect, picking m_PressedColor/m_HoverColor/m_Color by its m_Held/m_Hovered state (held takes priority). */
+void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, UIButton const& inB )
 {
+    graphics::RGBA_Color const color = inB.m_Held    ? inB.m_PressedColor
+                                     : inB.m_Hovered ? inB.m_HoverColor
+                                                     : inB.m_Color;
 
+    inRenderer.DrawRect( inItem.m_DstRect, color, true );
 }
 
 }

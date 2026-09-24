@@ -3,13 +3,18 @@
 void asge::game::scene::Serializer<asge::game::components::UIButton>::ToToml(
     T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
-    inTview.Table( str::String( kTableName ) )
-           .Set( "m_FontVirtualPath", inValue.m_FontVirtualPath )
-           .Set( "m_FontWeight", inValue.m_FontWeight )
-           .Set( "m_Text", inValue.m_Text )
-           .Set( "m_TextAlign", str::ToString( inValue.m_TextAlignment ) )
-           .Set( "m_SizeX", inValue.m_Size.x() )
-           .Set( "m_SizeY", inValue.m_Size.y() );
+    auto table = inTview.Table( str::String( kTableName ) );
+
+    table.Set( "m_FontVirtualPath", inValue.m_FontVirtualPath );
+    table.Set( "m_FontWeight", inValue.m_FontWeight );
+    table.Set( "m_Text", inValue.m_Text );
+    table.Set( "m_TextAlign", str::ToString( inValue.m_TextAlignment ) );
+    table.Set( "m_SizeX", inValue.m_Size.x() );
+    table.Set( "m_SizeY", inValue.m_Size.y() );
+
+    Serializer<graphics::RGBA_Color>::ToToml( inValue.m_Color,          table.Table( "Color" ) );
+    Serializer<graphics::RGBA_Color>::ToToml( inValue.m_HoverColor,     table.Table( "HoverColor" ) );
+    Serializer<graphics::RGBA_Color>::ToToml( inValue.m_PressedColor,   table.Table( "PressedColor" ) );
 }
 
 asge::game::components::UIButton
@@ -31,16 +36,9 @@ asge::game::scene::Serializer<asge::game::components::UIButton>::FromToml(
         table.Get( "m_SizeY", result.m_Size.y() )
     };
 
-    return result;
-}
+    result.m_Color          = Serializer<graphics::RGBA_Color>::FromToml(table.Table( "Color" ) );
+    result.m_HoverColor     = Serializer<graphics::RGBA_Color>::FromToml(table.Table( "HoverColor" ) );
+    result.m_PressedColor   = Serializer<graphics::RGBA_Color>::FromToml(table.Table( "PressedColor" ) );
 
-asge::math::Rect asge::game::components::CreateButtonBounds(
-    Transform const &inWorld, UIButton const &inButton) noexcept
-{
-    return math::Rect
-    {
-        inWorld.m_WorldCoordinates.x(),
-        inWorld.m_WorldCoordinates.y(),
-        
-    };
+    return result;
 }

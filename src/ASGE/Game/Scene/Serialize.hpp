@@ -3,6 +3,7 @@
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Configuration/TOML_TableView.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include "IdContext.hpp"
 
 namespace asge::game::scene
@@ -65,6 +66,14 @@ struct Serializer<math::Circle>
 
     static void ToToml( math::Circle inShape, asge::config::toml::TOMLTableView inTview ) noexcept;
     static math::Circle FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+};
+
+/** @brief Serializer for an RGBA_Color, round-tripping r/g/b/a as ints under m_Red/m_Green/m_Blue/m_Alpha. */
+template<>
+struct Serializer<graphics::RGBA_Color>
+{
+    static void ToToml( graphics::RGBA_Color inColor, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static graphics::RGBA_Color FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
 };
 
 }

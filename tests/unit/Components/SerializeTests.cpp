@@ -712,6 +712,44 @@ TEST(HierarchySerializerTest, RoundTripsThroughToTomlAndFromTomlWithMatchingCont
     EXPECT_EQ(restored.m_NextSibling, newNextSibling);
 }
 
+// ─── RGBA_Color ─────────────────────────────────────────────────────────────
+
+TEST(RGBAColorSerializerTest, ToToml_WritesRGBAFieldsAsInts)
+{
+    TOMLBuilder builder;
+    Serializer<asge::graphics::RGBA_Color>::ToToml( { 10, 20, 30, 40 }, builder );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("m_Red = 10"), std::string::npos);
+    EXPECT_NE(dump.find("m_Green = 20"), std::string::npos);
+    EXPECT_NE(dump.find("m_Blue = 30"), std::string::npos);
+    EXPECT_NE(dump.find("m_Alpha = 40"), std::string::npos);
+}
+
+TEST(RGBAColorSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    asge::graphics::RGBA_Color const original{ 12, 34, 56, 78 };
+    Serializer<asge::graphics::RGBA_Color>::ToToml( original, builder );
+
+    asge::graphics::RGBA_Color const restored = Serializer<asge::graphics::RGBA_Color>::FromToml( builder );
+    EXPECT_EQ(restored.r, original.r);
+    EXPECT_EQ(restored.g, original.g);
+    EXPECT_EQ(restored.b, original.b);
+    EXPECT_EQ(restored.a, original.a);
+}
+
+TEST(RGBAColorSerializerTest, FromToml_MissingKeysFallBackToOpaqueWhiteDefault)
+{
+    TOMLBuilder builder; // no keys set at all
+
+    asge::graphics::RGBA_Color const restored = Serializer<asge::graphics::RGBA_Color>::FromToml( builder );
+    EXPECT_EQ(restored.r, 255);
+    EXPECT_EQ(restored.g, 255);
+    EXPECT_EQ(restored.b, 255);
+    EXPECT_EQ(restored.a, 255);
+}
+
 // ─── UIButton ───────────────────────────────────────────────────────────────
 
 TEST(UIButtonSerializerTest, ToToml_WritesFieldsUnderUIButtonTable)
@@ -751,6 +789,27 @@ TEST(UIButtonSerializerTest, RoundTripsThroughToTomlAndFromToml)
     EXPECT_FLOAT_EQ(restored.m_Size.y(), original.m_Size.y());
 }
 
+TEST(UIButtonSerializerTest, RoundTrips_ColorHoverColorAndPressedColor)
+{
+    TOMLBuilder builder;
+    UIButton original{};
+    original.m_Color = { 1, 2, 3, 255 };
+    original.m_HoverColor = { 4, 5, 6, 255 };
+    original.m_PressedColor = { 7, 8, 9, 255 };
+    Serializer<UIButton>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Color.r, 1);
+    EXPECT_EQ(restored.m_Color.g, 2);
+    EXPECT_EQ(restored.m_Color.b, 3);
+    EXPECT_EQ(restored.m_HoverColor.r, 4);
+    EXPECT_EQ(restored.m_HoverColor.g, 5);
+    EXPECT_EQ(restored.m_HoverColor.b, 6);
+    EXPECT_EQ(restored.m_PressedColor.r, 7);
+    EXPECT_EQ(restored.m_PressedColor.g, 8);
+    EXPECT_EQ(restored.m_PressedColor.b, 9);
+}
+
 TEST(UIButtonSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
 {
     TOMLBuilder builder;
@@ -776,7 +835,7 @@ TEST(UIButtonSerializerTest, FromToml_UnrecognizedTextAlignValueBecomesNone)
 TEST(UIButtonSerializerTest, FromToml_ClickAndHoverStateAlwaysResetToStructDefaults)
 {
     // Serializer<UIButton> only round-trips the four authored fields --
-    // FromToml must never carry over m_Hovered/m_PressedThisFrame (neither
+    // FromToml must never carry over m_Hovered/m_Held (neither
     // is something a scene file describes) or reconstruct m_OnClick's
     // subscribers, since a Signal isn't serializable at all.
     TOMLBuilder builder;
@@ -784,7 +843,7 @@ TEST(UIButtonSerializerTest, FromToml_ClickAndHoverStateAlwaysResetToStructDefau
 
     UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
     EXPECT_FALSE(restored.m_Hovered);
-    EXPECT_FALSE(restored.m_PressedThisFrame);
+    EXPECT_FALSE(restored.m_Held);
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────

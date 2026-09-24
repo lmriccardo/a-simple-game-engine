@@ -3,6 +3,7 @@
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
+#include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 
@@ -23,6 +24,7 @@ using asge::game::components::Camera;
 using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
+using asge::game::components::UIButton;
 using asge::game::resources::ActiveCamera;
 
 // Minimal ITexture stub that just reports a fixed size -- no SDL/GPU
@@ -36,11 +38,11 @@ public:
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const noexcept override { return true; }
 
-    void SetColorMod(asge::media::RGBA_Color) noexcept override {}
+    void SetColorMod(asge::graphics::RGBA_Color) noexcept override {}
 
-    [[nodiscard]] Result<asge::media::RGBA_Color> GetColorMod() const noexcept override
+    [[nodiscard]] Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
     {
-        return Result<asge::media::RGBA_Color>::Ok(asge::media::RGBA_Color{});
+        return Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
     }
 
 private:
@@ -65,13 +67,24 @@ public:
         asge::video::Camera m_CameraAtDraw{}; // renderer's camera at the moment this call was made
     };
 
-    mutable std::vector<DrawCall> m_Calls;
+    // Recorded separately from DrawCall -- UIButton draws via DrawRect,
+    // never DrawTexture*, so it needs its own color/fill assertions.
+    struct RectCall { asge::math::Rect m_Rect; asge::graphics::RGBA_Color m_Color; bool m_Fill; };
 
-    void Clear(asge::media::RGBA_Color const&) const override {}
-    void DrawRect(asge::math::Rect const&, asge::media::RGBA_Color const&, bool) const override {}
+    mutable std::vector<DrawCall> m_Calls;
+    mutable std::vector<RectCall> m_RectCalls;
+
+    void Clear(asge::graphics::RGBA_Color const&) const override {}
+
+    void DrawRect(asge::math::Rect const& inRect,
+        asge::graphics::RGBA_Color const& inColor, bool inFill) const override
+    {
+        m_RectCalls.push_back({ inRect, inColor, inFill });
+    }
+
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
-        asge::media::RGBA_Color const&) const override {}
-    void DrawCircle(asge::math::Int2 const&, int, asge::media::RGBA_Color const&, bool) const override {}
+        asge::graphics::RGBA_Color const&) const override {}
+    void DrawCircle(asge::math::Int2 const&, int, asge::graphics::RGBA_Color const&, bool) const override {}
 
     void DrawTexture(asge::video::ITexture const&, asge::math::Rect const& inDestRect) const noexcept override
     {
@@ -101,7 +114,7 @@ public:
         m_Calls.push_back({ {}, false, true, true, inOrigin, inRight, inDown, m_Camera });
     }
     void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
-        asge::math::Float2 const&, asge::media::RGBA_Color const&) const noexcept override {}
+        asge::math::Float2 const&, asge::graphics::RGBA_Color const&) const noexcept override {}
 
     void Present() const override {}
 
@@ -737,6 +750,117 @@ TEST(RenderSystemTest, Rotation_NonZeroRotationWithSourceRect_RoutesThroughSourc
     ASSERT_EQ(renderer.m_Calls.size(), 1u);
     EXPECT_TRUE(renderer.m_Calls[0].m_WasAffine);
     EXPECT_TRUE(renderer.m_Calls[0].m_AffineHadSourceRect); // cropped *and* rotated -- needs the srcRect affine overload
+}
+
+// ─── RenderSystem — UIButton ────────────────────────────────────────────────────
+
+TEST(RenderSystemTest, UIButton_DrawnAsAFilledRectSizedFromMSizeScaledByWorldScale)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {10.0f, 20.0f}, .m_WorldScale = {2.0f, 3.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{ .m_Size = {80.0f, 24.0f} }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    auto const& call = renderer.m_RectCalls[0];
+    EXPECT_TRUE(call.m_Fill);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_X, 10.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Y, 20.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Width, 160.0f);  // 80 * 2
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Height, 72.0f);  // 24 * 3
+}
+
+TEST(RenderSystemTest, UIButton_NeitherHoveredNorHeld_DrawnWithMColor)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UIButton button;
+    button.m_Color = { 10, 20, 30, 255 };
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), button).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    auto const& color = renderer.m_RectCalls[0].m_Color;
+    EXPECT_EQ(color.r, 10);
+    EXPECT_EQ(color.g, 20);
+    EXPECT_EQ(color.b, 30);
+}
+
+TEST(RenderSystemTest, UIButton_Hovered_DrawnWithMHoverColor)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UIButton button;
+    button.m_HoverColor = { 40, 50, 60, 255 };
+    button.m_Hovered = true;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), button).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    auto const& color = renderer.m_RectCalls[0].m_Color;
+    EXPECT_EQ(color.r, 40);
+    EXPECT_EQ(color.g, 50);
+    EXPECT_EQ(color.b, 60);
+}
+
+TEST(RenderSystemTest, UIButton_HeldAndHovered_PressedColorTakesPriorityOverHoverColor)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UIButton button;
+    button.m_PressedColor = { 70, 80, 90, 255 };
+    button.m_Hovered = true;
+    button.m_Held = true;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), button).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    auto const& color = renderer.m_RectCalls[0].m_Color;
+    EXPECT_EQ(color.r, 70);
+    EXPECT_EQ(color.g, 80);
+    EXPECT_EQ(color.b, 90);
+}
+
+TEST(RenderSystemTest, UIButton_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn)
+{
+    // ShouldExclude<UIButton> skips an entity that also has a Sprite -- a
+    // scene author swapping a placeholder Sprite for a UIButton (or vice
+    // versa) shouldn't end up with both drawn on top of each other.
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{}).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);     // the Sprite...
+    EXPECT_TRUE(renderer.m_RectCalls.empty());  // ...not the UIButton
 }
 
 // ─── CameraSystem ────────────────────────────────────────────────────────────────
