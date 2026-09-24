@@ -30,7 +30,7 @@ public:
 
     template<_internal::Numeric... Us>
     requires (sizeof...(Us) == 2)
-    explicit Vec2( Us... inValues ) : base( inValues... )
+    constexpr explicit Vec2( Us... inValues ) : base( inValues... )
     {}
 
     Vec2( std::initializer_list<T> inList ) : base( inList )
