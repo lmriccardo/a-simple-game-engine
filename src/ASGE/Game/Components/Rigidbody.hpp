@@ -22,6 +22,7 @@ struct Rigidbody
 namespace asge::game::scene
 {
 
+/** @brief Round-trips both fields (m_Mass, m_AffectedByGravity) -- Rigidbody carries no runtime-only state beyond them. */
 template<>
 struct Serializer<components::Rigidbody>
 {

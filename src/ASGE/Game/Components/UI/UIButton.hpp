@@ -27,17 +27,19 @@ struct UIButton
 {
     using FontAsset = std::shared_ptr<asset::Asset<media::Font>>;
 
+    // Serialized properties
     str::String    m_FontVirtualPath{};                      // VFS path of the font m_Text is drawn with
     int            m_FontWeight     {16};                    // Font size
     str::String    m_Text           {"Click Me"};            // Label drawn on the button
     str::TextAlign m_TextAlignment  {str::TextAlign::None};  // How m_Text is justified within m_Size
     math::Float2   m_Size           {80.0f, 24.0f};          // Button extent, same units/origin as Transform
 
+    // Runtime-only state -- never round-tripped through TOML, always reset to these defaults by FromToml
     bool      m_Hovered          {false};   // Whether the pointer is currently over the button
     bool      m_PressedThisFrame {false};   // Whether the pointer is currently held down on the button
     FontAsset m_Font             {nullptr}; // Asset pointer to the Font asset
 
-    signals::Signal<> m_OnClick; // Fired on click by whatever system drives UI input; connect via Signal::Connect
+    signals::Signal<> m_OnClick; // Not serialized -- fired on click by whatever system drives UI input; connect via Signal::Connect
 };
 
 math::Rect CreateButtonBounds( Transform const& inWorld, UIButton const& inButton ) noexcept;
@@ -48,11 +50,12 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_FontVirtualPath/m_Text/m_TextAlignment/m_Size only —
- *        see AudioSource's Serializer doc comment for why a scene file
- *        describes what a button looks like, not its live hover/press
- *        state or click subscribers. FromToml leaves m_Hovered/
- *        m_PressedThisFrame/m_OnClick at UIButton's in-code defaults.
+ * @brief Round-trips m_FontVirtualPath/m_FontWeight/m_Text/m_TextAlignment/
+ *        m_Size only — see AudioSource's Serializer doc comment for why a
+ *        scene file describes what a button looks like, not its live
+ *        hover/press state or click subscribers. FromToml leaves
+ *        m_Hovered/m_PressedThisFrame/m_Font/m_OnClick at UIButton's
+ *        in-code defaults.
  */
 template<>
 struct Serializer<components::UIButton>

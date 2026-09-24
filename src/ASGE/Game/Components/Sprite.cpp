@@ -71,9 +71,6 @@ void asge::game::scene::Serializer<asge::game::components::Sprite>::ToToml(
               .Set("w", inSprite.m_SourceRect->m_Width)
               .Set("h", inSprite.m_SourceRect->m_Height);
     }
-
-    sprite.Set("m_Layer", inSprite.m_Layer);
-    sprite.Set("m_YSort", inSprite.m_YSort);
 }
 
 asge::game::components::Sprite asge::game::scene::Serializer<asge::game::components::Sprite>::FromToml(
@@ -94,9 +91,6 @@ asge::game::components::Sprite asge::game::scene::Serializer<asge::game::compone
             rect.Get("h", 0.0f)
         };
     }
-
-    result.m_Layer = sprite.Get( "m_Layer", int{0} );
-    result.m_YSort = sprite.Get( "m_YSort", false );
 
     return result;
 }

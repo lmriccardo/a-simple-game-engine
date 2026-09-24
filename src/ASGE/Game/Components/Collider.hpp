@@ -72,6 +72,7 @@ bool LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept;
 namespace asge::game::scene
 {
 
+/** @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask) -- Collider carries no runtime-only state beyond them. */
 template<>
 struct Serializer<components::Collider>
 {

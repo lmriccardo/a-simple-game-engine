@@ -30,13 +30,13 @@ struct AudioSource
     using audio_clip_asset = std::shared_ptr<asset::Asset<media::AudioClip>>;
     using stream = std::shared_ptr<audio::AudioStream>;
 
-    audio_clip_asset    m_Clip              { nullptr }; // resolved clip asset, or null until ResolveAssets runs
-    stream              m_Stream            { nullptr }; // this source's slot in the AudioDevice pool, once played
-    str::String         m_VirtualClipPath   {};          // VFS path resolved into m_Clip
-    bool                m_Playing           { false };   // whether AudioSystem should be advancing playback
-    bool                m_Loop              { false };   // whether AudioSystem restarts the clip when it runs out
-    bool                m_Restart           { false };   // set by PlayAudioSource; consumed once by AudioSystem to force an immediate (re)start, independent of m_Loop or how much data is still queued
-    float               m_Volume            { 1.0f };    // this source's own playback gain; applied to m_Stream via SetAudioGain whenever AudioSystem (re)starts it
+    audio_clip_asset    m_Clip              { nullptr }; // Not serialized -- resolved clip asset, or null until ResolveAssets runs
+    stream              m_Stream            { nullptr }; // Not serialized -- this source's slot in the AudioDevice pool, once played
+    str::String         m_VirtualClipPath   {};          // Serialized. VFS path resolved into m_Clip
+    bool                m_Playing           { false };   // Not serialized -- whether AudioSystem should be advancing playback
+    bool                m_Loop              { false };   // Not serialized -- whether AudioSystem restarts the clip when it runs out
+    bool                m_Restart           { false };   // Not serialized -- set by PlayAudioSource; consumed once by AudioSystem to force an immediate (re)start, independent of m_Loop or how much data is still queued
+    float               m_Volume            { 1.0f };    // Not serialized -- this source's own playback gain; applied to m_Stream via SetAudioGain whenever AudioSystem (re)starts it
 };
 
 /**

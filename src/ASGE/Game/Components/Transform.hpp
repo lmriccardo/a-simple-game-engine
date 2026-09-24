@@ -37,6 +37,7 @@ struct Transform
 namespace asge::game::scene
 {
 
+/** @brief Round-trips the three m_Local* fields only -- see the struct's own doc comment for why m_World* and m_Dirty are runtime-only. */
 template<>
 struct Serializer<components::Transform>
 {

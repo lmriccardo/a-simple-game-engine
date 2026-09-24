@@ -20,7 +20,7 @@ struct Velocity
 namespace asge::game::scene
 {
 
-/** @brief The subtable name ToToml/FromToml agree on — see Serializer<components::Transform>::kTableName. */
+/** @brief Round-trips both fields (m_DX, m_DY) -- Velocity carries no runtime-only state beyond them. */
 template<>
 struct Serializer<components::Velocity>
 {
