@@ -2,6 +2,7 @@
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Time/Time.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
+#include <ASGE/Core/Filesystem/FileIO.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Scene/SceneManager.hpp>
@@ -18,9 +19,11 @@
 #include <SDL3/SDL_dialog.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <mutex>
 #include <optional>
+#include <string>
 
 #include "Inspector.hpp"
 #include "ViewportOverlay.hpp"
@@ -29,14 +32,14 @@
 #include "AssetBrowser.hpp"
 #include "AssetInspector.hpp"
 #include "VfsPanel.hpp"
-#include "SessionManager.hpp"
+#include "ProjectManager.hpp"
 
 namespace
 {
 using asge::game::components::Transform;
 
-constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.toml)", "toml" } };
-constexpr SDL_DialogFileFilter kSessionFileFilters[]{ { "Session (*.asges)", "asges" } };
+constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
+constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
 
 /**
  * @brief Finds the topmost entity (by iteration order) whose
@@ -121,6 +124,132 @@ void SetWindowIcon( SDL_Window* inWindow ) noexcept
     SDL_SetWindowIcon( inWindow, surface );
     SDL_DestroySurface( surface );
 }
+
+/** @brief "ASGE Editor - <project name>" when a project is active, else the plain default title. */
+void UpdateWindowTitle( SDL_Window* inWindow, Project const* inProject ) noexcept
+{
+    std::string const title = inProject
+        ? "ASGE Editor - " + inProject->m_FilePath.stem().string()
+        : "ASGE Editor";
+    SDL_SetWindowTitle( inWindow, title.c_str() );
+}
+
+/** @brief Marks inProject's currently active scene (if any) unsaved -- a no-op with no project or no active scene. */
+void MarkActiveSceneDirty( std::optional<Project>& inProject ) noexcept
+{
+    if ( !inProject ) return;
+    if ( inProject->m_ActiveSceneIndex < 0
+      || inProject->m_ActiveSceneIndex >= static_cast<int>( inProject->m_Scenes.size() ) ) return;
+    inProject->m_Scenes[inProject->m_ActiveSceneIndex].m_Dirty = true;
+}
+
+/**
+ * @brief Makes inProject.m_Scenes[inNewIndex] the active scene: saves the
+ *        currently active one first if it's dirty (so switching, or
+ *        creating a new scene, never silently loses edits), evicts it from
+ *        SceneManager's cache, then SceneManager::LoadSceneFromFile reads
+ *        the new one from disk.
+ *
+ * The evict is deliberate, not just cleanup: SceneManager keeps ONE shared
+ * Registry for every scene it's ever loaded, distinguishing them only by a
+ * SceneId tag -- switching scenes without evicting the old one leaves both
+ * resident simultaneously. RenderSystem/DrawEntityListPanel/viewport
+ * picking/etc. all operate on that whole Registry with no scoping of their
+ * own to "just the active scene's entities" (there's no engine concept of
+ * that), so a second resident scene doesn't just sit inertly cached -- it
+ * keeps rendering, keeps showing up in the Entities list, keeps being
+ * pickable, right alongside whatever's actually selected in the Scene
+ * dropdown. Evicting on every switch means only one scene is ever resident
+ * at a time, at the cost of the disk-free instant-swap SceneManager's own
+ * cache would otherwise give switching back to an already-visited scene --
+ * correctness over that micro-optimization here.
+ */
+void SwitchToScene(
+    Project& inOutProject, int inNewIndex,
+    asge::game::scene::SceneManager& inSceneManager, asge::game::asset::AssetManager& inAssets,
+    asge::video::IRenderer& inRenderer, asge::ecs::Entity& ioSelected ) noexcept
+{
+    std::optional<std::filesystem::path> previousPath;
+    if ( inOutProject.m_ActiveSceneIndex >= 0
+      && inOutProject.m_ActiveSceneIndex < static_cast<int>( inOutProject.m_Scenes.size() ) )
+    {
+        auto& current = inOutProject.m_Scenes[inOutProject.m_ActiveSceneIndex];
+        if ( current.m_Dirty )
+        {
+            auto const saveResult = inSceneManager.SaveScene( current.m_Path );
+            if ( saveResult ) current.m_Dirty = false; else saveResult.LogError();
+        }
+        previousPath = current.m_Path;
+    }
+
+    auto const& target = inOutProject.m_Scenes[inNewIndex];
+    auto const loadResult = inSceneManager.LoadSceneFromFile( target.m_Path );
+    if ( !loadResult )
+    {
+        loadResult.LogError();
+        return;
+    }
+
+    inOutProject.m_ActiveSceneIndex = inNewIndex;
+
+    // Evict only after the switch succeeded and only if it's actually a
+    // different scene -- EvictCachedScene is a documented no-op on
+    // whatever's currently active anyway, but re-selecting the same scene
+    // shouldn't even attempt it.
+    if ( previousPath && *previousPath != target.m_Path )
+    {
+        inSceneManager.EvictCachedScene( previousPath->string() );
+    }
+    ioSelected = asge::ecs::Entity::Null();
+    ResetEntityDisplayIds();
+    inAssets.ResolveAssets( inSceneManager.GetRegistry(), inRenderer );
+    RegisterSceneAssets( inSceneManager.GetRegistry() );
+}
+
+/**
+ * @brief Adds a brand-new, empty scene named inName to inOutProject at
+ *        <inOutProject.m_FilePath's own folder>/<inName>.asgescene, saves
+ *        the currently active scene first if it's dirty (this is itself a
+ *        scene switch), and makes the new one active.
+ *
+ * UnloadScene -> RenameActiveScene -> SaveScene is SceneManager's own
+ * documented pattern for giving a brand-new, never-saved scene an identity
+ * and an empty file on disk in one step, no new engine code needed. Shared
+ * by the Create a Scene modal and Create a Project's own auto-created
+ * "Empty Scene" -- every fresh project starts with one scene, not none.
+ * @return False (logged) if the save failed; inOutProject is still updated
+ *         either way, since the scene is real either way.
+ */
+bool CreateSceneInProject(
+    Project& inOutProject, std::string const& inName,
+    asge::game::scene::SceneManager& inSceneManager ) noexcept
+{
+    if ( inOutProject.m_ActiveSceneIndex >= 0
+      && inOutProject.m_ActiveSceneIndex < static_cast<int>( inOutProject.m_Scenes.size() ) )
+    {
+        auto& active = inOutProject.m_Scenes[inOutProject.m_ActiveSceneIndex];
+        if ( active.m_Dirty )
+        {
+            auto const saveResult = inSceneManager.SaveScene( active.m_Path );
+            if ( saveResult ) active.m_Dirty = false; else saveResult.LogError();
+        }
+    }
+
+    auto const newPath = inOutProject.m_FilePath.parent_path() / ( inName + ".asgescene" );
+    inOutProject.m_Scenes.push_back( ProjectScene{ inName, newPath, false } );
+    inOutProject.m_ActiveSceneIndex = static_cast<int>( inOutProject.m_Scenes.size() ) - 1;
+
+    inSceneManager.UnloadScene();
+    inSceneManager.RenameActiveScene( newPath.string() );
+    auto const saveResult = inSceneManager.SaveScene( newPath );
+    if ( !saveResult )
+    {
+        saveResult.LogError();
+        return false;
+    }
+    LOG_INFO( "Scene created at ", newPath.string() );
+    return true;
+}
 }
 
 // Phase 2 proved select -> edit -> save -> reload round-trips through the
@@ -158,13 +287,10 @@ int main(int, char**)
     asge::game::asset::AssetManager assets(vfs);
     asge::game::scene::SceneManager sceneManager(vfs);
 
-    // No scene is auto-loaded on startup -- the editor opens with an empty
-    // Registry, same as File > New (see below), rather than a hardcoded test
-    // fixture that would only ever exist on the machine that built it. No
-    // mount is auto-created either: vfs starts with nothing bound, and stays
-    // that way until the user sets one up via the Virtual File System panel
-    // (or opens a scene, which resolves its own file without leaving a
-    // mount behind -- see LoadSceneFromRealPath).
+    // No project is auto-loaded on startup beyond whatever asge.session
+    // resumes (see below, right before the main loop) -- the editor
+    // otherwise opens with nothing active, no mount, no scene, until the
+    // user creates or opens a project.
     namespace fs = std::filesystem;
 
     auto* window   = static_cast<SDL_Window*>(videoSys.GetWindow().NativeHandle());
@@ -192,14 +318,13 @@ int main(int, char**)
 
     auto selectedEntity = asge::ecs::Entity::Null();
     AssetPick selectedAsset; // last entry clicked in the Assets panel, kept across frames for the Asset Inspector to show
-    float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the Scene window
+    float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the View menu's Grid modal
 
-    // Phase 9: the target game window size DrawCameraOverlays sizes each
-    // Camera entity's preview box against -- an editor display setting
-    // (saved/restored via SaveSession/LoadSession's own [View] table, not
-    // as scene data) since nothing in the engine's own scene/config schema
-    // currently models "the target game's window size" for this to read
-    // instead.
+    // The target game window size DrawCameraOverlays/DrawGameWindowPreview
+    // size their previews against -- an editor display setting (saved/
+    // restored via a Project's own [View] table, not as scene data) since
+    // nothing in the engine's own scene/config schema currently models "the
+    // target game's window size" for this to read instead.
     int targetGameWidth = 1280;
     int targetGameHeight = 720;
 
@@ -212,30 +337,83 @@ int main(int, char**)
     int draftTargetWidth = targetGameWidth;
     int draftTargetHeight = targetGameHeight;
 
-    // The three top-center HUD panels' combined width, from last frame --
-    // ImGui can't report a window's AutoResize size before it's actually
-    // drawn once, so centering the group this frame off last frame's total
-    // (updated after all three are drawn below) is the standard immediate-
-    // mode fix for that chicken-and-egg problem. One frame of lag on a
-    // width change (e.g. the mouse-position text getting longer) is
-    // imperceptible; 0 here just means frame one starts slightly off-center
-    // and self-corrects on frame two.
+    // Phase 11: Create a Project modal's own draft fields, seeded (name/
+    // folder cleared, grid/window defaulted to the live values) the frame
+    // the modal opens.
+    char createProjectNameBuf[128] = "";
+    fs::path createProjectFolder;
+    float createProjectGrid = gridSpacing;
+    int createProjectWidth = targetGameWidth;
+    int createProjectHeight = targetGameHeight;
+
+    // Create a Scene modal's own draft field, plus its placeholder text --
+    // ImGui::InputTextWithHint needs the hint string alive every frame it's
+    // drawn, not just the frame the modal opens, so this can't be a local
+    // recomputed only on open the way the char buffer's reset is.
+    char createSceneNameBuf[128] = "";
+    std::string createScenePlaceholder;
+
+    // Scene panel's own rename field -- resynced from the active scene's
+    // current name only when the active scene itself changes (tracked via
+    // sceneNameBufSyncedIndex, -2 meaning "never synced"; -1 is a real,
+    // valid "no active scene" state), not every frame, which would fight
+    // in-progress typing.
+    char sceneNameBuf[128] = "";
+    int sceneNameBufSyncedIndex = -2;
+
+    // The three (now four, see below) top-center HUD panels' combined
+    // width, from last frame -- ImGui can't report a window's AutoResize
+    // size before it's actually drawn once, so centering the group this
+    // frame off last frame's total (updated after the last one is drawn
+    // below) is the standard immediate-mode fix for that chicken-and-egg
+    // problem. One frame of lag on a width change (e.g. the mouse-position
+    // text getting longer) is imperceptible; 0 here just means frame one
+    // starts slightly off-center and self-corrects on frame two.
     float hudGroupWidth = 0.0f;
 
-    // The real disk path Save writes to once the user has actually chosen one
-    // (via the native Save/Save As dialog) -- nullopt for a fresh/untitled
-    // scene, which is exactly what makes Save behave like Save As until then.
-    // sceneManager's own SceneId-tagging identity (RenameActiveScene) is a
-    // separate, purely internal bookkeeping string -- it doesn't need to
-    // match this real path, so a fresh scene gets a placeholder identity
-    // before any real location is known.
-    std::optional<fs::path> currentScenePath;
-    FileDialogResult saveDialogResult;
-    FileDialogResult openDialogResult;
-    FileDialogResult saveSessionDialogResult;
-    FileDialogResult openSessionDialogResult;
+    // Tracks whether DisplaySize changed since last frame, for the Scene
+    // panel's own right-edge anchoring below -- re-snap to the edge only on
+    // an actual resize, ImGuiCond_FirstUseEver otherwise, so the panel
+    // stays freely user-draggable the rest of the time (forcing
+    // ImGuiCond_Always unconditionally re-fights the user's own drag every
+    // single frame, making the panel effectively immovable).
+    ImVec2 lastDisplaySize{ 0.0f, 0.0f };
 
-    sceneManager.RenameActiveScene("untitled");
+    // Phase 11: what used to be Save Session/Open Session is now a Project
+    // (.asgeproject, explicitly saved) plus this -- nullopt until Create a
+    // Project/Open... actually establishes one. Which of its scenes (if
+    // any) is active is Project::m_ActiveSceneIndex, editor-only state, not
+    // itself part of the .asgeproject file (see asge.session instead).
+    std::optional<Project> currentProject;
+
+    FileDialogResult createProjectFolderDialogResult;
+    FileDialogResult saveProjectAsDialogResult;
+    FileDialogResult openProjectDialogResult;
+    FileDialogResult openSceneDialogResult;
+
+    // asge.session -- the ambient "what does the editor currently look
+    // like" state (active project + active scene), distinct from a Project
+    // itself and auto-saved/loaded rather than explicitly, at the
+    // executable's own location (SDL_GetBasePath, independent of whatever
+    // the current working directory happens to be) rather than CWD.
+    fs::path const sessionFilePath = [] {
+        char const* base = SDL_GetBasePath();
+        return base ? fs::path( base ) / "asge.session" : fs::path( "asge.session" );
+    }();
+    float sessionAutosaveTimer = 0.0f;
+    constexpr float kSessionAutosaveInterval = 30.0f;
+
+    auto const saveEditorSessionNow = [&]() noexcept
+    {
+        std::optional<fs::path> const activeScenePath =
+            ( currentProject && currentProject->m_ActiveSceneIndex >= 0
+              && currentProject->m_ActiveSceneIndex < static_cast<int>( currentProject->m_Scenes.size() ) )
+            ? std::optional<fs::path>( currentProject->m_Scenes[currentProject->m_ActiveSceneIndex].m_Path )
+            : std::nullopt;
+        std::optional<fs::path> const projectPath =
+            currentProject ? std::optional<fs::path>( currentProject->m_FilePath ) : std::nullopt;
+        if ( auto const r = SaveEditorSession( projectPath, activeScenePath, sessionFilePath ); !r ) r.LogError();
+    };
 
     // Phase 4: viewport free-drag + translate gizmo. draggingEntity is the
     // entity currently being moved (Null() when nothing is); dragAxis is
@@ -248,6 +426,53 @@ int main(int, char**)
     // dragAxis above (a different mouse button), so both can never be
     // active from the same drag.
     bool panningCamera = false;
+
+    // Resume whatever asge.session last remembered, if it exists and its
+    // project still does too -- everything it needs (window, sceneManager,
+    // assets, vfs, gridSpacing/targetGameWidth/targetGameHeight,
+    // currentProject, selectedEntity) is already set up above.
+    if ( fs::exists( sessionFilePath ) )
+    {
+        std::optional<fs::path> sessionProjectPath;
+        std::optional<fs::path> sessionActiveScenePath;
+        auto const sessionLoadResult = LoadEditorSession( sessionFilePath, sessionProjectPath, sessionActiveScenePath );
+        if ( !sessionLoadResult ) sessionLoadResult.LogError();
+        else if ( sessionProjectPath && fs::exists( *sessionProjectPath ) )
+        {
+            Project loaded;
+            auto const projectResult = LoadProject(
+                vfs, *sessionProjectPath, loaded, gridSpacing, targetGameWidth, targetGameHeight );
+            if ( !projectResult )
+            {
+                projectResult.LogError();
+            }
+            else
+            {
+                currentProject = std::move( loaded );
+                UpdateWindowTitle( window, &*currentProject );
+
+                int resumeIndex = -1;
+                if ( sessionActiveScenePath )
+                {
+                    for ( std::size_t i = 0; i < currentProject->m_Scenes.size(); ++i )
+                    {
+                        if ( currentProject->m_Scenes[i].m_Path == *sessionActiveScenePath )
+                        {
+                            resumeIndex = static_cast<int>( i );
+                            break;
+                        }
+                    }
+                }
+                if ( resumeIndex < 0 && !currentProject->m_Scenes.empty() ) resumeIndex = 0;
+                if ( resumeIndex >= 0 )
+                {
+                    SwitchToScene(
+                        *currentProject, resumeIndex, sceneManager, assets, videoSys.GetRenderer(), selectedEntity );
+                }
+                LOG_INFO( "Resumed project from ", sessionProjectPath->string() );
+            }
+        }
+    }
 
     bool running = true;
     while (running)
@@ -338,6 +563,7 @@ int main(int, char**)
                     auto& t = transformResult.Value().get();
                     if (dragAxis != GizmoAxis::Y) t.m_X += event.motion.xrel / zoom;
                     if (dragAxis != GizmoAxis::X) t.m_Y += event.motion.yrel / zoom;
+                    MarkActiveSceneDirty(currentProject);
                 }
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION && panningCamera)
@@ -373,187 +599,233 @@ int main(int, char**)
         ImGui::NewFrame();
 
         // Results queued by OnFileDialogResult (possibly from another thread)
-        // are drained here, once per frame, on the main thread --
-        // SceneManager/Registry/vfs are never touched from the dialog
+        // are drained here, once per frame, on the main thread -- nothing
+        // touches SceneManager/Registry/vfs/currentProject from the dialog
         // callback itself.
         {
+            std::string chosenDir;
+            if (DrainFileDialogResult(createProjectFolderDialogResult, chosenDir))
+            {
+                if (!chosenDir.empty()) createProjectFolder = chosenDir;
+            }
+        }
+        {
             std::string chosenPath;
-            if (DrainFileDialogResult(saveDialogResult, chosenPath))
+            if (DrainFileDialogResult(saveProjectAsDialogResult, chosenPath))
             {
                 fs::path path = chosenPath;
                 if (path.filename().empty())
                 {
-                    // Dialog closed/canceled without a real filename (some
-                    // backends hand back an empty or directory-only path
-                    // instead of failing outright) -- checked before the
-                    // extension is appended below, since after that a blank
-                    // path would otherwise silently become a bare ".toml".
-                    LOG_WARNING("Save dialog returned no filename -- scene not saved");
+                    LOG_WARNING("Save As dialog returned no filename -- project not saved");
                 }
-                else
+                else if (currentProject)
                 {
-                    if (path.extension().empty()) path += ".toml"; // native dialogs don't all enforce the filter's extension
-                    sceneManager.RenameActiveScene(path.string());
-                    auto const saveResult = sceneManager.SaveScene(path);
-                    if (!saveResult) saveResult.LogError();
-                    else
+                    if (path.extension().empty()) path += ".asgeproject";
+                    fs::path const newDir = path.parent_path();
+
+                    // The active scene is the only one that can have live
+                    // unsaved edits (nothing inactive is ever mutable
+                    // through the UI) -- save it straight to its new
+                    // location; every other scene's on-disk file is already
+                    // current, so just copy it there instead.
+                    for (std::size_t i = 0; i < currentProject->m_Scenes.size(); ++i)
                     {
-                        currentScenePath = path;
-                        LOG_INFO("Scene saved to ", path.string());
+                        auto& scene = currentProject->m_Scenes[i];
+                        fs::path const newScenePath = newDir / scene.m_Path.filename();
+                        bool ok = true;
+                        if (static_cast<int>(i) == currentProject->m_ActiveSceneIndex)
+                        {
+                            auto const r = sceneManager.SaveScene(newScenePath);
+                            if (!r) { r.LogError(); ok = false; }
+                            else
+                            {
+                                scene.m_Dirty = false;
+                                sceneManager.RenameActiveScene(newScenePath.string());
+                            }
+                        }
+                        else
+                        {
+                            auto const r = asge::filesystem::Copy(scene.m_Path, newScenePath);
+                            if (!r) { r.LogError(); ok = false; }
+                        }
+                        if (ok) scene.m_Path = newScenePath;
                     }
+
+                    currentProject->m_FilePath = path;
+                    auto const saveResult = SaveProject(
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                    if (!saveResult) saveResult.LogError();
+                    else LOG_INFO("Project saved to ", path.string());
+                    UpdateWindowTitle(window, &*currentProject);
                 }
             }
         }
         {
             std::string chosenPath;
-            if (DrainFileDialogResult(openDialogResult, chosenPath))
+            if (DrainFileDialogResult(openProjectDialogResult, chosenPath))
             {
                 if (chosenPath.empty())
                 {
-                    // Same defensive check as Save's -- a dialog closed
-                    // without a real selection shouldn't be treated as "open
-                    // whatever the empty path resolves to".
                     LOG_WARNING("Open dialog returned no file -- nothing loaded");
                 }
                 else
                 {
                     fs::path const path = chosenPath;
 
+                    // Save whatever's currently open first, same as Create
+                    // a Project.
+                    if (currentProject)
+                    {
+                        if (currentProject->m_ActiveSceneIndex >= 0)
+                        {
+                            auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+                            if (active.m_Dirty)
+                            {
+                                auto const r = sceneManager.SaveScene(active.m_Path);
+                                if (r) active.m_Dirty = false; else r.LogError();
+                            }
+                        }
+                        auto const r = SaveProject(
+                            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                        if (!r) r.LogError();
+                    }
                     sceneManager.UnloadScene();
-                    auto const loadResult = LoadSceneFromRealPath(vfs, sceneManager, path);
+                    sceneManager.ClearCache();
+
+                    Project loaded;
+                    auto const loadResult = LoadProject(vfs, path, loaded, gridSpacing, targetGameWidth, targetGameHeight);
                     if (!loadResult)
                     {
                         loadResult.LogError();
                     }
                     else
                     {
-                        currentScenePath = path;
+                        currentProject = std::move(loaded);
                         selectedEntity = asge::ecs::Entity::Null();
                         ResetEntityDisplayIds();
-                        LOG_INFO("Scene loaded from ", path.string());
-                        // A freshly loaded scene's Sprite/Animation/AudioSource
-                        // paths need resolving; anything whose virtual root isn't
-                        // mounted yet fails here and shows up as "Missing" in the
-                        // VFS panel, which re-resolves once the user sets it.
-                        assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
-                        // So the Assets panel keeps showing these independently
-                        // of whether any entity still references them -- see
-                        // RegisterSceneAssets's own doc comment.
-                        RegisterSceneAssets(sceneManager.GetRegistry());
+                        LOG_INFO("Project loaded from ", path.string());
+                        UpdateWindowTitle(window, &*currentProject);
+                        if (!currentProject->m_Scenes.empty())
+                        {
+                            SwitchToScene(
+                                *currentProject, 0, sceneManager, assets, videoSys.GetRenderer(), selectedEntity);
+                        }
                     }
                 }
             }
         }
         {
             std::string chosenPath;
-            if (DrainFileDialogResult(saveSessionDialogResult, chosenPath))
-            {
-                fs::path path = chosenPath;
-                if (path.filename().empty())
-                {
-                    // Same guard as Save Scene's -- an empty/directory-only
-                    // path here would otherwise become a bare ".asges".
-                    LOG_WARNING("Save Session dialog returned no filename -- session not saved");
-                }
-                else
-                {
-                    if (path.extension().empty()) path += ".asges";
-                    auto const saveResult = SaveSession(
-                        vfs, sceneManager.GetRegistry(), currentScenePath,
-                        gridSpacing, targetGameWidth, targetGameHeight, path);
-                    if (!saveResult) saveResult.LogError();
-                    else LOG_INFO("Session saved to ", path.string());
-                }
-            }
-        }
-        {
-            std::string chosenPath;
-            if (DrainFileDialogResult(openSessionDialogResult, chosenPath))
+            if (DrainFileDialogResult(openSceneDialogResult, chosenPath))
             {
                 if (chosenPath.empty())
                 {
-                    // Same guard as Open Scene's.
-                    LOG_WARNING("Open Session dialog returned no file -- nothing loaded");
+                    LOG_WARNING("Open Scene dialog returned no file -- nothing loaded");
                 }
-                else
+                else if (currentProject)
                 {
                     fs::path const path = chosenPath;
-                    auto const loadResult = LoadSession(
-                        vfs, sceneManager, assets, videoSys.GetRenderer(), path, currentScenePath,
-                        gridSpacing, targetGameWidth, targetGameHeight);
-                    if (!loadResult)
+                    int existingIndex = -1;
+                    for (std::size_t i = 0; i < currentProject->m_Scenes.size(); ++i)
                     {
-                        loadResult.LogError();
+                        if (currentProject->m_Scenes[i].m_Path == path) { existingIndex = static_cast<int>(i); break; }
                     }
-                    else
+                    if (existingIndex < 0)
                     {
-                        selectedEntity = asge::ecs::Entity::Null();
-                        ResetEntityDisplayIds();
-                        LOG_INFO("Session loaded from ", path.string());
+                        currentProject->m_Scenes.push_back(ProjectScene{ path.stem().string(), path, false });
+                        existingIndex = static_cast<int>(currentProject->m_Scenes.size()) - 1;
                     }
+                    SwitchToScene(
+                        *currentProject, existingIndex, sceneManager, assets, videoSys.GetRenderer(), selectedEntity);
+                    LOG_INFO("Scene opened from ", path.string());
                 }
             }
         }
 
-        bool openSaveDialog = false;
-        bool openOpenDialog = false;
-        bool openSaveSessionDialog = false;
-        bool openOpenSessionDialog = false;
+        bool const hasProject = currentProject.has_value();
+        bool const hasActiveScene = hasProject
+            && currentProject->m_ActiveSceneIndex >= 0
+            && currentProject->m_ActiveSceneIndex < static_cast<int>(currentProject->m_Scenes.size());
+
+        bool openCreateProjectModal = false;
+        bool openCreateSceneModal = false;
+        bool openCreateProjectFolderDialog = false;
+        bool openSaveProjectAsDialog = false;
+        bool openOpenProjectDialog = false;
+        bool openOpenSceneDialog = false;
         bool openGridModal = false;
         bool openGameWindowModal = false;
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
             {
-                if (ImGui::MenuItem("New"))
+                if (ImGui::BeginMenu("New"))
                 {
-                    sceneManager.UnloadScene();
-                    sceneManager.RenameActiveScene("untitled");
-                    currentScenePath.reset();
-                    selectedEntity = asge::ecs::Entity::Null();
-                    ResetEntityDisplayIds();
+                    if (ImGui::MenuItem("Create a Project...")) openCreateProjectModal = true;
+                    if (!hasProject) ImGui::BeginDisabled();
+                    if (ImGui::MenuItem("Create a Scene...")) openCreateSceneModal = true;
+                    if (!hasProject) ImGui::EndDisabled();
+                    ImGui::EndMenu();
                 }
-                if (ImGui::MenuItem("Open...")) openOpenDialog = true;
+                ImGui::Separator();
+
+                if (!hasProject) ImGui::BeginDisabled();
                 if (ImGui::MenuItem("Save"))
                 {
-                    if (currentScenePath)
-                    {
-                        // Exactly the game's own save path: SceneManager::SaveScene
-                        // -> SceneSerializer -> Serializer<Transform>, unmodified.
-                        auto const saveResult = sceneManager.SaveScene(*currentScenePath);
-                        if (!saveResult) saveResult.LogError();
-                        else LOG_INFO("Scene saved to ", currentScenePath->string());
-                    }
+                    // A project always has a real m_FilePath the moment it
+                    // exists (Create a Project auto-saves it immediately),
+                    // so unlike Scene's Save this never needs a Save-As
+                    // fallback.
+                    auto const saveResult = SaveProject(
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                    if (!saveResult) saveResult.LogError();
+                    else LOG_INFO("Project saved to ", currentProject->m_FilePath.string());
+                }
+                if (ImGui::MenuItem("Save As...")) openSaveProjectAsDialog = true;
+                if (!hasProject) ImGui::EndDisabled();
+
+                ImGui::Separator();
+                if (!hasActiveScene) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("Save Scene"))
+                {
+                    auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+                    auto const saveResult = sceneManager.SaveScene(active.m_Path);
+                    if (!saveResult) saveResult.LogError();
                     else
                     {
-                        // Never saved anywhere real yet -- behave like Save As
-                        // rather than silently writing under the scratch dir.
-                        openSaveDialog = true;
+                        active.m_Dirty = false;
+                        LOG_INFO("Scene saved to ", active.m_Path.string());
                     }
                 }
-                if (ImGui::MenuItem("Save As...")) openSaveDialog = true;
+                if (!hasActiveScene) ImGui::EndDisabled();
+
                 ImGui::Separator();
-                if (ImGui::MenuItem("Save Session...")) openSaveSessionDialog = true;
-                if (ImGui::MenuItem("Open Session...")) openOpenSessionDialog = true;
+                if (ImGui::MenuItem("Open...")) openOpenProjectDialog = true;
+                if (!hasProject) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("Open Scene...")) openOpenSceneDialog = true;
+                if (!hasProject) ImGui::EndDisabled();
+
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("View"))
             {
+                // Grid spacing/target window size are project-level [View]
+                // data (see SaveProject) -- nowhere for either to actually
+                // persist to without an active project.
+                if (!hasProject) ImGui::BeginDisabled();
                 if (ImGui::MenuItem("Grid")) openGridModal = true;
                 if (ImGui::MenuItem("Game Window")) openGameWindowModal = true;
+                if (!hasProject) ImGui::EndDisabled();
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
         }
 
         // OpenPopup deferred to here (same ID-stack depth BeginPopupModal
-        // itself is called at) rather than issued from inside the View menu
-        // above -- calling it from inside BeginMenu/EndMenu hashes to a
-        // different ID and the popup silently never opens, same gotcha
-        // Save/Open's native dialogs avoid via the openXDialog bools below.
-        // Drafts are (re-)seeded from the live values right here too, so
-        // reopening a modal after an earlier "Close" starts from what's
-        // actually live again, not a stale discarded edit.
+        // itself is called at) rather than issued from inside a menu above
+        // -- calling it from inside BeginMenu/EndMenu hashes to a different
+        // ID and the popup silently never opens, same gotcha the native
+        // dialogs below avoid via their own openXDialog bools.
         if (openGridModal)
         {
             draftGridSpacing = gridSpacing;
@@ -564,6 +836,21 @@ int main(int, char**)
             draftTargetWidth = targetGameWidth;
             draftTargetHeight = targetGameHeight;
             ImGui::OpenPopup("Game Window Settings");
+        }
+        if (openCreateProjectModal)
+        {
+            createProjectNameBuf[0] = '\0';
+            createProjectFolder.clear();
+            createProjectGrid = gridSpacing;
+            createProjectWidth = targetGameWidth;
+            createProjectHeight = targetGameHeight;
+            ImGui::OpenPopup("Create a Project");
+        }
+        if (openCreateSceneModal && currentProject)
+        {
+            createSceneNameBuf[0] = '\0';
+            createScenePlaceholder = "Scene #" + std::to_string(currentProject->m_Scenes.size());
+            ImGui::OpenPopup("Create a Scene");
         }
 
         if (ImGui::BeginPopupModal("Grid Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
@@ -592,51 +879,229 @@ int main(int, char**)
             }
             ImGui::EndPopup();
         }
+        if (ImGui::BeginPopupModal("Create a Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::InputTextWithHint(
+                "Project Name", "New Project", createProjectNameBuf, sizeof(createProjectNameBuf));
+            ImGui::Text(
+                "Folder: %s", createProjectFolder.empty() ? "(none)" : createProjectFolder.string().c_str());
+            ImGui::SameLine();
+            if (ImGui::Button("Browse...")) openCreateProjectFolderDialog = true;
+            ImGui::DragFloat("Grid Size", &createProjectGrid, 1.0f, 5.0f, 500.0f);
+            ImGui::DragInt("Game Window Width", &createProjectWidth, 1.0f, 64, 7680);
+            ImGui::DragInt("Game Window Height", &createProjectHeight, 1.0f, 64, 4320);
 
-        if (openSaveDialog)
-        {
-            auto const defaultLocation = currentScenePath
-                ? DialogDefaultLocation(currentScenePath->parent_path()) : std::string{};
-            SDL_ShowSaveFileDialog(
-                OnFileDialogResult, &saveDialogResult, window,
-                kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str());
+            bool const canCreate = !createProjectFolder.empty();
+            if (!canCreate) ImGui::BeginDisabled();
+            if (ImGui::Button("Create"))
+            {
+                std::string const name =
+                    createProjectNameBuf[0] != '\0' ? std::string(createProjectNameBuf) : std::string("New Project");
+
+                // Save whatever project is currently open first -- its
+                // dirty scene (there can be at most one, the active one)
+                // plus the project file itself.
+                if (currentProject)
+                {
+                    if (currentProject->m_ActiveSceneIndex >= 0)
+                    {
+                        auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+                        if (active.m_Dirty)
+                        {
+                            auto const r = sceneManager.SaveScene(active.m_Path);
+                            if (r) active.m_Dirty = false; else r.LogError();
+                        }
+                    }
+                    auto const r = SaveProject(
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                    if (!r) r.LogError();
+                }
+
+                // Clear out the entire editor.
+                sceneManager.UnloadScene();
+                sceneManager.ClearCache();
+                auto const mountsCopy = vfs.ListMounts();
+                for (auto const& mount : mountsCopy)
+                {
+                    if (auto r = vfs.Unmount(mount.m_VirtualRoot, mount.m_RealDirectory.string()); !r) r.LogError();
+                }
+                ClearKnownAssets();
+                selectedEntity = asge::ecs::Entity::Null();
+                selectedAsset = AssetPick{};
+                ResetEntityDisplayIds();
+
+                gridSpacing = createProjectGrid;
+                targetGameWidth = createProjectWidth;
+                targetGameHeight = createProjectHeight;
+
+                Project newProject;
+                newProject.m_FilePath = createProjectFolder / (name + ".asgeproject");
+                currentProject = std::move(newProject);
+
+                // Every fresh project starts with one scene, not none.
+                CreateSceneInProject(*currentProject, "Empty Scene", sceneManager);
+                selectedEntity = asge::ecs::Entity::Null();
+                ResetEntityDisplayIds();
+
+                auto const saveResult = SaveProject(
+                    vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                if (!saveResult) saveResult.LogError();
+                else LOG_INFO("Project created at ", currentProject->m_FilePath.string());
+                UpdateWindowTitle(window, &*currentProject);
+
+                ImGui::CloseCurrentPopup();
+            }
+            if (!canCreate) ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
         }
-        if (openOpenDialog)
+        if (ImGui::BeginPopupModal("Create a Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            auto const defaultLocation = currentScenePath
-                ? DialogDefaultLocation(currentScenePath->parent_path()) : std::string{};
+            if (currentProject)
+            {
+                ImGui::InputTextWithHint(
+                    "Scene Name", createScenePlaceholder.c_str(), createSceneNameBuf, sizeof(createSceneNameBuf));
+                if (ImGui::Button("Create"))
+                {
+                    std::string const name =
+                        createSceneNameBuf[0] != '\0' ? std::string(createSceneNameBuf) : createScenePlaceholder;
+                    CreateSceneInProject(*currentProject, name, sceneManager);
+                    selectedEntity = asge::ecs::Entity::Null();
+                    ResetEntityDisplayIds();
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+            }
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
+        if (openCreateProjectFolderDialog)
+        {
+            SDL_ShowOpenFolderDialog(OnFileDialogResult, &createProjectFolderDialogResult, window, nullptr, false);
+        }
+        if (openSaveProjectAsDialog)
+        {
+            auto const defaultLocation = currentProject
+                ? DialogDefaultLocation(currentProject->m_FilePath.parent_path()) : std::string{};
+            SDL_ShowSaveFileDialog(
+                OnFileDialogResult, &saveProjectAsDialogResult, window,
+                kProjectFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str());
+        }
+        if (openOpenProjectDialog)
+        {
             SDL_ShowOpenFileDialog(
-                OnFileDialogResult, &openDialogResult, window,
+                OnFileDialogResult, &openProjectDialogResult, window, kProjectFileFilters, 1, nullptr, false);
+        }
+        if (openOpenSceneDialog)
+        {
+            auto const defaultLocation = currentProject
+                ? DialogDefaultLocation(currentProject->m_FilePath.parent_path()) : std::string{};
+            SDL_ShowOpenFileDialog(
+                OnFileDialogResult, &openSceneDialogResult, window,
                 kSceneFileFilters, 1, defaultLocation.empty() ? nullptr : defaultLocation.c_str(), false);
-        }
-        if (openSaveSessionDialog)
-        {
-            SDL_ShowSaveFileDialog(
-                OnFileDialogResult, &saveSessionDialogResult, window, kSessionFileFilters, 1, nullptr);
-        }
-        if (openOpenSessionDialog)
-        {
-            SDL_ShowOpenFileDialog(
-                OnFileDialogResult, &openSessionDialogResult, window, kSessionFileFilters, 1, nullptr, false);
         }
 
         // Right-aligned, stacked above Entities/Inspector (see Inspector.hpp's
         // kEditorPanelWidth/kEditorPanelRightMargin) instead of ImGui's
         // default cascade, which left all three overlapping near the corner.
-        // Position is forced every frame (ImGuiCond_Always) since DisplaySize
-        // can change (resizable editor window) and the whole right-hand
-        // group must stay flush against the edge regardless -- same
-        // precedent as ConsolePanel's own anchor. Size alone stays
-        // user-draggable.
-        float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
-        ImGui::SetNextWindowPos(ImVec2(rightX, 30.0f), ImGuiCond_Always);
+        // Re-snaps to the edge only on an actual resize (lastDisplaySize
+        // changing), ImGuiCond_FirstUseEver otherwise -- see
+        // lastDisplaySize's own doc comment for why. Size alone stays
+        // user-draggable regardless.
+        ImVec2 const displaySize = ImGui::GetIO().DisplaySize;
+        ImGuiCond const rightPanelAnchorCond =
+            ( displaySize.x != lastDisplaySize.x || displaySize.y != lastDisplaySize.y )
+            ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
+        lastDisplaySize = displaySize;
+
+        float const rightX = displaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
+        ImGui::SetNextWindowPos(ImVec2(rightX, 30.0f), rightPanelAnchorCond);
         ImGui::SetNextWindowSize(ImVec2(kEditorPanelWidth, 55.0f), ImGuiCond_FirstUseEver);
+
+        // Recomputed fresh here (not reusing the frame-start hasProject/
+        // hasActiveScene above) -- Create a Project's own "Create" button
+        // (and Open.../Open Scene's drain blocks) can replace currentProject
+        // entirely earlier in this same frame, and the frame-start flags
+        // would then be stale (computed against the OLD project) for
+        // everything drawn after that point, this panel included. Reusing a
+        // stale one here once indexed m_Scenes with a leftover valid-
+        // looking index into a NEW, still-empty project -- a real vector-
+        // subscript-out-of-range crash this same fix already went in for
+        // the Project/Scene HUD below; shared by both, and by every panel
+        // drawn after this point that gates a button on project/scene
+        // existence (Create Entity, Load Asset..., Add mount).
+        bool const freshHasProject = currentProject.has_value();
+        bool const freshHasActiveScene = currentProject
+            && currentProject->m_ActiveSceneIndex >= 0
+            && currentProject->m_ActiveSceneIndex < static_cast<int>( currentProject->m_Scenes.size() );
+
+        // Resync the rename field from the active scene's current name only
+        // when the active scene itself just changed -- not every frame,
+        // which would overwrite whatever's mid-edit.
+        if ( freshHasActiveScene && currentProject->m_ActiveSceneIndex != sceneNameBufSyncedIndex )
+        {
+            std::snprintf( sceneNameBuf, sizeof( sceneNameBuf ), "%s",
+                currentProject->m_Scenes[currentProject->m_ActiveSceneIndex].m_Name.c_str() );
+            sceneNameBufSyncedIndex = currentProject->m_ActiveSceneIndex;
+        }
+        else if ( !freshHasActiveScene )
+        {
+            sceneNameBufSyncedIndex = -2; // force a resync once a scene next becomes active
+        }
 
         ImGui::Begin("Scene");
         ImGui::Text("Scene loaded: %zu entities", sceneManager.GetRegistry().AllEntities().size());
+        if ( freshHasActiveScene )
+        {
+            ImGui::InputText( "Scene Name", sceneNameBuf, sizeof( sceneNameBuf ) );
+            // Committed once editing actually finishes (Enter/Tab/click-
+            // away), not per keystroke -- renaming the on-disk file is a
+            // real filesystem move, not something to redo on every typed
+            // character.
+            if ( ImGui::IsItemDeactivatedAfterEdit() )
+            {
+                auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+                std::string const newName = sceneNameBuf[0] != '\0' ? std::string( sceneNameBuf ) : active.m_Name;
+
+                bool const nameTaken = std::any_of(
+                    currentProject->m_Scenes.begin(), currentProject->m_Scenes.end(),
+                    [&]( ProjectScene const& inScene ) { return &inScene != &active && inScene.m_Name == newName; } );
+
+                if ( newName == active.m_Name )
+                {
+                    // No-op edit (typed back to the same name, or cleared
+                    // and fell back to it) -- nothing to rename.
+                }
+                else if ( nameTaken )
+                {
+                    LOG_ERROR( "\"", newName, "\" is already a scene in this project -- not renamed" );
+                    std::snprintf( sceneNameBuf, sizeof( sceneNameBuf ), "%s", active.m_Name.c_str() );
+                }
+                else
+                {
+                    fs::path const newPath = active.m_Path.parent_path() / ( newName + ".asgescene" );
+                    std::error_code ec;
+                    fs::rename( active.m_Path, newPath, ec ); // an actual move, not FileIO::Copy -- no leftover old file
+                    if ( ec )
+                    {
+                        LOG_ERROR( "Failed to rename scene file to \"", newPath.string(), "\": ", ec.message() );
+                        std::snprintf( sceneNameBuf, sizeof( sceneNameBuf ), "%s", active.m_Name.c_str() );
+                    }
+                    else
+                    {
+                        active.m_Name = newName;
+                        active.m_Path = newPath;
+                        sceneManager.RenameActiveScene( newPath.string() ); // keep SceneManager's own identity in sync
+                        LOG_INFO( "Scene renamed to ", newPath.string() );
+                    }
+                }
+            }
+        }
         ImGui::End();
 
-        // Three fixed HUDs, not regular panels -- no title bar/move/
+        // Four fixed HUDs, not regular panels -- no title bar/move/
         // collapse/close, repositioned every frame (ImGuiCond_Always, not
         // FirstUseEver) so none can be dragged away, hidden behind another
         // window, or lost the way a field inside a closable/collapsible
@@ -646,6 +1111,68 @@ int main(int, char**)
         // hudGroupWidth so the group as a whole sits centered rather than
         // the first panel alone.
         float const hudGroupStartX = ImGui::GetIO().DisplaySize.x * 0.5f - hudGroupWidth * 0.5f;
+        constexpr float kHudGap = 8.0f;
+
+        // Project/Scene HUD -- prepended ahead of the mouse-position HUD.
+        // Needs real input (the Scene combo), so unlike the two pure-
+        // display HUDs after it, no NoInputs.
+
+        ImVec2 projectHudPos, projectHudSize;
+        {
+            ImGuiWindowFlags const kProjectHudFlags =
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize
+              | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav
+              | ImGuiWindowFlags_NoMove;
+
+            ImGui::SetNextWindowPos( ImVec2( hudGroupStartX, ImGui::GetFrameHeight() + 4.0f ), ImGuiCond_Always );
+            ImGui::SetNextWindowBgAlpha( 0.55f );
+            ImGui::Begin( "##ProjectHud", nullptr, kProjectHudFlags );
+
+            if ( !currentProject )
+            {
+                ImGui::TextUnformatted( "Project: (none)" );
+            }
+            else
+            {
+                ImGui::Text( "Project: %s", currentProject->m_FilePath.stem().string().c_str() );
+                ImGui::SameLine();
+
+                std::string const currentSceneName = freshHasActiveScene
+                    ? currentProject->m_Scenes[currentProject->m_ActiveSceneIndex].m_Name : std::string( "(none)" );
+                ImGui::SetNextItemWidth( 150.0f );
+                if ( ImGui::BeginCombo( "Scene", currentSceneName.c_str() ) )
+                {
+                    for ( std::size_t i = 0; i < currentProject->m_Scenes.size(); ++i )
+                    {
+                        bool const isSelected = static_cast<int>( i ) == currentProject->m_ActiveSceneIndex;
+                        if ( ImGui::Selectable( currentProject->m_Scenes[i].m_Name.c_str(), isSelected ) && !isSelected )
+                        {
+                            SwitchToScene(
+                                *currentProject, static_cast<int>( i ),
+                                sceneManager, assets, videoSys.GetRenderer(), selectedEntity );
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+
+                // A white-filled dot, shown only while the active scene has
+                // unsaved edits.
+                if ( freshHasActiveScene && currentProject->m_Scenes[currentProject->m_ActiveSceneIndex].m_Dirty )
+                {
+                    ImGui::SameLine();
+                    float const radius = 5.0f;
+                    ImVec2 const cursor = ImGui::GetCursorScreenPos();
+                    ImGui::GetWindowDrawList()->AddCircleFilled(
+                        ImVec2( cursor.x + radius, cursor.y + ImGui::GetTextLineHeight() * 0.5f ),
+                        radius, IM_COL32( 255, 255, 255, 255 ) );
+                    ImGui::Dummy( ImVec2( radius * 2.0f + 4.0f, ImGui::GetTextLineHeight() ) );
+                }
+            }
+
+            projectHudPos = ImGui::GetWindowPos();
+            projectHudSize = ImGui::GetWindowSize();
+            ImGui::End();
+        }
 
         ImVec2 mouseHudPos, mouseHudSize;
         {
@@ -655,7 +1182,7 @@ int main(int, char**)
               | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
 
             ImGui::SetNextWindowPos(
-                ImVec2( hudGroupStartX, ImGui::GetFrameHeight() + 4.0f ), ImGuiCond_Always );
+                ImVec2( projectHudPos.x + projectHudSize.x + kHudGap, projectHudPos.y ), ImGuiCond_Always );
             ImGui::SetNextWindowBgAlpha( 0.55f );
             ImGui::Begin( "##MouseHud", nullptr, kMouseHudFlags );
 
@@ -675,7 +1202,6 @@ int main(int, char**)
             mouseHudSize = ImGui::GetWindowSize();
             ImGui::End();
         }
-        constexpr float kHudGap = 8.0f;
         ImVec2 viewHudPos, viewHudSize;
         {
             ImGuiWindowFlags const kViewHudFlags =
@@ -698,8 +1224,8 @@ int main(int, char**)
         }
         {
             // Its own panel rather than living inside ##ViewSettingsHud --
-            // a real button, so (unlike the two pure-display HUDs either
-            // side of it) this one can't be NoInputs.
+            // a real button, so (unlike the pure-display HUDs either side
+            // of it) this one can't be NoInputs.
             ImGuiWindowFlags const kRestoreViewFlags =
                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize
               | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav
@@ -732,7 +1258,7 @@ int main(int, char**)
 
         // Phase 3: entity list panel drives the same selection state as
         // viewport picking (Phase 2) -- one selection state, two input paths.
-        if (DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity))
+        if (DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity, freshHasProject))
         {
             // Phase 5: "Create entity" goes through the same Registry::
             // CreateEntity() + AddComponent() gameplay code uses -- no
@@ -750,15 +1276,20 @@ int main(int, char**)
                         created.Value(), asge::game::scene::SceneId{*path});
                 }
                 selectedEntity = created.Value();
+                MarkActiveSceneDirty(currentProject);
             }
             else created.LogError();
         }
 
-        switch (DrawInspectorPanel(
+        auto const inspectorResult = DrawInspectorPanel(
             sceneManager.GetRegistry(), selectedEntity,
             KnownTexturePaths(sceneManager.GetRegistry()),
             KnownAnimationPaths(sceneManager.GetRegistry()),
-            KnownAudioPaths(sceneManager.GetRegistry())))
+            KnownAudioPaths(sceneManager.GetRegistry()));
+
+        if (inspectorResult.m_FieldChanged) MarkActiveSceneDirty(currentProject);
+
+        switch (inspectorResult.m_Action)
         {
         case EntityAction::Delete:
             if (auto const destroyResult = sceneManager.GetRegistry().DestroyEntity(selectedEntity); !destroyResult)
@@ -790,7 +1321,7 @@ int main(int, char**)
         // opens the Asset Inspector below on that entry; a Sprite gets its
         // texture by picking one at Add Component time instead (see
         // Inspector.hpp's DrawInspectorPanel).
-        AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window);
+        AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
         if (assetPick.m_Kind != AssetPickKind::None) selectedAsset = assetPick;
         DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer());
 
@@ -799,7 +1330,7 @@ int main(int, char**)
         // resolves internally right after a successful mount (see its own
         // doc comment), same "call on change, not every frame" reasoning as
         // the ComponentsChanged/asset-browser resolves above.
-        DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window);
+        DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window, freshHasProject);
 
         DrawConsolePanel(window);
 
@@ -824,7 +1355,16 @@ int main(int, char**)
             sceneManager.GetRegistry(), videoSys.GetRenderer(), asge::time::DeltaTime());
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
         videoSys.GetRenderer().Present();
+
+        sessionAutosaveTimer += asge::time::DeltaTime();
+        if (sessionAutosaveTimer >= kSessionAutosaveInterval)
+        {
+            sessionAutosaveTimer = 0.0f;
+            saveEditorSessionNow();
+        }
     }
+
+    saveEditorSessionNow(); // one last save on a clean exit, not just periodic
 
     ImGui_ImplSDLRenderer3_Shutdown();
     ImGui_ImplSDL3_Shutdown();

@@ -27,8 +27,13 @@ struct SDL_Window;
  * failure (see AssetPool::GetOrLoad's own doc comment), so anything that
  * was failing purely for lack of this mount resolves on the very next call,
  * no further plumbing needed.
+ *
+ * @param inHasProject The "Add mount:" row is disabled while false -- a
+ *        mount only means anything relative to a project's own scenes/
+ *        assets, and there's nowhere for a fresh mount to actually persist
+ *        to without one (see main.cpp's SaveProject).
  */
 void DrawVfsPanel(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    SDL_Window* inWindow ) noexcept;
+    SDL_Window* inWindow, bool inHasProject ) noexcept;

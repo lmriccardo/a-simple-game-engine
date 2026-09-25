@@ -62,6 +62,38 @@ std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity i
     return buf;
 }
 
+/**
+ * @brief ImGuiCond_Always exactly on the frame DisplaySize actually
+ *        changed (a live resize), ImGuiCond_FirstUseEver every other frame
+ *        -- lets a right-edge-anchored panel re-snap to the edge on resize
+ *        while staying freely user-draggable the rest of the time. Forcing
+ *        Always unconditionally (the first attempt at this anchoring)
+ *        re-fought the user's own drag every single frame, making the
+ *        panel effectively immovable.
+ *
+ * Guarded by GetFrameCount() rather than recomputing on every call, since
+ * both DrawEntityListPanel and DrawInspectorPanel call this in the same
+ * frame -- without the guard, the second call would compare DisplaySize
+ * against what the first call just stored (this same frame, unchanged),
+ * always reporting "not resized" regardless of whether it actually was.
+ */
+ImGuiCond AnchorCondOnResize() noexcept
+{
+    static ImVec2 s_LastDisplaySize{ 0.0f, 0.0f };
+    static int s_LastCheckedFrame = -1;
+    static bool s_ResizedThisFrame = false;
+
+    int const frame = ImGui::GetFrameCount();
+    if ( frame != s_LastCheckedFrame )
+    {
+        ImVec2 const displaySize = ImGui::GetIO().DisplaySize;
+        s_ResizedThisFrame = displaySize.x != s_LastDisplaySize.x || displaySize.y != s_LastDisplaySize.y;
+        s_LastDisplaySize = displaySize;
+        s_LastCheckedFrame = frame;
+    }
+    return s_ResizedThisFrame ? ImGuiCond_Always : ImGuiCond_FirstUseEver;
+}
+
 // Edits a std::string field through a scratch fixed-size buffer, re-synced
 // from inValue every call -- the standard immediate-mode pattern for
 // InputText, which needs a char* rather than a std::string.
@@ -105,39 +137,61 @@ bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<s
     return true;
 }
 
-void DrawInspector( Name& inName ) noexcept
+// Phase 11: every DrawInspector now returns bool (true if it changed
+// anything) -- not for the ResolveAssets trigger DrawSection<T>'s bool
+// detection originally existed for (that stays scoped to just Sprite/
+// Animation/AudioSource's own path-changed signal below, unchanged), but as
+// a second, independent signal DrawInspectorPanel ORs separately into
+// whether the active scene should be marked unsaved. Deliberately not the
+// same signal as componentsChanged: a continuously-dragged field (Position,
+// Zoom, ...) fires every frame it's held, and ResolveAssets isn't safe to
+// call that often -- a still-broken asset's resolve failure would get
+// re-logged every one of those frames instead of once (the exact bug Phase
+// 7 already fixed by narrowing ResolveAssets' trigger in the first place).
+bool DrawInspector( Name& inName ) noexcept
 {
-    DrawTextField( "Name", inName.m_Name );
+    return DrawTextField( "Name", inName.m_Name );
 }
 
-void DrawInspector( Transform& inT ) noexcept
+bool DrawInspector( Transform& inT ) noexcept
 {
-    float pos[2]{ inT.m_X, inT.m_Y };
-    if ( ImGui::DragFloat2( "Position", pos ) ) { inT.m_X = pos[0]; inT.m_Y = pos[1]; }
+    bool changed = false;
 
-    ImGui::DragFloat( "Rotation (rad)", &inT.m_Rotation, 0.01f );
+    float pos[2]{ inT.m_X, inT.m_Y };
+    if ( ImGui::DragFloat2( "Position", pos ) ) { inT.m_X = pos[0]; inT.m_Y = pos[1]; changed = true; }
+
+    if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_Rotation, 0.01f ) ) changed = true;
 
     float scale[2]{ inT.m_ScaleX, inT.m_ScaleY };
-    if ( ImGui::DragFloat2( "Scale", scale ) ) { inT.m_ScaleX = scale[0]; inT.m_ScaleY = scale[1]; }
+    if ( ImGui::DragFloat2( "Scale", scale ) ) { inT.m_ScaleX = scale[0]; inT.m_ScaleY = scale[1]; changed = true; }
+
+    return changed;
 }
 
-void DrawInspector( Velocity& inVelocity ) noexcept
+bool DrawInspector( Velocity& inVelocity ) noexcept
 {
     float vel[2]{ inVelocity.m_DX, inVelocity.m_DY };
-    if ( ImGui::DragFloat2( "Velocity", vel ) ) { inVelocity.m_DX = vel[0]; inVelocity.m_DY = vel[1]; }
+    if ( ImGui::DragFloat2( "Velocity", vel ) ) { inVelocity.m_DX = vel[0]; inVelocity.m_DY = vel[1]; return true; }
+    return false;
 }
 
-void DrawInspector( Rigidbody& inRigidbody ) noexcept
+bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 {
-    ImGui::DragFloat( "Mass", &inRigidbody.m_Mass, 0.1f, 0.0f, 1000.0f );
-    ImGui::Checkbox( "Affected By Gravity", &inRigidbody.m_AffectedByGravity );
+    bool changed = ImGui::DragFloat( "Mass", &inRigidbody.m_Mass, 0.1f, 0.0f, 1000.0f );
+    if ( ImGui::Checkbox( "Affected By Gravity", &inRigidbody.m_AffectedByGravity ) ) changed = true;
+    return changed;
 }
 
 // m_SourceRect editing is out of scope here (asset-browsing/viewport gizmo
 // territory). m_VirtualPath is a dropdown restricted to inKnownTextures
 // (Phase 10) -- its return reports only whether the path selection changed,
 // not m_Layer/m_YSort edits, since only a path change needs AssetManager::
-// ResolveAssets re-run.
+// ResolveAssets re-run (see the DrawInspector doc comment above for why
+// that trigger has to stay this narrow).
+// ponytail: m_Layer/m_YSort edits alone (no path change) don't mark the
+// scene dirty -- a real but minor gap, since a second bool would need
+// threading through just for these two fields. Fold them in if that
+// actually bites someone.
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
     bool const pathChanged = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
@@ -149,14 +203,17 @@ bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTex
     return pathChanged;
 }
 
-void DrawInspector( Collider& inCollider ) noexcept
+bool DrawInspector( Collider& inCollider ) noexcept
 {
+    bool changed = false;
+
     if ( auto* rect = std::get_if<asge::math::Rect>( &inCollider.m_LocalBounds ) )
     {
         float vals[4]{ rect->m_X, rect->m_Y, rect->m_Width, rect->m_Height };
         if ( ImGui::DragFloat4( "Rect (x,y,w,h)", vals ) )
         {
             rect->m_X = vals[0]; rect->m_Y = vals[1]; rect->m_Width = vals[2]; rect->m_Height = vals[3];
+            changed = true;
         }
     }
     else if ( auto* circle = std::get_if<asge::math::Circle>( &inCollider.m_LocalBounds ) )
@@ -165,8 +222,9 @@ void DrawInspector( Collider& inCollider ) noexcept
         if ( ImGui::DragFloat2( "Center", center ) )
         {
             circle->m_Center = asge::math::Float2{ center[0], center[1] };
+            changed = true;
         }
-        ImGui::DragFloat( "Radius", &circle->m_Radius );
+        if ( ImGui::DragFloat( "Radius", &circle->m_Radius ) ) changed = true;
     }
 
     static char const* const kResolutionNames[]{ "Unknown", "Trigger", "Solid" };
@@ -174,16 +232,20 @@ void DrawInspector( Collider& inCollider ) noexcept
     if ( ImGui::Combo( "Resolution", &resIndex, kResolutionNames, 3 ) )
     {
         inCollider.m_Resolution = static_cast<ResolutionType>( resIndex );
+        changed = true;
     }
 
-    ImGui::InputScalar( "Layer", ImGuiDataType_U32, &inCollider.m_Layer );
-    ImGui::InputScalar( "Mask", ImGuiDataType_U32, &inCollider.m_Mask );
+    if ( ImGui::InputScalar( "Layer", ImGuiDataType_U32, &inCollider.m_Layer ) ) changed = true;
+    if ( ImGui::InputScalar( "Mask", ImGuiDataType_U32, &inCollider.m_Mask ) ) changed = true;
+
+    return changed;
 }
 
-void DrawInspector( Camera& inCamera ) noexcept
+bool DrawInspector( Camera& inCamera ) noexcept
 {
-    ImGui::DragFloat( "Zoom", &inCamera.m_Zoom, 0.01f, 0.01f, 100.0f );
-    ImGui::DragFloat( "Smoothing", &inCamera.m_Smoothing, 0.01f, 0.0f, 100.0f );
+    bool changed = ImGui::DragFloat( "Zoom", &inCamera.m_Zoom, 0.01f, 0.01f, 100.0f );
+    if ( ImGui::DragFloat( "Smoothing", &inCamera.m_Smoothing, 0.01f, 0.0f, 100.0f ) ) changed = true;
+    return changed;
 }
 
 // Only m_VirtualClipPath round-trips through save (see Serializer<AudioSource>'s
@@ -199,7 +261,10 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
 // doc comment) -- playback progress is runtime-only. m_ClipPath is a
 // dropdown restricted to inKnownAnimations (Phase 10); the return reports
 // only whether that selection changed, not a m_FrameDuration edit, since
-// only a clip change needs AssetManager::ResolveAssets re-run.
+// only a clip change needs AssetManager::ResolveAssets re-run (same
+// narrow-trigger reasoning as Sprite's own DrawInspector above).
+// ponytail: same gap as Sprite's -- a m_FrameDuration-only edit doesn't
+// mark the scene dirty on its own.
 bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
 {
     bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
@@ -211,17 +276,19 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
 // author a path; that's viewport gizmo territory (Phase 4), not a plain
 // inspector field. Only the scalar fields that round-trip alongside it
 // (m_Speed/m_Loop/m_Resolution) are edited here.
-void DrawInspector( PathFollow& inPathFollow ) noexcept
+bool DrawInspector( PathFollow& inPathFollow ) noexcept
 {
     ImGui::Text( "Waypoints: %zu (editing not yet supported)", inPathFollow.m_Waypoints.size() );
-    ImGui::DragFloat( "Speed", &inPathFollow.m_Speed );
-    ImGui::Checkbox( "Loop", &inPathFollow.m_Loop );
+    bool changed = ImGui::DragFloat( "Speed", &inPathFollow.m_Speed );
+    if ( ImGui::Checkbox( "Loop", &inPathFollow.m_Loop ) ) changed = true;
 
     int resolution = static_cast<int>( inPathFollow.m_Resolution );
     if ( ImGui::DragInt( "Resolution", &resolution, 1.0f, 1, 256 ) )
     {
         inPathFollow.m_Resolution = static_cast<std::size_t>( resolution );
+        changed = true;
     }
+    return changed;
 }
 
 // One entry per DrawSection<T> call below -- reused to drive "Add
@@ -404,16 +471,18 @@ void ResetEntityDisplayIds() noexcept
     g_NextEntityDisplayId = 0;
 }
 
-bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected ) noexcept
+bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
 {
-    // Anchored flush to the right edge, same reasoning as main.cpp's Scene
-    // panel above it -- see its comment.
+    // Anchored flush to the right edge, re-snapping only on an actual
+    // resize -- see AnchorCondOnResize's own doc comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
-    ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), ImGuiCond_Always );
+    ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), AnchorCondOnResize() );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, 160.0f ), ImGuiCond_FirstUseEver );
 
     ImGui::Begin( "Entities" );
+    if ( !inHasProject ) ImGui::BeginDisabled();
     bool const createClicked = ImGui::Button( "Create Entity" );
+    if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
 
     // AllEntities() is a raw storage-slot scan (ascending Entity::m_Index),
@@ -441,19 +510,19 @@ bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
     return createClicked;
 }
 
-EntityAction DrawInspectorPanel(
+InspectorResult DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio ) noexcept
 {
-    if ( inSelected == asge::ecs::Entity::Null() ) return EntityAction::None;
+    if ( inSelected == asge::ecs::Entity::Null() ) return {};
 
-    // Anchored flush to the right edge, same reasoning as main.cpp's Scene
-    // panel above it -- see its comment.
+    // Anchored flush to the right edge, re-snapping only on an actual
+    // resize -- see AnchorCondOnResize's own doc comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
     float const remainingHeight = ImGui::GetIO().DisplaySize.y - 265.0f - 20.0f; // fills down to a bottom margin
-    ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), ImGuiCond_Always );
+    ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), AnchorCondOnResize() );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, remainingHeight ), ImGuiCond_FirstUseEver );
 
     EntityAction action = EntityAction::None;
@@ -467,25 +536,44 @@ EntityAction DrawInspectorPanel(
 
     ImGui::Separator();
 
-    // Bitwise-OR (not ||, so every section still draws even once one
-    // reports a change -- short-circuiting would skip the rest of the
-    // entity's components for the remainder of this frame).
+    // Two independent accumulators (bitwise-OR, not ||, so every section
+    // still draws even once one reports a change -- short-circuiting would
+    // skip the rest of the entity's components for the remainder of this
+    // frame). componentsChanged keeps its original, narrow meaning (Add/
+    // Remove plus an asset-path selection change) and still drives
+    // EntityAction::ComponentsChanged/ResolveAssets exactly as before;
+    // fieldChanged (Phase 11) is fed by every section regardless of type,
+    // for InspectorResult::m_FieldChanged -- see its own doc comment for
+    // why the two can't just be the same signal.
     bool componentsChanged = false;
-    componentsChanged |= DrawSection<Name>( inRegistry, inSelected, "Name" );
-    componentsChanged |= DrawSection<Transform>( inRegistry, inSelected, "Transform" );
-    componentsChanged |= DrawSection<Velocity>( inRegistry, inSelected, "Velocity" );
-    componentsChanged |= DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
-    componentsChanged |= DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
-    componentsChanged |= DrawSection<Collider>( inRegistry, inSelected, "Collider" );
-    componentsChanged |= DrawSection<Camera>( inRegistry, inSelected, "Camera" );
-    componentsChanged |= DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource", inKnownAudio );
-    componentsChanged |= DrawSection<Animation>( inRegistry, inSelected, "Animation", inKnownAnimations );
-    componentsChanged |= DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
+    bool fieldChanged = false;
 
-    componentsChanged |= DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
+    bool const nameChanged = DrawSection<Name>( inRegistry, inSelected, "Name" );
+    fieldChanged |= nameChanged;
+    bool const transformChanged = DrawSection<Transform>( inRegistry, inSelected, "Transform" );
+    fieldChanged |= transformChanged;
+    bool const velocityChanged = DrawSection<Velocity>( inRegistry, inSelected, "Velocity" );
+    fieldChanged |= velocityChanged;
+    bool const rigidbodyChanged = DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
+    fieldChanged |= rigidbodyChanged;
+    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
+    componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
+    bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider" );
+    fieldChanged |= colliderChanged;
+    bool const cameraChanged = DrawSection<Camera>( inRegistry, inSelected, "Camera" );
+    fieldChanged |= cameraChanged;
+    bool const audioChanged = DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource", inKnownAudio );
+    componentsChanged |= audioChanged; fieldChanged |= audioChanged;
+    bool const animationChanged = DrawSection<Animation>( inRegistry, inSelected, "Animation", inKnownAnimations );
+    componentsChanged |= animationChanged; fieldChanged |= animationChanged;
+    bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
+    fieldChanged |= pathFollowChanged;
+
+    bool const addComponentClicked = DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
+    componentsChanged |= addComponentClicked; fieldChanged |= addComponentClicked;
 
     ImGui::End();
 
     if ( action == EntityAction::None && componentsChanged ) action = EntityAction::ComponentsChanged;
-    return action;
+    return { action, fieldChanged || action != EntityAction::None };
 }

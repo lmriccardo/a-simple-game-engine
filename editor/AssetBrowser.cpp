@@ -126,8 +126,16 @@ void ImportAssets(
     g_LoadedAudio.insert( inAudioPaths.begin(), inAudioPaths.end() );
 }
 
+void ClearKnownAssets() noexcept
+{
+    g_LoadedTextures.clear();
+    g_LoadedAnimations.clear();
+    g_LoadedAudio.clear();
+}
+
 AssetPick DrawAssetBrowserPanel(
-    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow ) noexcept
+    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
+    bool inHasProject ) noexcept
 {
     // Drained before drawing, same convention as every other panel with a
     // pending native dialog (VfsPanel, main.cpp's Save/Open).
@@ -183,16 +191,18 @@ AssetPick DrawAssetBrowserPanel(
 
     AssetPick pick;
 
-    // Anchored flush to the left edge -- forced every frame (ImGuiCond_Always)
-    // since DisplaySize can change (resizable editor window) and the panel
-    // must stay flush against it regardless, same precedent as ConsolePanel's
-    // own bottom-edge anchor. Size alone stays user-draggable.
-    ImGui::SetNextWindowPos( ImVec2( 10.0f, 30.0f ), ImGuiCond_Always );
+    // FirstUseEver, not Always -- (10, 30) is a constant, not derived from
+    // DisplaySize, so there's nothing a resize could invalidate here; unlike
+    // the right-edge panels (Scene/Entities/Inspector), forcing this every
+    // frame bought nothing but made the panel undraggable.
+    ImGui::SetNextWindowPos( ImVec2( 10.0f, 30.0f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowSize( ImVec2( 280.0f, 320.0f ), ImGuiCond_FirstUseEver );
 
     ImGui::Begin( "Assets" );
 
+    if ( !inHasProject ) ImGui::BeginDisabled();
     if ( ImGui::Button( "Load Asset..." ) ) ImGui::OpenPopup( "LoadAssetMountPicker" );
+    if ( !inHasProject ) ImGui::EndDisabled();
 
     if ( ImGui::BeginPopup( "LoadAssetMountPicker" ) )
     {

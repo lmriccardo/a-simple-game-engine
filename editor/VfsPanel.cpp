@@ -120,7 +120,7 @@ void DrawUnmountButton(
 void DrawVfsPanel(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    SDL_Window* inWindow ) noexcept
+    SDL_Window* inWindow, bool inHasProject ) noexcept
 {
     // Drained before drawing -- whichever mount name was pending (from the
     // generic Add row or a Missing row's "Set...") gets bound to whatever
@@ -135,9 +135,9 @@ void DrawVfsPanel(
         }
     }
 
-    // Anchored flush to the left edge, same reasoning as AssetBrowser's own
-    // panel above it -- see its comment.
-    ImGui::SetNextWindowPos( ImVec2( 10.0f, 360.0f ), ImGuiCond_Always );
+    // FirstUseEver, same reasoning as AssetBrowser's own panel above it --
+    // see its comment.
+    ImGui::SetNextWindowPos( ImVec2( 10.0f, 360.0f ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowSize( ImVec2( 280.0f, 220.0f ), ImGuiCond_FirstUseEver );
     ImGui::Begin( "Virtual File System" );
 
@@ -204,6 +204,7 @@ void DrawVfsPanel(
 
     ImGui::Separator();
     ImGui::TextUnformatted( "Add mount:" );
+    if ( !inHasProject ) ImGui::BeginDisabled();
     ImGui::SetNextItemWidth( 120.0f );
     ImGui::InputText( "##MountName", g_NewMountNameBuf, sizeof( g_NewMountNameBuf ) );
     ImGui::SameLine();
@@ -211,6 +212,7 @@ void DrawVfsPanel(
     {
         RequestMountFolder( g_NewMountNameBuf, inWindow );
     }
+    if ( !inHasProject ) ImGui::EndDisabled();
 
     ImGui::End();
 }

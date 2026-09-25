@@ -17,22 +17,45 @@ constexpr float kEditorPanelRightMargin = 10.0f;
 
 /**
  * @brief Lists every entity in inRegistry; clicking one sets ioSelected.
+ * @param inHasProject "Create Entity" is disabled while false -- a created
+ *        entity gets no SceneId to tag it into anything without an active
+ *        project/scene, so it'd just be an orphan Save can never reach.
  * @return True the one frame a "Create" click happened -- the caller (which
  *         owns the SceneManager this Registry belongs to, unlike this file)
  *         performs the actual Registry::CreateEntity() + SceneId tagging.
  */
-bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected ) noexcept;
+bool DrawEntityListPanel(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept;
 
 /**
  * @brief Which entity-lifecycle action (if any) DrawInspectorPanel's buttons
  *        requested this frame. ComponentsChanged covers Add/Remove Component
- *        -- the caller uses it to know when to re-run AssetManager::
- *        ResolveAssets (a newly-added Sprite/Animation/AudioSource has
- *        nothing resolved yet) without having to do it unconditionally every
- *        frame, which would re-log the same failure for anything that stays
- *        unresolved.
+ *        plus a Sprite/Animation/AudioSource path selection changing -- the
+ *        caller uses it to know when to re-run AssetManager::ResolveAssets
+ *        (a newly-added/repointed one has nothing resolved yet) without
+ *        having to do it unconditionally every frame, which would re-log
+ *        the same failure for anything that stays unresolved.
  */
 enum class EntityAction { None, Delete, Duplicate, ComponentsChanged };
+
+/**
+ * @brief DrawInspectorPanel's full per-frame report: m_Action drives
+ *        main.cpp's existing entity-lifecycle/ResolveAssets switch
+ *        unchanged; m_FieldChanged (Phase 11) is a separate, broader
+ *        "did anything on this entity change at all" signal for marking
+ *        the active scene unsaved -- true for every field edit (not just
+ *        the narrow set ComponentsChanged covers) plus whenever m_Action
+ *        isn't None. Kept apart from m_Action deliberately: a continuously-
+ *        dragged field (Position, Zoom, ...) fires every frame it's held,
+ *        which is fine to mark dirty every time but not safe to re-run
+ *        ResolveAssets on that often -- see Inspector.cpp's DrawInspector
+ *        doc comment.
+ */
+struct InspectorResult
+{
+    EntityAction m_Action = EntityAction::None;
+    bool         m_FieldChanged = false;
+};
 
 /**
  * @brief Draws one section per currently-serializable component type
@@ -50,11 +73,9 @@ enum class EntityAction { None, Delete, Duplicate, ComponentsChanged };
  *        (see KnownAnimationPaths).
  * @param inKnownAudio Same as inKnownTextures, for
  *        AudioSource::m_VirtualClipPath (see KnownAudioPaths).
- * @return Which lifecycle action (if any) its buttons requested -- performed
- *         by the caller, same reasoning as DrawEntityListPanel's Create
- *         signal.
+ * @return See InspectorResult's own doc comment.
  */
-EntityAction DrawInspectorPanel(
+InspectorResult DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,

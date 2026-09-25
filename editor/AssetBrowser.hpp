@@ -46,9 +46,14 @@ struct AssetPick
  *
  * Clicking an entry (of any kind) just returns it here -- the caller shows
  * it in DrawAssetInspectorPanel, it doesn't assign anything.
+ *
+ * @param inHasProject "Load Asset..." is disabled while false -- an
+ *        imported path only persists anywhere (a project's own known-asset
+ *        list, see main.cpp's SaveProject) once one exists to persist it to.
  */
 AssetPick DrawAssetBrowserPanel(
-    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow ) noexcept;
+    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
+    bool inHasProject ) noexcept;
 
 /**
  * @brief The same texture virtual paths DrawAssetBrowserPanel's "Textures"
@@ -95,3 +100,13 @@ void ImportAssets(
     std::vector<std::string> const& inTexturePaths,
     std::vector<std::string> const& inAnimationPaths,
     std::vector<std::string> const& inAudioPaths ) noexcept;
+
+/**
+ * @brief Empties the browser's persistent "known asset" set entirely.
+ *
+ * Call when switching projects -- a freshly created/opened project must
+ * start with no leftover imports from whatever project was open before,
+ * the same way its own [[Texture]]/[[Animation]]/[[Audio]] entries (or lack
+ * of them) are about to replace what ImportAssets last populated.
+ */
+void ClearKnownAssets() noexcept;
