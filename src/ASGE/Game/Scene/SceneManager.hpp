@@ -4,6 +4,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <ASGE/Core/Errors.hpp>
@@ -16,17 +17,27 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Owns one Registry shared by every scene it knows about, and
- *        changes which one is "active" without reloading a scene it has
+ * @brief Owns one Registry holding only the active scene's entities, and
+ *        switches which scene is "active" without reloading one it has
  *        already visited.
+ *
+ * Every other visited scene stays resident as an in-memory snapshot (see
+ * m_Snapshots) rather than as live entities in the shared Registry, so
+ * exactly one scene's entities are ever enumerable at a time and a switch
+ * back to a snapshotted scene is a fast in-memory restore, not a disk read.
  */
 class SceneManager
 {
     filesystem::VirtualFileSystem const& m_Vfs;
     SceneSerializer m_Serializer{ m_Vfs };
 
-    ecs::Registry m_Registry; // every resident scene's entities, tagged by SceneId
+    ecs::Registry m_Registry; // only the active scene's entities, tagged by SceneId
     std::optional<str::String> m_CurrentScenePath; // nullopt: nothing active
+
+    // Every other visited scene's entities, keyed by SceneId path, held as
+    // its own scratch Registry instead of live in m_Registry -- see
+    // SuspendScene()/RestoreScene().
+    std::unordered_map<str::String, ecs::Registry> m_Snapshots;
 
     // A transition requested via RequestLoad()/RequestUnload(), applied on
     // the next ApplyPendingTransition() call. At most one is pending at a
@@ -40,9 +51,21 @@ class SceneManager
         ecs::Registry const& inSrc, ecs::Entity inSrcEntity,
         ecs::Registry& inDst, ecs::Entity inDstEntity ) const noexcept;
 
+    // Moves inSceneId's live entities out of m_Registry into a new
+    // m_Snapshots entry, via component-copy into a scratch Registry followed
+    // by destroying the originals. inSceneId must currently be live (i.e. be
+    // m_CurrentScenePath) -- callers are responsible for that.
+    void SuspendScene( str::String const& inSceneId ) noexcept;
+
+    // Copies inSnapshot's entities into m_Registry, tagging each with
+    // inSceneId's SceneId -- SuspendScene()'s counterpart. Does not touch
+    // m_Snapshots or m_CurrentScenePath; callers manage both.
+    void RestoreScene( str::String const& inSceneId, ecs::Registry const& inSnapshot ) noexcept;
+
     // Shared body of LoadScene()/LoadSceneFromFile(): handles the
-    // already-active/already-resident short-circuits and SceneId tagging
-    // once inLoad has actually populated the Registry, however it got there.
+    // already-active/already-snapshotted short-circuits, SceneId tagging,
+    // and suspending the outgoing scene once inLoad has actually populated
+    // the Registry, however it got there.
     BoolResult LoadSceneCommon(
         str::String const& inSceneId,
         std::function<BoolResult( ecs::Registry& )> const& inLoad ) noexcept;
@@ -75,16 +98,16 @@ public:
     BoolResult SaveScene( filesystem::Path const& inPath ) const noexcept;
 
     /**
-     * @brief Frees inVirtualPath's entities so the next LoadScene() for it
-     *        rereads from disk. No-op if it isn't resident, including if
+     * @brief Drops inVirtualPath's snapshot so the next LoadScene() for it
+     *        rereads from disk. No-op if it isn't snapshotted, including if
      *        it's the active scene — use UnloadScene() for that.
      */
     void EvictCachedScene( str::String const& inVirtualPath ) noexcept;
 
-    /** @brief Evicts every resident scene except the active one — see EvictCachedScene(). */
+    /** @brief Drops every snapshotted scene, leaving the active one untouched — see EvictCachedScene(). */
     void ClearCache() noexcept;
 
-    /** @brief How many distinct scenes are resident besides the active one. */
+    /** @brief How many distinct scenes are snapshotted besides the active one. */
     [[nodiscard]] std::size_t CachedSceneCount() const noexcept;
 
     /** @brief Queues a scene load for the next ApplyPendingTransition() call, overwriting any pending one. */
@@ -99,7 +122,11 @@ public:
     /** @brief Applies the queued transition, if any — a no-op returning Ok when nothing is pending. */
     BoolResult ApplyPendingTransition() noexcept;
 
-    /** @brief Every entity tagged with inVirtualPath's SceneId, active or not. */
+    /**
+     * @brief Every entity tagged with inVirtualPath's SceneId in the live
+     *        Registry. Empty for a merely snapshotted (resident-but-inactive)
+     *        scene, since it has no live entities to tag — see ActiveEntities().
+     */
     [[nodiscard]] std::vector<ecs::Entity> EntitiesInScene( str::String const& inVirtualPath ) const noexcept;
 
     /** @brief EntitiesInScene() for the active scene, or empty if none is active. */
@@ -121,10 +148,10 @@ public:
      */
     [[nodiscard]] Result<ecs::Entity> DuplicateEntity( ecs::Entity inEntity ) noexcept;
 
-    /** @brief The Registry backing every resident scene, not just the active one — see ActiveEntities(). */
+    /** @brief The Registry backing only the active scene — other resident scenes are snapshotted, not here. */
     [[nodiscard]] ecs::Registry& GetRegistry() noexcept { return m_Registry; }
-    
-    /** @brief Read-only access to the shared Registry — see GetRegistry(). */
+
+    /** @brief Read-only access to the active scene's Registry — see GetRegistry(). */
     [[nodiscard]] ecs::Registry const& GetRegistry() const noexcept { return m_Registry; }
 
     /** @brief Virtual path the active scene was loaded from, or nullopt if none. */

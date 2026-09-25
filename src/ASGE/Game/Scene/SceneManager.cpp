@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <string>
-#include <unordered_set>
 #include <utility>
 
 #include <ASGE/Game/Components.hpp>
@@ -22,6 +21,37 @@ void asge::game::scene::SceneManager::CopyEntityComponents(
                   }
               }(), ... );
         }, components::SerializableComponents{} );
+}
+
+void asge::game::scene::SceneManager::SuspendScene(str::String const &inSceneId) noexcept
+{
+    ecs::Registry snapshot;
+    for ( auto entity : EntitiesInScene( inSceneId ) )
+    {
+        auto newEntity = snapshot.CreateEntity();
+        if ( !newEntity ) { newEntity.LogError(); continue; }
+
+        CopyEntityComponents( m_Registry, entity, snapshot, newEntity.Value() );
+        if ( auto result = m_Registry.DestroyEntity( entity ); !result ) result.LogError();
+    }
+
+    m_Snapshots.insert_or_assign( inSceneId, std::move( snapshot ) );
+}
+
+void asge::game::scene::SceneManager::RestoreScene(
+    str::String const &inSceneId, ecs::Registry const &inSnapshot) noexcept
+{
+    for ( auto entity : inSnapshot.AllEntities() )
+    {
+        auto newEntity = m_Registry.CreateEntity();
+        if ( !newEntity ) { newEntity.LogError(); continue; }
+
+        CopyEntityComponents( inSnapshot, entity, m_Registry, newEntity.Value() );
+        if ( auto tagResult = m_Registry.AddComponent<SceneId>( newEntity.Value(), SceneId{ inSceneId } ); !tagResult )
+        {
+            tagResult.LogError();
+        }
+    }
 }
 
 asge::BoolResult asge::game::scene::SceneManager::LoadScene(str::String const &inVirtualPath) noexcept
@@ -46,18 +76,25 @@ asge::BoolResult asge::game::scene::SceneManager::LoadSceneCommon(
     if ( m_CurrentScenePath && *m_CurrentScenePath == inSceneId )
         return BoolResult::Ok(); // already active
 
-    // Already resident from an earlier load -- just switch which SceneId
-    // counts as active. No Registry work at all.
-    if ( !EntitiesInScene( inSceneId ).empty() )
+    // Snapshotted from an earlier visit -- restore its live-mutated state
+    // in-memory instead of rereading (and losing that state) from disk.
+    if ( auto snapshotIt = m_Snapshots.find( inSceneId ); snapshotIt != m_Snapshots.end() )
     {
+        auto snapshot = std::move( snapshotIt->second );
+        m_Snapshots.erase( snapshotIt );
+
+        if ( m_CurrentScenePath ) SuspendScene( *m_CurrentScenePath );
+
+        RestoreScene( inSceneId, snapshot );
         m_CurrentScenePath = inSceneId;
         return BoolResult::Ok();
     }
 
-    // Not resident -- load straight into the shared Registry.
+    // Not resident anywhere -- load straight into the shared Registry,
+    // alongside whatever's still live from the outgoing scene (if any).
     // SceneSerializer::Load/LoadFromFile only ever create new entities and
-    // only ever roll back ones they created this call on failure, so this
-    // can't disturb any other resident scene, active or not.
+    // only ever roll back ones they created this call on failure, so a
+    // failed load can't disturb the outgoing scene's still-live entities.
     auto const before = m_Registry.AllEntities();
     auto result = inLoad( m_Registry );
     if ( !result ) return result;
@@ -75,6 +112,11 @@ asge::BoolResult asge::game::scene::SceneManager::LoadSceneCommon(
             tagResult.LogError(); // not fatal to the load itself, but leaves this entity untaggable
         }
     }
+
+    // Only now, with the new scene confirmed loaded, suspend the outgoing
+    // one -- keeps only one scene's entities live in the Registry at a time
+    // without disturbing anything on a failed load.
+    if ( m_CurrentScenePath ) SuspendScene( *m_CurrentScenePath );
 
     m_CurrentScenePath = inSceneId;
     return BoolResult::Ok();
@@ -111,36 +153,17 @@ asge::BoolResult asge::game::scene::SceneManager::SaveScene(filesystem::Path con
 void asge::game::scene::SceneManager::EvictCachedScene(str::String const &inVirtualPath) noexcept
 {
     if ( m_CurrentScenePath && *m_CurrentScenePath == inVirtualPath ) return; // active scene isn't "cached"
-
-    for ( auto entity : EntitiesInScene( inVirtualPath ) )
-    {
-        if ( auto result = m_Registry.DestroyEntity( entity ); !result ) result.LogError();
-    }
+    m_Snapshots.erase( inVirtualPath );
 }
 
 void asge::game::scene::SceneManager::ClearCache() noexcept
 {
-    for ( auto entity : m_Registry.AllEntities() )
-    {
-        auto sceneId = m_Registry.GetComponent<SceneId>( entity );
-        if ( !sceneId ) continue; // not scene-tagged -- not this call's concern
-        if ( m_CurrentScenePath && sceneId.Value().get().m_Path == *m_CurrentScenePath ) continue; // keep active
-
-        if ( auto result = m_Registry.DestroyEntity( entity ); !result ) result.LogError();
-    }
+    m_Snapshots.clear();
 }
 
 std::size_t asge::game::scene::SceneManager::CachedSceneCount() const noexcept
 {
-    std::unordered_set<str::String> distinctPaths;
-    for ( auto entity : m_Registry.AllEntities() )
-    {
-        auto sceneId = m_Registry.GetComponent<SceneId>( entity );
-        if ( !sceneId ) continue;
-        if ( m_CurrentScenePath && sceneId.Value().get().m_Path == *m_CurrentScenePath ) continue;
-        distinctPaths.insert( sceneId.Value().get().m_Path );
-    }
-    return distinctPaths.size();
+    return m_Snapshots.size();
 }
 
 void asge::game::scene::SceneManager::RequestLoad(str::String const &inVirtualPath) noexcept
