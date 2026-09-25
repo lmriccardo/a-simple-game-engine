@@ -10,6 +10,7 @@
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Scene/SceneId.hpp>
+#include <ASGE/Audio/AudioDevice.hpp>
 
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
@@ -286,6 +287,13 @@ int main(int, char**)
     asge::filesystem::VirtualFileSystem vfs;
     asge::game::asset::AssetManager assets(vfs);
     asge::game::scene::SceneManager sceneManager(vfs);
+
+    // Only used for the Asset Inspector's audio preview (Phase 12) -- not a
+    // dependency on Game/IGameState, same as everything else here. A failed
+    // init just leaves the preview's Play/Pause/Rewind buttons non-functional
+    // rather than aborting the editor, unlike VideoSystem's init above.
+    asge::audio::AudioDevice audioDevice;
+    if ( auto const audioInit = audioDevice.Initialize(); !audioInit ) audioInit.LogError();
 
     // No project is auto-loaded on startup beyond whatever asge.session
     // resumes (see below, right before the main loop) -- the editor
@@ -1323,7 +1331,7 @@ int main(int, char**)
         // Inspector.hpp's DrawInspectorPanel).
         AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
         if (assetPick.m_Kind != AssetPickKind::None) selectedAsset = assetPick;
-        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer());
+        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice);
 
         // Always-on panel: lists/adds VirtualFileSystem mounts, and surfaces
         // any root the current scene's assets reference but isn't mounted --

@@ -313,11 +313,17 @@ multi-scene switching via a Scene selector.
 and auto-resumes, and scenes can be switched, created, and renamed without
 errors or cross-scene bleed.
 
----
+## Phase 12 - Additional Utilities
 
-## Phase 12 - 
-
----
+- [x] Audio preview in the Asset Inspector: Duration and Size (KB) plus
+      working Play/Pause and Rewind buttons, drawn as small transport-icon
+      shapes (`ImDrawList` triangle/bars, no icon font added) rather than
+      text. Playback goes through a dedicated `AudioStream` from a new
+      editor-owned `AudioDevice` (Phase 12's first real audio dependency),
+      independent of any entity's own `AudioSource`/`AudioSystem` — Pause/
+      Resume uses SDL3's `SDL_PauseAudioStreamDevice`/
+      `SDL_ResumeAudioStreamDevice` so pausing preserves stream position,
+      unlike a full stop/replay.
 
 ## Explicitly deferred — do not build until a concrete need forces it
 
