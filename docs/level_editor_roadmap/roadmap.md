@@ -325,6 +325,17 @@ errors or cross-scene bleed.
       `SDL_ResumeAudioStreamDevice` so pausing preserves stream position,
       unlike a full stop/replay.
 
+- [x] `PathFollow` waypoints are authored from the viewport: the Inspector's
+      "Select Waypoints" button enters a click-to-add mode (button becomes
+      "End Selection"), each click appending a waypoint at the cursor's
+      world position; `ESC` discards everything placed this session,
+      restoring a snapshot taken when the mode started. `WaypointEditState`
+      (Inspector.hpp) is the cross-cutting state main.cpp's viewport click/
+      key handling and the Inspector's button share. Waypoints render as
+      semi-transparent drop/pin markers (`DrawPathFollowWaypointOverlay`,
+      tip on the exact world position) whenever the entity is selected, not
+      just while actively placing them.
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no

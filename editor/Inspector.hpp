@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/ECS/Registry.hpp>
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 
 #include <string>
 #include <vector>
@@ -58,6 +59,21 @@ struct InspectorResult
 };
 
 /**
+ * @brief Cross-cutting state for a PathFollow's "Select Waypoints" viewport
+ *        mode (Phase 12): owned and driven by main.cpp (viewport clicks,
+ *        ESC-cancel, the overlay showing points as they're placed), toggled
+ *        by PathFollow's own DrawInspector section, whose button flips
+ *        m_Active and snapshots the pre-edit m_Waypoints into m_Snapshot so
+ *        an ESC-cancel can restore them.
+ */
+struct WaypointEditState
+{
+    bool                             m_Active = false;
+    asge::ecs::Entity                m_Entity = asge::ecs::Entity::Null();
+    std::vector<asge::math::Float2>  m_Snapshot;
+};
+
+/**
  * @brief Draws one section per currently-serializable component type
  *        inSelected actually has, each editing the live Registry component
  *        directly (no intermediate copy) -- a fixed, explicit list of known
@@ -73,13 +89,15 @@ struct InspectorResult
  *        (see KnownAnimationPaths).
  * @param inKnownAudio Same as inKnownTextures, for
  *        AudioSource::m_VirtualClipPath (see KnownAudioPaths).
+ * @param ioWaypointEdit See WaypointEditState's own doc comment.
  * @return See InspectorResult's own doc comment.
  */
 InspectorResult DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
-    std::vector<std::string> const& inKnownAudio ) noexcept;
+    std::vector<std::string> const& inKnownAudio,
+    WaypointEditState& ioWaypointEdit ) noexcept;
 
 /**
  * @brief Restarts the "Entity #N" fallback numbering (see GetEntityLabel)

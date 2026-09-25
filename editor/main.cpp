@@ -8,6 +8,7 @@
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Scene/SceneId.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
@@ -38,6 +39,7 @@
 namespace
 {
 using asge::game::components::Transform;
+using asge::game::components::PathFollow;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
@@ -328,6 +330,13 @@ int main(int, char**)
     AssetPick selectedAsset; // last entry clicked in the Assets panel, kept across frames for the Asset Inspector to show
     float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the View menu's Grid modal
 
+    // Phase 12: PathFollow's "Select Waypoints" viewport mode -- see
+    // WaypointEditState's own doc comment. Self-healing rather than reset at
+    // every place its target entity could become invalid (deleted, scene
+    // switched/evicted): checked once per frame below, right before it's
+    // used for anything.
+    WaypointEditState waypointEdit;
+
     // The target game window size DrawCameraOverlays/DrawGameWindowPreview
     // size their previews against -- an editor display setting (saved/
     // restored via a Project's own [View] table, not as scene data) since
@@ -485,6 +494,15 @@ int main(int, char**)
     bool running = true;
     while (running)
     {
+        // Self-heals WaypointEditState rather than resetting it at every
+        // place its target entity could become invalid (Delete, a scene
+        // switch/evict) -- one guard here covers all of them.
+        if (waypointEdit.m_Active
+         && !sceneManager.GetRegistry().HasComponent<PathFollow>(waypointEdit.m_Entity))
+        {
+            waypointEdit = WaypointEditState{};
+        }
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -492,6 +510,18 @@ int main(int, char**)
             if (event.type == SDL_EVENT_QUIT)
             {
                 running = false;
+            }
+            else if (event.type == SDL_EVENT_KEY_DOWN
+                   && event.key.key == SDLK_ESCAPE
+                   && waypointEdit.m_Active)
+            {
+                // Cancel -- restore whatever the entity's waypoints were
+                // before this mode started.
+                if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                {
+                    pf.Value().get().m_Waypoints = waypointEdit.m_Snapshot;
+                }
+                waypointEdit = WaypointEditState{};
             }
             else if (event.type == SDL_EVENT_MOUSE_WHEEL && !ImGui::GetIO().WantCaptureMouse)
             {
@@ -533,27 +563,44 @@ int main(int, char**)
             {
                 asge::math::Float2 const screenPos{ event.button.x, event.button.y };
 
-                // Gizmo arms take priority over picking a (possibly
-                // different) entity underneath them.
-                auto const hitAxis = HitTestGizmo(
-                    videoSys.GetRenderer(), sceneManager.GetRegistry(), selectedEntity, screenPos);
-                if (hitAxis != GizmoAxis::None)
+                if (waypointEdit.m_Active)
                 {
-                    draggingEntity = selectedEntity;
-                    dragAxis = hitAxis;
+                    // Phase 12: a click in this mode appends a waypoint to
+                    // the target entity instead of picking/dragging -- the
+                    // target stays fixed for the whole mode, so this never
+                    // touches selectedEntity/draggingEntity.
+                    auto const worldPos = asge::video::ScreenToWorld(
+                        videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
+                    if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                    {
+                        pf.Value().get().m_Waypoints.push_back(worldPos);
+                        MarkActiveSceneDirty(currentProject);
+                    }
                 }
                 else
                 {
-                    // Screen->world via the renderer's own camera/viewport
-                    // math (asge::video::ScreenToWorld), not a re-derived inverse.
-                    auto const worldPos = asge::video::ScreenToWorld(
-                        videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
-                    selectedEntity = PickEntityAt(sceneManager.GetRegistry(), worldPos);
+                    // Gizmo arms take priority over picking a (possibly
+                    // different) entity underneath them.
+                    auto const hitAxis = HitTestGizmo(
+                        videoSys.GetRenderer(), sceneManager.GetRegistry(), selectedEntity, screenPos);
+                    if (hitAxis != GizmoAxis::None)
+                    {
+                        draggingEntity = selectedEntity;
+                        dragAxis = hitAxis;
+                    }
+                    else
+                    {
+                        // Screen->world via the renderer's own camera/viewport
+                        // math (asge::video::ScreenToWorld), not a re-derived inverse.
+                        auto const worldPos = asge::video::ScreenToWorld(
+                            videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
+                        selectedEntity = PickEntityAt(sceneManager.GetRegistry(), worldPos);
 
-                    // Selecting an entity also grabs it for an unconstrained
-                    // free-drag, in case the mouse moves before releasing.
-                    draggingEntity = selectedEntity;
-                    dragAxis = GizmoAxis::None;
+                        // Selecting an entity also grabs it for an unconstrained
+                        // free-drag, in case the mouse moves before releasing.
+                        draggingEntity = selectedEntity;
+                        dragAxis = GizmoAxis::None;
+                    }
                 }
             }
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && event.button.button == SDL_BUTTON_LEFT)
@@ -1293,7 +1340,8 @@ int main(int, char**)
             sceneManager.GetRegistry(), selectedEntity,
             KnownTexturePaths(sceneManager.GetRegistry()),
             KnownAnimationPaths(sceneManager.GetRegistry()),
-            KnownAudioPaths(sceneManager.GetRegistry()));
+            KnownAudioPaths(sceneManager.GetRegistry()),
+            waypointEdit);
 
         if (inspectorResult.m_FieldChanged) MarkActiveSceneDirty(currentProject);
 
@@ -1355,6 +1403,14 @@ int main(int, char**)
         DrawCameraOverlays(
             videoSys.GetRenderer(), sceneManager.GetRegistry(), ImGui::GetBackgroundDrawList(),
             targetGameWidth, targetGameHeight);
+        // Shown for the selected entity's PathFollow regardless of whether
+        // "Select Waypoints" mode is active, so placed waypoints stay
+        // visible once selection ends, not just while adding them.
+        if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity))
+        {
+            DrawPathFollowWaypointOverlay(
+                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), pf.Value().get().m_Waypoints);
+        }
 
         ImGui::Render();
 

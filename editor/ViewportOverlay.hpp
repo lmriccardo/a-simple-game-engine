@@ -4,6 +4,8 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 
+#include <vector>
+
 struct ImDrawList;
 
 /**
@@ -72,6 +74,16 @@ void DrawGameWindowPreview(
 void DrawCameraOverlays(
     asge::video::IRenderer const& inRenderer, asge::ecs::Registry& inRegistry, ImDrawList* inDrawList,
     int inTargetWidth, int inTargetHeight ) noexcept;
+
+/**
+ * @brief World-space dots (plus connecting lines, in placement order) for a
+ *        PathFollow's waypoints -- drawn while Phase 12's "Select Waypoints"
+ *        mode is active for it, so points are visible as they're clicked in.
+ *        A no-op for fewer than one waypoint.
+ */
+void DrawPathFollowWaypointOverlay(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
+    std::vector<asge::math::Float2> const& inWaypoints ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };

@@ -324,6 +324,39 @@ void DrawCameraOverlays(
     }
 }
 
+void DrawPathFollowWaypointOverlay(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
+    std::vector<asge::math::Float2> const& inWaypoints ) noexcept
+{
+    if ( inWaypoints.empty() ) return;
+
+    auto const& camera = inRenderer.GetCamera();
+    auto const& viewport = inRenderer.GetViewport();
+    constexpr ImU32 kFillColor = IM_COL32( 255, 210, 60, 130 );
+    constexpr ImU32 kLineColor = IM_COL32( 255, 210, 60, 90 );
+    float const r = 6.0f;
+
+    ImVec2 previousTip{};
+    bool havePrevious = false;
+    for ( auto const& waypoint : inWaypoints )
+    {
+        auto const tip = ToImVec2( asge::video::WorldToScreen( camera, viewport, waypoint ) );
+        if ( havePrevious ) inDrawList->AddLine( previousTip, tip, kLineColor, 2.0f );
+
+        // A map-pin/drop shape, its point sitting exactly on the waypoint's
+        // world position -- a circular head plus a triangle closing it down
+        // to that point, overlapping so the silhouette reads as one shape.
+        ImVec2 const head{ tip.x, tip.y - r * 1.4f };
+        inDrawList->AddCircleFilled( head, r, kFillColor );
+        ImVec2 const left{ head.x - r * 0.85f, head.y + r * 0.55f };
+        ImVec2 const right{ head.x + r * 0.85f, head.y + r * 0.55f };
+        inDrawList->AddTriangleFilled( left, right, tip, kFillColor );
+
+        previousTip = tip;
+        havePrevious = true;
+    }
+}
+
 void DrawTranslateGizmo(
     asge::video::IRenderer const& inRenderer, asge::ecs::Registry& inRegistry,
     asge::ecs::Entity inSelected, ImDrawList* inDrawList ) noexcept

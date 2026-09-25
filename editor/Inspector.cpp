@@ -272,13 +272,35 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
     return clipChanged;
 }
 
-// Waypoint list editing is skipped -- a raw DragFloat2 list is a poor way to
-// author a path; that's viewport gizmo territory (Phase 4), not a plain
-// inspector field. Only the scalar fields that round-trip alongside it
-// (m_Speed/m_Loop/m_Resolution) are edited here.
-bool DrawInspector( PathFollow& inPathFollow ) noexcept
+// Waypoints are authored by clicking the viewport (Phase 12's "Select
+// Waypoints" mode), not typed here -- see main.cpp's WaypointEditState
+// handling for the actual click-to-add/ESC-to-cancel logic and the overlay
+// that shows points as they're placed. This just owns the toggle button and
+// the snapshot taken when entering the mode, so cancelling can restore it.
+bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Entity inEntity, WaypointEditState& ioWaypointEdit ) noexcept
 {
-    ImGui::Text( "Waypoints: %zu (editing not yet supported)", inPathFollow.m_Waypoints.size() );
+    ImGui::Text( "Waypoints: %zu", inPathFollow.m_Waypoints.size() );
+
+    bool const editingThis = ioWaypointEdit.m_Active && ioWaypointEdit.m_Entity == inEntity;
+    if ( ImGui::Button( editingThis ? "End Selection" : "Select Waypoints" ) )
+    {
+        if ( editingThis )
+        {
+            ioWaypointEdit = WaypointEditState{}; // commit -- keep whatever was placed
+        }
+        else
+        {
+            ioWaypointEdit.m_Active = true;
+            ioWaypointEdit.m_Entity = inEntity;
+            ioWaypointEdit.m_Snapshot = inPathFollow.m_Waypoints;
+        }
+    }
+    if ( editingThis )
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "(click the viewport to add; ESC to cancel)" );
+    }
+
     bool changed = ImGui::DragFloat( "Speed", &inPathFollow.m_Speed );
     if ( ImGui::Checkbox( "Loop", &inPathFollow.m_Loop ) ) changed = true;
 
@@ -514,7 +536,8 @@ InspectorResult DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
-    std::vector<std::string> const& inKnownAudio ) noexcept
+    std::vector<std::string> const& inKnownAudio,
+    WaypointEditState& ioWaypointEdit ) noexcept
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return {};
 
@@ -566,7 +589,7 @@ InspectorResult DrawInspectorPanel(
     componentsChanged |= audioChanged; fieldChanged |= audioChanged;
     bool const animationChanged = DrawSection<Animation>( inRegistry, inSelected, "Animation", inKnownAnimations );
     componentsChanged |= animationChanged; fieldChanged |= animationChanged;
-    bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow" );
+    bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow", inSelected, ioWaypointEdit );
     fieldChanged |= pathFollowChanged;
 
     bool const addComponentClicked = DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
