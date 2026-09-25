@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\.asgescene]
+@="ASGE.Scene"
+
+[HKEY_CURRENT_USER\Software\Classes\ASGE.Scene]
+@="ASGE Scene"
+
+[HKEY_CURRENT_USER\Software\Classes\ASGE.Scene\DefaultIcon]
+@="C:\\Users\\ricca\\Desktop\\dev\\asge\\worktrees\\level_editor\\editor\\assets\\asge-scene-icon.ico,0"
