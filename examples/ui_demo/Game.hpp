@@ -5,7 +5,7 @@
 /**
  * @brief Showcases UIButton -- the only UI widget RenderSystem draws so far.
  *
- * Two buttons sit side by side. The left one carries no Sprite, so
+ * Two buttons sit side by side up top. The left one carries no Sprite, so
  * RenderSystem draws it as a flat rect, switching between UIButton's
  * m_Color/m_HoverColor/m_PressedColor as the pointer moves over and clicks
  * it. The right one also carries a Sprite, so RenderSystem draws *that*
@@ -13,12 +13,19 @@
  * demo draws its own hover/press outline around it to show the click is
  * still tracked even though the sprite itself never changes color.
  *
- * Neither button has a font attached, so nothing renders through
+ * Below them, a second pair overlaps: m_OverlapFront sits on a higher
+ * RenderInfo::m_Layer directly on top of m_OverlapBack, which is offset
+ * just far enough that part of it still pokes out from underneath.
+ * UIButtonSystem walks resources::UIHitList back to front (see its own doc
+ * comment), so clicking the overlap resolves to the front button, while
+ * clicking the exposed sliver still resolves to the back one.
+ *
+ * None of the four buttons has a font attached, so nothing renders through
  * IRenderer::DrawString here; clicks are logged to the console instead.
- * There's also no engine-side UI input system yet, so this demo computes
- * hover/held from InputState itself each frame and fires UIButton::m_OnClick
- * on the held-to-released-while-still-hovered transition, exactly as
- * UIButton's own doc comment describes.
+ * Hover/held/m_OnClick are entirely engine-driven: SpawnEntities() sets the
+ * resources::UIHitList resource once, RenderSystem rebuilds it every frame,
+ * and Update() just calls systems::UIButtonSystem -- this state never
+ * touches InputState's mouse queries or a button's rect itself.
  */
 class UIDemoState final : public asge::game::state::IGameState<int>
 {
@@ -27,9 +34,10 @@ class UIDemoState final : public asge::game::state::IGameState<int>
 
     asge::ecs::Entity m_PlainButton { asge::ecs::Entity::Null() }; // no Sprite -- drawn as a colored rect
     asge::ecs::Entity m_SpriteButton{ asge::ecs::Entity::Null() }; // has a Sprite -- drawn as the texture instead
+    asge::ecs::Entity m_OverlapFront{ asge::ecs::Entity::Null() }; // higher layer -- sits on top of m_OverlapBack
+    asge::ecs::Entity m_OverlapBack { asge::ecs::Entity::Null() }; // lower layer, shifted -- partly exposed and still clickable
 
     void SpawnEntities();
-    void UpdateButton( asge::ecs::Entity inEntity, asge::math::Float2 inMousePos, bool inLeftDown );
     void RenderSpriteButtonOutline( asge::video::IRenderer& inRenderer ) const;
 
 public:

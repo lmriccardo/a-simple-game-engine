@@ -2,11 +2,11 @@
 
 namespace
 {
-using asge::input::MouseButton;
 using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
+using asge::game::resources::UIHitList;
 
 constexpr char const* kSpriteTexturePath = "textures/checker.bmp";
 
@@ -19,13 +19,12 @@ constexpr float kSpriteButtonX = 480.0f, kSpriteButtonY = 275.0f;
 constexpr float kSpriteButtonScale = 5.0f; // checker.bmp is 32x32, scaled 5x -- 160x160 on screen
 constexpr float kSpriteTextureSize = 32.0f;
 
-/** @brief True if inPoint falls within inTopLeft/inSize (screen-space, top-left origin -- matches InputState::GetMousePosition). */
-bool PointInRect(
-    asge::math::Float2 inPoint, asge::math::Float2 inTopLeft, asge::math::Float2 inSize) noexcept
-{
-    return inPoint.x() >= inTopLeft.x() && inPoint.x() <= inTopLeft.x() + inSize.x()
-        && inPoint.y() >= inTopLeft.y() && inPoint.y() <= inTopLeft.y() + inSize.y();
-}
+constexpr float kOverlapW = 160.0f, kOverlapH = 50.0f;
+constexpr float kOverlapFrontX = 220.0f, kOverlapFrontY = 420.0f;
+// Shifted just enough that a kOverlapShift-wide/tall sliver along the
+// bottom and right edges stays outside m_OverlapFront's rect -- click there.
+constexpr float kOverlapShift = 30.0f;
+constexpr float kOverlapBackX = kOverlapFrontX + kOverlapShift, kOverlapBackY = kOverlapFrontY + kOverlapShift;
 }
 
 UIDemoState::UIDemoState(
@@ -38,6 +37,11 @@ UIDemoState::UIDemoState(
 
 void UIDemoState::SpawnEntities()
 {
+    // Opts this registry into hit-testing at all -- RenderSystem only
+    // rebuilds UIHitList once this resource exists (see its own doc
+    // comment), and UIButtonSystem no-ops entirely without it.
+    m_Registry.SetResource( UIHitList{} );
+
     // Both buttons draw in screen space -- ordinary UI convention, and what
     // keeps their position pixel-stable regardless of any world camera.
     auto plain = m_Registry.CreateEntity();
@@ -78,27 +82,49 @@ void UIDemoState::SpawnEntities()
     {
         result.Value().get().m_OnClick.Connect( []{ LOG_INFO( "Sprite button clicked!" ); } );
     }
-}
 
-void UIDemoState::UpdateButton( asge::ecs::Entity inEntity, asge::math::Float2 inMousePos, bool inLeftDown )
-{
-    auto tResult = m_Registry.GetComponent<Transform>( inEntity );
-    auto bResult = m_Registry.GetComponent<UIButton>( inEntity );
-    if ( !tResult || !bResult ) return;
+    // m_OverlapBack first, so it also ends up behind in entity-index order --
+    // m_Layer is what actually decides draw/hit order here, though, not this.
+    auto back = m_Registry.CreateEntity();
+    if ( !back ) { back.LogError(); return; }
+    m_OverlapBack = back.Value();
+    m_Registry.AddComponent<Transform>( m_OverlapBack, Transform{
+        .m_WorldCoordinates = { kOverlapBackX, kOverlapBackY }
+    } );
+    m_Registry.AddComponent<UIButton>( m_OverlapBack, UIButton{
+        .m_Color = asge::graphics::colors::s_ButtonDark,
+        .m_HoverColor = asge::graphics::colors::s_ButtonDarkHover,
+        .m_PressedColor = asge::graphics::colors::s_ButtonDarkPressed,
+        .m_Size = { kOverlapW, kOverlapH }
+    } );
+    m_Registry.AddComponent<RenderInfo>( m_OverlapBack, RenderInfo{ .m_Layer = 0, .m_ScreenSpace = true } );
 
-    auto const& transform = tResult.Value().get();
-    auto& button = bResult.Value().get();
+    if ( auto result = m_Registry.GetComponent<UIButton>( m_OverlapBack ) )
+    {
+        result.Value().get().m_OnClick.Connect( []{ LOG_INFO( "Back button (B2) clicked!" ); } );
+    }
 
-    bool const hovered = PointInRect( inMousePos, transform.m_WorldCoordinates, button.m_Size );
-    bool const wasHeld = button.m_Held;
-    bool const held    = hovered && inLeftDown;
+    auto front = m_Registry.CreateEntity();
+    if ( !front ) { front.LogError(); return; }
+    m_OverlapFront = front.Value();
+    m_Registry.AddComponent<Transform>( m_OverlapFront, Transform{
+        .m_WorldCoordinates = { kOverlapFrontX, kOverlapFrontY }
+    } );
+    m_Registry.AddComponent<UIButton>( m_OverlapFront, UIButton{
+        .m_Color = asge::graphics::colors::s_ButtonAccent,
+        .m_HoverColor = asge::graphics::colors::s_ButtonAccentHover,
+        .m_PressedColor = asge::graphics::colors::s_ButtonAccentPressed,
+        .m_Size = { kOverlapW, kOverlapH }
+    } );
+    // Higher layer than m_OverlapBack -- both draws *and* hit-tests on top of
+    // it (RenderSystem sorts by layer, CollectHitList keeps that same order,
+    // and UIButtonSystem walks the hit list back to front).
+    m_Registry.AddComponent<RenderInfo>( m_OverlapFront, RenderInfo{ .m_Layer = 1, .m_ScreenSpace = true } );
 
-    button.m_Hovered = hovered;
-    button.m_Held    = held;
-
-    // Same edge as UIButton's own doc comment: fires once, the frame the
-    // pointer releases while still over the button it was pressed down on.
-    if ( wasHeld && !held && hovered ) button.m_OnClick.Emit();
+    if ( auto result = m_Registry.GetComponent<UIButton>( m_OverlapFront ) )
+    {
+        result.Value().get().m_OnClick.Connect( []{ LOG_INFO( "Front button (B1) clicked!" ); } );
+    }
 }
 
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
@@ -124,15 +150,13 @@ void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer 
 }
 
 std::optional<asge::game::state::Transition<int>>
-UIDemoState::Update(float inDeltaTime, asge::input::InputState const &inInput)
+UIDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState const &inInput)
 {
-    auto const mousePos = inInput.GetMousePosition();
-    bool const leftDown = inInput.IsMouseButtonDown( MouseButton::LEFT );
+    // Resolves against last frame's UIHitList (see RenderSystem.cpp's
+    // CollectHitList) -- both buttons are screen space, so the identity
+    // camera here is fine even though this demo never sets one of its own.
+    asge::game::systems::UIButtonSystem( m_Registry, inInput, asge::video::Camera{} );
 
-    UpdateButton( m_PlainButton, mousePos, leftDown );
-    UpdateButton( m_SpriteButton, mousePos, leftDown );
-
-    [[maybe_unused]] float const dt = inDeltaTime; // RenderPipeline (see Render()) is what actually consumes it
     return std::nullopt;
 }
 
