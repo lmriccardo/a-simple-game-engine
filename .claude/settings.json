@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {
-    "ponytail@ponytail": true
-  },
   "hooks": {
     "PreToolUse": [
       {
@@ -25,5 +22,9 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true,
+    "agentmemory@agentmemory": true
   }
 }
