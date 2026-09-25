@@ -19,8 +19,8 @@ namespace asge::game::components
  *
  * m_Size is authored in the same units as Transform; the owning entity's
  * Transform positions the button (top-left, same convention as Sprite).
- * m_Hovered/m_Held are recomputed every frame by whatever
- * system drives UI input — not something a scene file describes — and
+ * m_Hovered/m_Held are recomputed every frame by systems::UIButtonSystem
+ * (see its own doc comment) — not something a scene file describes — and
  * m_OnClick is fired by that same system, once, the frame the button
  * transitions from pressed to released while still hovered.
  */

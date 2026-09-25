@@ -146,4 +146,38 @@ TEST(PenetrationVectorTest, CircleRect_IsTheOppositeOfRectCircle)
     EXPECT_FLOAT_EQ(circlePushed->y(), -rectPushed->y());
 }
 
+// ─── Contains ────────────────────────────────────────────────────────────────
+
+TEST(ContainsTest, PointWellInside_ReturnsTrue)
+{
+    Rect const rect{0.0f, 0.0f, 10.0f, 10.0f};
+    EXPECT_TRUE(Contains(rect, Float2{5.0f, 5.0f}));
+}
+
+TEST(ContainsTest, PointWellOutside_ReturnsFalse)
+{
+    Rect const rect{0.0f, 0.0f, 10.0f, 10.0f};
+    EXPECT_FALSE(Contains(rect, Float2{50.0f, 50.0f}));
+}
+
+TEST(ContainsTest, PointExactlyOnAnEdge_ReturnsFalse)
+{
+    // Strict inequalities, same convention as AabbOverlap above -- a point
+    // sitting exactly on the boundary doesn't count as inside.
+    Rect const rect{0.0f, 0.0f, 10.0f, 10.0f};
+    EXPECT_FALSE(Contains(rect, Float2{0.0f, 5.0f}));  // left edge
+    EXPECT_FALSE(Contains(rect, Float2{10.0f, 5.0f})); // right edge
+    EXPECT_FALSE(Contains(rect, Float2{5.0f, 0.0f}));  // top edge
+    EXPECT_FALSE(Contains(rect, Float2{5.0f, 10.0f})); // bottom edge
+}
+
+TEST(ContainsTest, PointJustOutsideEachEdge_ReturnsFalse)
+{
+    Rect const rect{0.0f, 0.0f, 10.0f, 10.0f};
+    EXPECT_FALSE(Contains(rect, Float2{-0.1f, 5.0f}));
+    EXPECT_FALSE(Contains(rect, Float2{10.1f, 5.0f}));
+    EXPECT_FALSE(Contains(rect, Float2{5.0f, -0.1f}));
+    EXPECT_FALSE(Contains(rect, Float2{5.0f, 10.1f}));
+}
+
 }

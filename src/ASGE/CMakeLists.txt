@@ -32,6 +32,7 @@ add_library(ASGE STATIC
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
     Core/Math/Geometry/CatmullRomSpline.cpp
+    Core/Math/Geometry/Rect.cpp
 
     # Core media assets (loaded/decoded resources: Image, Font, AudioClip)
     # Color and PixelFormat are header-only, backend-agnostic value types
@@ -88,6 +89,7 @@ add_library(ASGE STATIC
     Game/Systems/RenderSystem.cpp
     Game/Systems/AudioSystem.cpp
     Game/Systems/TransformPropagationSystem.cpp
+    Game/Systems/UISystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp

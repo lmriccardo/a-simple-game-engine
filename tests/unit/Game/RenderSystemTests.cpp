@@ -5,6 +5,7 @@
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
+#include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 
 #include <gtest/gtest.h>
@@ -26,6 +27,8 @@ using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::resources::ActiveCamera;
+using asge::game::resources::HitEntry;
+using asge::game::resources::UIHitList;
 
 // Minimal ITexture stub that just reports a fixed size -- no SDL/GPU
 // resource, so RenderSystem can be exercised without a real renderer.
@@ -861,6 +864,113 @@ TEST(RenderSystemTest, UIButton_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn)
 
     EXPECT_EQ(renderer.m_Calls.size(), 1u);     // the Sprite...
     EXPECT_TRUE(renderer.m_RectCalls.empty());  // ...not the UIButton
+}
+
+// ─── RenderSystem — UIHitList ───────────────────────────────────────────────────
+
+TEST(RenderSystemTest, UIHitList_ResourceNotSet_RenderSystemDoesNotCrashOrCreateIt)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{}).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_FALSE(registry.GetResource<UIHitList>().IsOk());
+}
+
+TEST(RenderSystemTest, UIHitList_PlainUIButton_GetsOneEntrySizedFromMSize)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    registry.SetResource( UIHitList{} );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {10.0f, 20.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{ .m_Size = {80.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), RenderInfo{ .m_ScreenSpace = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    auto hitList = registry.GetResource<UIHitList>();
+    ASSERT_TRUE(hitList.IsOk());
+    ASSERT_EQ(hitList.Value().get().m_Entries.size(), 1u);
+    auto const& hit = hitList.Value().get().m_Entries[0];
+    EXPECT_EQ(hit.m_Entity, entity.Value());
+    EXPECT_TRUE(hit.m_ScreenSpace);
+    EXPECT_FLOAT_EQ(hit.m_Rect.m_X, 10.0f);
+    EXPECT_FLOAT_EQ(hit.m_Rect.m_Y, 20.0f);
+    EXPECT_FLOAT_EQ(hit.m_Rect.m_Width, 80.0f);
+    EXPECT_FLOAT_EQ(hit.m_Rect.m_Height, 24.0f);
+}
+
+TEST(RenderSystemTest, UIHitList_ButtonAlsoCarryingASprite_StillGetsAHitEntry)
+{
+    // Even though ShouldExclude<UIButton> means only the Sprite is drawn
+    // (see the UIButton_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn test
+    // above), the entity is still clickable -- CollectHitList keys off
+    // owning a UIButton component, not off which DrawItem got produced.
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+    registry.SetResource( UIHitList{} );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{ .m_Size = {32.0f, 32.0f} }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    auto hitList = registry.GetResource<UIHitList>();
+    ASSERT_TRUE(hitList.IsOk());
+    ASSERT_EQ(hitList.Value().get().m_Entries.size(), 1u);
+    EXPECT_EQ(hitList.Value().get().m_Entries[0].m_Entity, entity.Value());
+}
+
+TEST(RenderSystemTest, UIHitList_EntityWithNoUIButton_NeverAddsAHitEntry)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+    registry.SetResource( UIHitList{} );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(registry.GetResource<UIHitList>().Value().get().m_Entries.empty());
+}
+
+TEST(RenderSystemTest, UIHitList_RebuiltEveryCall_StalePreviousFrameEntriesDoNotLinger)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    registry.SetResource( UIHitList{} );
+
+    auto first = registry.CreateEntity();
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(), UIButton{}).IsOk());
+    asge::game::systems::RenderSystem(registry, renderer);
+    ASSERT_EQ(registry.GetResource<UIHitList>().Value().get().m_Entries.size(), 1u);
+
+    // `first` no longer has a Transform, so it drops out of Collect<UIButton>
+    // entirely -- its stale entry from the call above must not survive.
+    ASSERT_TRUE(registry.RemoveComponent<Transform>( first.Value() ).IsOk());
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(registry.GetResource<UIHitList>().Value().get().m_Entries.empty());
 }
 
 // ─── CameraSystem ────────────────────────────────────────────────────────────────

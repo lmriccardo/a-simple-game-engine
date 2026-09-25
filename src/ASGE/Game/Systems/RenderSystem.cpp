@@ -14,6 +14,7 @@
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
+#include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
@@ -229,7 +230,8 @@ void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& i
         inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
 }
 
-/** @brief Draws a UIButton as a filled rect, picking m_PressedColor/m_HoverColor/m_Color by its m_Held/m_Hovered state (held takes priority). */
+/** @brief Draws a UIButton as a filled rect, picking m_PressedColor/m_HoverColor/m_Color 
+ * by its m_Held/m_Hovered state (held takes priority). */
 void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, UIButton const& inB )
 {
     graphics::RGBA_Color const color = inB.m_Held    ? inB.m_PressedColor
@@ -237,6 +239,33 @@ void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, UIButton const&
                                                      : inB.m_Color;
 
     inRenderer.DrawRect( inItem.m_DstRect, color, true );
+}
+
+// ----------- Hit List collection ------------------------------------
+
+/** @brief Rebuilds resources::UIHitList (if set) from this frame's sorted drawItems -- a no-op if that resource isn't present. One HitEntry per UIButton-carrying entity, even one drawn as a Sprite (see ShouldExclude), skipping a second adjacent DrawItem from the same entity. */
+void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawItems )
+{
+    if ( auto hitList = inReg.GetResource<asge::game::resources::UIHitList>() )
+    {
+        auto& entries = hitList.Value().get().m_Entries;
+        entries.clear();
+
+        for ( auto const& item : inDrawItems )
+        {
+            auto button = inReg.GetComponent<UIButton>( item.m_Entity );
+            if ( !button ) continue;
+
+            // One entity can produce several items (Sprite + Label); 
+            // after sorting they are adjacent.
+            if ( !entries.empty() && entries.back().m_Entity == item.m_Entity ) continue;
+            
+            entries.push_back( { 
+                item.m_Entity,
+                RectFromSize(*item.m_Transform, button.Value().get().m_Size),
+                item.m_RenderInfo.m_ScreenSpace } );
+        }
+    }
 }
 
 }
@@ -320,6 +349,8 @@ void asge::game::systems::RenderSystem(
     Collect<components::UIButton>( inRegistry, visible, drawItems );
 
     std::sort( drawItems.begin(), drawItems.end());
+
+    CollectHitList( inRegistry, drawItems );
 
     video::Camera const worldCamera = inRenderer.GetCamera();
     bool inScreenSpace = false;
