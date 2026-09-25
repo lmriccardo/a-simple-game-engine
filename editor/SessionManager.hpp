@@ -27,13 +27,17 @@ asge::BoolResult LoadSceneFromRealPath(
  * @brief Writes every current VirtualFileSystem mount, every texture/
  *        animation/audio path the Assets panel currently knows about (scene
  *        usage unioned with "Load Asset..." imports -- see AssetBrowser.hpp's
- *        KnownTexturePaths/KnownAnimationPaths/KnownAudioPaths), and
- *        inCurrentScenePath (omitted if unset) to inPath as `.asges` TOML.
+ *        KnownTexturePaths/KnownAnimationPaths/KnownAudioPaths),
+ *        inCurrentScenePath (omitted if unset), and the View menu's own
+ *        settings (inGridSpacing, inTargetWidth/inTargetHeight -- a `[View]`
+ *        table, written unconditionally since these apply regardless of
+ *        whether a scene happens to be open) to inPath as `.asges` TOML.
  */
 asge::BoolResult SaveSession(
     asge::filesystem::VirtualFileSystem const& inVfs,
     asge::ecs::Registry& inRegistry,
     std::optional<std::filesystem::path> const& inCurrentScenePath,
+    float inGridSpacing, int inTargetWidth, int inTargetHeight,
     std::filesystem::path const& inPath ) noexcept;
 
 /**
@@ -47,9 +51,15 @@ asge::BoolResult SaveSession(
  *        whatever scene was open; then, if `[Session].ScenePath` is present,
  *        loads it the same way Open Scene does. Replaces the whole working
  *        state outright, same no-dirty-check precedent as File > New / Open.
+ *
+ * outGridSpacing/outTargetWidth/outTargetHeight are read from `[View]` if
+ * present; if the file predates that table (or omits it), each is left as
+ * whatever the caller already had in it rather than being reset to some
+ * arbitrary default.
  */
 asge::BoolResult LoadSession(
     asge::filesystem::VirtualFileSystem& inVfs, asge::game::scene::SceneManager& inSceneManager,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
     std::filesystem::path const& inPath,
-    std::optional<std::filesystem::path>& outCurrentScenePath ) noexcept;
+    std::optional<std::filesystem::path>& outCurrentScenePath,
+    float& outGridSpacing, int& outTargetWidth, int& outTargetHeight ) noexcept;

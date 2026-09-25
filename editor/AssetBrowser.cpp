@@ -183,7 +183,11 @@ AssetPick DrawAssetBrowserPanel(
 
     AssetPick pick;
 
-    ImGui::SetNextWindowPos( ImVec2( 10.0f, 30.0f ), ImGuiCond_FirstUseEver );
+    // Anchored flush to the left edge -- forced every frame (ImGuiCond_Always)
+    // since DisplaySize can change (resizable editor window) and the panel
+    // must stay flush against it regardless, same precedent as ConsolePanel's
+    // own bottom-edge anchor. Size alone stays user-draggable.
+    ImGui::SetNextWindowPos( ImVec2( 10.0f, 30.0f ), ImGuiCond_Always );
     ImGui::SetNextWindowSize( ImVec2( 280.0f, 320.0f ), ImGuiCond_FirstUseEver );
 
     ImGui::Begin( "Assets" );

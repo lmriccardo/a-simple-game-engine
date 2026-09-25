@@ -28,6 +28,7 @@ asge::BoolResult SaveSession(
     asge::filesystem::VirtualFileSystem const& inVfs,
     asge::ecs::Registry& inRegistry,
     std::optional<std::filesystem::path> const& inCurrentScenePath,
+    float inGridSpacing, int inTargetWidth, int inTargetHeight,
     std::filesystem::path const& inPath ) noexcept
 {
     asge::config::toml::TOMLBuilder builder;
@@ -64,6 +65,13 @@ asge::BoolResult SaveSession(
         builder.Table( "Session" ).Set( "ScenePath", inCurrentScenePath->string() );
     }
 
+    // Unconditional (unlike [Session] above), since the View menu's Grid/
+    // Game Window settings apply whether or not a scene happens to be open.
+    auto viewTable = builder.Table( "View" );
+    viewTable.Set( "GridSpacing", inGridSpacing );
+    viewTable.Set( "TargetWidth", inTargetWidth );
+    viewTable.Set( "TargetHeight", inTargetHeight );
+
     return builder.SaveToFile( inPath );
 }
 
@@ -71,7 +79,8 @@ asge::BoolResult LoadSession(
     asge::filesystem::VirtualFileSystem& inVfs, asge::game::scene::SceneManager& inSceneManager,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
     std::filesystem::path const& inPath,
-    std::optional<std::filesystem::path>& outCurrentScenePath ) noexcept
+    std::optional<std::filesystem::path>& outCurrentScenePath,
+    float& outGridSpacing, int& outTargetWidth, int& outTargetHeight ) noexcept
 {
     // Parse first, before touching any live state -- a bad/missing .asges
     // file must not unmount everything and leave the editor half-clobbered.
@@ -174,6 +183,17 @@ asge::BoolResult LoadSession(
             inAssets.ResolveAssets( inSceneManager.GetRegistry(), inRenderer );
             RegisterSceneAssets( inSceneManager.GetRegistry() );
         }
+    }
+
+    // Left untouched (whatever the caller already had) if [View] is absent
+    // -- an older session file predating this table shouldn't reset the
+    // editor's current Grid/Game Window settings back to some default.
+    if ( doc.HasTable( "View" ) )
+    {
+        auto const viewTable = doc.GetTable( "View" ).Value();
+        outGridSpacing = viewTable.Get( "GridSpacing", outGridSpacing );
+        outTargetWidth = viewTable.Get( "TargetWidth", outTargetWidth );
+        outTargetHeight = viewTable.Get( "TargetHeight", outTargetHeight );
     }
 
     return asge::BoolResult::Ok();

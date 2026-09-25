@@ -406,8 +406,10 @@ void ResetEntityDisplayIds() noexcept
 
 bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected ) noexcept
 {
+    // Anchored flush to the right edge, same reasoning as main.cpp's Scene
+    // panel above it -- see its comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
-    ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), ImGuiCond_Always );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, 160.0f ), ImGuiCond_FirstUseEver );
 
     ImGui::Begin( "Entities" );
@@ -447,9 +449,11 @@ EntityAction DrawInspectorPanel(
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return EntityAction::None;
 
+    // Anchored flush to the right edge, same reasoning as main.cpp's Scene
+    // panel above it -- see its comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
     float const remainingHeight = ImGui::GetIO().DisplaySize.y - 265.0f - 20.0f; // fills down to a bottom margin
-    ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), ImGuiCond_Always );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, remainingHeight ), ImGuiCond_FirstUseEver );
 
     EntityAction action = EntityAction::None;

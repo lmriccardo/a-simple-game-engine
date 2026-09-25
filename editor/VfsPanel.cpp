@@ -135,7 +135,9 @@ void DrawVfsPanel(
         }
     }
 
-    ImGui::SetNextWindowPos( ImVec2( 10.0f, 360.0f ), ImGuiCond_FirstUseEver );
+    // Anchored flush to the left edge, same reasoning as AssetBrowser's own
+    // panel above it -- see its comment.
+    ImGui::SetNextWindowPos( ImVec2( 10.0f, 360.0f ), ImGuiCond_Always );
     ImGui::SetNextWindowSize( ImVec2( 280.0f, 220.0f ), ImGuiCond_FirstUseEver );
     ImGui::Begin( "Virtual File System" );
 
