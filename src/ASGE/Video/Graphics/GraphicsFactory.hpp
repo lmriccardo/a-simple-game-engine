@@ -34,9 +34,10 @@ void ShutdownBackend(GraphicsBackend inBackend);
  * @param inTitle The title of the window
  * @param inWidth The width of the window
  * @param inHeight The height of the window
+ * @param inResizable Whether the window can be resized by the user
  */
 std::unique_ptr<IWindow> CreateWindow(
-    GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight);
+    GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight, bool inResizable);
 
 /**
  * @brief Creates a renderer for the given graphics backend, bound to the input window

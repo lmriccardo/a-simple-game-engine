@@ -3,9 +3,9 @@
 
 using namespace asge::video;
 
-asge::video::SDLWindow::SDLWindow(std::string const& inTitle, int inWidth, int inHeight)
+asge::video::SDLWindow::SDLWindow(std::string const& inTitle, int inWidth, int inHeight, bool inResizable)
 {
-    m_Window = SDL_CreateWindow(inTitle.c_str(), inWidth, inHeight, 0);
+    m_Window = SDL_CreateWindow(inTitle.c_str(), inWidth, inHeight, inResizable ? SDL_WINDOW_RESIZABLE : 0);
     if (!m_Window)
     {
         LogError( make_error_code( errors::VideoError::WindowCreationFailed ), SDL_GetError() );

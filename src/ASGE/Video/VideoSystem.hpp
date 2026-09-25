@@ -32,9 +32,16 @@ public:
      * @param inWidth The width of the window
      * @param inHeight The height of the window
      * @param inBackend The graphics backend to initialize (defaults to SDL)
+     * @param inResizable Whether the window can be resized by the user
+     *        (defaults to false, matching every existing consumer's
+     *        fixed-size behavior -- asge-editor is the one caller that
+     *        opts in). IRenderer's viewport is NOT kept in sync with the
+     *        window automatically; a resizable window's caller must update
+     *        it on SDL_EVENT_WINDOW_RESIZED itself (see IRenderer::
+     *        SetViewport).
      */
     BoolResult Initialize(std::string const& inTitle, int inWidth, int inHeight,
-        GraphicsBackend inBackend = GraphicsBackend::SDL);
+        GraphicsBackend inBackend = GraphicsBackend::SDL, bool inResizable = false);
 
     // Shutdown the video system closing the renderer, the window and the backend subsystem
     void Shutdown();
