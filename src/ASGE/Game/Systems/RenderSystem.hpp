@@ -31,10 +31,16 @@ void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
  * A no-op (leaving inRenderer's camera exactly as it was) unless
  * ActiveCamera is set to a live entity that carries both a
  * components::Camera and a components::Transform. When it does, sets the
- * renderer's zoom straight from Camera::m_Zoom and aims its position at
- * that Transform centered in the current viewport; Camera::m_Smoothing ==
- * 0 snaps there immediately, a positive value eases toward it exponentially
- * (frame-rate independent — see the .cpp) instead of jumping every frame.
+ * renderer's zoom straight from Camera::m_Zoom and centers the viewport on
+ * that entity's own Sprite::SpriteGetDstRect midpoint, if it has a Sprite
+ * with a resolved texture — not the raw Transform::m_X/m_Y, which is that
+ * rect's top-left corner (see SpriteGetDstRect), not its visual middle;
+ * centering on the corner would render the sprite offset down-right from
+ * screen-center rather than actually centered. Falls back to the raw
+ * Transform point for an entity with no Sprite (or an unresolved one) to
+ * follow instead. Camera::m_Smoothing == 0 snaps there immediately, a
+ * positive value eases toward it exponentially (frame-rate independent —
+ * see the .cpp) instead of jumping every frame.
  */
 void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
 

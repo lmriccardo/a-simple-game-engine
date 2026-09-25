@@ -617,6 +617,49 @@ TEST(CameraSystemTest, ZeroSmoothing_ZoomNarrowsHowMuchViewportIsSubtracted)
     EXPECT_FLOAT_EQ(renderer.GetCamera().m_Zoom, 2.0f);
 }
 
+TEST(CameraSystemTest, ZeroSmoothing_EntityWithResolvedSprite_CentersOnTheSpritesVisualMidpointNotTransformCorner)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 100, 60 });
+    RecordingRenderer renderer; // default viewport {0,0,800,600}
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    // Transform::m_X/m_Y is the sprite's dest-rect top-left (SpriteGetDstRect),
+    // not its middle -- dest rect is {500,300,100,60}, so the visual center
+    // is (550,330), not the raw (500,300) Transform point.
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 0.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 150.0f); // 550 - 800/2
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 30.0f);  // 330 - 600/2
+}
+
+TEST(CameraSystemTest, ZeroSmoothing_EntityWithUnresolvedSprite_FallsBackToTheRawTransformPoint)
+{
+    Registry registry;
+    RecordingRenderer renderer; // default viewport {0,0,800,600}
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    // Sprite present but m_Texture is still null (not yet resolved) --
+    // SpriteGetDstRect returns nullopt, so this must fall back to the raw
+    // Transform point exactly like an entity with no Sprite at all.
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = nullptr }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 0.0f }).IsOk());
+    registry.SetResource( ActiveCamera{ entity.Value() } );
+
+    asge::game::systems::CameraSystem(registry, renderer, 1.0f / 60.0f);
+
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 100.0f); // 500 - 800/2
+    EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 0.0f);   // 300 - 600/2
+}
+
 TEST(CameraSystemTest, PositiveSmoothing_EasesPartwayTowardTheTargetInsteadOfSnapping)
 {
     Registry registry;
