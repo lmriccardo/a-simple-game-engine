@@ -233,6 +233,92 @@ immediately.
 
 ---
 
+## Phase 11 — ASGE Project, Session, and Multi-Scene Management
+
+**Goal:** split the old single-scene `.asges` "session" into a durable
+Project (mounts, assets, view settings, scene list) and a lightweight,
+auto-saved Session (which project/scene is currently open), plus real
+multi-scene switching via a Scene selector.
+
+- [x] `.asgeproject` replaces `.asges`: mounts (`[[Mount]]`), known
+      texture/animation/audio paths and the scene-file list as flat
+      `SetArray`/`GetArray<string>` lists (simpler than `.asges`'s
+      array-of-tables, once a flat-list TOML helper turned out to already
+      exist), and a `[View]` table (grid spacing, target window size).
+- [x] Saving a project (`Save`/`Save As`) touches only these project-level
+      fields, never a scene file, even a dirty one.
+- [x] `asge.session` (at `SDL_GetBasePath()`, autosaved every 30s and once
+      more on clean exit): the active project path and active scene path,
+      auto-resumed at startup if present. Deliberately doesn't track panel
+      collapse-state or the log buffer (nothing already did, and
+      re-serializing logs every autosave is low-value) -- flagged with a
+      `ponytail:` comment rather than a silent cut.
+- [x] "Save Session"/"Open Session" removed from the File menu.
+- [x] File menu rebuilt: `New > Create a Project.../Create a Scene...`,
+      `Save`/`Save As...` (project), `Save Scene`, `Open...` (project),
+      `Open Scene...` -- each disabled without an active project/scene,
+      the same rule extended to the View menu's Grid/Game Window items and
+      the Assets/VFS/Entities panels' own Load Asset/Add mount/Create
+      Entity buttons.
+- [x] Create a Project modal: name (placeholder "New Project"), folder
+      picker, grid size, game window size -- writes `<Folder>/<Name>
+      .asgeproject` and now also auto-creates and activates one starter
+      scene, "Empty Scene" (a project never starts with zero scenes).
+- [x] Creating a new project first saves whatever was open (project file,
+      plus its active scene only if dirty -- not an unconditional re-save
+      of every scene), then fully clears the editor (unload + evict every
+      cached scene, every mount, every known asset) before proceeding.
+- [x] Create a Scene modal, active only with an open project; placeholder
+      `Scene #i` (i = current scene count), used as the real name if left
+      blank.
+- [x] A new scene is added to the project's list and empty-saved at
+      `<Project Folder>/<Name>.asgescene` via `SceneManager`'s own
+      `UnloadScene`/`RenameActiveScene`/`SaveScene` pattern, then made
+      active.
+- [x] Per-scene unsaved/saved tracking: every `DrawInspector` reports
+      whether it changed anything, feeding a signal kept deliberately
+      separate from the narrower `ResolveAssets` trigger -- a continuously-
+      dragged field marks the scene dirty every frame without re-triggering
+      asset resolution that often. The Scene panel shows and can rename the
+      active scene, which `std::filesystem::rename`s the real file (not a
+      copy) and keeps `SceneManager`'s own identity in sync.
+- [x] Switching (or creating) a scene saves the outgoing one first if
+      dirty. Surfaced a real bug along the way: `SceneManager` keeps one
+      shared `Registry` for every scene it's ever loaded, so a naive switch
+      left the previous scene's entities resident and still rendering/
+      listed/pickable alongside the new one. Fixed by evicting the outgoing
+      scene on every switch -- correct, at the cost of the instant re-visit
+      `SceneManager`'s own cache would otherwise give; filed
+      [#109](https://github.com/lmriccardo/a-simple-game-engine/issues/109)
+      for a proper suspend/resume fix that would restore that without the
+      bleed.
+- [x] Save As copies every scene file to the new folder -- the active
+      scene (the only one that can have live unsaved edits) is re-saved
+      straight to its new path; every other scene's already-current file
+      is `asge::filesystem::Copy`'d.
+- [x] Title bar reads "ASGE Editor - <Project Name>" with an active
+      project, plain "ASGE Editor" otherwise.
+- [x] A "Project: <name> Scene: [selector] ●" HUD panel, prepended ahead
+      of the mouse-position HUD; the dot shows only while the active scene
+      is dirty. This panel and the right-edge Scene/Entities/Inspector
+      panels shared a stale-flag bug where a mid-frame project swap (e.g.
+      Create a Project's own button) left them reading the OLD project's
+      now-invalid state -- fixed by recomputing fresh right before each is
+      drawn instead of reusing a frame-start snapshot. Separately, an
+      earlier pass at edge-anchoring those same panels forced their
+      position every frame, which fought the user's own dragging entirely
+      -- fixed to re-snap only on an actual resize.
+
+**Done when:** a project can be saved and loaded, the session auto-saves
+and auto-resumes, and scenes can be switched, created, and renamed without
+errors or cross-scene bleed.
+
+---
+
+## Phase 12 - 
+
+---
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no
@@ -240,8 +326,6 @@ justification": these are known future wants, not phase-0 requirements.
 
 - Undo/redo
 - Multi-select / box-select
-- Prefab or additive scene loading in the editor (mirrors the engine's own
-  "Scene management Phase 2+" being unbuilt)
 - Any generic reflection/serialization-schema-export mechanism replacing
   the hand-written `Serializer<T>` / `DrawInspector` pairing
 - SDL_GPU backend for the editor (stay on `imgui_impl_sdlrenderer3` until
