@@ -30,6 +30,7 @@ using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UILabel;
+using asge::game::components::VerticalAlign;
 using asge::game::components::UIRect;
 using asge::game::components::Interactable;
 using asge::game::resources::ActiveCamera;
@@ -1140,6 +1141,99 @@ TEST(RenderSystemTest, UILabel_RightAlign_DrawnAtRectsRightEdgeMinusTextWidth)
     float const textWidth = font.Measure( "Hi" ).x();
     float const expectedX = 100.0f + ( 200.0f - textWidth );
     EXPECT_NEAR(renderer.m_StringCalls[0].m_Position.x(), expectedX, 0.01f);
+}
+
+TEST(RenderSystemTest, UILabel_TopVerticalAlign_DrawnAtRectsTopEdge)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_Text = "Hi";
+    label.m_VerticalAlign = VerticalAlign::Top;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    // Baseline sits GetAscent() below the rect's top edge -- DrawString's
+    // position is the baseline, not a bounding-box corner (see Draw(UILabel)).
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.y(), 50.0f + static_cast<float>(font.GetAscent()));
+}
+
+TEST(RenderSystemTest, UILabel_CenterVerticalAlign_DrawnHalfwayIntoTheRectsVerticalSlack)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_Text = "Hi";
+    label.m_VerticalAlign = VerticalAlign::Center; // also UILabel's own struct default
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    float const textHeight = font.Measure( "Hi" ).y();
+    float const expectedY = 50.0f + ( 40.0f - textHeight ) * 0.5f + static_cast<float>(font.GetAscent());
+    EXPECT_NEAR(renderer.m_StringCalls[0].m_Position.y(), expectedY, 0.01f);
+}
+
+TEST(RenderSystemTest, UILabel_BottomVerticalAlign_DrawnAtRectsBottomEdgeMinusTextHeight)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_Text = "Hi";
+    label.m_VerticalAlign = VerticalAlign::Bottom;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    float const textHeight = font.Measure( "Hi" ).y();
+    float const expectedY = 50.0f + ( 40.0f - textHeight ) + static_cast<float>(font.GetAscent());
+    EXPECT_NEAR(renderer.m_StringCalls[0].m_Position.y(), expectedY, 0.01f);
 }
 
 TEST(RenderSystemTest, UILabel_TextLongerThanItsRect_OverflowsRatherThanBeingClipped)

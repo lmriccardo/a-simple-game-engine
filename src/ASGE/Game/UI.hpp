@@ -3,6 +3,7 @@
 #include <functional>
 
 #include <ASGE/Game/Components/UI/Common.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -50,6 +51,7 @@ struct TextDesc
     str::String          m_FontPath;
     int                  m_FontPixelHeight{ consts::kFontPixelHeight };
     str::TextAlign       m_Align{ str::TextAlign::Left };
+    components::VerticalAlign m_VerticalAlign{ components::VerticalAlign::Center };
     graphics::RGBA_Color m_Color{ consts::kDefaultColor };
 };
 

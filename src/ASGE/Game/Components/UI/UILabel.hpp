@@ -9,6 +9,20 @@
 namespace asge::game::components
 {
 
+/** @brief How Draw(UILabel) positions text within its UIRect's height -- Top sits the text at the rect's own top edge, same as before this existed. */
+enum class VerticalAlign
+{
+    Top = 0,
+    Center,
+    Bottom
+};
+
+/** @brief VerticalAlign -> its lowercase TOML/display representation ("top" for anything unrecognized). */
+str::String ToString( VerticalAlign inAlign ) noexcept;
+
+/** @brief The read-side counterpart to ToString -- any string other than "top"/"center"/"bottom" maps to Top. */
+VerticalAlign FromString( str::StringView inStr ) noexcept;
+
 /**
  * @brief A text label drawn with a baked Font atlas.
  *
@@ -24,6 +38,7 @@ struct UILabel
     str::String             m_FontPath          {};
     str::String             m_Text              {"Placeholder"};
     str::TextAlign          m_Align             {str::TextAlign::Left};
+    VerticalAlign           m_VerticalAlign     {VerticalAlign::Center};
     graphics::RGBA_Color    m_Color             {graphics::colors::s_Black};
     int                     m_FontPixelHeight   {16};
     bool                    m_AutoSize          {true};
