@@ -14,6 +14,9 @@ target_link_libraries(ASGE_GameTests
         GTest::gtest_main
 )
 
+target_compile_definitions(ASGE_GameTests
+    PRIVATE ASGE_TEST_FONTS_DIR="${CMAKE_SOURCE_DIR}/tests/support/fonts")
+
 target_compile_options(ASGE_GameTests
     PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:

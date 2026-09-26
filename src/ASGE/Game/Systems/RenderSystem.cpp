@@ -255,17 +255,34 @@ void Draw(
     inRenderer.DrawRect( inItem.m_DstRect, color, true );
 }
 
+/**
+ * @brief Draws a UILabel's text with its baked Font atlas.
+ *
+ * The pen is positioned so the glyphs start at inItem.m_DstRect's top edge
+ * rather than sit above it (DrawString's position is the baseline, not a
+ * bounding-box corner), and horizontally by inLabel.m_Align against the
+ * rect's own width for Center/Right, using Font::Measure's pixel width --
+ * str::Justify is the wrong tool here despite the similar name: it pads by
+ * *character count* for fixed-width text layout, not by the pixel width a
+ * proportional font actually draws at, so passing it inItem.m_DstRect.
+ * m_Width (pixels) as a character count padded with far more space glyphs
+ * than intended.
+ */
 void Draw(
-    ecs::Registry const& inReg, video::IRenderer& inRenderer, 
+    [[maybe_unused]] ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, UILabel const& inLabel)
 {
-    if ( inLabel.m_Text.empty() || inLabel.m_Font == nullptr ) return;
-    
-    inRenderer.DrawString( 
-        inLabel.m_Text, *inLabel.m_Font, *inLabel.m_Texture,
-        math::Float2{ inItem.m_DstRect.m_X, inItem.m_DstRect.m_Y }, 
-        inLabel.m_Color
-    );
+    if ( inLabel.m_Text.empty() || inLabel.m_Font == nullptr || inLabel.m_Texture == nullptr ) return;
+
+    float penX = inItem.m_DstRect.m_X;
+    if ( inLabel.m_Align == str::TextAlign::Center || inLabel.m_Align == str::TextAlign::Right )
+    {
+        float const slack = inItem.m_DstRect.m_Width - inLabel.m_Font->Measure( inLabel.m_Text ).x();
+        penX += ( inLabel.m_Align == str::TextAlign::Center ) ? slack * 0.5f : slack;
+    }
+
+    math::Float2 const pen{ penX, inItem.m_DstRect.m_Y + static_cast<float>( inLabel.m_Font->GetAscent() ) };
+    inRenderer.DrawString( inLabel.m_Text, *inLabel.m_Font, *inLabel.m_Texture, pen, inLabel.m_Color );
 }
 
 /**

@@ -4,6 +4,7 @@
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
@@ -12,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <filesystem>
 #include <vector>
 
 namespace
@@ -27,6 +29,7 @@ using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
+using asge::game::components::UILabel;
 using asge::game::components::UIRect;
 using asge::game::components::Interactable;
 using asge::game::resources::ActiveCamera;
@@ -77,8 +80,12 @@ public:
     // never DrawTexture*, so it needs its own color/fill assertions.
     struct RectCall { asge::math::Rect m_Rect; asge::graphics::RGBA_Color m_Color; bool m_Fill; };
 
+    // UILabel draws via DrawString, never DrawTexture*/DrawRect either.
+    struct StringCall { std::string m_Text; asge::math::Float2 m_Position; };
+
     mutable std::vector<DrawCall> m_Calls;
     mutable std::vector<RectCall> m_RectCalls;
+    mutable std::vector<StringCall> m_StringCalls;
 
     void Clear(asge::graphics::RGBA_Color const&) const override {}
 
@@ -119,8 +126,11 @@ public:
     {
         m_Calls.push_back({ {}, false, true, true, inOrigin, inRight, inDown, m_Camera });
     }
-    void DrawString(asge::str::StringView, asge::media::Font const&, asge::video::ITexture&,
-        asge::math::Float2 const&, asge::graphics::RGBA_Color const&) const noexcept override {}
+    void DrawString(asge::str::StringView inText, asge::media::Font const&, asge::video::ITexture&,
+        asge::math::Float2 const& inPosition, asge::graphics::RGBA_Color const&) const noexcept override
+    {
+        m_StringCalls.push_back({ std::string(inText), inPosition });
+    }
 
     void Present() const override {}
 
@@ -1018,6 +1028,151 @@ TEST(RenderSystemTest, UIHitList_RebuiltEveryCall_StalePreviousFrameEntriesDoNot
     asge::game::systems::RenderSystem(registry, renderer);
 
     EXPECT_TRUE(registry.GetResource<UIHitList>().Value().get().m_Entries.empty());
+}
+
+// ─── RenderSystem — UILabel text alignment ───────────────────────────────────────
+
+namespace
+{
+// Ahem.ttf (tests/support/fonts/, see NOTICE.md): a real TTF is needed for
+// a real Font::Load bake (see FontTests.cpp's own doc comment). Font::Measure
+// itself has its own coverage in FontTests.cpp -- these tests just need it
+// to compute the expected pen position, the same way Draw(UILabel) does.
+std::filesystem::path AhemPath()
+{
+    return std::filesystem::path(ASGE_TEST_FONTS_DIR) / "Ahem.ttf";
+}
+}
+
+TEST(RenderSystemTest, UILabel_LeftAlign_DrawnAtRectsLeftEdge)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_Text = "Hi";
+    label.m_Align = asge::str::TextAlign::Left;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    EXPECT_EQ(renderer.m_StringCalls[0].m_Text, "Hi");
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.x(), 100.0f); // rect's left edge, untouched
+}
+
+TEST(RenderSystemTest, UILabel_CenterAlign_DrawnHalfwayIntoTheRectsSlack)
+{
+    // Regression test: RenderSystem.cpp previously ran inLabel.m_Text
+    // through str::Justify(text, align, inItem.m_DstRect.m_Width) -- a
+    // *character-count* padder, not a pixel one, so passing a pixel width
+    // (e.g. 200.0f) as the target character count padded in far more space
+    // glyphs than intended and pushed the text well past the button.
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_Text = "Hi";
+    label.m_Align = asge::str::TextAlign::Center;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    EXPECT_EQ(renderer.m_StringCalls[0].m_Text, "Hi"); // unpadded -- not str::Justify's space-padded string
+    float const textWidth = font.Measure( "Hi" ).x();
+    float const expectedX = 100.0f + ( 200.0f - textWidth ) * 0.5f;
+    EXPECT_NEAR(renderer.m_StringCalls[0].m_Position.x(), expectedX, 0.01f);
+}
+
+TEST(RenderSystemTest, UILabel_RightAlign_DrawnAtRectsRightEdgeMinusTextWidth)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_Text = "Hi";
+    label.m_Align = asge::str::TextAlign::Right;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    float const textWidth = font.Measure( "Hi" ).x();
+    float const expectedX = 100.0f + ( 200.0f - textWidth );
+    EXPECT_NEAR(renderer.m_StringCalls[0].m_Position.x(), expectedX, 0.01f);
+}
+
+TEST(RenderSystemTest, UILabel_TextLongerThanItsRect_OverflowsRatherThanBeingClipped)
+{
+    // Current, documented limitation (see Draw(UILabel)'s doc comment):
+    // there's no clipping yet, so a label wider than its UIRect just draws
+    // past its edges instead of being cut off at them.
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {10.0f, 40.0f} }).IsOk()); // far narrower than the text
+
+    UILabel label;
+    label.m_Text = "Way too long for this rect";
+    label.m_Align = asge::str::TextAlign::Left;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    EXPECT_EQ(renderer.m_StringCalls[0].m_Text, "Way too long for this rect"); // drawn whole, not truncated
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.x(), 100.0f); // still starts at the rect's left edge
 }
 
 // ─── CameraSystem ────────────────────────────────────────────────────────────────
