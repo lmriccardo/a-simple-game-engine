@@ -24,6 +24,19 @@ TEST(Vector2, ConstructsFromInitializerListAndExposesNamedComponents)
     EXPECT_FLOAT_EQ(vector.y(), -2.25F);
 }
 
+TEST(Vector2, BraceInitIsUsableInAConstantExpression)
+{
+    // Regression: Vec2's initializer_list constructor (and VecN's
+    // Fill/Zeros underneath it) must stay constexpr, so a component
+    // default like `static constexpr Float2 kSize{80.0f, 24.0f};` compiles.
+    static constexpr Float2 kSize{80.0f, 24.0f};
+    static_assert(kSize.x() == 80.0f);
+    static_assert(kSize.y() == 24.0f);
+
+    EXPECT_FLOAT_EQ(kSize.x(), 80.0f);
+    EXPECT_FLOAT_EQ(kSize.y(), 24.0f);
+}
+
 TEST(Vector2, NamedComponentsAreMutable)
 {
     Int2 vector{1, 2};

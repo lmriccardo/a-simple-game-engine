@@ -33,15 +33,15 @@ public:
     constexpr explicit Vec2( Us... inValues ) : base( inValues... )
     {}
 
-    Vec2( std::initializer_list<T> inList ) : base( inList )
+    constexpr Vec2( std::initializer_list<T> inList ) : base( inList )
     {}
 
     Vec2(const base& inBase) : base(inBase) {}
 
-    reference x() { return (*this)[0]; }
-    reference y() { return (*this)[1]; }
-    value_type x() const { return (*this)[0]; }
-    value_type y() const { return (*this)[1]; }
+    constexpr reference x() { return (*this)[0]; }
+    constexpr reference y() { return (*this)[1]; }
+    constexpr value_type x() const { return (*this)[0]; }
+    constexpr value_type y() const { return (*this)[1]; }
 
     using base::operator+;
     using base::operator-;
