@@ -187,30 +187,27 @@ void MarkActiveSceneDirty( std::optional<Project>& inProject ) noexcept
 /**
  * @brief Makes inProject.m_Scenes[inNewIndex] the active scene: saves the
  *        currently active one first if it's dirty (so switching, or
- *        creating a new scene, never silently loses edits), evicts it from
- *        SceneManager's cache, then SceneManager::LoadSceneFromFile reads
- *        the new one from disk.
+ *        creating a new scene, never silently loses edits), then
+ *        SceneManager::LoadSceneFromFile makes the new one active.
  *
- * The evict is deliberate, not just cleanup: SceneManager keeps ONE shared
- * Registry for every scene it's ever loaded, distinguishing them only by a
- * SceneId tag -- switching scenes without evicting the old one leaves both
- * resident simultaneously. RenderSystem/DrawEntityListPanel/viewport
- * picking/etc. all operate on that whole Registry with no scoping of their
- * own to "just the active scene's entities" (there's no engine concept of
- * that), so a second resident scene doesn't just sit inertly cached -- it
- * keeps rendering, keeps showing up in the Entities list, keeps being
- * pickable, right alongside whatever's actually selected in the Scene
- * dropdown. Evicting on every switch means only one scene is ever resident
- * at a time, at the cost of the disk-free instant-swap SceneManager's own
- * cache would otherwise give switching back to an already-visited scene --
- * correctness over that micro-optimization here.
+ * SceneManager itself now suspends the outgoing scene into an in-memory
+ * snapshot and restores the incoming one (from a snapshot if it has one,
+ * disk otherwise) as part of that call (see issue #109) -- exactly one
+ * scene's entities are ever live in its Registry at a time, so
+ * RenderSystem/DrawEntityListPanel/viewport picking/etc. (which all just
+ * enumerate that whole Registry, with no scoping of their own) never see a
+ * second, stale scene bleed in. This editor code used to force that same
+ * single-residency invariant itself via an explicit EvictCachedScene() on
+ * every switch -- destroying the outgoing scene's entities outright and
+ * forcing a full disk re-read next time, throwing away SceneManager's own
+ * residency cache entirely. Not needed anymore: switching back to an
+ * already-visited scene is a fast in-memory restore again, not a disk read.
  */
 void SwitchToScene(
     Project& inOutProject, int inNewIndex,
     asge::game::scene::SceneManager& inSceneManager, asge::game::asset::AssetManager& inAssets,
     asge::video::IRenderer& inRenderer, asge::ecs::Entity& ioSelected ) noexcept
 {
-    std::optional<std::filesystem::path> previousPath;
     if ( inOutProject.m_ActiveSceneIndex >= 0
       && inOutProject.m_ActiveSceneIndex < static_cast<int>( inOutProject.m_Scenes.size() ) )
     {
@@ -220,7 +217,6 @@ void SwitchToScene(
             auto const saveResult = inSceneManager.SaveScene( current.m_Path );
             if ( saveResult ) current.m_Dirty = false; else saveResult.LogError();
         }
-        previousPath = current.m_Path;
     }
 
     auto const& target = inOutProject.m_Scenes[inNewIndex];
@@ -232,15 +228,6 @@ void SwitchToScene(
     }
 
     inOutProject.m_ActiveSceneIndex = inNewIndex;
-
-    // Evict only after the switch succeeded and only if it's actually a
-    // different scene -- EvictCachedScene is a documented no-op on
-    // whatever's currently active anyway, but re-selecting the same scene
-    // shouldn't even attempt it.
-    if ( previousPath && *previousPath != target.m_Path )
-    {
-        inSceneManager.EvictCachedScene( previousPath->string() );
-    }
     ioSelected = asge::ecs::Entity::Null();
     ResetEntityDisplayIds();
     inAssets.ResolveAssets( inSceneManager.GetRegistry(), inRenderer );
