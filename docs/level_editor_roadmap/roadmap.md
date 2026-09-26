@@ -354,6 +354,17 @@ errors or cross-scene bleed.
       existing `DrawColliderOverlays` shows it updating with no new preview
       code needed.
 
+- [x] In-editor spritesheet slicing: a texture's Asset Inspector gets a
+      "Create Clip" button opening a modal (bigger thumbnail with a live
+      grid overlay, Rows/Columns, computed cell size, Cancel/Apply) that
+      writes `<image>_clip.toml` next to the texture, then registers and
+      selects it as a new animation clip. A clip records which texture it
+      slices (`m_OriginAsset`), so a texture with one already shows "Open
+      Clip" instead, and importing a `.toml` that doesn't identify its
+      texture is rejected. An animation clip's own Asset Inspector preview
+      shows its path/size, every `FrameTable` field, and a live cycling
+      preview of its sliced frames.
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no
