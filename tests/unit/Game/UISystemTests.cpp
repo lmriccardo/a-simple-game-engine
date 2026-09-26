@@ -1,5 +1,6 @@
 #include <ASGE/Game/Systems/UISystem.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Events/Events.hpp>
@@ -14,6 +15,7 @@ using asge::ecs::Registry;
 using asge::event::MouseButtonEvent;
 using asge::event::MouseMotionEvent;
 using asge::event::SystemEvent;
+using asge::game::components::Interactable;
 using asge::game::components::UIButton;
 using asge::game::resources::HitEntry;
 using asge::game::resources::UIHitList;
@@ -46,11 +48,13 @@ InputState InputAt(float inX, float inY)
     return state;
 }
 
+/** @brief Creates a full "Button" (UIButton + Interactable) -- UIRect is unnecessary here since these tests inject UIHitList entries directly rather than going through CollectHitList. */
 Entity AddButton( Registry& inRegistry )
 {
     auto entity = inRegistry.CreateEntity();
     EXPECT_TRUE(entity.IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), UIButton{}).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Interactable{}).IsOk());
     return entity.Value();
 }
 
@@ -59,20 +63,25 @@ UIButton& Button( Registry& inRegistry, Entity inEntity )
     return inRegistry.GetComponent<UIButton>( inEntity ).Value().get();
 }
 
+Interactable& Interact( Registry& inRegistry, Entity inEntity )
+{
+    return inRegistry.GetComponent<Interactable>( inEntity ).Value().get();
+}
+
 constexpr Camera kIdentityCamera{ .m_X = 0.0f, .m_Y = 0.0f, .m_Zoom = 1.0f };
 
 // ─── No UIHitList resource ──────────────────────────────────────────────────
 
-TEST(UIButtonSystemTest, NoUIHitListResourceSet_LeavesEveryButtonUntouched)
+TEST(UIButtonSystemTest, NoUIHitListResourceSet_LeavesEveryInteractableUntouched)
 {
     Registry registry;
     auto const entity = AddButton( registry );
-    Button(registry, entity).m_Hovered = true; // pre-existing state the system must not touch
+    Interact(registry, entity).m_Hovered = true; // pre-existing state the system must not touch
 
     InputState const input = InputAt( 0.0f, 0.0f );
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_TRUE( Button(registry, entity).m_Hovered ); // unchanged -- the system never ran
+    EXPECT_TRUE( Interact(registry, entity).m_Hovered ); // unchanged -- the system never ran
 }
 
 // ─── Hover resolution ───────────────────────────────────────────────────────
@@ -86,39 +95,39 @@ TEST(UIButtonSystemTest, PointerOverScreenSpaceButton_SetsHovered)
     } } );
 
     InputState const input = InputAt( 50.0f, 25.0f ); // inside the rect
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_TRUE( Button(registry, entity).m_Hovered );
+    EXPECT_TRUE( Interact(registry, entity).m_Hovered );
 }
 
 TEST(UIButtonSystemTest, PointerOutsideEveryRect_HoveredIsFalse)
 {
     Registry registry;
     auto const entity = AddButton( registry );
-    Button(registry, entity).m_Hovered = true; // must be cleared, not just left alone
+    Interact(registry, entity).m_Hovered = true; // must be cleared, not just left alone
     registry.SetResource( UIHitList{ .m_Entries = {
         HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
     } } );
 
     InputState const input = InputAt( 500.0f, 500.0f );
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_FALSE( Button(registry, entity).m_Hovered );
+    EXPECT_FALSE( Interact(registry, entity).m_Hovered );
 }
 
-TEST(UIButtonSystemTest, ButtonWithNoMatchingHitEntry_NeverHovered)
+TEST(UIButtonSystemTest, InteractableWithNoMatchingHitEntry_NeverHovered)
 {
-    // A UIButton the hit list simply doesn't mention (e.g. RenderSystem
+    // An Interactable the hit list simply doesn't mention (e.g. RenderSystem
     // culled it out this frame) must not stay stuck hovered from before.
     Registry registry;
     auto const entity = AddButton( registry );
-    Button(registry, entity).m_Hovered = true;
+    Interact(registry, entity).m_Hovered = true;
     registry.SetResource( UIHitList{} ); // empty -- resource present, no entries
 
     InputState const input = InputAt( 0.0f, 0.0f );
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_FALSE( Button(registry, entity).m_Hovered );
+    EXPECT_FALSE( Interact(registry, entity).m_Hovered );
 }
 
 TEST(UIButtonSystemTest, OverlappingEntries_LastInTheListWinsAsTheTopmost)
@@ -134,10 +143,29 @@ TEST(UIButtonSystemTest, OverlappingEntries_LastInTheListWinsAsTheTopmost)
     } } );
 
     InputState const input = InputAt( 50.0f, 50.0f );
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_TRUE( Button(registry, front).m_Hovered );
-    EXPECT_FALSE( Button(registry, back).m_Hovered );
+    EXPECT_TRUE( Interact(registry, front).m_Hovered );
+    EXPECT_FALSE( Interact(registry, back).m_Hovered );
+}
+
+// ─── Disabled Interactable ───────────────────────────────────────────────────
+
+TEST(UIButtonSystemTest, DisabledInteractable_ForcedHoveredAndHeldFalseRegardlessOfHitList)
+{
+    Registry registry;
+    auto const entity = AddButton( registry );
+    Interact(registry, entity).m_Enabled = false;
+    Interact(registry, entity).m_Held = true; // as if disabled mid-press
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
+    } } );
+
+    InputState const input = InputAt( 50.0f, 25.0f ); // inside the rect
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FALSE( Interact(registry, entity).m_Hovered );
+    EXPECT_FALSE( Interact(registry, entity).m_Held );
 }
 
 // ─── Screen space vs. world space ───────────────────────────────────────────
@@ -153,9 +181,9 @@ TEST(UIButtonSystemTest, ScreenSpaceEntry_TestedAgainstRawMousePosition)
     // A non-trivial camera must not affect a screen-space entry at all.
     Camera const camera{ .m_X = 1000.0f, .m_Y = 1000.0f, .m_Zoom = 4.0f };
     InputState const input = InputAt( 40.0f, 20.0f );
-    asge::game::systems::UIButtonSystem( registry, input, camera );
+    asge::game::systems::UIInteractionSystem( registry, input, camera );
 
-    EXPECT_TRUE( Button(registry, entity).m_Hovered );
+    EXPECT_TRUE( Interact(registry, entity).m_Hovered );
 }
 
 TEST(UIButtonSystemTest, WorldSpaceEntry_TestedAgainstCameraUnprojectedPosition)
@@ -169,9 +197,9 @@ TEST(UIButtonSystemTest, WorldSpaceEntry_TestedAgainstCameraUnprojectedPosition)
 
     Camera const camera{ .m_X = 100.0f, .m_Y = 50.0f, .m_Zoom = 2.0f };
     InputState const input = InputAt( 40.0f, 20.0f ); // nowhere near the rect in raw screen space
-    asge::game::systems::UIButtonSystem( registry, input, camera );
+    asge::game::systems::UIInteractionSystem( registry, input, camera );
 
-    EXPECT_TRUE( Button(registry, entity).m_Hovered );
+    EXPECT_TRUE( Interact(registry, entity).m_Hovered );
 }
 
 // ─── Press / release / click ────────────────────────────────────────────────
@@ -189,9 +217,9 @@ TEST(UIButtonSystemTest, PressWhileHovered_SetsHeld)
     input.NewFrame();
     input.Consume( MouseButtonEv(MouseButton::LEFT, true) ); // fresh press this frame
 
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_TRUE( Button(registry, entity).m_Held );
+    EXPECT_TRUE( Interact(registry, entity).m_Held );
 }
 
 TEST(UIButtonSystemTest, PressWhileNotHovered_LeavesHeldFalse)
@@ -207,16 +235,16 @@ TEST(UIButtonSystemTest, PressWhileNotHovered_LeavesHeldFalse)
     input.NewFrame();
     input.Consume( MouseButtonEv(MouseButton::LEFT, true) );
 
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
-    EXPECT_FALSE( Button(registry, entity).m_Held );
+    EXPECT_FALSE( Interact(registry, entity).m_Held );
 }
 
-TEST(UIButtonSystemTest, ReleaseWhileHeldAndHovered_FiresOnClickAndClearsHeld)
+TEST(UIButtonSystemTest, ReleaseWhileHeldAndHovered_SetsClickedFiresOnClickAndClearsHeld)
 {
     Registry registry;
     auto const entity = AddButton( registry );
-    Button(registry, entity).m_Held = true; // as if UIButtonSystem set it on a prior frame's press
+    Interact(registry, entity).m_Held = true; // as if UIInteractionSystem set it on a prior frame's press
     registry.SetResource( UIHitList{ .m_Entries = {
         HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
     } } );
@@ -230,10 +258,26 @@ TEST(UIButtonSystemTest, ReleaseWhileHeldAndHovered_FiresOnClickAndClearsHeld)
     input.NewFrame();
     input.Consume( MouseButtonEv(MouseButton::LEFT, false) ); // ...released this one
 
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_TRUE( clicked );
-    EXPECT_FALSE( Button(registry, entity).m_Held );
+    EXPECT_TRUE( Interact(registry, entity).m_Clicked );
+    EXPECT_FALSE( Interact(registry, entity).m_Held );
+}
+
+TEST(UIButtonSystemTest, MClickedIsEdgeTriggered_FalseAgainOnTheFollowingFrame)
+{
+    Registry registry;
+    auto const entity = AddButton( registry );
+    Interact(registry, entity).m_Clicked = true; // as if set by a completed click last frame
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
+    } } );
+
+    InputState const input = InputAt( 500.0f, 500.0f ); // no press/release this frame at all
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FALSE( Interact(registry, entity).m_Clicked );
 }
 
 TEST(UIButtonSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotFireOnClick)
@@ -242,7 +286,7 @@ TEST(UIButtonSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotFireOnClick)
     // cancelled click, not a completed one.
     Registry registry;
     auto const entity = AddButton( registry );
-    Button(registry, entity).m_Held = true;
+    Interact(registry, entity).m_Held = true;
     registry.SetResource( UIHitList{ .m_Entries = {
         HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
     } } );
@@ -256,10 +300,11 @@ TEST(UIButtonSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotFireOnClick)
     input.NewFrame();
     input.Consume( MouseButtonEv(MouseButton::LEFT, false) ); // ...released this one
 
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_FALSE( clicked );
-    EXPECT_FALSE( Button(registry, entity).m_Held ); // still cleared regardless
+    EXPECT_FALSE( Interact(registry, entity).m_Clicked );
+    EXPECT_FALSE( Interact(registry, entity).m_Held ); // still cleared regardless
 }
 
 TEST(UIButtonSystemTest, ReleaseWhileNeverHeld_DoesNotFireOnClick)
@@ -276,7 +321,7 @@ TEST(UIButtonSystemTest, ReleaseWhileNeverHeld_DoesNotFireOnClick)
     Button(registry, entity).m_OnClick.Connect( [&clicked]{ clicked = true; } );
 
     // A genuine down-then-up transition (so IsMouseButtonReleased is true),
-    // just with UIButton::m_Held never having been set for this entity --
+    // just with Interactable::m_Held never having been set for this entity --
     // e.g. the press that started the drag landed on empty space.
     InputState input;
     input.Consume( MotionEvent(50.0f, 25.0f) );
@@ -284,7 +329,7 @@ TEST(UIButtonSystemTest, ReleaseWhileNeverHeld_DoesNotFireOnClick)
     input.NewFrame();
     input.Consume( MouseButtonEv(MouseButton::LEFT, false) );
 
-    asge::game::systems::UIButtonSystem( registry, input, kIdentityCamera );
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_FALSE( clicked );
 }

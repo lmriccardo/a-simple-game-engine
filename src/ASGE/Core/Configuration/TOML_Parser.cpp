@@ -185,6 +185,7 @@ TOMLTypeInfo InferTypeInfo(ValueType const& inValue) noexcept
         if constexpr (std::is_same_v<T, std::string>) return TOMLTypeInfo{ ElementType::String, StringType::Basic };
         else if constexpr (std::is_same_v<T, bool>)    return TOMLTypeInfo{ ElementType::Bool };
         else if constexpr (std::is_same_v<T, int>)     return TOMLTypeInfo{ ElementType::Int };
+        else if constexpr (std::is_same_v<T, std::int64_t>) return TOMLTypeInfo{ ElementType::Int64 };
         else if constexpr (std::is_same_v<T, double>)  return TOMLTypeInfo{ ElementType::Double };
         else return TOMLTypeInfo{ ElementType::Array };
     }, inValue);
@@ -258,6 +259,10 @@ void asge::config::toml::_internal::WriteValue(std::ostream &oss, ValueType cons
             oss << FormatDouble(v);
         }
         else if constexpr (std::is_same_v<T, int>)
+        {
+            oss << v;
+        }
+        else if constexpr (std::is_same_v<T, std::int64_t>)
         {
             oss << v;
         }
@@ -691,9 +696,26 @@ asge::Result<TOMLEntry> asge::config::toml::_internal::ParseValue(std::istringst
                 ValueType(std::stod( std::string(inLine) )), TOMLTypeInfo{ ElementType::Double }
             });
         case ElementType::Int:
-            return Result<TOMLEntry>::Ok(TOMLEntry{
-                ValueType(std::stoi( std::string(inLine) )), TOMLTypeInfo{ ElementType::Int }
-            });
+        {
+            std::string const numStr(inLine);
+            try
+            {
+                return Result<TOMLEntry>::Ok(TOMLEntry{
+                    ValueType(std::stoi( numStr )), TOMLTypeInfo{ ElementType::Int }
+                });
+            }
+            catch ( std::out_of_range const& )
+            {
+                // Doesn't fit in a 32-bit int (e.g. a packed 64-bit color) --
+                // widen to Int64 instead of failing the whole parse. A
+                // genuinely malformed token throws invalid_argument instead,
+                // which isn't caught here and falls through to this
+                // function's own outer catch, same as before.
+                return Result<TOMLEntry>::Ok(TOMLEntry{
+                    ValueType(static_cast<std::int64_t>( std::stoll( numStr ) )), TOMLTypeInfo{ ElementType::Int64 }
+                });
+            }
+        }
         default:
             return Result<TOMLEntry>::Err( make_error_code( errors::ConfError::TomlBadFormatting ) );
         }

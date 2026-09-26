@@ -3,28 +3,31 @@
 #include <ASGE/ASGE.hpp>
 
 /**
- * @brief Showcases UIButton -- the only UI widget RenderSystem draws so far.
+ * @brief Showcases a "Button" -- UIRect (footprint) + UIButton (fill
+ *        colors + click signal) + Interactable (hover/held/click state) --
+ *        the only UI widget RenderSystem draws so far.
  *
  * Two buttons sit side by side up top. The left one carries no Sprite, so
- * RenderSystem draws it as a flat rect, switching between UIButton's
- * m_Color/m_HoverColor/m_PressedColor as the pointer moves over and clicks
- * it. The right one also carries a Sprite, so RenderSystem draws *that*
- * instead of the button rect (see RenderSystem.cpp's ShouldExclude) -- this
- * demo draws its own hover/press outline around it to show the click is
- * still tracked even though the sprite itself never changes color.
+ * RenderSystem draws its UIRect as a flat rect, switching between
+ * UIButton::m_Colors' m_Color/m_HoverColor/m_PressedColor by the sibling
+ * Interactable's m_Hovered/m_Held. The right one also carries a Sprite, so
+ * RenderSystem draws *that* instead of the button rect (see
+ * RenderSystem.cpp's ShouldExclude) -- this demo draws its own hover/press
+ * outline around it to show the click is still tracked even though the
+ * sprite itself never changes color.
  *
  * Below them, a second pair overlaps: m_OverlapFront sits on a higher
  * RenderInfo::m_Layer directly on top of m_OverlapBack, which is offset
  * just far enough that part of it still pokes out from underneath.
- * UIButtonSystem walks resources::UIHitList back to front (see its own doc
+ * UIInteractionSystem walks resources::UIHitList back to front (see its own doc
  * comment), so clicking the overlap resolves to the front button, while
  * clicking the exposed sliver still resolves to the back one.
  *
- * None of the four buttons has a font attached, so nothing renders through
+ * None of the four buttons has a UILabel, so nothing renders through
  * IRenderer::DrawString here; clicks are logged to the console instead.
  * Hover/held/m_OnClick are entirely engine-driven: SpawnEntities() sets the
  * resources::UIHitList resource once, RenderSystem rebuilds it every frame,
- * and Update() just calls systems::UIButtonSystem -- this state never
+ * and Update() just calls systems::UIInteractionSystem -- this state never
  * touches InputState's mouse queries or a button's rect itself.
  */
 class UIDemoState final : public asge::game::state::IGameState<int>

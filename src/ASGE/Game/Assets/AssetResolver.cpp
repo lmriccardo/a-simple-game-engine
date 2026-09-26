@@ -70,21 +70,22 @@ void asge::game::asset::Resolver<asge::game::components::PathFollow>::operator()
     inPathFollow.m_Waypoints = inPathFollow.m_Path.Waypoints();
 }
 
-void asge::game::asset::Resolver<asge::game::components::UIButton>::operator()(
-    AssetManager &inAssetManager, ecs::Registry &inRegistry, 
-    video::IRenderer &inRenderer, C &inButton) const noexcept
+void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(
+    AssetManager &inAssetManager, ecs::Registry &inRegistry,
+    video::IRenderer &inRenderer, C &inLabel) const noexcept
 {
-    if ( inButton.m_FontVirtualPath == inButton.m_ResolvedVirtualPath ) return;
-    if ( inButton.m_FontVirtualPath.empty() )
+    if ( inLabel.m_FontPath == inLabel.m_ResolvedFontPath ) return;
+    if ( inLabel.m_FontPath.empty() )
     {
-        inButton.m_Font = nullptr;
-        inButton.m_ResolvedVirtualPath.clear();
+        inLabel.m_Font = nullptr;
+        inLabel.m_ResolvedFontPath.clear();
         return;
     }
-    
-    auto fontAsset = inAssetManager.GetFont( inButton.m_FontVirtualPath, inButton.m_FontWeight );
+
+    auto fontAsset = inAssetManager.GetFont( inLabel.m_FontPath, inLabel.m_FontWeight );
     if ( !fontAsset ) { fontAsset.LogError(); return; }
-    inButton.m_Font = fontAsset.Value();
+    inLabel.m_Font = &fontAsset.Value()->Get();
+    inLabel.m_ResolvedFontPath = inLabel.m_FontPath;
 }
 
 std::optional<asge::game::asset::AssetRef>

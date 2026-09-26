@@ -119,15 +119,24 @@ struct Resolver<components::PathFollow>
     ) const noexcept;
 };
 
+/**
+ * @brief Resolves UILabel::m_FontPath into m_Font via AssetManager::GetFont,
+ *        re-resolving whenever m_FontPath differs from m_ResolvedFontPath --
+ *        so repointing it to a new font loads it, and clearing it to empty
+ *        releases m_Font back to nullptr -- rather than resolving once and
+ *        never again. m_Font is a non-owning pointer into AssetManager's
+ *        font pool, which never evicts entries, so it stays valid as long
+ *        as the AssetManager does.
+ */
 template<>
-struct Resolver<components::UIButton>
+struct Resolver<components::UILabel>
 {
-    using C = components::UIButton;
+    using C = components::UILabel;
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
         [[maybe_unused]] video::IRenderer&  inRenderer,
-                         C&                 inButton
+                         C&                 inLabel
     ) const noexcept;
 };
 

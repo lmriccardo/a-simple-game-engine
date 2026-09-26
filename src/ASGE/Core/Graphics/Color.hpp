@@ -5,6 +5,9 @@
 namespace asge::graphics
 {
 
+using Color32A = std::uint64_t; // Includes the alpha channel as MSB(yte)
+using Color32  = std::uint32_t; // Do not include the alpha channel
+
 /** @brief An 8-bit-per-channel RGBA color, defaulting to opaque white. */
 struct RGBA_Color
 {
@@ -13,6 +16,12 @@ struct RGBA_Color
     std::uint8_t b{255};
     std::uint8_t a{255};
 };
+
+Color32  RGBATo32 ( RGBA_Color inColor ) noexcept;
+Color32A RGBATo32A( RGBA_Color inColor ) noexcept;
+
+RGBA_Color C32ToRGBA ( Color32  inColor32  ) noexcept;
+RGBA_Color C32AToRGBA( Color32A inColor32A ) noexcept;
 
 /** @brief A small named palette of RGBA_Color constants, covering basics, grays, primaries/secondaries, UI button states, and overlay colors. */
 namespace colors

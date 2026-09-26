@@ -2,10 +2,12 @@
 
 namespace
 {
+using asge::game::components::Interactable;
 using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
+using asge::game::components::UIRect;
 using asge::game::resources::UIHitList;
 
 constexpr char const* kSpriteTexturePath = "textures/checker.bmp";
@@ -39,7 +41,7 @@ void UIDemoState::SpawnEntities()
 {
     // Opts this registry into hit-testing at all -- RenderSystem only
     // rebuilds UIHitList once this resource exists (see its own doc
-    // comment), and UIButtonSystem no-ops entirely without it.
+    // comment), and UIInteractionSystem no-ops entirely without it.
     m_Registry.SetResource( UIHitList{} );
 
     // Both buttons draw in screen space -- ordinary UI convention, and what
@@ -50,9 +52,9 @@ void UIDemoState::SpawnEntities()
     m_Registry.AddComponent<Transform>( m_PlainButton, Transform{
         .m_WorldCoordinates = { kPlainButtonX, kPlainButtonY }
     } );
-    m_Registry.AddComponent<UIButton>( m_PlainButton, UIButton{
-        .m_Size = { kPlainButtonW, kPlainButtonH }
-    } );
+    m_Registry.AddComponent<UIRect>( m_PlainButton, UIRect{ .m_Size = { kPlainButtonW, kPlainButtonH } } );
+    m_Registry.AddComponent<UIButton>( m_PlainButton, UIButton{} );
+    m_Registry.AddComponent<Interactable>( m_PlainButton, Interactable{} );
     m_Registry.AddComponent<RenderInfo>( m_PlainButton, RenderInfo{ .m_ScreenSpace = true } );
 
     if ( auto result = m_Registry.GetComponent<UIButton>( m_PlainButton ) )
@@ -60,10 +62,13 @@ void UIDemoState::SpawnEntities()
         result.Value().get().m_OnClick.Connect( []{ LOG_INFO( "Plain button clicked!" ); } );
     }
 
-    // Also carries a Sprite -- RenderSystem's ShouldExclude<UIButton> then
+    // Also carries a Sprite -- RenderSystem's ShouldExclude<UIRect> then
     // skips this entity's button rect entirely and draws the Sprite instead
-    // (see RenderSystem.cpp), so this one's own size/color fields are never
-    // read for drawing; its footprint comes from the texture and scale below.
+    // (see RenderSystem.cpp), so UIRect's own size is never read for
+    // drawing here; its footprint comes from the texture and scale below.
+    // It's still hit-tested (CollectHitList only needs UIRect+Interactable,
+    // not what actually got drawn), which is what RenderSpriteButtonOutline
+    // relies on below.
     auto sprited = m_Registry.CreateEntity();
     if ( !sprited ) { sprited.LogError(); return; }
     m_SpriteButton = sprited.Value();
@@ -73,9 +78,11 @@ void UIDemoState::SpawnEntities()
     } );
     // m_Texture stays null until Render()'s AssetManager::ResolveAssets call.
     m_Registry.AddComponent<Sprite>( m_SpriteButton, Sprite{ .m_VirtualPath = kSpriteTexturePath } );
-    m_Registry.AddComponent<UIButton>( m_SpriteButton, UIButton{
+    m_Registry.AddComponent<UIRect>( m_SpriteButton, UIRect{
         .m_Size = { kSpriteButtonScale * kSpriteTextureSize, kSpriteButtonScale * kSpriteTextureSize }
     } );
+    m_Registry.AddComponent<UIButton>( m_SpriteButton, UIButton{} );
+    m_Registry.AddComponent<Interactable>( m_SpriteButton, Interactable{} );
     m_Registry.AddComponent<RenderInfo>( m_SpriteButton, RenderInfo{ .m_ScreenSpace = true } );
 
     if ( auto result = m_Registry.GetComponent<UIButton>( m_SpriteButton ) )
@@ -91,12 +98,13 @@ void UIDemoState::SpawnEntities()
     m_Registry.AddComponent<Transform>( m_OverlapBack, Transform{
         .m_WorldCoordinates = { kOverlapBackX, kOverlapBackY }
     } );
-    m_Registry.AddComponent<UIButton>( m_OverlapBack, UIButton{
+    m_Registry.AddComponent<UIRect>( m_OverlapBack, UIRect{ .m_Size = { kOverlapW, kOverlapH } } );
+    m_Registry.AddComponent<UIButton>( m_OverlapBack, UIButton{ .m_Colors = {
         .m_Color = asge::graphics::colors::s_ButtonDark,
         .m_HoverColor = asge::graphics::colors::s_ButtonDarkHover,
         .m_PressedColor = asge::graphics::colors::s_ButtonDarkPressed,
-        .m_Size = { kOverlapW, kOverlapH }
-    } );
+    } } );
+    m_Registry.AddComponent<Interactable>( m_OverlapBack, Interactable{} );
     m_Registry.AddComponent<RenderInfo>( m_OverlapBack, RenderInfo{ .m_Layer = 0, .m_ScreenSpace = true } );
 
     if ( auto result = m_Registry.GetComponent<UIButton>( m_OverlapBack ) )
@@ -110,15 +118,16 @@ void UIDemoState::SpawnEntities()
     m_Registry.AddComponent<Transform>( m_OverlapFront, Transform{
         .m_WorldCoordinates = { kOverlapFrontX, kOverlapFrontY }
     } );
-    m_Registry.AddComponent<UIButton>( m_OverlapFront, UIButton{
+    m_Registry.AddComponent<UIRect>( m_OverlapFront, UIRect{ .m_Size = { kOverlapW, kOverlapH } } );
+    m_Registry.AddComponent<UIButton>( m_OverlapFront, UIButton{ .m_Colors = {
         .m_Color = asge::graphics::colors::s_ButtonAccent,
         .m_HoverColor = asge::graphics::colors::s_ButtonAccentHover,
         .m_PressedColor = asge::graphics::colors::s_ButtonAccentPressed,
-        .m_Size = { kOverlapW, kOverlapH }
-    } );
+    } } );
+    m_Registry.AddComponent<Interactable>( m_OverlapFront, Interactable{} );
     // Higher layer than m_OverlapBack -- both draws *and* hit-tests on top of
     // it (RenderSystem sorts by layer, CollectHitList keeps that same order,
-    // and UIButtonSystem walks the hit list back to front).
+    // and UIInteractionSystem walks the hit list back to front).
     m_Registry.AddComponent<RenderInfo>( m_OverlapFront, RenderInfo{ .m_Layer = 1, .m_ScreenSpace = true } );
 
     if ( auto result = m_Registry.GetComponent<UIButton>( m_OverlapFront ) )
@@ -130,23 +139,25 @@ void UIDemoState::SpawnEntities()
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
 {
     auto tResult = m_Registry.GetComponent<Transform>( m_SpriteButton );
-    auto bResult = m_Registry.GetComponent<UIButton>( m_SpriteButton );
-    if ( !tResult || !bResult ) return;
+    auto rResult = m_Registry.GetComponent<UIRect>( m_SpriteButton );
+    auto iResult = m_Registry.GetComponent<Interactable>( m_SpriteButton );
+    if ( !tResult || !rResult || !iResult ) return;
 
     auto const& transform = tResult.Value().get();
-    auto const& button = bResult.Value().get();
+    auto const& rect = rResult.Value().get();
+    auto const& interactable = iResult.Value().get();
 
     // RenderSystem never draws this button's own colors (see SpawnEntities),
     // so this is the only visible sign it's interactive at all.
-    asge::graphics::RGBA_Color const outline = button.m_Held    ? asge::graphics::colors::s_ButtonAccentPressed
-                                              : button.m_Hovered ? asge::graphics::colors::s_ButtonAccentHover
-                                                                  : asge::graphics::colors::s_Gray;
+    asge::graphics::RGBA_Color const outline = interactable.m_Held    ? asge::graphics::colors::s_ButtonAccentPressed
+                                              : interactable.m_Hovered ? asge::graphics::colors::s_ButtonAccentHover
+                                                                       : asge::graphics::colors::s_Gray;
 
-    asge::math::Rect const rect{
+    asge::math::Rect const outlineRect{
         transform.m_WorldCoordinates.x() - 4.0f, transform.m_WorldCoordinates.y() - 4.0f,
-        button.m_Size.x() + 8.0f, button.m_Size.y() + 8.0f
+        rect.m_Size.x() + 8.0f, rect.m_Size.y() + 8.0f
     };
-    inRenderer.DrawRect( rect, outline, false );
+    inRenderer.DrawRect( outlineRect, outline, false );
 }
 
 std::optional<asge::game::state::Transition<int>>
@@ -155,7 +166,7 @@ UIDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState 
     // Resolves against last frame's UIHitList (see RenderSystem.cpp's
     // CollectHitList) -- both buttons are screen space, so the identity
     // camera here is fine even though this demo never sets one of its own.
-    asge::game::systems::UIButtonSystem( m_Registry, inInput, asge::video::Camera{} );
+    asge::game::systems::UIInteractionSystem( m_Registry, inInput, asge::video::Camera{} );
 
     return std::nullopt;
 }

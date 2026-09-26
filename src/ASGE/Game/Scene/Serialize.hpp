@@ -68,12 +68,4 @@ struct Serializer<math::Circle>
     static math::Circle FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
 };
 
-/** @brief Serializer for an RGBA_Color, round-tripping r/g/b/a as ints under m_Red/m_Green/m_Blue/m_Alpha. */
-template<>
-struct Serializer<graphics::RGBA_Color>
-{
-    static void ToToml( graphics::RGBA_Color inColor, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static graphics::RGBA_Color FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
-};
-
 }

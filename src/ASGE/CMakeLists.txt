@@ -34,9 +34,10 @@ add_library(ASGE STATIC
     Core/Math/Geometry/CatmullRomSpline.cpp
     Core/Math/Geometry/Rect.cpp
 
+    # Core graphics value types (backend-agnostic; PixelFormat is header-only)
+    Core/Graphics/Color.cpp
+
     # Core media assets (loaded/decoded resources: Image, Font, AudioClip)
-    # Color and PixelFormat are header-only, backend-agnostic value types
-    # under Core/Graphics -- see Video/Graphics for the rendering backend
     Core/Media/Image.cpp
     Core/Media/Font.cpp
     Core/Media/AudioClip.cpp
@@ -81,7 +82,9 @@ add_library(ASGE STATIC
     Game/Components/PathFollow.cpp
     Game/Components/Name.cpp
     Game/Components/RenderInfo.cpp
+    Game/Components/UI/Common.cpp
     Game/Components/UI/UIButton.cpp
+    Game/Components/UI/UILabel.cpp
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp

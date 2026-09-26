@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -22,6 +23,28 @@ TEST(TOMLBuilderTest, Set_NewIntKeyAppearsInOutput)
     toml::TOMLBuilder builder;
     builder.Set<int>("count", 42);
     EXPECT_NE(builder.ToString().find("count = 42"), std::string::npos);
+}
+
+TEST(TOMLBuilderTest, Set_Int64KeySerializesAsPlainInteger)
+{
+    // Past INT_MAX -- the whole reason std::int64_t exists as a distinct
+    // ValueType alternative alongside the 32-bit int.
+    toml::TOMLBuilder builder;
+    builder.Set<std::int64_t>("big", 4294967296LL);
+    EXPECT_NE(builder.ToString().find("big = 4294967296"), std::string::npos);
+}
+
+TEST(TOMLBuilderTest, Get_Int64KeyRoundTripsThroughSet)
+{
+    toml::TOMLBuilder builder;
+    builder.Set<std::int64_t>("big", 4294967296LL);
+    EXPECT_EQ(builder.Get<std::int64_t>("big", 0), 4294967296LL);
+}
+
+TEST(TOMLBuilderTest, Get_Int64MissingKeyReturnsDefault)
+{
+    toml::TOMLBuilder builder;
+    EXPECT_EQ(builder.Get<std::int64_t>("missing", 4294967296LL), 4294967296LL);
 }
 
 TEST(TOMLBuilderTest, Set_NewStringKeySerializesAsBasicString)

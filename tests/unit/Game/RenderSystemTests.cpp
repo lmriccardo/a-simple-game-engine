@@ -4,6 +4,7 @@
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
@@ -26,6 +27,8 @@ using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
+using asge::game::components::UIRect;
+using asge::game::components::Interactable;
 using asge::game::resources::ActiveCamera;
 using asge::game::resources::HitEntry;
 using asge::game::resources::UIHitList;
@@ -755,9 +758,9 @@ TEST(RenderSystemTest, Rotation_NonZeroRotationWithSourceRect_RoutesThroughSourc
     EXPECT_TRUE(renderer.m_Calls[0].m_AffineHadSourceRect); // cropped *and* rotated -- needs the srcRect affine overload
 }
 
-// ─── RenderSystem — UIButton ────────────────────────────────────────────────────
+// ─── RenderSystem — UIRect / UIButton ────────────────────────────────────────────
 
-TEST(RenderSystemTest, UIButton_DrawnAsAFilledRectSizedFromMSizeScaledByWorldScale)
+TEST(RenderSystemTest, UIRect_DrawnAsAFilledRectSizedFromMSizeScaledByWorldScale)
 {
     Registry registry;
     RecordingRenderer renderer;
@@ -766,7 +769,8 @@ TEST(RenderSystemTest, UIButton_DrawnAsAFilledRectSizedFromMSizeScaledByWorldSca
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(),
         Transform{ .m_WorldCoordinates = {10.0f, 20.0f}, .m_WorldScale = {2.0f, 3.0f} }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{ .m_Size = {80.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {80.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{}).IsOk()); // Draw(UIRect) needs a sibling UIButton for its fill color
 
     asge::game::systems::RenderSystem(registry, renderer);
 
@@ -779,16 +783,35 @@ TEST(RenderSystemTest, UIButton_DrawnAsAFilledRectSizedFromMSizeScaledByWorldSca
     EXPECT_FLOAT_EQ(call.m_Rect.m_Height, 72.0f);  // 24 * 3
 }
 
-TEST(RenderSystemTest, UIButton_NeitherHoveredNorHeld_DrawnWithMColor)
+TEST(RenderSystemTest, UIRect_NoSiblingUIButton_DrawsNothing)
 {
+    // A UIRect (+ Interactable) with no UIButton is a valid composition --
+    // an invisible but still hit-testable zone -- so it must not crash or
+    // draw some fallback color.
     Registry registry;
     RecordingRenderer renderer;
-    UIButton button;
-    button.m_Color = { 10, 20, 30, 255 };
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(renderer.m_RectCalls.empty());
+}
+
+TEST(RenderSystemTest, UIRect_NeitherHoveredNorHeld_DrawnWithMColor)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UIButton button;
+    button.m_Colors.m_Color = { 10, 20, 30, 255 };
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), button).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -800,18 +823,19 @@ TEST(RenderSystemTest, UIButton_NeitherHoveredNorHeld_DrawnWithMColor)
     EXPECT_EQ(color.b, 30);
 }
 
-TEST(RenderSystemTest, UIButton_Hovered_DrawnWithMHoverColor)
+TEST(RenderSystemTest, UIRect_Hovered_DrawnWithMHoverColor)
 {
     Registry registry;
     RecordingRenderer renderer;
     UIButton button;
-    button.m_HoverColor = { 40, 50, 60, 255 };
-    button.m_Hovered = true;
+    button.m_Colors.m_HoverColor = { 40, 50, 60, 255 };
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), button).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{ .m_Hovered = true }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
 
@@ -822,19 +846,19 @@ TEST(RenderSystemTest, UIButton_Hovered_DrawnWithMHoverColor)
     EXPECT_EQ(color.b, 60);
 }
 
-TEST(RenderSystemTest, UIButton_HeldAndHovered_PressedColorTakesPriorityOverHoverColor)
+TEST(RenderSystemTest, UIRect_HeldAndHovered_PressedColorTakesPriorityOverHoverColor)
 {
     Registry registry;
     RecordingRenderer renderer;
     UIButton button;
-    button.m_PressedColor = { 70, 80, 90, 255 };
-    button.m_Hovered = true;
-    button.m_Held = true;
+    button.m_Colors.m_PressedColor = { 70, 80, 90, 255 };
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), button).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{ .m_Hovered = true, .m_Held = true }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
 
@@ -845,10 +869,10 @@ TEST(RenderSystemTest, UIButton_HeldAndHovered_PressedColorTakesPriorityOverHove
     EXPECT_EQ(color.b, 90);
 }
 
-TEST(RenderSystemTest, UIButton_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn)
+TEST(RenderSystemTest, UIRect_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn)
 {
-    // ShouldExclude<UIButton> skips an entity that also has a Sprite -- a
-    // scene author swapping a placeholder Sprite for a UIButton (or vice
+    // ShouldExclude<UIRect> skips an entity that also has a Sprite -- a
+    // scene author swapping a placeholder Sprite for a UI widget (or vice
     // versa) shouldn't end up with both drawn on top of each other.
     Registry registry;
     FakeTexture texture(asge::math::Int2{ 32, 32 });
@@ -858,12 +882,13 @@ TEST(RenderSystemTest, UIButton_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn)
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{}).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
 
     EXPECT_EQ(renderer.m_Calls.size(), 1u);     // the Sprite...
-    EXPECT_TRUE(renderer.m_RectCalls.empty());  // ...not the UIButton
+    EXPECT_TRUE(renderer.m_RectCalls.empty());  // ...not the UIRect
 }
 
 // ─── RenderSystem — UIHitList ───────────────────────────────────────────────────
@@ -876,15 +901,18 @@ TEST(RenderSystemTest, UIHitList_ResourceNotSet_RenderSystemDoesNotCrashOrCreate
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{}).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
 
     EXPECT_FALSE(registry.GetResource<UIHitList>().IsOk());
 }
 
-TEST(RenderSystemTest, UIHitList_PlainUIButton_GetsOneEntrySizedFromMSize)
+TEST(RenderSystemTest, UIHitList_UIRectAndEnabledInteractable_GetsOneEntrySizedFromMSize)
 {
+    // No UIButton needed -- hit-testing only cares about UIRect (footprint)
+    // and Interactable (opt-in), not what's actually drawn.
     Registry registry;
     RecordingRenderer renderer;
     registry.SetResource( UIHitList{} );
@@ -893,7 +921,8 @@ TEST(RenderSystemTest, UIHitList_PlainUIButton_GetsOneEntrySizedFromMSize)
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(),
         Transform{ .m_WorldCoordinates = {10.0f, 20.0f} }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{ .m_Size = {80.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {80.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), RenderInfo{ .m_ScreenSpace = true }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
@@ -912,10 +941,10 @@ TEST(RenderSystemTest, UIHitList_PlainUIButton_GetsOneEntrySizedFromMSize)
 
 TEST(RenderSystemTest, UIHitList_ButtonAlsoCarryingASprite_StillGetsAHitEntry)
 {
-    // Even though ShouldExclude<UIButton> means only the Sprite is drawn
-    // (see the UIButton_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn test
-    // above), the entity is still clickable -- CollectHitList keys off
-    // owning a UIButton component, not off which DrawItem got produced.
+    // Even though ShouldExclude<UIRect> means only the Sprite is drawn (see
+    // the UIRect_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn test above), the
+    // entity is still clickable -- CollectHitList keys off owning a UIRect
+    // + enabled Interactable, not off which DrawItem got produced.
     Registry registry;
     FakeTexture texture(asge::math::Int2{ 32, 32 });
     RecordingRenderer renderer;
@@ -925,7 +954,8 @@ TEST(RenderSystemTest, UIHitList_ButtonAlsoCarryingASprite_StillGetsAHitEntry)
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIButton{ .m_Size = {32.0f, 32.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {32.0f, 32.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{}).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
 
@@ -935,17 +965,33 @@ TEST(RenderSystemTest, UIHitList_ButtonAlsoCarryingASprite_StillGetsAHitEntry)
     EXPECT_EQ(hitList.Value().get().m_Entries[0].m_Entity, entity.Value());
 }
 
-TEST(RenderSystemTest, UIHitList_EntityWithNoUIButton_NeverAddsAHitEntry)
+TEST(RenderSystemTest, UIHitList_EntityWithNoInteractable_NeverAddsAHitEntry)
 {
     Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
     RecordingRenderer renderer;
     registry.SetResource( UIHitList{} );
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(registry.GetResource<UIHitList>().Value().get().m_Entries.empty());
+}
+
+TEST(RenderSystemTest, UIHitList_DisabledInteractable_NeverAddsAHitEntry)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    registry.SetResource( UIHitList{} );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{ .m_Enabled = false }).IsOk());
 
     asge::game::systems::RenderSystem(registry, renderer);
 
@@ -961,11 +1007,12 @@ TEST(RenderSystemTest, UIHitList_RebuiltEveryCall_StalePreviousFrameEntriesDoNot
     auto first = registry.CreateEntity();
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(registry.AddComponent(first.Value(), Transform{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent(first.Value(), UIButton{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(), UIRect{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(first.Value(), Interactable{}).IsOk());
     asge::game::systems::RenderSystem(registry, renderer);
     ASSERT_EQ(registry.GetResource<UIHitList>().Value().get().m_Entries.size(), 1u);
 
-    // `first` no longer has a Transform, so it drops out of Collect<UIButton>
+    // `first` no longer has a Transform, so it drops out of Collect<UIRect>
     // entirely -- its stale entry from the call above must not survive.
     ASSERT_TRUE(registry.RemoveComponent<Transform>( first.Value() ).IsOk());
     asge::game::systems::RenderSystem(registry, renderer);

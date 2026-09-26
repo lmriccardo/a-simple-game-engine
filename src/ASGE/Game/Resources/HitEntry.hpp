@@ -21,7 +21,7 @@ struct HitEntry
  * Opt-in: only populated when this resource has been set (via
  * Registry::SetResource<UIHitList>({})), and only then does RenderSystem
  * rebuild it every frame from that frame's draw order. systems::
- * UIButtonSystem walks it back-to-front (frontmost/topmost entity wins ties)
+ * UIInteractionSystem walks it back-to-front (frontmost/topmost entity wins ties)
  * to resolve which UIButton, if any, the pointer is over.
  */
 struct UIHitList

@@ -17,9 +17,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyUIButtonRenderInfo)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyUIButtonRenderInfoUIRectInteractableUILabel)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 13);
+    static_assert(std::tuple_size_v<SerializableComponents> == 16);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -33,6 +33,9 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
     static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, UIButton>);
     static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, RenderInfo>);
+    static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, UIRect>);
+    static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, Interactable>);
+    static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, UILabel>);
     SUCCEED();
 }
 
@@ -52,6 +55,9 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
     EXPECT_EQ(Serializer<UIButton>::kTableName, "UIButton");
     EXPECT_EQ(Serializer<RenderInfo>::kTableName, "RenderInfo");
+    EXPECT_EQ(Serializer<UIRect>::kTableName, "UIRect");
+    EXPECT_EQ(Serializer<Interactable>::kTableName, "Interactable");
+    EXPECT_EQ(Serializer<UILabel>::kTableName, "UILabel");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -712,102 +718,42 @@ TEST(HierarchySerializerTest, RoundTripsThroughToTomlAndFromTomlWithMatchingCont
     EXPECT_EQ(restored.m_NextSibling, newNextSibling);
 }
 
-// ─── RGBA_Color ─────────────────────────────────────────────────────────────
-
-TEST(RGBAColorSerializerTest, ToToml_WritesRGBAFieldsAsInts)
-{
-    TOMLBuilder builder;
-    Serializer<asge::graphics::RGBA_Color>::ToToml( { 10, 20, 30, 40 }, builder );
-
-    auto const dump = builder.ToString();
-    EXPECT_NE(dump.find("m_Red = 10"), std::string::npos);
-    EXPECT_NE(dump.find("m_Green = 20"), std::string::npos);
-    EXPECT_NE(dump.find("m_Blue = 30"), std::string::npos);
-    EXPECT_NE(dump.find("m_Alpha = 40"), std::string::npos);
-}
-
-TEST(RGBAColorSerializerTest, RoundTripsThroughToTomlAndFromToml)
-{
-    TOMLBuilder builder;
-    asge::graphics::RGBA_Color const original{ 12, 34, 56, 78 };
-    Serializer<asge::graphics::RGBA_Color>::ToToml( original, builder );
-
-    asge::graphics::RGBA_Color const restored = Serializer<asge::graphics::RGBA_Color>::FromToml( builder );
-    EXPECT_EQ(restored.r, original.r);
-    EXPECT_EQ(restored.g, original.g);
-    EXPECT_EQ(restored.b, original.b);
-    EXPECT_EQ(restored.a, original.a);
-}
-
-TEST(RGBAColorSerializerTest, FromToml_MissingKeysFallBackToOpaqueWhiteDefault)
-{
-    TOMLBuilder builder; // no keys set at all
-
-    asge::graphics::RGBA_Color const restored = Serializer<asge::graphics::RGBA_Color>::FromToml( builder );
-    EXPECT_EQ(restored.r, 255);
-    EXPECT_EQ(restored.g, 255);
-    EXPECT_EQ(restored.b, 255);
-    EXPECT_EQ(restored.a, 255);
-}
-
 // ─── UIButton ───────────────────────────────────────────────────────────────
 
-TEST(UIButtonSerializerTest, ToToml_WritesFieldsUnderUIButtonTable)
+TEST(UIButtonSerializerTest, ToToml_WritesMColorsUnderUIButtonTable)
 {
     TOMLBuilder builder;
     UIButton value{};
-    value.m_FontVirtualPath = "fonts/ui.ttf";
-    value.m_Text = "Start";
-    value.m_TextAlignment = asge::str::TextAlign::Center;
-    value.m_Size = asge::math::Float2{ 100.0f, 30.0f };
+    value.m_Colors.m_Color = { 1, 2, 3, 255 };
     Serializer<UIButton>::ToToml( value, builder, asge::game::scene::SaveContext{} );
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[UIButton]"), std::string::npos);
-    EXPECT_NE(dump.find(R"(m_FontVirtualPath = "fonts/ui.ttf")"), std::string::npos);
-    EXPECT_NE(dump.find(R"(m_Text = "Start")"), std::string::npos);
-    EXPECT_NE(dump.find(R"(m_TextAlign = "center")"), std::string::npos);
-    EXPECT_NE(dump.find("m_SizeX = 100.0"), std::string::npos);
-    EXPECT_NE(dump.find("m_SizeY = 30.0"), std::string::npos);
-}
-
-TEST(UIButtonSerializerTest, RoundTripsThroughToTomlAndFromToml)
-{
-    TOMLBuilder builder;
-    UIButton original{};
-    original.m_FontVirtualPath = "fonts/ui.ttf";
-    original.m_Text = "Quit";
-    original.m_TextAlignment = asge::str::TextAlign::Right;
-    original.m_Size = asge::math::Float2{ 64.0f, 20.0f };
-    Serializer<UIButton>::ToToml( original, builder, asge::game::scene::SaveContext{} );
-
-    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
-    EXPECT_EQ(restored.m_FontVirtualPath, original.m_FontVirtualPath);
-    EXPECT_EQ(restored.m_Text, original.m_Text);
-    EXPECT_EQ(restored.m_TextAlignment, original.m_TextAlignment);
-    EXPECT_FLOAT_EQ(restored.m_Size.x(), original.m_Size.x());
-    EXPECT_FLOAT_EQ(restored.m_Size.y(), original.m_Size.y());
+    EXPECT_NE(dump.find("m_Color"), std::string::npos);
 }
 
 TEST(UIButtonSerializerTest, RoundTrips_ColorHoverColorAndPressedColor)
 {
     TOMLBuilder builder;
     UIButton original{};
-    original.m_Color = { 1, 2, 3, 255 };
-    original.m_HoverColor = { 4, 5, 6, 255 };
-    original.m_PressedColor = { 7, 8, 9, 255 };
+    original.m_Colors.m_Color = { 1, 2, 3, 4 };
+    original.m_Colors.m_HoverColor = { 5, 6, 7, 8 };
+    original.m_Colors.m_PressedColor = { 9, 10, 11, 12 };
     Serializer<UIButton>::ToToml( original, builder, asge::game::scene::SaveContext{} );
 
     UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
-    EXPECT_EQ(restored.m_Color.r, 1);
-    EXPECT_EQ(restored.m_Color.g, 2);
-    EXPECT_EQ(restored.m_Color.b, 3);
-    EXPECT_EQ(restored.m_HoverColor.r, 4);
-    EXPECT_EQ(restored.m_HoverColor.g, 5);
-    EXPECT_EQ(restored.m_HoverColor.b, 6);
-    EXPECT_EQ(restored.m_PressedColor.r, 7);
-    EXPECT_EQ(restored.m_PressedColor.g, 8);
-    EXPECT_EQ(restored.m_PressedColor.b, 9);
+    EXPECT_EQ(restored.m_Colors.m_Color.r, 1);
+    EXPECT_EQ(restored.m_Colors.m_Color.g, 2);
+    EXPECT_EQ(restored.m_Colors.m_Color.b, 3);
+    EXPECT_EQ(restored.m_Colors.m_Color.a, 4);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.r, 5);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.g, 6);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.b, 7);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.a, 8);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.r, 9);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.g, 10);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.b, 11);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.a, 12);
 }
 
 TEST(UIButtonSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
@@ -816,34 +762,156 @@ TEST(UIButtonSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     builder.Table("UIButton"); // present but empty
 
     UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
-    EXPECT_TRUE(restored.m_FontVirtualPath.empty());
-    EXPECT_EQ(restored.m_Text, "Click Me"); // UIButton's own default, not empty
-    EXPECT_EQ(restored.m_TextAlignment, asge::str::TextAlign::None);
+    UIButton const defaults{};
+    EXPECT_EQ(restored.m_Colors.m_Color.r, defaults.m_Colors.m_Color.r);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.r, defaults.m_Colors.m_HoverColor.r);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.r, defaults.m_Colors.m_PressedColor.r);
+}
+
+// ─── UIRect ───────────────────────────────────────────────────────────────────
+
+TEST(UIRectSerializerTest, ToToml_WritesMSizeUnderUIRectTable)
+{
+    TOMLBuilder builder;
+    Serializer<UIRect>::ToToml( UIRect{ .m_Size = {100.0f, 30.0f} }, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIRect]"), std::string::npos);
+    EXPECT_NE(dump.find("m_SizeX = 100.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_SizeY = 30.0"), std::string::npos);
+}
+
+TEST(UIRectSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    UIRect const original{ .m_Size = {64.0f, 20.0f} };
+    Serializer<UIRect>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIRect const restored = Serializer<UIRect>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Size.x(), original.m_Size.x());
+    EXPECT_FLOAT_EQ(restored.m_Size.y(), original.m_Size.y());
+}
+
+TEST(UIRectSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIRect"); // present but empty
+
+    UIRect const restored = Serializer<UIRect>::FromToml( builder, asge::game::scene::LoadContext{} );
     EXPECT_FLOAT_EQ(restored.m_Size.x(), 80.0f);
     EXPECT_FLOAT_EQ(restored.m_Size.y(), 24.0f);
 }
 
-TEST(UIButtonSerializerTest, FromToml_UnrecognizedTextAlignValueBecomesNone)
+// ─── Interactable ─────────────────────────────────────────────────────────────
+
+TEST(InteractableSerializerTest, ToToml_WritesMEnabledUnderInteractableTable)
 {
     TOMLBuilder builder;
-    builder.Table("UIButton").Set<std::string>( "m_TextAlign", "diagonal" );
+    Serializer<Interactable>::ToToml( Interactable{ .m_Enabled = false }, builder, asge::game::scene::SaveContext{} );
 
-    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
-    EXPECT_EQ(restored.m_TextAlignment, asge::str::TextAlign::None);
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Interactable]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Enabled = false"), std::string::npos);
 }
 
-TEST(UIButtonSerializerTest, FromToml_ClickAndHoverStateAlwaysResetToStructDefaults)
+TEST(InteractableSerializerTest, RoundTripsThroughToTomlAndFromToml)
 {
-    // Serializer<UIButton> only round-trips the four authored fields --
-    // FromToml must never carry over m_Hovered/m_Held (neither
-    // is something a scene file describes) or reconstruct m_OnClick's
-    // subscribers, since a Signal isn't serializable at all.
     TOMLBuilder builder;
-    Serializer<UIButton>::ToToml( UIButton{ .m_Text = "Ok" }, builder, asge::game::scene::SaveContext{} );
+    Serializer<Interactable>::ToToml( Interactable{ .m_Enabled = false }, builder, asge::game::scene::SaveContext{} );
 
-    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    Interactable const restored = Serializer<Interactable>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FALSE(restored.m_Enabled);
+}
+
+TEST(InteractableSerializerTest, FromToml_HoveredHeldClickedAlwaysResetToStructDefaults)
+{
+    // Serializer<Interactable> only round-trips m_Enabled -- FromToml must
+    // never carry over m_Hovered/m_Held/m_Clicked, none of which is
+    // something a scene file describes.
+    TOMLBuilder builder;
+    Serializer<Interactable>::ToToml( Interactable{}, builder, asge::game::scene::SaveContext{} );
+
+    Interactable const restored = Serializer<Interactable>::FromToml( builder, asge::game::scene::LoadContext{} );
     EXPECT_FALSE(restored.m_Hovered);
     EXPECT_FALSE(restored.m_Held);
+    EXPECT_FALSE(restored.m_Clicked);
+}
+
+// ─── UILabel ──────────────────────────────────────────────────────────────────
+
+TEST(UILabelSerializerTest, ToToml_WritesFieldsUnderUILabelTable)
+{
+    TOMLBuilder builder;
+    UILabel value{};
+    value.m_FontPath = "fonts/ui.ttf";
+    value.m_Text = "Start";
+    value.m_Align = asge::str::TextAlign::Center;
+    value.m_FontWeight = 24;
+    Serializer<UILabel>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UILabel]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_FontPath = "fonts/ui.ttf")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Text = "Start")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Align = "center")"), std::string::npos);
+    EXPECT_NE(dump.find("m_FontWeight = 24"), std::string::npos);
+}
+
+TEST(UILabelSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    UILabel original{};
+    original.m_FontPath = "fonts/ui.ttf";
+    original.m_Text = "Quit";
+    original.m_Align = asge::str::TextAlign::Right;
+    original.m_FontWeight = 32;
+    original.m_Color = { 1, 2, 3, 4 };
+    Serializer<UILabel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_FontPath, original.m_FontPath);
+    EXPECT_EQ(restored.m_Text, original.m_Text);
+    EXPECT_EQ(restored.m_Align, original.m_Align);
+    EXPECT_EQ(restored.m_FontWeight, original.m_FontWeight);
+    EXPECT_EQ(restored.m_Color.r, 1);
+    EXPECT_EQ(restored.m_Color.g, 2);
+    EXPECT_EQ(restored.m_Color.b, 3);
+    EXPECT_EQ(restored.m_Color.a, 4);
+}
+
+TEST(UILabelSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UILabel"); // present but empty
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UILabel const defaults{};
+    EXPECT_TRUE(restored.m_FontPath.empty());
+    EXPECT_EQ(restored.m_Text, defaults.m_Text);
+    EXPECT_EQ(restored.m_Align, defaults.m_Align);
+    EXPECT_EQ(restored.m_FontWeight, defaults.m_FontWeight);
+    EXPECT_EQ(restored.m_Color.r, defaults.m_Color.r);
+}
+
+TEST(UILabelSerializerTest, FromToml_UnrecognizedTextAlignValueBecomesNone)
+{
+    TOMLBuilder builder;
+    builder.Table("UILabel").Set<std::string>( "m_Align", "diagonal" );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Align, asge::str::TextAlign::None);
+}
+
+TEST(UILabelSerializerTest, FromToml_FontAndResolvedPathNeverReconstructed)
+{
+    // m_Font/m_ResolvedFontPath are resolved by asset::Resolver<UILabel>,
+    // not serialized -- FromToml must always start with them null/empty.
+    TOMLBuilder builder;
+    Serializer<UILabel>::ToToml( UILabel{ .m_FontPath = "fonts/ui.ttf" }, builder, asge::game::scene::SaveContext{} );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Font, nullptr);
+    EXPECT_TRUE(restored.m_ResolvedFontPath.empty());
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────

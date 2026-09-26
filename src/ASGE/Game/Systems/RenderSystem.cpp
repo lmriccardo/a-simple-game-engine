@@ -13,6 +13,7 @@
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
@@ -36,7 +37,7 @@ struct RenderInfoResolved
     int           m_LocalOrder; // This entity's own RenderInfo::m_LocalOrder, tie-break among entities sharing m_Owner
 };
 
-using Visual = std::variant<Sprite const*, UIButton const*>;
+using Visual = std::variant<Sprite const*, UIRect const*>;
 
 /** @brief One drawable entity's precomputed sort keys and destination rect for a single frame. */
 struct DrawItem
@@ -53,8 +54,8 @@ static constexpr RenderInfo kDefaultRenderInfo = RenderInfo{}; // Fallback for e
 
 /** @brief Maps a visual component type T to the tuple of other component types that, if also present on the same entity, mean T should not be collected/drawn for it. Defaults to none. */
 template<typename T> struct should_collect_trait { using Excludes = std::tuple<>; };
-/** @brief A UIButton is skipped in favor of a Sprite on the same entity -- lets a scene author swap one for the other without both drawing on top of each other. */
-template<> struct should_collect_trait<UIButton> { using Excludes = std::tuple<Sprite>; };
+/** @brief A UIRect is skipped in favor of a Sprite on the same entity -- lets a scene author swap one for the other without both drawing on top of each other. */
+template<> struct should_collect_trait<UIRect> { using Excludes = std::tuple<Sprite>; };
 
 /** @brief Checks inE against each type in should_collect_trait<T>::Excludes via GetComponent, folded with ||. */
 template<typename T, std::size_t ...Is>
@@ -135,7 +136,7 @@ bool operator<(DrawItem const& a, DrawItem const& b) noexcept
 
 // ---- Size : The only per-type part of collection ----------------------------------------------
 
-/** @brief Builds a world-space rect from inT's position/scale and a size authored in Transform-local units (e.g. UIButton::m_Size). */
+/** @brief Builds a world-space rect from inT's position/scale and a size authored in Transform-local units (e.g. UIRect::m_Size). */
 math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noexcept
 {
     return math::Rect{
@@ -150,17 +151,17 @@ std::optional<math::Rect> ComputeDstRect( Sprite const& inS, Transform const& in
     return r.has_value() ? std::optional<math::Rect>{ *r } : std::nullopt;
 }
 
-/** @brief UIButton's destination rect -- always present, unlike Sprite's (a button has no missing-texture case). */
-std::optional<math::Rect> ComputeDstRect( UIButton const& inB, Transform const& inT ) noexcept
+/** @brief UIRect's destination rect -- always present, unlike Sprite's (a widget has no missing-texture case). */
+std::optional<math::Rect> ComputeDstRect( UIRect const& inR, Transform const& inT ) noexcept
 {
-    return RectFromSize( inT, inB.m_Size );
+    return RectFromSize( inT, inR.m_Size );
 }
 
 /** @brief Destination rect of whatever visual the entity has, for computing an owner's bottom edge. */
 std::optional<math::Rect> GetAnyDstRect( ecs::Registry const& inReg, ecs::Entity inE, Transform const& inT ) noexcept
 {
     if ( auto s = inReg.GetComponent<Sprite>( inE ) ) return ComputeDstRect( s.Value().get(), inT );
-    if ( auto b = inReg.GetComponent<UIButton>( inE ) ) return ComputeDstRect( b.Value().get(), inT );
+    if ( auto r = inReg.GetComponent<UIRect>( inE ) ) return ComputeDstRect( r.Value().get(), inT );
     return std::nullopt;
 }
 
@@ -211,7 +212,9 @@ void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<Dra
 // ---- Drawing: one overload per visual type ------------------------------------
 
 /** @brief Draws a Sprite's texture into inItem.m_DstRect, routing through the affine overloads when the entity's Transform is rotated. */
-void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& inSprite )
+void Draw(
+    [[maybe_unused]] ecs::Registry const& inReg,
+    video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& inSprite )
 {
     video::ITexture* texture = inSprite.m_Texture;
     auto const& src = inSprite.m_SourceRect;
@@ -230,20 +233,48 @@ void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& i
         inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
 }
 
-/** @brief Draws a UIButton as a filled rect, picking m_PressedColor/m_HoverColor/m_Color 
- * by its m_Held/m_Hovered state (held takes priority). */
-void Draw( video::IRenderer& inRenderer, DrawItem const& inItem, UIButton const& inB )
+/**
+ * @brief Draws a UIRect as a filled rect, using the sibling UIButton's
+ *        StateColors picked by the sibling Interactable's m_Held/m_Hovered
+ *        (held takes priority); does nothing without a sibling UIButton --
+ *        a missing Interactable just means never hovered/held.
+ */
+void Draw(
+    ecs::Registry const& inReg,
+    video::IRenderer& inRenderer, DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
 {
-    graphics::RGBA_Color const color = inB.m_Held    ? inB.m_PressedColor
-                                     : inB.m_Hovered ? inB.m_HoverColor
-                                                     : inB.m_Color;
+    auto buttonResult = inReg.GetComponent<UIButton>( inItem.m_Entity );
+    if ( !buttonResult ) return;
+
+    auto const& colors = buttonResult.Value().get().m_Colors;
+    bool hovered = false;
+    bool held = false;
+    if ( auto interactable = inReg.GetComponent<Interactable>( inItem.m_Entity ) )
+    {
+        hovered = interactable.Value().get().m_Hovered;
+        held    = interactable.Value().get().m_Held;
+    }
+
+    graphics::RGBA_Color const color = held    ? colors.m_PressedColor
+                                      : hovered ? colors.m_HoverColor
+                                                : colors.m_Color;
 
     inRenderer.DrawRect( inItem.m_DstRect, color, true );
 }
 
 // ----------- Hit List collection ------------------------------------
 
-/** @brief Rebuilds resources::UIHitList (if set) from this frame's sorted drawItems -- a no-op if that resource isn't present. One HitEntry per UIButton-carrying entity, even one drawn as a Sprite (see ShouldExclude), skipping a second adjacent DrawItem from the same entity. */
+/**
+ * @brief Rebuilds resources::UIHitList (if set) from this frame's sorted
+ *        drawItems -- a no-op if that resource isn't present.
+ *
+ * One HitEntry per entity carrying both UIRect (its footprint) and an
+ * *enabled* Interactable (opting it into hit-testing at all) -- even one
+ * drawn as a Sprite (see ShouldExclude), since a hit entry only needs the
+ * rect, not whatever actually got drawn. Skips a second adjacent DrawItem
+ * from the same entity (one entity can produce several -- e.g. Sprite +
+ * UILabel -- which after sorting end up adjacent).
+ */
 void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawItems )
 {
     if ( auto hitList = inReg.GetResource<asge::game::resources::UIHitList>() )
@@ -253,16 +284,17 @@ void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawIt
 
         for ( auto const& item : inDrawItems )
         {
-            auto button = inReg.GetComponent<UIButton>( item.m_Entity );
-            if ( !button ) continue;
+            auto rect = inReg.GetComponent<UIRect>( item.m_Entity );
+            if ( !rect ) continue;
 
-            // One entity can produce several items (Sprite + Label); 
-            // after sorting they are adjacent.
+            auto interactable = inReg.GetComponent<Interactable>( item.m_Entity );
+            if ( !interactable || !interactable.Value().get().m_Enabled ) continue;
+
             if ( !entries.empty() && entries.back().m_Entity == item.m_Entity ) continue;
-            
-            entries.push_back( { 
+
+            entries.push_back( {
                 item.m_Entity,
-                RectFromSize(*item.m_Transform, button.Value().get().m_Size),
+                RectFromSize(*item.m_Transform, rect.Value().get().m_Size),
                 item.m_RenderInfo.m_ScreenSpace } );
         }
     }
@@ -346,7 +378,7 @@ void asge::game::systems::RenderSystem(
     math::Rect const visible = video::VisibleWorldRect( inRenderer.GetCamera(), inRenderer.GetViewport() );
 
     Collect<components::Sprite>( inRegistry, visible, drawItems );
-    Collect<components::UIButton>( inRegistry, visible, drawItems );
+    Collect<components::UIRect>( inRegistry, visible, drawItems );
 
     std::sort( drawItems.begin(), drawItems.end());
 
@@ -368,8 +400,8 @@ void asge::game::systems::RenderSystem(
             inScreenSpace = true;
         }
 
-        std::visit( 
-            [&]( auto const *visual ) { Draw( inRenderer, drawItem, *visual ); },
+        std::visit(
+            [&]( auto const *visual ) { Draw( inRegistry, inRenderer, drawItem, *visual ); },
             drawItem.m_Visual
         );
     }

@@ -14,7 +14,9 @@
 #include "Components/Hierarchy.hpp"
 #include "Components/Name.hpp"
 #include "Components/RenderInfo.hpp"
+#include "Components/UI/Common.hpp"
 #include "Components/UI/UIButton.hpp"
+#include "Components/UI/UILabel.hpp"
 
 namespace asge::game::components
 {
@@ -30,12 +32,12 @@ namespace asge::game::components
  * Serializer<T> specialization.
  */
 using SerializableComponents = std::tuple<
-    Transform, Velocity, Sprite, Collider, Rigidbody, Animation, 
+    Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
     AudioSource, Camera, PathFollow, Name, Hierarchy, UIButton,
-    RenderInfo
+    RenderInfo, UIRect, Interactable, UILabel
 >;
 
 /** @brief Every component type belonging to the UI subsystem. */
-using UIComponents = std::tuple<UIButton>;
+using UIComponents = std::tuple<UIButton, UIRect, Interactable, UILabel>;
 
 }
