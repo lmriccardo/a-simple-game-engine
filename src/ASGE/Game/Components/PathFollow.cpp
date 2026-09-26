@@ -2,6 +2,13 @@
 
 #include <algorithm>
 
+void asge::game::components::RebuildPath( PathFollow& inPathFollow ) noexcept
+{
+    inPathFollow.m_Path = math::CatmullRomSpline( inPathFollow.m_Waypoints, inPathFollow.m_Resolution );
+    inPathFollow.m_Traveled = 0.0f;
+    inPathFollow.m_Finished = false;
+}
+
 void asge::game::scene::Serializer<asge::game::components::PathFollow>::ToToml(
     T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
