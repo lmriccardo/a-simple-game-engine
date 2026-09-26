@@ -87,12 +87,16 @@ void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(
     auto fontAsset = inAssetManager.GetFont( inLabel.m_FontPath, inLabel.m_FontPixelHeight);
     if ( !fontAsset ) { fontAsset.LogError(); return; }
     inLabel.m_Font = &fontAsset.Value()->Get();
-    inLabel.m_ResolvedFontPath = inLabel.m_FontPath;
 
-    // Finally Load the texture that corresponds to the font image atlas
-    auto texture = inAssetManager.GetTexture( inLabel.m_ResolvedFontPath, inRenderer );
-    if ( !texture ) { texture.LogError(); inLabel.m_ResolvedFontPath.clear(); return; }
+    // The atlas is already a decoded Image baked into inLabel.m_Font at
+    // load time -- GetFontAtlasTexture turns it into a GPU texture
+    // directly, rather than (incorrectly) re-resolving m_FontPath through
+    // the image/texture pool as if the font file itself were a picture.
+    auto texture = inAssetManager.GetFontAtlasTexture( *inLabel.m_Font, inRenderer );
+    if ( !texture ) { texture.LogError(); return; }
     inLabel.m_Texture = texture.Value();
+
+    inLabel.m_ResolvedFontPath = inLabel.m_FontPath;
 }
 
 std::optional<asge::game::asset::AssetRef>
