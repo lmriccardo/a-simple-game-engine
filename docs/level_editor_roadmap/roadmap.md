@@ -325,16 +325,34 @@ errors or cross-scene bleed.
       `SDL_ResumeAudioStreamDevice` so pausing preserves stream position,
       unlike a full stop/replay.
 
-- [x] `PathFollow` waypoints are authored from the viewport: the Inspector's
-      "Select Waypoints" button enters a click-to-add mode (button becomes
-      "End Selection"), each click appending a waypoint at the cursor's
-      world position; `ESC` discards everything placed this session,
-      restoring a snapshot taken when the mode started. `WaypointEditState`
-      (Inspector.hpp) is the cross-cutting state main.cpp's viewport click/
-      key handling and the Inspector's button share. Waypoints render as
-      semi-transparent drop/pin markers (`DrawPathFollowWaypointOverlay`,
-      tip on the exact world position) whenever the entity is selected, not
-      just while actively placing them.
+- [x] `PathFollow` waypoints are authored from the viewport via a "Select
+      Waypoints"/"End Selection" toggle (`WaypointEditState`): click to add,
+      drag an existing point to move it, right-click to remove, `ESC` to
+      discard the whole session. Waypoints stay visible as drop/pin markers
+      once selection ends, and outside edit mode a live Catmull-Rom curve
+      (sampled at `PathFollow::m_Resolution` per segment) overlays the
+      straight point-to-point lines. Also added
+      `asge::game::components::RebuildPath(PathFollow&)` to the engine
+      (tested) and call it at every waypoint/resolution mutation, fixing a
+      real bug where `asset::Resolver<PathFollow>`'s build-once `m_Path`
+      went stale the moment the editor changed waypoints after load.
+
+- [x] `CTRL+S` saves the current open scene, `CTRL+P` saves the current
+      ASGE project — `saveActiveSceneNow`/`saveProjectNow` lambdas shared
+      between the keyboard shortcuts and the File menu's existing
+      Save/Save Scene items (which now also show the shortcut hint), so
+      there's one save path for each rather than two copies drifting apart.
+
+- [x] Collider's Inspector section gained a "Collider Shape" dropdown
+      (Rect/Circle, default Rect) above the existing dimension fields,
+      Resolution/Layer/Mask unchanged below. Switching shapes caches each
+      one's own last dimensions per entity so a Rect ↔ Circle round trip
+      restores them. `Draw Collider` (next to `Reset Collider`) enters a
+      one-shot viewport drag — mouse-down anchors the shape, dragging grows
+      it live, mouse-up commits and exits, `ESC` restores the pre-draw
+      shape — mutating the live `Collider` component directly so the
+      existing `DrawColliderOverlays` shows it updating with no new preview
+      code needed.
 
 ## Explicitly deferred — do not build until a concrete need forces it
 
