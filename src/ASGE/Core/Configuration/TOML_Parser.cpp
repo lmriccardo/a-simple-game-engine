@@ -465,7 +465,7 @@ std::string asge::config::toml::_internal::ProcessEscape(std::string_view inSv, 
         {
             if (ii + 4 >= inSv.size()) return {};
             auto cp = std::stoul(std::string(inSv.substr(ii+1, 4)), nullptr, 16);
-            result += str::EncodeUTF8(cp);
+            result += str::EncodeUtf8(cp);
             ii += 4;
             break;
         }
@@ -473,7 +473,7 @@ std::string asge::config::toml::_internal::ProcessEscape(std::string_view inSv, 
         {
             if (ii + 8 >= inSv.size()) return {};
             auto cp = std::stoul(std::string(inSv.substr(ii+1, 8)), nullptr, 16);
-            result += str::EncodeUTF8(cp);
+            result += str::EncodeUtf8(cp);
             ii += 8;
             break;
         }

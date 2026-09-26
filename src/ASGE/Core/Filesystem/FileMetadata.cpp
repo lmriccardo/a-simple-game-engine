@@ -43,7 +43,7 @@ asge::Result<FileSize> asge::filesystem::meta::GetFileSize(Path const &inPath) n
     std::error_code ec;
     const auto size = std::filesystem::file_size( inPath, ec );
     if (ec) {
-        return Result<FileSize>::Err(ec, str::ToUTF8( inPath.u8string() ));
+        return Result<FileSize>::Err(ec, str::ToUtf8( inPath.u8string() ));
     }
 
     return Result<FileSize>::Ok(size);
@@ -54,20 +54,20 @@ asge::Result<FileTime> asge::filesystem::meta::GetLastModified(Path const &inPat
     std::error_code ec;
     const auto time = std::filesystem::last_write_time( inPath );
     if (ec) {
-        return Result<FileTime>::Err(ec, str::ToUTF8( inPath.u8string() ));
+        return Result<FileTime>::Err(ec, str::ToUtf8( inPath.u8string() ));
     }
     return Result<FileTime>::Ok(time);
 }
 
 asge::Result<asge::str::String> asge::filesystem::meta::GetExtension(Path const &inPath) noexcept
 {
-    const auto ext = str::ToUTF8( inPath.extension().u8string() );
+    const auto ext = str::ToUtf8( inPath.extension().u8string() );
 
     if ( ext.empty() )
     {
         return Result<str::String>::Err( 
             std::make_error_code( std::errc::invalid_argument ),
-            "Input path " + str::ToUTF8( inPath.u8string() ) + " has no extension"
+            "Input path " + str::ToUtf8( inPath.u8string() ) + " has no extension"
         );
     }
 
@@ -76,10 +76,10 @@ asge::Result<asge::str::String> asge::filesystem::meta::GetExtension(Path const 
 
 asge::str::String asge::filesystem::meta::GetFilename(Path const& inPath) noexcept
 {
-    return str::ToUTF8(inPath.filename().u8string());
+    return str::ToUtf8(inPath.filename().u8string());
 }
 
 asge::str::String asge::filesystem::meta::GetStem(Path const& inPath) noexcept
 {
-    return str::ToUTF8(inPath.stem().u8string());
+    return str::ToUtf8(inPath.stem().u8string());
 }

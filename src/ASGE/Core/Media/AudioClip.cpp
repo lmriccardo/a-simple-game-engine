@@ -85,7 +85,7 @@ asge::media::AudioClip::Load(filesystem::Path const &inPath) noexcept
     if ( inPath.extension() == ".wav" ) return DecodeWav( byteResult.Value() );
     return Result<AudioClip>::Err( 
         make_error_code( errors::AudioError::InvalidFormat ),
-        str::ToUTF8( inPath.extension().u8string() )
+        str::ToUtf8( inPath.extension().u8string() )
     );
 }
 

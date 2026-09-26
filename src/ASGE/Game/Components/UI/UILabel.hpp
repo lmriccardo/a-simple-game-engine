@@ -4,6 +4,7 @@
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
+#include <ASGE/Video/Graphics/Texture.hpp>
 
 namespace asge::game::components
 {
@@ -20,15 +21,17 @@ namespace asge::game::components
 struct UILabel
 {
     // Serialized
-    str::String             m_FontPath  {};
-    str::String             m_Text      {"Placeholder"};
-    str::TextAlign          m_Align     {str::TextAlign::Left};
-    graphics::RGBA_Color    m_Color     {graphics::colors::s_Black};
-    int                     m_FontWeight{16};
+    str::String             m_FontPath          {};
+    str::String             m_Text              {"Placeholder"};
+    str::TextAlign          m_Align             {str::TextAlign::Left};
+    graphics::RGBA_Color    m_Color             {graphics::colors::s_Black};
+    int                     m_FontPixelHeight   {16};
+    bool                    m_AutoSize          {true};
 
     // Revoled via Asset Resolution
-    media::Font const* m_Font{nullptr};
-    str::String        m_ResolvedFontPath{};
+    media::Font const*  m_Font{nullptr};
+    video::ITexture*    m_Texture{nullptr};
+    str::String         m_ResolvedFontPath{};
 };
 
 }
@@ -36,7 +39,6 @@ struct UILabel
 namespace asge::game::scene
 {
 
-/** @brief Round-trips m_FontPath/m_Text/m_Align/m_FontWeight/m_Color -- FromToml leaves m_Font/m_ResolvedFontPath null/empty, resolved fresh by asset::Resolver<UILabel>. */
 template<>
 struct Serializer<components::UILabel>
 {

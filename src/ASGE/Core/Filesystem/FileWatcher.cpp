@@ -209,7 +209,7 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
     {
         auto const ec = std::error_code(static_cast<int>(GetLastError()), std::system_category());
         return Result<WatchedDir*>::Err(ec, "Failed to open directory watching" 
-            + str::ToUTF8(inPath.u8string()));
+            + str::ToUtf8(inPath.u8string()));
     }
 
     // Try emplacing a new entry so we have a persistent memory address
@@ -218,7 +218,7 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
     if (!success)
     {
         auto const ec = make_error_code(errors::FileWatcherError::AlreadyWatched);
-        return Result<WatchedDir*>::Err( ec, str::ToUTF8(inPath.u8string()) );
+        return Result<WatchedDir*>::Err( ec, str::ToUtf8(inPath.u8string()) );
     }
 
     watched_pointer& entry = insertedIt->second;
@@ -247,7 +247,7 @@ asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(path_type const &inP
         CloseHandle( hDirectory );
         m_WatchedDirs.erase( insertedIt );
         auto const ec = make_error_code(errors::FileWatcherError::FailedDirRegister);
-        return Result<WatchedDir*>::Err( ec, str::ToUTF8(inPath.u8string()) );
+        return Result<WatchedDir*>::Err( ec, str::ToUtf8(inPath.u8string()) );
     }
 
     return Result<WatchedDir*>::Ok(entry.get());
@@ -391,7 +391,7 @@ asge::Result<WatcherHandler> asge::filesystem::_win32::FileWatcher::AddWatch(
     if ( !meta::Exists( inPath ) )
     {
         auto const ec = std::make_error_code( std::errc::no_such_file_or_directory );
-        return asge::Result<WatcherHandler>::Err( ec, str::ToUTF8( inPath.u8string() ) );
+        return asge::Result<WatcherHandler>::Err( ec, str::ToUtf8( inPath.u8string() ) );
     }
 
     // Check if the input path is a regular file or a folder
@@ -451,7 +451,7 @@ asge::BoolResult asge::filesystem::_apple::FileWatcher::RegisterNewWatch(path_ty
 
     if ( m_WatchedStreams.find( inPath ) != m_WatchedStreams.end() ) return BoolResult::Ok();
 
-    std::string u8_path = str::ToUTF8( inPath.u8string() );
+    std::string u8_path = str::ToUtf8( inPath.u8string() );
     CFStringRef cfPath = CFStringCreateWithCString( kCFAllocatorDefault, u8_path.c_str(), kCFStringEncodingUTF8 );
     if ( cfPath == nullptr ) {
         return BoolResult::Err( MakeErrorFromErrno(), u8_path );
@@ -565,7 +565,7 @@ asge::Result<WatcherHandler> asge::filesystem::_apple::FileWatcher::AddWatch(
     if ( !meta::Exists( inPath ) )
     {
         auto const ec = std::make_error_code( std::errc::no_such_file_or_directory );
-        return asge::Result<WatcherHandler>::Err( ec, str::ToUTF8( inPath.u8string() ) );
+        return asge::Result<WatcherHandler>::Err( ec, str::ToUtf8( inPath.u8string() ) );
     }
 
     if ( meta::IsDirectory( inPath ) )
@@ -627,7 +627,7 @@ asge::BoolResult asge::filesystem::_linux::FileWatcher::RegisterNewWatch(path_ty
     if ( path_it != m_WatchFds.end() ) return BoolResult::Ok();
 
     // Otherwise register new watcher
-    str::String u8_path = str::ToUTF8( inPath.u8string() );
+    str::String u8_path = str::ToUtf8( inPath.u8string() );
     handle_t watchFd = ::inotify_add_watch(
         m_InotifyHandle,
         u8_path.c_str(),
@@ -844,7 +844,7 @@ asge::Result<WatcherHandler> asge::filesystem::_linux::FileWatcher::AddWatch(
     if ( !meta::Exists( inPath ) )
     {
         auto const ec = std::make_error_code( std::errc::no_such_file_or_directory );
-        return asge::Result<WatcherHandler>::Err( ec, str::ToUTF8( inPath.u8string() ) );
+        return asge::Result<WatcherHandler>::Err( ec, str::ToUtf8( inPath.u8string() ) );
     }
 
     if ( meta::IsDirectory( inPath ) )

@@ -8,7 +8,7 @@ asge::Result<asge::str::String> asge::filesystem::ReadText(Path const &inPath)
     if (!file.is_open())
     {
         ec = MakeErrorFromErrno();
-        return Result<str::String>::Err( ec,str::ToUTF8( inPath.u8string() ));
+        return Result<str::String>::Err( ec,str::ToUtf8( inPath.u8string() ));
     }
 
     str::String content{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
@@ -16,7 +16,7 @@ asge::Result<asge::str::String> asge::filesystem::ReadText(Path const &inPath)
     if (file.bad())
     {
         ec = MakeErrorFromErrno();
-        return Result<str::String>::Err( ec,str::ToUTF8( inPath.u8string() ));
+        return Result<str::String>::Err( ec,str::ToUtf8( inPath.u8string() ));
     }
 
     return Result<str::String>::Ok( std::move(content) );
@@ -30,7 +30,7 @@ asge::BoolResult asge::filesystem::WriteText(Path const &inPath, str::String con
     if (!file.is_open())
     {
         ec = MakeErrorFromErrno();
-        return BoolResult::Err( ec, str::ToUTF8( inPath.u8string() ));
+        return BoolResult::Err( ec, str::ToUtf8( inPath.u8string() ));
     }
 
     file << inContent;
@@ -38,7 +38,7 @@ asge::BoolResult asge::filesystem::WriteText(Path const &inPath, str::String con
     if (file.bad() || file.fail())
     {
         ec = MakeErrorFromErrno();
-        return BoolResult::Err( ec, str::ToUTF8( inPath.u8string() ));
+        return BoolResult::Err( ec, str::ToUtf8( inPath.u8string() ));
     }
 
     return BoolResult::Ok();
@@ -53,7 +53,7 @@ asge::BoolResult asge::filesystem::Copy(Path const &inSource, Path const &inDest
 
     if (ec)
     {
-        std::string detail = str::ToUTF8( inSource.u8string() ) + " -> " + str::ToUTF8( inDestination.u8string() );
+        std::string detail = str::ToUtf8( inSource.u8string() ) + " -> " + str::ToUtf8( inDestination.u8string() );
         return BoolResult::Err( ec, detail );
     }
 
@@ -69,7 +69,7 @@ asge::Result<std::vector<std::byte>> asge::filesystem::ReadBinary(Path const &in
     if (!file.is_open())
     {
         ec = MakeErrorFromErrno();
-        return Result<std::vector<std::byte>>::Err(ec, str::ToUTF8(inPath.u8string()));
+        return Result<std::vector<std::byte>>::Err(ec, str::ToUtf8(inPath.u8string()));
     }
 
     auto size = file.tellg();
@@ -81,7 +81,7 @@ asge::Result<std::vector<std::byte>> asge::filesystem::ReadBinary(Path const &in
     if (file.bad())
     {
         ec = MakeErrorFromErrno();
-        return Result<std::vector<std::byte>>::Err(ec, str::ToUTF8(inPath.u8string()));
+        return Result<std::vector<std::byte>>::Err(ec, str::ToUtf8(inPath.u8string()));
     }
 
     return Result<std::vector<std::byte>>::Ok(std::move(content));

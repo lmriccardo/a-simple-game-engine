@@ -72,12 +72,12 @@ std::vector<String> Split( StringView inSv, const char* inSep );
  * @param inCp The unsigned 32-bit integer to encode into a string
  * @return The encoded string
  */
-String EncodeUTF8( std::uint32_t inCp ) noexcept;
+String EncodeUtf8( std::uint32_t inCp ) noexcept;
 
 /**
  * @brief Converts UTF-8 string into a simple string
  */
-String ToUTF8( U8String const& inStr ) noexcept;
+String ToUtf8( U8String const& inStr ) noexcept;
 
 /**
  * @brief Counts inStr's Unicode code points rather than its bytes.
@@ -88,6 +88,11 @@ String ToUTF8( U8String const& inStr ) noexcept;
  * of looping forever, at the cost of an inflated count for that byte).
  */
 std::size_t CodePointLength( StringView inStr ) noexcept;
+
+/** @brief Decodes one UTF-8 code point at ioPos and advances ioPos past it. 
+ *  Malformed bytes decode as U+FFFD. 
+ */
+int DecodeUtf8( StringView inText, std::size_t& ioPos ) noexcept;
 
 /**
  * @brief Pads inStr with spaces to inWidth code points, per inAlignment.

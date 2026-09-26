@@ -64,7 +64,6 @@ SpriteDrawCorners SpriteGetDrawCorners( math::Rect const& inDstRect, float inRot
 namespace asge::game::scene
 {
 
-/** @brief Round-trips m_VirtualPath and m_SourceRect only -- m_Texture is runtime-only and always comes back null from FromToml (see Sprite's own doc comment). */
 template<>
 struct Serializer<components::Sprite>
 {

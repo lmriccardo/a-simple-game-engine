@@ -13,12 +13,14 @@
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 namespace
 {
@@ -233,20 +235,11 @@ void Draw(
         inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
 }
 
-/**
- * @brief Draws a UIRect as a filled rect, using the sibling UIButton's
- *        StateColors picked by the sibling Interactable's m_Held/m_Hovered
- *        (held takes priority); does nothing without a sibling UIButton --
- *        a missing Interactable just means never hovered/held.
- */
 void Draw(
-    ecs::Registry const& inReg,
-    video::IRenderer& inRenderer, DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
+    ecs::Registry const& inReg, video::IRenderer& inRenderer, 
+    DrawItem const& inItem, UIButton const& inButton)
 {
-    auto buttonResult = inReg.GetComponent<UIButton>( inItem.m_Entity );
-    if ( !buttonResult ) return;
-
-    auto const& colors = buttonResult.Value().get().m_Colors;
+    auto const& colors = inButton.m_Colors;
     bool hovered = false;
     bool held = false;
     if ( auto interactable = inReg.GetComponent<Interactable>( inItem.m_Entity ) )
@@ -256,10 +249,42 @@ void Draw(
     }
 
     graphics::RGBA_Color const color = held    ? colors.m_PressedColor
-                                      : hovered ? colors.m_HoverColor
-                                                : colors.m_Color;
+                                     : hovered ? colors.m_HoverColor
+                                               : colors.m_Color;
 
     inRenderer.DrawRect( inItem.m_DstRect, color, true );
+}
+
+void Draw(
+    ecs::Registry const& inReg, video::IRenderer& inRenderer, 
+    DrawItem const& inItem, UILabel const& inLabel)
+{
+    if ( inLabel.m_Text.empty() || inLabel.m_Font == nullptr ) return;
+    
+    inRenderer.DrawString( 
+        inLabel.m_Text, *inLabel.m_Font, *inLabel.m_Texture,
+        math::Float2{ inItem.m_DstRect.m_X, inItem.m_DstRect.m_Y }, 
+        inLabel.m_Color
+    );
+}
+
+/**
+ * @brief Draws a UIRect as a filled rect, using the sibling UIButton's
+ *        StateColors picked by the sibling Interactable's m_Held/m_Hovered
+ *        (held takes priority); does nothing without a sibling UIButton --
+ *        a missing Interactable just means never hovered/held.
+ */
+void Draw(
+    ecs::Registry const& inReg, video::IRenderer& inRenderer, 
+    DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
+{
+    using UIWidgets = std::tuple<UIButton, UILabel>;
+    functools::ForEachTupleType<UIWidgets>( [&]<typename T> 
+        {
+            if ( auto r = inReg.GetComponent<T>( inItem.m_Entity ) )
+                Draw( inReg, inRenderer, inItem, r.Value().get() );
+        } 
+    );
 }
 
 // ----------- Hit List collection ------------------------------------

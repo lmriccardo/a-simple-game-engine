@@ -96,7 +96,7 @@ asge::BoolResult asge::config::ConfigurationManager::Load(filesystem::Path const
 
     // Returns error if the input path is an invalid path
     auto const ec = make_error_code( errors::ConfError::InvalidInputPath );
-    return BoolResult::Err( ec, str::ToUTF8( confPath.u8string() ) );
+    return BoolResult::Err( ec, str::ToUtf8( confPath.u8string() ) );
 }
 
 asge::BoolResult asge::config::ConfigurationManager::SetHotReloadEnabled(bool inEnabled)

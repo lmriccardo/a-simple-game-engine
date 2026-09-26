@@ -88,6 +88,16 @@ concept MemberFunctionOf =
         std::remove_reference_t<T>
     >;
 
+template <typename F, typename T>
+concept TypeInvocable = requires( F& inFn ) { inFn.template operator()<T>(); };
+
+template <typename Tuple, typename F>
+struct InvocableForAllTypes : std::false_type {};
+
+template <typename... Ts, typename F>
+struct InvocableForAllTypes<std::tuple<Ts...>, F>
+    : std::bool_constant<( TypeInvocable<F, Ts> && ... )> {};
+
 }
 
 /**
@@ -284,4 +294,18 @@ auto PrependToTuple( T&& value, Tuple&& t )
     return std::tuple_cat( std::make_tuple(std::forward<T>(value)), std::forward<Tuple>(t) );
 }
 
+/**
+ * @brief Calls `inFn.template operator()<T>()` for each element type T of Tuple, in order.
+ *
+ * Tuple is only a type list; no tuple object is created.
+ */
+template<typename Tuple, typename Callable>
+requires (_internal::InvocableForAllTypes<Tuple, std::remove_cvref_t<Callable>>::value)
+void ForEachTupleType(Callable&& inFn)
+{
+    [&]<typename ...Ts>(std::type_identity<std::tuple<Ts...>>)
+    {
+        ( inFn.template operator()<Ts>(), ... );
+    }(std::type_identity<Tuple>{});
+}
 }

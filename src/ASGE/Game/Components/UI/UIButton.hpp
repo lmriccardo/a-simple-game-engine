@@ -31,13 +31,6 @@ struct UIButton
 namespace asge::game::scene
 {
 
-/**
- * @brief Round-trips m_Colors only -- see AudioSource's Serializer doc
- *        comment for why a scene file describes what a button looks like,
- *        not its live hover/press state (that's Interactable's, and isn't
- *        serialized either). FromToml leaves m_OnClick with no subscribers,
- *        same reasoning: a Signal isn't serializable at all.
- */
 template<>
 struct Serializer<components::UIButton>
 {

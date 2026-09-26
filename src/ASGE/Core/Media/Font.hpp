@@ -25,6 +25,7 @@
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include <ASGE/Core/Strings.hpp>
 #include "Image.hpp"
 
 namespace asge::media
@@ -85,6 +86,7 @@ public:
     [[nodiscard]] int GetLineHeight() const noexcept;
     [[nodiscard]] int GetAscent() const noexcept;
     [[nodiscard]] int GetDescent() const noexcept;
+    [[nodiscard]] math::Float2 Measure( str::StringView inText ) const noexcept;
 };
 
 }

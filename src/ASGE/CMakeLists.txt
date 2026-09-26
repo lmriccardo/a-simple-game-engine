@@ -107,6 +107,9 @@ add_library(ASGE STATIC
 
     # Game Events
     Game/Events.cpp
+
+    # Game UI
+    Game/UI.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)

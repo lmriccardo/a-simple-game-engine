@@ -45,7 +45,7 @@ asge::Result<asge::media::Font> asge::media::Font::Load(const filesystem::Path &
     if ( fontOffset < 0 || !stbtt_InitFont( &fontInfo, fontData, fontOffset ) )
     {
         auto const ec = make_error_code(errors::FontError::InitFailed);
-        return Result<Font>::Err(ec, str::ToUTF8(inPath.u8string()));
+        return Result<Font>::Err(ec, str::ToUtf8(inPath.u8string()));
     }
 
     // Bake ASCII 32-126 into a single atlas bitmap. bakedChars is filled
@@ -62,7 +62,7 @@ asge::Result<asge::media::Font> asge::media::Font::Load(const filesystem::Path &
     if ( bakedResult <= 0 )
     {
         auto const ec = make_error_code(errors::FontError::BakeFailed);
-        return Result<Font>::Err(ec, str::ToUTF8(inPath.u8string()));
+        return Result<Font>::Err(ec, str::ToUtf8(inPath.u8string()));
     }
 
     // Convert stb's per-glyph bake data into our own GlyphMetrics, keyed
@@ -139,4 +139,32 @@ int asge::media::Font::GetAscent() const noexcept
 int asge::media::Font::GetDescent() const noexcept
 {
     return m_Descent;
+}
+
+asge::math::Float2 asge::media::Font::Measure(str::StringView inText) const noexcept
+{
+    float lineWidth = 0.0f, maxWidth = 0.0f;
+    int lines = 1;
+
+    for ( std::size_t pos = 0; pos < inText.size(); ++pos )
+    {
+        char32_t const cp = str::DecodeUtf8( inText, pos );
+        if ( cp == '\n' )
+        {
+            maxWidth = std::max( maxWidth, lineWidth );
+            lineWidth = 0.0f;
+            ++lines;
+            continue;
+        }
+
+        auto const it = m_Glyphs.find( cp );
+        if ( it == m_Glyphs.end() ) continue;
+        lineWidth += static_cast<float>( it->second.advance );
+    }
+
+    maxWidth = std::max( maxWidth, lineWidth );
+    float const height = static_cast<float>( 
+        ( lines - 1 ) * m_LineHeight + ( m_Ascent - m_Descent ) );
+    
+    return { maxWidth, height };
 }

@@ -846,7 +846,7 @@ TEST(UILabelSerializerTest, ToToml_WritesFieldsUnderUILabelTable)
     value.m_FontPath = "fonts/ui.ttf";
     value.m_Text = "Start";
     value.m_Align = asge::str::TextAlign::Center;
-    value.m_FontWeight = 24;
+    value.m_FontPixelHeight = 24;
     Serializer<UILabel>::ToToml( value, builder, asge::game::scene::SaveContext{} );
 
     auto const dump = builder.ToString();
@@ -854,7 +854,7 @@ TEST(UILabelSerializerTest, ToToml_WritesFieldsUnderUILabelTable)
     EXPECT_NE(dump.find(R"(m_FontPath = "fonts/ui.ttf")"), std::string::npos);
     EXPECT_NE(dump.find(R"(m_Text = "Start")"), std::string::npos);
     EXPECT_NE(dump.find(R"(m_Align = "center")"), std::string::npos);
-    EXPECT_NE(dump.find("m_FontWeight = 24"), std::string::npos);
+    EXPECT_NE(dump.find("m_FontPixelHeight = 24"), std::string::npos);
 }
 
 TEST(UILabelSerializerTest, RoundTripsThroughToTomlAndFromToml)
@@ -864,7 +864,7 @@ TEST(UILabelSerializerTest, RoundTripsThroughToTomlAndFromToml)
     original.m_FontPath = "fonts/ui.ttf";
     original.m_Text = "Quit";
     original.m_Align = asge::str::TextAlign::Right;
-    original.m_FontWeight = 32;
+    original.m_FontPixelHeight = 32;
     original.m_Color = { 1, 2, 3, 4 };
     Serializer<UILabel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
 
@@ -872,7 +872,7 @@ TEST(UILabelSerializerTest, RoundTripsThroughToTomlAndFromToml)
     EXPECT_EQ(restored.m_FontPath, original.m_FontPath);
     EXPECT_EQ(restored.m_Text, original.m_Text);
     EXPECT_EQ(restored.m_Align, original.m_Align);
-    EXPECT_EQ(restored.m_FontWeight, original.m_FontWeight);
+    EXPECT_EQ(restored.m_FontPixelHeight, original.m_FontPixelHeight);
     EXPECT_EQ(restored.m_Color.r, 1);
     EXPECT_EQ(restored.m_Color.g, 2);
     EXPECT_EQ(restored.m_Color.b, 3);
@@ -889,7 +889,7 @@ TEST(UILabelSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_TRUE(restored.m_FontPath.empty());
     EXPECT_EQ(restored.m_Text, defaults.m_Text);
     EXPECT_EQ(restored.m_Align, defaults.m_Align);
-    EXPECT_EQ(restored.m_FontWeight, defaults.m_FontWeight);
+    EXPECT_EQ(restored.m_FontPixelHeight, defaults.m_FontPixelHeight);
     EXPECT_EQ(restored.m_Color.r, defaults.m_Color.r);
 }
 

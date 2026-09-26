@@ -65,7 +65,7 @@ std::vector<String> asge::str::Split(StringView inSv, const char *inSep)
     return outVector;
 }
 
-String asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
+String asge::str::EncodeUtf8(std::uint32_t inCp) noexcept
 {
     std::string out;
     if (inCp < 0x80)
@@ -88,7 +88,7 @@ String asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
     return out;
 }
 
-String asge::str::ToUTF8(U8String const &inStr) noexcept
+String asge::str::ToUtf8(U8String const &inStr) noexcept
 {
     return String(reinterpret_cast<const char*>(inStr.data()), inStr.size());
 }
@@ -116,6 +116,21 @@ std::size_t asge::str::CodePointLength(StringView inStr) noexcept
     }
 
     return count;
+}
+
+int asge::str::DecodeUtf8(StringView inText, std::size_t &ioPos) noexcept
+{
+    auto const c = static_cast<unsigned char>( inText[ioPos] );
+    int len = 1, cp = c;
+    if      ( ( c & 0xE0 ) == 0xC0 ) { len = 2; cp = c & 0x1F; }
+    else if ( ( c & 0xF0 ) == 0xE0 ) { len = 3; cp = c & 0x0F; }
+    else if ( ( c & 0xF8 ) == 0xF0 ) { len = 4; cp = c & 0x07; }
+    else if ( c & 0x80 )             { ++ioPos; return 0xFFFD; }
+
+    if ( ioPos + len > inText.size() ) { ioPos = inText.size(); return 0xFFFD; }
+    for ( int i = 1; i < len; ++i ) cp = ( cp << 6 ) | ( inText[ioPos + i] & 0x3F );
+    ioPos += len;
+    return cp;
 }
 
 String asge::str::Justify(

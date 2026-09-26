@@ -1,6 +1,7 @@
 #include "AssetResolver.hpp"
 
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
@@ -78,14 +79,20 @@ void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(
     if ( inLabel.m_FontPath.empty() )
     {
         inLabel.m_Font = nullptr;
+        inLabel.m_Texture = nullptr;
         inLabel.m_ResolvedFontPath.clear();
         return;
     }
 
-    auto fontAsset = inAssetManager.GetFont( inLabel.m_FontPath, inLabel.m_FontWeight );
+    auto fontAsset = inAssetManager.GetFont( inLabel.m_FontPath, inLabel.m_FontPixelHeight);
     if ( !fontAsset ) { fontAsset.LogError(); return; }
     inLabel.m_Font = &fontAsset.Value()->Get();
     inLabel.m_ResolvedFontPath = inLabel.m_FontPath;
+
+    // Finally Load the texture that corresponds to the font image atlas
+    auto texture = inAssetManager.GetTexture( inLabel.m_ResolvedFontPath, inRenderer );
+    if ( !texture ) { texture.LogError(); inLabel.m_ResolvedFontPath.clear(); return; }
+    inLabel.m_Texture = texture.Value();
 }
 
 std::optional<asge::game::asset::AssetRef>
@@ -117,16 +124,17 @@ std::vector<asge::game::asset::AssetRef> asge::game::asset::CollectAssetRefs(
 {
     std::vector<AssetRef> refs;
 
-    [&]<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
-        ( [&] {
+    functools::ForEachTupleType<components::SerializableComponents>
+    (
+        [&]<typename Ts> {
             for (auto [e, c] : inRegistry.View<Ts>()) {
                 if ( auto ref = AssetRefs<Ts>{}( c.get() ) )
                 {
                     refs.push_back( std::move(*ref) );
                 }
             }
-        }(), ... );
-    }(std::type_identity<components::SerializableComponents>{});
+        }
+    );
 
     return refs;
 }

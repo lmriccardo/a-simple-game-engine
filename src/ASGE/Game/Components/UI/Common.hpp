@@ -10,7 +10,10 @@ namespace asge::game::components
 namespace details
 {
 
-/** @brief The three fill colors a widget cycles through by its sibling Interactable's m_Hovered/m_Held -- embedded in UIButton, not a standalone component. */
+/** @brief The three fill colors a widget cycles through by its sibling 
+ *         Interactable's m_Hovered/m_Held -- embedded in UIButton, not 
+ *         a standalone component. 
+ */
 struct StateColors
 {
     graphics::RGBA_Color m_Color        { graphics::colors::s_ButtonLight };
@@ -62,7 +65,6 @@ struct Interactable
 namespace asge::game::scene
 {
 
-/** @brief Round-trips m_Color/m_HoverColor/m_PressedColor as three nested RGBA_Color tables -- embedded inline (no kTableName), not registered as its own component. */
 template<>
 struct Serializer<components::details::StateColors>
 {
@@ -78,7 +80,6 @@ struct Serializer<components::details::StateColors>
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
-/** @brief Round-trips UIRect::m_Size only. */
 template<>
 struct Serializer<components::UIRect>
 {
@@ -96,7 +97,6 @@ struct Serializer<components::UIRect>
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
-/** @brief Round-trips Interactable::m_Enabled only -- FromToml leaves m_Hovered/m_Held/m_Clicked at Interactable's in-code defaults, same reasoning as UIButton's Serializer doc comment. */
 template<>
 struct Serializer<components::Interactable>
 {
