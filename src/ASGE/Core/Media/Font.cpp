@@ -146,7 +146,11 @@ asge::math::Float2 asge::media::Font::Measure(str::StringView inText) const noex
     float lineWidth = 0.0f, maxWidth = 0.0f;
     int lines = 1;
 
-    for ( std::size_t pos = 0; pos < inText.size(); ++pos )
+    // No ++pos here -- DecodeUtf8 already advances pos (by reference) past
+    // however many bytes the codepoint it just decoded took; incrementing
+    // it again here would double-advance and silently skip every other
+    // character.
+    for ( std::size_t pos = 0; pos < inText.size(); )
     {
         char32_t const cp = str::DecodeUtf8( inText, pos );
         if ( cp == '\n' )
