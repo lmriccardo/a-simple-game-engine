@@ -76,14 +76,20 @@ void DrawCameraOverlays(
     int inTargetWidth, int inTargetHeight ) noexcept;
 
 /**
- * @brief World-space dots (plus connecting lines, in placement order) for a
- *        PathFollow's waypoints -- drawn while Phase 12's "Select Waypoints"
- *        mode is active for it, so points are visible as they're clicked in.
- *        A no-op for fewer than one waypoint.
+ * @brief World-anchored (but fixed screen-pixel-sized, so they don't grow/
+ *        shrink with zoom) drop/pin markers plus straight connecting lines,
+ *        in placement order, for a PathFollow's waypoints -- drawn for the
+ *        selected entity whenever it has one, brighter while Phase 12's
+ *        "Select Waypoints" mode is actively editing it and more
+ *        translucent otherwise. Outside that mode, also overlays the actual
+ *        Catmull-Rom curve those waypoints interpolate (sampled at
+ *        inResolution per segment, matching PathFollow::m_Resolution so
+ *        it's the same curve the entity will actually follow) on top of the
+ *        straight lines. A no-op for an empty inWaypoints.
  */
 void DrawPathFollowWaypointOverlay(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
-    std::vector<asge::math::Float2> const& inWaypoints ) noexcept;
+    std::vector<asge::math::Float2> const& inWaypoints, bool inActive, std::size_t inResolution ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };

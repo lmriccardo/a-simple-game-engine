@@ -2,6 +2,7 @@
 
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include <ASGE/Game/Components/Collider.hpp>
 
 #include <string>
 #include <vector>
@@ -74,6 +75,24 @@ struct WaypointEditState
 };
 
 /**
+ * @brief Cross-cutting state for a Collider's "Draw Collider" viewport mode
+ *        (Phase 12 step 4): owned and driven by main.cpp (drag-to-define
+ *        the shape, ESC-cancel; the shape being drawn live-updates the
+ *        actual Collider component, so the existing DrawColliderOverlays
+ *        already shows it with no separate preview overlay needed), toggled
+ *        by Collider's own DrawInspector section, whose button snapshots
+ *        the pre-draw m_LocalBounds into m_Snapshot so an ESC-cancel can
+ *        restore it. One-shot: a completed drag (mouse-up) exits the mode
+ *        automatically rather than staying open for more edits.
+ */
+struct ColliderDrawState
+{
+    bool                                    m_Active = false;
+    asge::ecs::Entity                       m_Entity = asge::ecs::Entity::Null();
+    asge::game::components::ColliderShape   m_Snapshot{};
+};
+
+/**
  * @brief Draws one section per currently-serializable component type
  *        inSelected actually has, each editing the live Registry component
  *        directly (no intermediate copy) -- a fixed, explicit list of known
@@ -90,6 +109,7 @@ struct WaypointEditState
  * @param inKnownAudio Same as inKnownTextures, for
  *        AudioSource::m_VirtualClipPath (see KnownAudioPaths).
  * @param ioWaypointEdit See WaypointEditState's own doc comment.
+ * @param ioColliderDraw See ColliderDrawState's own doc comment.
  * @return See InspectorResult's own doc comment.
  */
 InspectorResult DrawInspectorPanel(
@@ -97,7 +117,8 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
-    WaypointEditState& ioWaypointEdit ) noexcept;
+    WaypointEditState& ioWaypointEdit,
+    ColliderDrawState& ioColliderDraw ) noexcept;
 
 /**
  * @brief Restarts the "Entity #N" fallback numbering (see GetEntityLabel)

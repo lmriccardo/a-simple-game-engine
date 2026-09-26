@@ -9,6 +9,7 @@
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Scene/SceneId.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
@@ -21,6 +22,7 @@
 #include <SDL3/SDL_dialog.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <mutex>
@@ -40,6 +42,7 @@ namespace
 {
 using asge::game::components::Transform;
 using asge::game::components::PathFollow;
+using asge::game::components::Collider;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
@@ -65,6 +68,39 @@ asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Flo
         if ( hit ) picked = entity;
     }
     return picked;
+}
+
+/**
+ * @brief Index of inWaypoints' closest point within a fixed screen-space
+ *        pick radius of inScreenPos, or -1 if none are close enough.
+ *
+ * Fixed-pixel radius (not a world-space one) so a waypoint stays equally
+ * grabbable at any zoom level, same idea as the translate gizmo's own arm
+ * hit-testing (ViewportOverlay.cpp's OnArm).
+ */
+int PickWaypointAt(
+    asge::video::IRenderer const& inRenderer, std::vector<asge::math::Float2> const& inWaypoints,
+    asge::math::Float2 inScreenPos ) noexcept
+{
+    constexpr float kPickRadius = 10.0f;
+    auto const& camera = inRenderer.GetCamera();
+    auto const& viewport = inRenderer.GetViewport();
+
+    int closest = -1;
+    float closestDistSq = kPickRadius * kPickRadius;
+    for ( std::size_t i = 0; i < inWaypoints.size(); ++i )
+    {
+        auto const screen = asge::video::WorldToScreen( camera, viewport, inWaypoints[i] );
+        float const dx = screen.x() - inScreenPos.x();
+        float const dy = screen.y() - inScreenPos.y();
+        float const distSq = dx * dx + dy * dy;
+        if ( distSq <= closestDistSq )
+        {
+            closest = static_cast<int>( i );
+            closestDistSq = distSq;
+        }
+    }
+    return closest;
 }
 
 /**
@@ -444,6 +480,20 @@ int main(int, char**)
     // active from the same drag.
     bool panningCamera = false;
 
+    // Phase 12: dragging an existing waypoint while "Select Waypoints" mode
+    // is active -- a click that lands on an existing point moves it instead
+    // of appending a new one. -1 means nothing's being dragged.
+    int draggingWaypointIndex = -1;
+
+    // Phase 12 step 4: Collider's "Draw Collider" viewport mode -- see
+    // ColliderDrawState's own doc comment. colliderDragging/
+    // colliderDragStartWorld are the drag's own ephemeral state, kept out
+    // of ColliderDrawState the same way draggingWaypointIndex is kept out
+    // of WaypointEditState.
+    ColliderDrawState colliderDraw;
+    bool colliderDragging = false;
+    asge::math::Float2 colliderDragStartWorld{};
+
     // Resume whatever asge.session last remembered, if it exists and its
     // project still does too -- everything it needs (window, sceneManager,
     // assets, vfs, gridSpacing/targetGameWidth/targetGameHeight,
@@ -491,6 +541,48 @@ int main(int, char**)
         }
     }
 
+    // Phase 12: shared by File > Save/Save Scene and the CTRL+S/CTRL+P
+    // shortcuts below, so there's one place that knows how to save each --
+    // re-checks currentProject itself (not a possibly-stale hasProject/
+    // hasActiveScene snapshot) since these can now fire from inside the
+    // event loop, before this frame's menu-bar code computes those.
+    auto const saveProjectNow = [&]() noexcept
+    {
+        if (!currentProject) return;
+        auto const saveResult = SaveProject(
+            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+        if (!saveResult) saveResult.LogError();
+        else LOG_INFO("Project saved to ", currentProject->m_FilePath.string());
+    };
+    auto const saveActiveSceneNow = [&]() noexcept
+    {
+        if (!currentProject
+         || currentProject->m_ActiveSceneIndex < 0
+         || currentProject->m_ActiveSceneIndex >= static_cast<int>(currentProject->m_Scenes.size())) return;
+        auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+        auto const saveResult = sceneManager.SaveScene(active.m_Path);
+        if (!saveResult) saveResult.LogError();
+        else
+        {
+            active.m_Dirty = false;
+            LOG_INFO("Scene saved to ", active.m_Path.string());
+        }
+    };
+
+    // Phase 12 step 4: an entity's world-space origin, for converting the
+    // "Draw Collider" viewport drag's absolute world points into
+    // Collider::m_LocalBounds' Transform-relative offset (see
+    // ViewportOverlay.cpp's DrawColliderOverlays for the same convention).
+    // {0,0} if the entity has no Transform, same fallback GetEntityWorldBounds uses.
+    auto const entityOrigin = [&]( asge::ecs::Entity inEntity ) noexcept -> asge::math::Float2
+    {
+        if ( auto t = sceneManager.GetRegistry().GetComponent<Transform>( inEntity ) )
+        {
+            return { t.Value().get().m_X, t.Value().get().m_Y };
+        }
+        return {};
+    };
+
     bool running = true;
     while (running)
     {
@@ -501,6 +593,13 @@ int main(int, char**)
          && !sceneManager.GetRegistry().HasComponent<PathFollow>(waypointEdit.m_Entity))
         {
             waypointEdit = WaypointEditState{};
+            draggingWaypointIndex = -1;
+        }
+        if (colliderDraw.m_Active
+         && !sceneManager.GetRegistry().HasComponent<Collider>(colliderDraw.m_Entity))
+        {
+            colliderDraw = ColliderDrawState{};
+            colliderDragging = false;
         }
 
         SDL_Event event;
@@ -520,8 +619,35 @@ int main(int, char**)
                 if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
                 {
                     pf.Value().get().m_Waypoints = waypointEdit.m_Snapshot;
+                    RebuildPath(pf.Value().get());
                 }
                 waypointEdit = WaypointEditState{};
+                draggingWaypointIndex = -1;
+            }
+            else if (event.type == SDL_EVENT_KEY_DOWN
+                   && event.key.key == SDLK_ESCAPE
+                   && colliderDraw.m_Active)
+            {
+                // Cancel -- restore whatever shape the entity had before
+                // this mode started.
+                if (auto collider = sceneManager.GetRegistry().GetComponent<Collider>(colliderDraw.m_Entity))
+                {
+                    collider.Value().get().m_LocalBounds = colliderDraw.m_Snapshot;
+                }
+                colliderDraw = ColliderDrawState{};
+                colliderDragging = false;
+            }
+            else if (event.type == SDL_EVENT_KEY_DOWN
+                   && (event.key.mod & SDL_KMOD_CTRL)
+                   && event.key.key == SDLK_S)
+            {
+                saveActiveSceneNow();
+            }
+            else if (event.type == SDL_EVENT_KEY_DOWN
+                   && (event.key.mod & SDL_KMOD_CTRL)
+                   && event.key.key == SDLK_P)
+            {
+                saveProjectNow();
             }
             else if (event.type == SDL_EVENT_MOUSE_WHEEL && !ImGui::GetIO().WantCaptureMouse)
             {
@@ -558,6 +684,27 @@ int main(int, char**)
                 panningCamera = false;
             }
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
+                   && event.button.button == SDL_BUTTON_RIGHT
+                   && !ImGui::GetIO().WantCaptureMouse
+                   && waypointEdit.m_Active)
+            {
+                // Right-click removes the waypoint under the cursor, if any.
+                asge::math::Float2 const screenPos{ event.button.x, event.button.y };
+                if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                {
+                    auto& waypoints = pf.Value().get().m_Waypoints;
+                    int const hitIndex = PickWaypointAt(videoSys.GetRenderer(), waypoints, screenPos);
+                    if (hitIndex >= 0)
+                    {
+                        waypoints.erase(waypoints.begin() + hitIndex);
+                        if (draggingWaypointIndex == hitIndex) draggingWaypointIndex = -1;
+                        else if (draggingWaypointIndex > hitIndex) --draggingWaypointIndex;
+                        RebuildPath(pf.Value().get());
+                        MarkActiveSceneDirty(currentProject);
+                    }
+                }
+            }
+            else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN
                    && event.button.button == SDL_BUTTON_LEFT
                    && !ImGui::GetIO().WantCaptureMouse)
             {
@@ -565,16 +712,55 @@ int main(int, char**)
 
                 if (waypointEdit.m_Active)
                 {
-                    // Phase 12: a click in this mode appends a waypoint to
-                    // the target entity instead of picking/dragging -- the
-                    // target stays fixed for the whole mode, so this never
-                    // touches selectedEntity/draggingEntity.
-                    auto const worldPos = asge::video::ScreenToWorld(
-                        videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
+                    // Phase 12: a click in this mode either grabs an
+                    // existing waypoint for dragging (landing on one) or
+                    // appends a new one -- the target stays fixed for the
+                    // whole mode, so this never touches selectedEntity/
+                    // draggingEntity.
                     if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
                     {
-                        pf.Value().get().m_Waypoints.push_back(worldPos);
-                        MarkActiveSceneDirty(currentProject);
+                        auto& waypoints = pf.Value().get().m_Waypoints;
+                        int const hitIndex = PickWaypointAt(videoSys.GetRenderer(), waypoints, screenPos);
+                        if (hitIndex >= 0)
+                        {
+                            draggingWaypointIndex = hitIndex;
+                        }
+                        else
+                        {
+                            auto const worldPos = asge::video::ScreenToWorld(
+                                videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
+                            waypoints.push_back(worldPos);
+                            RebuildPath(pf.Value().get());
+                            MarkActiveSceneDirty(currentProject);
+                        }
+                    }
+                }
+                else if (colliderDraw.m_Active)
+                {
+                    // Phase 12 step 4: starts the drag at the click point,
+                    // with a zero-size shape immediately so there's visible
+                    // feedback even before any motion -- SDL_EVENT_MOUSE_MOTION
+                    // below grows it as the mouse moves.
+                    colliderDragging = true;
+                    colliderDragStartWorld = asge::video::ScreenToWorld(
+                        videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
+                    if (auto collider = sceneManager.GetRegistry().GetComponent<Collider>(colliderDraw.m_Entity))
+                    {
+                        auto const origin = entityOrigin(colliderDraw.m_Entity);
+                        auto& bounds = collider.Value().get().m_LocalBounds;
+                        if (auto* rect = std::get_if<asge::math::Rect>(&bounds))
+                        {
+                            rect->m_X = colliderDragStartWorld.x() - origin.x();
+                            rect->m_Y = colliderDragStartWorld.y() - origin.y();
+                            rect->m_Width = 0.0f;
+                            rect->m_Height = 0.0f;
+                        }
+                        else if (auto* circle = std::get_if<asge::math::Circle>(&bounds))
+                        {
+                            circle->m_Center = asge::math::Float2{
+                                colliderDragStartWorld.x() - origin.x(), colliderDragStartWorld.y() - origin.y() };
+                            circle->m_Radius = 0.0f;
+                        }
                     }
                 }
                 else
@@ -606,6 +792,15 @@ int main(int, char**)
             else if (event.type == SDL_EVENT_MOUSE_BUTTON_UP && event.button.button == SDL_BUTTON_LEFT)
             {
                 draggingEntity = asge::ecs::Entity::Null();
+                draggingWaypointIndex = -1;
+                if (colliderDragging)
+                {
+                    // One-shot: a completed drag exits "Draw Collider" mode
+                    // automatically rather than staying open for another.
+                    colliderDragging = false;
+                    MarkActiveSceneDirty(currentProject);
+                    colliderDraw = ColliderDrawState{};
+                }
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION && draggingEntity != asge::ecs::Entity::Null())
             {
@@ -619,6 +814,60 @@ int main(int, char**)
                     if (dragAxis != GizmoAxis::Y) t.m_X += event.motion.xrel / zoom;
                     if (dragAxis != GizmoAxis::X) t.m_Y += event.motion.yrel / zoom;
                     MarkActiveSceneDirty(currentProject);
+                }
+            }
+            else if (event.type == SDL_EVENT_MOUSE_MOTION && draggingWaypointIndex >= 0)
+            {
+                if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                {
+                    auto& waypoints = pf.Value().get().m_Waypoints;
+                    if (draggingWaypointIndex < static_cast<int>(waypoints.size()))
+                    {
+                        // Same xrel/yrel/zoom delta as the entity free-drag above.
+                        float const zoom = videoSys.GetRenderer().GetCamera().m_Zoom;
+                        auto& waypoint = waypoints[static_cast<std::size_t>(draggingWaypointIndex)];
+                        waypoint.x() += event.motion.xrel / zoom;
+                        waypoint.y() += event.motion.yrel / zoom;
+                        RebuildPath(pf.Value().get());
+                        MarkActiveSceneDirty(currentProject);
+                    }
+                }
+                else
+                {
+                    draggingWaypointIndex = -1;
+                }
+            }
+            else if (event.type == SDL_EVENT_MOUSE_MOTION && colliderDragging)
+            {
+                if (auto collider = sceneManager.GetRegistry().GetComponent<Collider>(colliderDraw.m_Entity))
+                {
+                    auto const worldPos = asge::video::ScreenToWorld(
+                        videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(),
+                        asge::math::Float2{ event.motion.x, event.motion.y });
+                    auto const origin = entityOrigin(colliderDraw.m_Entity);
+                    auto& bounds = collider.Value().get().m_LocalBounds;
+                    if (auto* rect = std::get_if<asge::math::Rect>(&bounds))
+                    {
+                        float const startX = colliderDragStartWorld.x() - origin.x();
+                        float const startY = colliderDragStartWorld.y() - origin.y();
+                        float const curX = worldPos.x() - origin.x();
+                        float const curY = worldPos.y() - origin.y();
+                        rect->m_X = std::min(startX, curX);
+                        rect->m_Y = std::min(startY, curY);
+                        rect->m_Width = std::abs(curX - startX);
+                        rect->m_Height = std::abs(curY - startY);
+                    }
+                    else if (auto* circle = std::get_if<asge::math::Circle>(&bounds))
+                    {
+                        float const dx = worldPos.x() - colliderDragStartWorld.x();
+                        float const dy = worldPos.y() - colliderDragStartWorld.y();
+                        circle->m_Radius = std::sqrt(dx * dx + dy * dy);
+                    }
+                    MarkActiveSceneDirty(currentProject);
+                }
+                else
+                {
+                    colliderDragging = false;
                 }
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION && panningCamera)
@@ -825,33 +1074,16 @@ int main(int, char**)
                 ImGui::Separator();
 
                 if (!hasProject) ImGui::BeginDisabled();
-                if (ImGui::MenuItem("Save"))
-                {
-                    // A project always has a real m_FilePath the moment it
-                    // exists (Create a Project auto-saves it immediately),
-                    // so unlike Scene's Save this never needs a Save-As
-                    // fallback.
-                    auto const saveResult = SaveProject(
-                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
-                    if (!saveResult) saveResult.LogError();
-                    else LOG_INFO("Project saved to ", currentProject->m_FilePath.string());
-                }
+                // A project always has a real m_FilePath the moment it
+                // exists (Create a Project auto-saves it immediately), so
+                // unlike Scene's Save this never needs a Save-As fallback.
+                if (ImGui::MenuItem("Save", "Ctrl+P")) saveProjectNow();
                 if (ImGui::MenuItem("Save As...")) openSaveProjectAsDialog = true;
                 if (!hasProject) ImGui::EndDisabled();
 
                 ImGui::Separator();
                 if (!hasActiveScene) ImGui::BeginDisabled();
-                if (ImGui::MenuItem("Save Scene"))
-                {
-                    auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
-                    auto const saveResult = sceneManager.SaveScene(active.m_Path);
-                    if (!saveResult) saveResult.LogError();
-                    else
-                    {
-                        active.m_Dirty = false;
-                        LOG_INFO("Scene saved to ", active.m_Path.string());
-                    }
-                }
+                if (ImGui::MenuItem("Save Scene", "Ctrl+S")) saveActiveSceneNow();
                 if (!hasActiveScene) ImGui::EndDisabled();
 
                 ImGui::Separator();
@@ -1341,7 +1573,7 @@ int main(int, char**)
             KnownTexturePaths(sceneManager.GetRegistry()),
             KnownAnimationPaths(sceneManager.GetRegistry()),
             KnownAudioPaths(sceneManager.GetRegistry()),
-            waypointEdit);
+            waypointEdit, colliderDraw);
 
         if (inspectorResult.m_FieldChanged) MarkActiveSceneDirty(currentProject);
 
@@ -1409,7 +1641,8 @@ int main(int, char**)
         if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity))
         {
             DrawPathFollowWaypointOverlay(
-                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), pf.Value().get().m_Waypoints);
+                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), pf.Value().get().m_Waypoints,
+                waypointEdit.m_Active, pf.Value().get().m_Resolution);
         }
 
         ImGui::Render();

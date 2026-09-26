@@ -203,9 +203,34 @@ bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTex
     return pathChanged;
 }
 
-bool DrawInspector( Collider& inCollider ) noexcept
+// Per-entity cache of each shape's own last-seen dimensions, so switching
+// Rect -> Circle -> Rect restores what was there before rather than always
+// resetting to a fresh default (Phase 12 step 4). Never pruned, same as
+// g_EntityDisplayIds above -- a stale entry for a since-deleted entity just
+// sits unused.
+std::unordered_map<asge::ecs::Entity, std::pair<asge::math::Rect, asge::math::Circle>> g_ColliderShapeCache;
+
+bool DrawInspector( Collider& inCollider, asge::ecs::Entity inEntity, ColliderDrawState& ioColliderDraw ) noexcept
 {
     bool changed = false;
+    auto& [cachedRect, cachedCircle] = g_ColliderShapeCache[inEntity];
+
+    // Mirrors whatever's currently live every frame -- picks up edits made
+    // either by the fields below or by the "Draw Collider" viewport mode
+    // (main.cpp mutates inCollider.m_LocalBounds directly, not through
+    // here), so a later shape switch always restores the true last state.
+    if ( auto* rect = std::get_if<asge::math::Rect>( &inCollider.m_LocalBounds ) ) cachedRect = *rect;
+    else if ( auto* circle = std::get_if<asge::math::Circle>( &inCollider.m_LocalBounds ) ) cachedCircle = *circle;
+
+    static char const* const kShapeNames[]{ "Rect", "Circle" };
+    int shapeIndex = static_cast<int>( inCollider.m_LocalBounds.index() );
+    if ( ImGui::Combo( "Collider Shape", &shapeIndex, kShapeNames, 2 ) )
+    {
+        inCollider.m_LocalBounds = shapeIndex == 0
+            ? ColliderShape{ cachedRect }
+            : ColliderShape{ cachedCircle };
+        changed = true;
+    }
 
     if ( auto* rect = std::get_if<asge::math::Rect>( &inCollider.m_LocalBounds ) )
     {
@@ -219,12 +244,34 @@ bool DrawInspector( Collider& inCollider ) noexcept
     else if ( auto* circle = std::get_if<asge::math::Circle>( &inCollider.m_LocalBounds ) )
     {
         float center[2]{ circle->m_Center.x(), circle->m_Center.y() };
-        if ( ImGui::DragFloat2( "Center", center ) )
+        if ( ImGui::DragFloat2( "Circle Center", center ) )
         {
             circle->m_Center = asge::math::Float2{ center[0], center[1] };
             changed = true;
         }
         if ( ImGui::DragFloat( "Radius", &circle->m_Radius ) ) changed = true;
+    }
+
+    bool const drawingThis = ioColliderDraw.m_Active && ioColliderDraw.m_Entity == inEntity;
+    if ( drawingThis )
+    {
+        ImGui::TextDisabled( "Drag on the viewport to define the shape; ESC to cancel." );
+    }
+    else
+    {
+        if ( ImGui::Button( "Draw Collider" ) )
+        {
+            ioColliderDraw.m_Active = true;
+            ioColliderDraw.m_Entity = inEntity;
+            ioColliderDraw.m_Snapshot = inCollider.m_LocalBounds;
+        }
+        ImGui::SameLine();
+        if ( ImGui::Button( "Reset Collider" ) )
+        {
+            if ( auto* rect = std::get_if<asge::math::Rect>( &inCollider.m_LocalBounds ) ) *rect = asge::math::Rect{};
+            else if ( auto* circle = std::get_if<asge::math::Circle>( &inCollider.m_LocalBounds ) ) *circle = asge::math::Circle{};
+            changed = true;
+        }
     }
 
     static char const* const kResolutionNames[]{ "Unknown", "Trigger", "Solid" };
@@ -308,6 +355,7 @@ bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Entity inEntity, Waypoi
     if ( ImGui::DragInt( "Resolution", &resolution, 1.0f, 1, 256 ) )
     {
         inPathFollow.m_Resolution = static_cast<std::size_t>( resolution );
+        RebuildPath( inPathFollow ); // m_Path's sampling density depends on this, unlike Speed/Loop
         changed = true;
     }
     return changed;
@@ -537,7 +585,8 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
-    WaypointEditState& ioWaypointEdit ) noexcept
+    WaypointEditState& ioWaypointEdit,
+    ColliderDrawState& ioColliderDraw ) noexcept
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return {};
 
@@ -581,7 +630,7 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= rigidbodyChanged;
     bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
-    bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider" );
+    bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider", inSelected, ioColliderDraw );
     fieldChanged |= colliderChanged;
     bool const cameraChanged = DrawSection<Camera>( inRegistry, inSelected, "Camera" );
     fieldChanged |= cameraChanged;

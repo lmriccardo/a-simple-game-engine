@@ -4,6 +4,7 @@
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
 
 #include <imgui.h>
 
@@ -326,34 +327,70 @@ void DrawCameraOverlays(
 
 void DrawPathFollowWaypointOverlay(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
-    std::vector<asge::math::Float2> const& inWaypoints ) noexcept
+    std::vector<asge::math::Float2> const& inWaypoints, bool inActive, std::size_t inResolution ) noexcept
 {
     if ( inWaypoints.empty() ) return;
 
     auto const& camera = inRenderer.GetCamera();
     auto const& viewport = inRenderer.GetViewport();
-    constexpr ImU32 kFillColor = IM_COL32( 255, 210, 60, 130 );
-    constexpr ImU32 kLineColor = IM_COL32( 255, 210, 60, 90 );
-    float const r = 6.0f;
+    ImU32 const kFillColor = inActive ? IM_COL32( 255, 220, 70, 230 ) : IM_COL32( 255, 210, 60, 130 );
+    ImU32 const kLineColor = inActive ? IM_COL32( 255, 220, 70, 200 ) : IM_COL32( 255, 210, 60, 90 );
+    float const r = inActive ? 9.0f : 6.0f; // fixed screen pixels -- not scaled by camera.m_Zoom, so markers stay the same size at any zoom
 
-    ImVec2 previousTip{};
-    bool havePrevious = false;
+    // The classic straight connect-the-dots, always drawn.
+    for ( std::size_t i = 1; i < inWaypoints.size(); ++i )
+    {
+        auto const a = ToImVec2( asge::video::WorldToScreen( camera, viewport, inWaypoints[i - 1] ) );
+        auto const b = ToImVec2( asge::video::WorldToScreen( camera, viewport, inWaypoints[i] ) );
+        inDrawList->AddLine( a, b, kLineColor, 2.0f );
+    }
+
+    // Outside "Select Waypoints" mode, also overlay the actual interpolated
+    // curve on top -- rebuilt fresh from inWaypoints every call rather than
+    // trusting the entity's own PathFollow::m_Path, which
+    // asset::Resolver<PathFollow> only ever builds once (see its own doc
+    // comment) and would otherwise go stale the moment a waypoint's added/
+    // moved/removed here.
+    if ( !inActive && inWaypoints.size() >= 2 )
+    {
+        constexpr ImU32 kSplineColor = IM_COL32( 90, 190, 255, 200 );
+        asge::math::CatmullRomSpline const spline( inWaypoints, inResolution );
+        if ( spline.HasSegments() )
+        {
+            // PointAt() evaluates the Hermite curve directly at a
+            // normalized, segment-distributed parameter -- the curve's
+            // actual shape never depends on inResolution (that only feeds
+            // the arc-length table PointAtDistance/TimeAtDistance use for
+            // constant-speed movement). So inResolution is applied here
+            // instead, as the sample count per segment -- the same density
+            // each segment's own arc-length table is built at -- giving a
+            // visibly chunkier/smoother preview as it's dragged, same as it
+            // visibly changes how finely PathFollowingSystem can resolve
+            // distance along the curve at runtime.
+            int const samples = std::max(
+                2, static_cast<int>( spline.Segments().size() ) * static_cast<int>( inResolution ) );
+            auto previous = ToImVec2( asge::video::WorldToScreen( camera, viewport, spline.PointAt( 0.0f ) ) );
+            for ( int i = 1; i <= samples; ++i )
+            {
+                float const t = static_cast<float>( i ) / static_cast<float>( samples );
+                auto const curr = ToImVec2( asge::video::WorldToScreen( camera, viewport, spline.PointAt( t ) ) );
+                inDrawList->AddLine( previous, curr, kSplineColor, 2.5f );
+                previous = curr;
+            }
+        }
+    }
+
     for ( auto const& waypoint : inWaypoints )
     {
-        auto const tip = ToImVec2( asge::video::WorldToScreen( camera, viewport, waypoint ) );
-        if ( havePrevious ) inDrawList->AddLine( previousTip, tip, kLineColor, 2.0f );
-
         // A map-pin/drop shape, its point sitting exactly on the waypoint's
         // world position -- a circular head plus a triangle closing it down
         // to that point, overlapping so the silhouette reads as one shape.
+        auto const tip = ToImVec2( asge::video::WorldToScreen( camera, viewport, waypoint ) );
         ImVec2 const head{ tip.x, tip.y - r * 1.4f };
         inDrawList->AddCircleFilled( head, r, kFillColor );
         ImVec2 const left{ head.x - r * 0.85f, head.y + r * 0.55f };
         ImVec2 const right{ head.x + r * 0.85f, head.y + r * 0.55f };
         inDrawList->AddTriangleFilled( left, right, tip, kFillColor );
-
-        previousTip = tip;
-        havePrevious = true;
     }
 }
 
