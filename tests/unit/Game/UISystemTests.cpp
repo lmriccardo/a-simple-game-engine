@@ -72,7 +72,7 @@ constexpr Camera kIdentityCamera{ .m_X = 0.0f, .m_Y = 0.0f, .m_Zoom = 1.0f };
 
 // ─── No UIHitList resource ──────────────────────────────────────────────────
 
-TEST(UIButtonSystemTest, NoUIHitListResourceSet_LeavesEveryInteractableUntouched)
+TEST(UIInteractionSystemTest, NoUIHitListResourceSet_LeavesEveryInteractableUntouched)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -86,7 +86,7 @@ TEST(UIButtonSystemTest, NoUIHitListResourceSet_LeavesEveryInteractableUntouched
 
 // ─── Hover resolution ───────────────────────────────────────────────────────
 
-TEST(UIButtonSystemTest, PointerOverScreenSpaceButton_SetsHovered)
+TEST(UIInteractionSystemTest, PointerOverScreenSpaceButton_SetsHovered)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -100,7 +100,7 @@ TEST(UIButtonSystemTest, PointerOverScreenSpaceButton_SetsHovered)
     EXPECT_TRUE( Interact(registry, entity).m_Hovered );
 }
 
-TEST(UIButtonSystemTest, PointerOutsideEveryRect_HoveredIsFalse)
+TEST(UIInteractionSystemTest, PointerOutsideEveryRect_HoveredIsFalse)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -115,7 +115,7 @@ TEST(UIButtonSystemTest, PointerOutsideEveryRect_HoveredIsFalse)
     EXPECT_FALSE( Interact(registry, entity).m_Hovered );
 }
 
-TEST(UIButtonSystemTest, InteractableWithNoMatchingHitEntry_NeverHovered)
+TEST(UIInteractionSystemTest, InteractableWithNoMatchingHitEntry_NeverHovered)
 {
     // An Interactable the hit list simply doesn't mention (e.g. RenderSystem
     // culled it out this frame) must not stay stuck hovered from before.
@@ -130,7 +130,7 @@ TEST(UIButtonSystemTest, InteractableWithNoMatchingHitEntry_NeverHovered)
     EXPECT_FALSE( Interact(registry, entity).m_Hovered );
 }
 
-TEST(UIButtonSystemTest, OverlappingEntries_LastInTheListWinsAsTheTopmost)
+TEST(UIInteractionSystemTest, OverlappingEntries_LastInTheListWinsAsTheTopmost)
 {
     // UIHitList is documented back-to-front, so the last entry is whatever
     // drew on top -- ties over the same pointer position must resolve to it.
@@ -151,7 +151,7 @@ TEST(UIButtonSystemTest, OverlappingEntries_LastInTheListWinsAsTheTopmost)
 
 // ─── Disabled Interactable ───────────────────────────────────────────────────
 
-TEST(UIButtonSystemTest, DisabledInteractable_ForcedHoveredAndHeldFalseRegardlessOfHitList)
+TEST(UIInteractionSystemTest, DisabledInteractable_ForcedHoveredAndHeldFalseRegardlessOfHitList)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -170,7 +170,7 @@ TEST(UIButtonSystemTest, DisabledInteractable_ForcedHoveredAndHeldFalseRegardles
 
 // ─── Screen space vs. world space ───────────────────────────────────────────
 
-TEST(UIButtonSystemTest, ScreenSpaceEntry_TestedAgainstRawMousePosition)
+TEST(UIInteractionSystemTest, ScreenSpaceEntry_TestedAgainstRawMousePosition)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -186,7 +186,7 @@ TEST(UIButtonSystemTest, ScreenSpaceEntry_TestedAgainstRawMousePosition)
     EXPECT_TRUE( Interact(registry, entity).m_Hovered );
 }
 
-TEST(UIButtonSystemTest, WorldSpaceEntry_TestedAgainstCameraUnprojectedPosition)
+TEST(UIInteractionSystemTest, WorldSpaceEntry_TestedAgainstCameraUnprojectedPosition)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -204,7 +204,7 @@ TEST(UIButtonSystemTest, WorldSpaceEntry_TestedAgainstCameraUnprojectedPosition)
 
 // ─── Press / release / click ────────────────────────────────────────────────
 
-TEST(UIButtonSystemTest, PressWhileHovered_SetsHeld)
+TEST(UIInteractionSystemTest, PressWhileHovered_SetsHeld)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -222,7 +222,7 @@ TEST(UIButtonSystemTest, PressWhileHovered_SetsHeld)
     EXPECT_TRUE( Interact(registry, entity).m_Held );
 }
 
-TEST(UIButtonSystemTest, PressWhileNotHovered_LeavesHeldFalse)
+TEST(UIInteractionSystemTest, PressWhileNotHovered_LeavesHeldFalse)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -240,7 +240,7 @@ TEST(UIButtonSystemTest, PressWhileNotHovered_LeavesHeldFalse)
     EXPECT_FALSE( Interact(registry, entity).m_Held );
 }
 
-TEST(UIButtonSystemTest, ReleaseWhileHeldAndHovered_SetsClickedFiresOnClickAndClearsHeld)
+TEST(UIInteractionSystemTest, ReleaseWhileHeldAndHovered_SetsClickedFiresOnClickAndClearsHeld)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -265,7 +265,7 @@ TEST(UIButtonSystemTest, ReleaseWhileHeldAndHovered_SetsClickedFiresOnClickAndCl
     EXPECT_FALSE( Interact(registry, entity).m_Held );
 }
 
-TEST(UIButtonSystemTest, MClickedIsEdgeTriggered_FalseAgainOnTheFollowingFrame)
+TEST(UIInteractionSystemTest, MClickedIsEdgeTriggered_FalseAgainOnTheFollowingFrame)
 {
     Registry registry;
     auto const entity = AddButton( registry );
@@ -280,7 +280,7 @@ TEST(UIButtonSystemTest, MClickedIsEdgeTriggered_FalseAgainOnTheFollowingFrame)
     EXPECT_FALSE( Interact(registry, entity).m_Clicked );
 }
 
-TEST(UIButtonSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotFireOnClick)
+TEST(UIInteractionSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotFireOnClick)
 {
     // Pressed down on the button, dragged off it, then released -- a
     // cancelled click, not a completed one.
@@ -307,7 +307,7 @@ TEST(UIButtonSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotFireOnClick)
     EXPECT_FALSE( Interact(registry, entity).m_Held ); // still cleared regardless
 }
 
-TEST(UIButtonSystemTest, ReleaseWhileNeverHeld_DoesNotFireOnClick)
+TEST(UIInteractionSystemTest, ReleaseWhileNeverHeld_DoesNotFireOnClick)
 {
     // A release with no prior press on this button (e.g. the drag started
     // elsewhere) must not be mistaken for a click just because it's hovered.
