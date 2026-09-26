@@ -23,12 +23,19 @@
  * comment), so clicking the overlap resolves to the front button, while
  * clicking the exposed sliver still resolves to the back one.
  *
- * None of the four buttons has a UILabel, so nothing renders through
- * IRenderer::DrawString here; clicks are logged to the console instead.
+ * A third row, built through asge::game::ui::CreateLabel/CreateButton
+ * instead of hand-wiring components like the four buttons above, adds
+ * UILabel to the mix: a standalone label with no explicit size (UILabel::
+ * m_AutoSize -- LabelDesc::m_Size left as nullopt), a button sized to
+ * comfortably fit its own caption, and a button too small for its caption
+ * -- button labels never auto-size, and DrawString doesn't clip yet, so
+ * that one's text just overflows past the button's edges.
+ *
  * Hover/held/m_OnClick are entirely engine-driven: SpawnEntities() sets the
  * resources::UIHitList resource once, RenderSystem rebuilds it every frame,
  * and Update() just calls systems::UIInteractionSystem -- this state never
- * touches InputState's mouse queries or a button's rect itself.
+ * touches InputState's mouse queries or a button's rect itself. Clicks are
+ * logged to the console.
  */
 class UIDemoState final : public asge::game::state::IGameState<int>
 {

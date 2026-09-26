@@ -1,5 +1,7 @@
 #include "Game.hpp"
 
+#include <ASGE/Game/UI.hpp>
+
 namespace
 {
 using asge::game::components::Interactable;
@@ -9,8 +11,14 @@ using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UIRect;
 using asge::game::resources::UIHitList;
+using asge::game::ui::ButtonDesc;
+using asge::game::ui::CreateButton;
+using asge::game::ui::CreateLabel;
+using asge::game::ui::LabelDesc;
+using asge::game::ui::TextDesc;
 
 constexpr char const* kSpriteTexturePath = "textures/checker.bmp";
+constexpr char const* kFontPath = "fonts/PTSans-Regular.ttf";
 
 // asge::math::Float2 has no constexpr constructor (see Vec2's variadic ctor),
 // so positions/sizes are kept as plain floats and assembled at point of use.
@@ -27,6 +35,17 @@ constexpr float kOverlapFrontX = 220.0f, kOverlapFrontY = 420.0f;
 // bottom and right edges stays outside m_OverlapFront's rect -- click there.
 constexpr float kOverlapShift = 30.0f;
 constexpr float kOverlapBackX = kOverlapFrontX + kOverlapShift, kOverlapBackY = kOverlapFrontY + kOverlapShift;
+
+// Third row: built through asge::game::ui's CreateLabel/CreateButton
+// instead of hand-wiring components one at a time, unlike everything above.
+constexpr float kRow3Y = 530.0f;
+constexpr float kAutoLabelX = 60.0f;
+
+constexpr float kFittingButtonX = 320.0f;
+constexpr float kFittingButtonW = 150.0f, kFittingButtonH = 40.0f;
+
+constexpr float kCroppedButtonX = 560.0f;
+constexpr float kCroppedButtonW = 70.0f, kCroppedButtonH = 24.0f; // too small for its own label
 }
 
 UIDemoState::UIDemoState(
@@ -134,6 +153,50 @@ void UIDemoState::SpawnEntities()
     {
         result.Value().get().m_OnClick.Connect( []{ LOG_INFO( "Front button (B1) clicked!" ); } );
     }
+
+    // A standalone label with no explicit UIRect size -- asge::game::ui::
+    // LabelDesc::m_Size left as nullopt means "fit the text" (UILabel::
+    // m_AutoSize = true), the auto-sizing counterpart to the two buttons
+    // below, whose labels always take the button's own fixed size instead.
+    auto autoLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = "AutoLabel",
+        .m_Position = { kAutoLabelX, kRow3Y },
+        .m_Text = TextDesc{
+            .m_Content = "Autosizable label!",
+            .m_FontPath = kFontPath,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !autoLabel ) autoLabel.LogError();
+
+    // Sized generously for its short caption -- the label fits comfortably
+    // inside the button with room to spare.
+    auto fittingButton = CreateButton( m_Registry, ButtonDesc{
+        .m_Name = "FittingButton",
+        .m_Position = { kFittingButtonX, kRow3Y - 5.0f },
+        .m_Size = { kFittingButtonW, kFittingButtonH },
+        .m_Text = TextDesc{ .m_Content = "OK", .m_FontPath = kFontPath, .m_Align = asge::str::TextAlign::Center, .m_Color = asge::graphics::colors::s_Black },
+        .m_OnClick = []{ LOG_INFO( "Fitting button clicked!" ); },
+    } );
+    if ( !fittingButton ) fittingButton.LogError();
+
+    // A small button with a long caption -- button labels never auto-size
+    // (see asge::game::ui::CreateButton), and RenderSystem's DrawString has
+    // no clipping yet, so the text simply overflows past the button's edges
+    // instead of being cut off at them.
+    auto croppedButton = CreateButton( m_Registry, ButtonDesc{
+        .m_Name = "CroppedButton",
+        .m_Position = { kCroppedButtonX, kRow3Y },
+        .m_Size = { kCroppedButtonW, kCroppedButtonH },
+        .m_Text = TextDesc{
+            .m_Content = "Way too long for this button",
+            .m_FontPath = kFontPath,
+            .m_FontPixelHeight = 14,
+            .m_Color = asge::graphics::colors::s_Black,
+        },
+        .m_OnClick = []{ LOG_INFO( "Cropped button clicked!" ); },
+    } );
+    if ( !croppedButton ) croppedButton.LogError();
 }
 
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
@@ -178,6 +241,13 @@ void UIDemoState::Render(asge::video::IRenderer &inRenderer)
     // Deferred-loads the sprite button's Sprite::m_Texture on first use.
     m_Assets.ResolveAssets( m_Registry, inRenderer );
 
+    // The four hand-wired buttons above set Transform::m_WorldCoordinates
+    // directly, but asge::game::ui::CreateLabel/CreateButton (the third row)
+    // only set m_LocalCoordinates (+ m_Dirty) -- ordinary Transform usage,
+    // meant to be flattened into m_WorldCoordinates by this system, which
+    // RenderPipeline itself doesn't call.
+    asge::game::systems::TransformPropagationSystem( m_Registry );
+
     asge::game::systems::RenderPipeline( m_Registry, inRenderer, 0.0f );
 
     RenderSpriteButtonOutline( inRenderer );
@@ -190,11 +260,14 @@ void UIDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const 
 UIDemoGame::UIDemoGame(asge::video::IRenderer& inRenderer, asge::audio::AudioDevice& inAudioDev)
 : Game(inRenderer, inAudioDev)
 {
-    // ASGE_UI_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted once so
-    // the sprite button's texture loads by virtual path rather than a
+    // ASGE_UI_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted twice
+    // (same directory, two virtual prefixes) so the sprite button's texture
+    // and the labels' font both load by virtual path rather than a
     // hardcoded OS path baked into this demo.
     auto mountResult = m_Vfs.Mount("textures", ASGE_UI_DEMO_ASSET_DIR);
     if ( !mountResult ) mountResult.LogError();
+    auto fontsMountResult = m_Vfs.Mount("fonts", ASGE_UI_DEMO_ASSET_DIR);
+    if ( !fontsMountResult ) fontsMountResult.LogError();
 
     SetInitialState(0);
 }
