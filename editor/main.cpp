@@ -43,6 +43,8 @@ namespace
 using asge::game::components::Transform;
 using asge::game::components::PathFollow;
 using asge::game::components::Collider;
+using asge::game::components::Animation;
+using asge::game::components::StopAnimation;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
@@ -243,6 +245,20 @@ void SwitchToScene(
     ResetEntityDisplayIds();
     inAssets.ResolveAssets( inSceneManager.GetRegistry(), inRenderer );
     RegisterSceneAssets( inSceneManager.GetRegistry() );
+
+    // Serializer<Animation>::ToToml never writes m_Playing (see its own doc
+    // comment -- a scene file describes what an entity's animation IS, not
+    // where a previous run left it), so FromToml always leaves every loaded
+    // Animation at the struct's in-code default, m_Playing=true. Correct for
+    // a real game loading a level; wrong here, where RenderPipeline runs
+    // AnimationSystem every frame purely to render the viewport -- every
+    // animated entity would otherwise start cycling the instant a scene
+    // loads/switches, the same unwanted auto-play this editor's "Add
+    // Component" already guards against for a freshly-added one.
+    for ( auto [ entity, animation ] : inSceneManager.GetRegistry().View<Animation>() )
+    {
+        StopAnimation( animation.get() );
+    }
 }
 
 /**
@@ -1611,7 +1627,7 @@ int main(int, char**)
         // Inspector.hpp's DrawInspectorPanel).
         AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
         if (assetPick.m_Kind != AssetPickKind::None) selectedAsset = assetPick;
-        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice);
+        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry());
 
         // Always-on panel: lists/adds VirtualFileSystem mounts, and surfaces
         // any root the current scene's assets reference but isn't mounted --

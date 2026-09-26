@@ -160,8 +160,25 @@ AssetPick DrawAssetBrowserPanel(
                 }
                 else if ( asge::game::asset::FrameTable::IsFrameTable( picked ) )
                 {
-                    g_LoadedAnimations.insert( virtualPath );
-                    LOG_INFO( "Loaded animation clip ", virtualPath );
+                    // Beyond just being a [FrameTable] table, a clip
+                    // imported this way must also name the texture it
+                    // slices (m_OriginAsset) -- one hand-authored or
+                    // produced elsewhere without it is rejected rather than
+                    // imported half-identified; one made by this editor's
+                    // own "Create Clip" always has it set.
+                    auto loadedClip = asge::game::asset::FrameTable::Load( picked );
+                    if ( !loadedClip || loadedClip.Value().m_OriginAsset.empty() )
+                    {
+                        LOG_WARNING(
+                            "\"", virtualPath, "\" is a FrameTable clip with no m_OriginAsset -- rejected" );
+                    }
+                    else
+                    {
+                        std::string const originPath( loadedClip.Value().m_OriginAsset );
+                        g_LoadedAnimations.insert( virtualPath );
+                        g_LoadedTextures.insert( originPath );
+                        LOG_INFO( "Loaded animation clip ", virtualPath, " (origin: ", originPath, ")" );
+                    }
                 }
                 else if ( HasAudioExtension( picked ) )
                 {

@@ -316,6 +316,23 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
 {
     bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
     ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
+
+    // Added components start stopped (see MakeComponentEntry's Add lambda
+    // above), and every scene load/switch stops them too (see
+    // SwitchToScene) -- this button is the only remaining way to turn one
+    // on. Purely a live, runtime m_Playing flip for previewing, same as
+    // PlayAnimation/StopAnimation always were; nothing here round-trips
+    // through TOML. Label/action flips with the live state so a currently-
+    // playing clip shows "Stop", not a stale "Play".
+    if ( inAnimation.m_Playing )
+    {
+        if ( ImGui::Button( "Stop" ) ) StopAnimation( inAnimation );
+    }
+    else
+    {
+        if ( ImGui::Button( "Play" ) ) PlayAnimation( inAnimation );
+    }
+
     return clipChanged;
 }
 
@@ -382,9 +399,33 @@ constexpr ComponentEntry MakeComponentEntry( char const* inName ) noexcept
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
         { return inRegistry.HasComponent<T>( inEntity ); },
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
-        { inRegistry.AddComponent<T>( inEntity, T{} ); },
+        {
+            T component{};
+            // A freshly-added Animation shouldn't start cycling frames in
+            // the editor's own viewport (RenderPipeline runs AnimationSystem
+            // every frame) the moment a clip path is picked -- AudioSource
+            // already defaults m_Playing to false for the same reason;
+            // Animation's own in-code default (true) is right for a game
+            // spawning one ready-to-go, just not for this editor action.
+            if constexpr ( std::is_same_v<T, Animation> ) StopAnimation( component );
+            inRegistry.AddComponent<T>( inEntity, component );
+        },
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
-        { if ( auto const result = inRegistry.RemoveComponent<T>( inEntity ); !result ) result.LogError(); }
+        {
+            // AnimationSystem writes each cropped frame straight into the
+            // Sprite's own m_SourceRect (RenderSystem.cpp) -- removing
+            // Animation doesn't touch that, so without this the Sprite is
+            // left showing whatever frame it was last cropped to instead of
+            // going back to the whole spritesheet (m_SourceRect == nullopt).
+            if constexpr ( std::is_same_v<T, Animation> )
+            {
+                if ( auto sprite = inRegistry.GetComponent<Sprite>( inEntity ) )
+                {
+                    sprite.Value().get().m_SourceRect = std::nullopt;
+                }
+            }
+            if ( auto const result = inRegistry.RemoveComponent<T>( inEntity ); !result ) result.LogError();
+        }
     };
 }
 
