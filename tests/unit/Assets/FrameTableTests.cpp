@@ -94,6 +94,26 @@ TEST_F(FrameTableLoadTest, MissingFrameTableSectionDefaultsToEmptyFrameListRathe
     EXPECT_TRUE(result.Value().m_Frames.empty());
 }
 
+TEST_F(FrameTableLoadTest, MissingOriginAssetDefaultsToEmptyRatherThanFailing)
+{
+    // Load() itself never rejects a clip missing m_OriginAsset (that's the
+    // level editor's own "Load Asset..." import gate, not an engine-level
+    // parse rule) -- it just defaults to empty, same as any other unset field.
+    Write(
+        "[FrameTable]\n"
+        "x = 0.0\n"
+        "y = 0.0\n"
+        "w = 8.0\n"
+        "h = 8.0\n"
+        "columns = 2\n"
+        "count = 4\n"
+    );
+
+    auto result = FrameTable::Load(m_Path);
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value().m_OriginAsset.empty());
+}
+
 TEST_F(FrameTableLoadTest, NonExistentPathReturnsError)
 {
     auto result = FrameTable::Load(m_Path); // Never written by this test
@@ -106,6 +126,44 @@ TEST_F(FrameTableLoadTest, MalformedTomlReturnsError)
 
     auto result = FrameTable::Load(m_Path);
     EXPECT_FALSE(result.IsOk());
+}
+
+// ─── FrameTable::Save ───────────────────────────────────────────────────────
+
+class FrameTableSaveTest : public FrameTableLoadTest {};
+
+TEST_F(FrameTableSaveTest, WritesASchemaLoadCanReadBack)
+{
+    auto const saveResult = FrameTable::Save(m_Path, asge::math::Rect{ 2.0f, 3.0f, 8.0f, 8.0f }, 2, 3, "sprites/hero.png");
+    ASSERT_TRUE(saveResult.IsOk());
+
+    auto loadResult = FrameTable::Load(m_Path);
+    ASSERT_TRUE(loadResult.IsOk());
+    ASSERT_EQ(loadResult.Value().m_Frames.size(), 3u);
+    EXPECT_FLOAT_EQ(loadResult.Value().m_Frames[0].m_X, 2.0f);
+    EXPECT_FLOAT_EQ(loadResult.Value().m_Frames[0].m_Y, 3.0f);
+    EXPECT_FLOAT_EQ(loadResult.Value().m_Frames[1].m_X, 10.0f); // col 1, row 0
+    EXPECT_EQ(loadResult.Value().m_OriginAsset, "sprites/hero.png");
+}
+
+TEST_F(FrameTableSaveTest, OverwritesAnExistingFileRatherThanFailing)
+{
+    Write("title = \"stale content\"\n");
+
+    auto const saveResult = FrameTable::Save(m_Path, asge::math::Rect{ 0.0f, 0.0f, 4.0f, 4.0f }, 1, 1, "sheet.png");
+    ASSERT_TRUE(saveResult.IsOk());
+
+    auto loadResult = FrameTable::Load(m_Path);
+    ASSERT_TRUE(loadResult.IsOk());
+    EXPECT_EQ(loadResult.Value().m_Frames.size(), 1u);
+}
+
+TEST_F(FrameTableSaveTest, WrittenFileIsRecognizedAsAFrameTable)
+{
+    auto const saveResult = FrameTable::Save(m_Path, asge::math::Rect{ 0.0f, 0.0f, 4.0f, 4.0f }, 2, 4, "sheet.png");
+    ASSERT_TRUE(saveResult.IsOk());
+
+    EXPECT_TRUE(FrameTable::IsFrameTable(m_Path));
 }
 
 // ─── FrameTable::IsFrameTable ──────────────────────────────────────────────

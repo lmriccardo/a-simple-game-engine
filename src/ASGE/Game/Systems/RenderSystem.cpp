@@ -102,11 +102,30 @@ void asge::game::systems::CameraSystem(
 
     auto& cameraComp = cameraResult.Value().get();
     auto& transform  = transformResult.Value().get();
+
+    // The point the camera actually follows -- a Sprite's own visual
+    // center (its dest rect's midpoint) if this entity has one resolved,
+    // since Transform::m_X/m_Y is that rect's top-left corner (see
+    // SpriteGetDstRect), not its middle; centering the viewport on the
+    // corner would render the sprite offset down-right from screen-center
+    // instead of actually centered. Falls back to the raw Transform point
+    // for an entity with no Sprite (or an unresolved one) to follow instead.
+    float followX = transform.m_X;
+    float followY = transform.m_Y;
+    if ( auto spriteResult = inRegistry.GetComponent<components::Sprite>( entity ) )
+    {
+        if ( auto dst = components::SpriteGetDstRect( spriteResult.Value().get(), transform ) )
+        {
+            followX = dst->m_X + dst->m_Width  * 0.5f;
+            followY = dst->m_Y + dst->m_Height * 0.5f;
+        }
+    }
+
     video::Camera camera = inRenderer.GetCamera();
     camera.m_Zoom = cameraComp.m_Zoom;
 
-    float const targetX = transform.m_X - inRenderer.GetViewport().m_Width  / ( 2.0f * camera.m_Zoom );
-    float const targetY = transform.m_Y - inRenderer.GetViewport().m_Height / ( 2.0f * camera.m_Zoom );
+    float const targetX = followX - inRenderer.GetViewport().m_Width  / ( 2.0f * camera.m_Zoom );
+    float const targetY = followY - inRenderer.GetViewport().m_Height / ( 2.0f * camera.m_Zoom );
 
     if ( cameraComp.m_Smoothing <= 0.0f )
     {

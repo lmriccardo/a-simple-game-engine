@@ -23,8 +23,8 @@ bool asge::game::components::details::LayersCanCollide( Collider const& inA, Col
     return ( inA.m_Layer & inB.m_Mask ) != 0 && ( inB.m_Layer & inA.m_Mask ) != 0;
 }
 
-void asge::game::components::Serializer<asge::game::components::Collider>::ToToml(
-    Collider inCollider, asge::config::toml::TOMLTableView inTview ) noexcept
+void asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(
+    components::Collider inCollider, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table(std::string(kTableName));
     std::visit( [&table]( auto const& inShape )
@@ -34,20 +34,20 @@ void asge::game::components::Serializer<asge::game::components::Collider>::ToTom
         Serializer<ShapeT>::ToToml( inShape, table );
     }, inCollider.m_LocalBounds);
 
-    table.Set<str::String>( "m_Resolution", details::ToString( inCollider.m_Resolution ) );
+    table.Set<str::String>( "m_Resolution", components::details::ToString( inCollider.m_Resolution ) );
     table.Set<int>( "m_Layer", static_cast<int>( inCollider.m_Layer ) );
     table.Set<int>( "m_Mask",  static_cast<int>( inCollider.m_Mask ) );
 }
 
-asge::game::components::Collider asge::game::components::Serializer<asge::game::components::Collider>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView ) noexcept
+asge::game::components::Collider asge::game::scene::Serializer<asge::game::components::Collider>::FromToml(
+    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     auto table = inEnttView.Table(std::string(kTableName));
     // Defaults to "Rect" so a scene file saved before Circle existed --
     // no "m_Shape" key at all -- still parses as a Rect, unchanged.
     auto shapeKind = table.Get("m_Shape", std::string("Rect"));
 
-    Collider result{};
+    components::Collider result{};
 
     if ( shapeKind == Serializer<math::Rect>::kShapeName )
     {
@@ -58,9 +58,9 @@ asge::game::components::Collider asge::game::components::Serializer<asge::game::
         result.m_LocalBounds = Serializer<math::Circle>::FromToml( table );
     }
 
-    result.m_Resolution = details::FromString( table.Get( "m_Resolution", std::string("Solid") ) );
-    result.m_Layer = static_cast<CollisionLayer>( table.Get<int>("m_Layer", 1) );
-    result.m_Mask  = static_cast<CollisionLayer>( table.Get<int>("m_Mask", -1) );
+    result.m_Resolution = components::details::FromString( table.Get( "m_Resolution", std::string("Solid") ) );
+    result.m_Layer = static_cast<components::CollisionLayer>( table.Get<int>("m_Layer", 1) );
+    result.m_Mask  = static_cast<components::CollisionLayer>( table.Get<int>("m_Mask", -1) );
 
     return result;
 }

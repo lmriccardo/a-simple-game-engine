@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\.asgeproject]
+@="ASGE.Project"
+
+[HKEY_CURRENT_USER\Software\Classes\ASGE.Project]
+@="ASGE Project"
+
+[HKEY_CURRENT_USER\Software\Classes\ASGE.Project\DefaultIcon]
+@="C:\\Users\\ricca\\Desktop\\dev\\asge\\worktrees\\level_editor\\editor\\assets\\asge-project-icon.ico,0"

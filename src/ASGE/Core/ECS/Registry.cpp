@@ -41,3 +41,11 @@ void asge::ecs::Registry::DestroyAllEntities() noexcept
         }
     }
 }
+
+void asge::ecs::Registry::ForEachEntity(std::function<void(Entity const &)> m_Callback) const
+{
+    for ( auto const& entity : AllEntities() )
+    {
+        m_Callback( entity );
+    }
+}

@@ -4,7 +4,7 @@
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Strings.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -67,14 +67,25 @@ bool LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept;
 
 }
 
-template<>
-struct Serializer<Collider>
+}
+
+namespace asge::game::scene
 {
-    using T = Collider;
+
+template<>
+struct Serializer<components::Collider>
+{
+    using T = components::Collider;
     static constexpr str::StringView kTableName = "Collider";
 
-    static void ToToml( Collider inCollider, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
+    static void ToToml(
+                            components::Collider inCollider,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inEnttView,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

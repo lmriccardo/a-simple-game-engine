@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Strings.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -15,16 +15,27 @@ struct Velocity
     float m_DY{0.0f}; // change in Y per second
 };
 
-template<>
-struct Serializer<Velocity>
-{
-    using T = Velocity;
+}
 
-    /** @brief The subtable name ToToml/FromToml agree on — see Serializer<Transform>::kTableName. */
+namespace asge::game::scene
+{
+
+/** @brief The subtable name ToToml/FromToml agree on — see Serializer<components::Transform>::kTableName. */
+template<>
+struct Serializer<components::Velocity>
+{
+    using T = components::Velocity;
+
     static constexpr str::StringView kTableName = "Velocity";
 
-    static void ToToml( Velocity inVelocity, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inEnttView ) noexcept;
+    static void ToToml(
+                            components::Velocity inVelocity,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inEnttView,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

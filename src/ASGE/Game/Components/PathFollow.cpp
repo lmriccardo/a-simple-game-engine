@@ -2,8 +2,15 @@
 
 #include <algorithm>
 
-void asge::game::components::Serializer<asge::game::components::PathFollow>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview ) noexcept
+void asge::game::components::RebuildPath( PathFollow& inPathFollow ) noexcept
+{
+    inPathFollow.m_Path = math::CatmullRomSpline( inPathFollow.m_Waypoints, inPathFollow.m_Resolution );
+    inPathFollow.m_Traveled = 0.0f;
+    inPathFollow.m_Finished = false;
+}
+
+void asge::game::scene::Serializer<asge::game::components::PathFollow>::ToToml(
+    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 
@@ -23,13 +30,13 @@ void asge::game::components::Serializer<asge::game::components::PathFollow>::ToT
     table.Set( "m_Resolution", static_cast<int>(inValue.m_Resolution) );
 }
 
-asge::game::components::PathFollow 
-asge::game::components::Serializer<asge::game::components::PathFollow>::FromToml( 
-    asge::config::toml::TOMLTableView inTview ) noexcept
+asge::game::components::PathFollow
+asge::game::scene::Serializer<asge::game::components::PathFollow>::FromToml(
+    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 
-    PathFollow result;
+    T result;
     result.m_Speed = table.Get( "m_Speed", result.m_Speed );
     result.m_Loop  = table.Get( "m_Loop",  result.m_Loop  );
     result.m_Resolution = static_cast<std::size_t>(

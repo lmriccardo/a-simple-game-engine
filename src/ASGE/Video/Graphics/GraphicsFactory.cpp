@@ -31,12 +31,12 @@ void asge::video::ShutdownBackend(GraphicsBackend inBackend)
 }
 
 std::unique_ptr<IWindow> asge::video::CreateWindow(
-    GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight)
+    GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight, bool inResizable)
 {
     switch (inBackend)
     {
     case GraphicsBackend::SDL:
-        return std::make_unique<SDLWindow>(inTitle, inWidth, inHeight);
+        return std::make_unique<SDLWindow>(inTitle, inWidth, inHeight, inResizable);
     }
 
     return nullptr;

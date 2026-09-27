@@ -34,14 +34,19 @@ ASGE is under active development, worked through a
 - 🚧 Audio, UI, and more — see
   [docs/roadmap](docs/roadmap/README.md) for the full plan.
 
+Separately, an in-development [level editor](docs/level_editor_roadmap/roadmap.md)
+(`asge-editor`, Dear ImGui-based) is being built on top of the engine —
+see its own roadmap doc for what's built and what's still planned.
+
 ## Repository layout
 
 ```
 src/ASGE/       Engine source (Application, Core, Events, Game, Input, Video)
 examples/       Small standalone programs demonstrating each subsystem
+editor/         In-development Dear ImGui level editor (asge-editor)
 tests/          GoogleTest unit test suite
 docs/roadmap/   Design docs and the phased implementation roadmap
-scripts/        Dependency-fetching scripts (SDL3, stb) for each platform
+scripts/        Dependency-fetching scripts (SDL3, stb, Dear ImGui) for each platform
 third-party/    Vendored dependencies (fetched by the scripts above)
 cmake/          CMake package config used when ASGE is installed
 ```
@@ -234,6 +239,26 @@ two things a real game needs beyond the empty overrides above — see
 [examples/texture_demo](examples/texture_demo) (`IRenderer::DrawTexture`)
 and [examples/moving_box](examples/moving_box)
 (`InputState::IsKeyDown`/`IsKeyPressed`).
+
+## Level editor
+
+`asge-editor` is an in-development, Dear ImGui-based level editor: a
+separate executable that links the engine directly (no dependency on
+`Game`/`IGameState`) and edits scenes through the exact same
+`SceneManager`/`Serializer<T>` path a game itself uses — no parallel
+schema, no parallel renderer. It builds alongside the engine when
+`ASGE_BUILD_EDITOR` is `ON` (the default):
+
+```bash
+cmake --build --preset windows --target asge-editor   # or the linux / macos equivalent
+```
+
+Currently supports loading/saving scene files; selecting entities from the
+viewport or an entity list; editing every serializable component type; a
+world-space grid and collider-bounds overlays in the viewport; and
+repositioning entities via free-drag or a translate gizmo. See
+[docs/level_editor_roadmap/roadmap.md](docs/level_editor_roadmap/roadmap.md)
+for the phased build-out and what's still ahead.
 
 ## Testing
 

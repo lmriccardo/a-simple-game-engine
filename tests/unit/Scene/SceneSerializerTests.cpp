@@ -110,14 +110,14 @@ TEST_F(SceneSerializerTest, Save_EntityWithSubsetOfComponents_WritesOnlyThoseSub
     EXPECT_TRUE(entityView.HasTable("Sprite"));
     EXPECT_FALSE(entityView.HasTable("Velocity"));
 
-    Transform const restoredTransform = Serializer<Transform>::FromToml( entityView );
+    Transform const restoredTransform = Serializer<Transform>::FromToml(entityView, asge::game::scene::LoadContext{});
     EXPECT_FLOAT_EQ(restoredTransform.m_X, transform.m_X);
     EXPECT_FLOAT_EQ(restoredTransform.m_Y, transform.m_Y);
     EXPECT_FLOAT_EQ(restoredTransform.m_Rotation, transform.m_Rotation);
     EXPECT_FLOAT_EQ(restoredTransform.m_ScaleX, transform.m_ScaleX);
     EXPECT_FLOAT_EQ(restoredTransform.m_ScaleY, transform.m_ScaleY);
 
-    Sprite const restoredSprite = Serializer<Sprite>::FromToml( entityView );
+    Sprite const restoredSprite = Serializer<Sprite>::FromToml(entityView, asge::game::scene::LoadContext{});
     EXPECT_EQ(restoredSprite.m_VirtualPath, sprite.m_VirtualPath);
 }
 
@@ -141,14 +141,14 @@ TEST_F(SceneSerializerTest, Save_MultipleEntities_WritesOneArrayTableEachInCreat
 
     auto firstView = root.GetTable("entity[0]").Value();
     EXPECT_TRUE(firstView.HasTable("Velocity"));
-    EXPECT_FLOAT_EQ(Serializer<Velocity>::FromToml( firstView ).m_DX, 1.0f);
+    EXPECT_FLOAT_EQ(Serializer<Velocity>::FromToml(firstView, asge::game::scene::LoadContext{}).m_DX, 1.0f);
 
     auto secondView = root.GetTable("entity[1]").Value();
     EXPECT_FALSE(secondView.HasTable("Velocity"));
 
     auto thirdView = root.GetTable("entity[2]").Value();
     EXPECT_TRUE(thirdView.HasTable("Velocity"));
-    EXPECT_FLOAT_EQ(Serializer<Velocity>::FromToml( thirdView ).m_DX, 3.0f);
+    EXPECT_FLOAT_EQ(Serializer<Velocity>::FromToml(thirdView, asge::game::scene::LoadContext{}).m_DX, 3.0f);
 
     EXPECT_FALSE(root.HasTable("entity[3]"));
 }

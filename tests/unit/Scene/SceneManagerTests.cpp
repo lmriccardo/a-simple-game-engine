@@ -246,6 +246,59 @@ TEST_F(SceneManagerTest, UnloadScene_OnlyDestroysTheActiveScenesEntitiesLeavingO
     EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 999.0f);
 }
 
+// ─── RenameActiveScene ──────────────────────────────────────────────────────
+
+TEST_F(SceneManagerTest, RenameActiveScene_RetagsActiveEntitiesAndUpdatesCurrentPath)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+
+    manager.RenameActiveScene("scenes/renamed.toml");
+
+    ASSERT_TRUE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(*manager.CurrentScenePath(), "scenes/renamed.toml");
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u); // still findable, now under the new path
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty()); // nothing left under the old one
+}
+
+TEST_F(SceneManagerTest, RenameActiveScene_LeavesOtherResidentScenesUntouched)
+{
+    WriteValidScene(m_ScenePath);
+    auto const pathB = m_Root / "b.toml";
+    WriteValidScene(pathB);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // b.toml active, scene.toml resident-inactive
+
+    manager.RenameActiveScene("scenes/renamed.toml");
+
+    // b.toml is the (now-renamed) active scene, so EntitiesInScene sees it
+    // directly in the live Registry.
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/b.toml").empty()); // nothing left tagged under the old identity
+    EXPECT_EQ(manager.EntitiesInScene("scenes/renamed.toml").size(), 1u);
+
+    // scene.toml is merely snapshotted (suspended, not active) at this point
+    // -- EntitiesInScene only ever sees the live Registry, so it correctly
+    // reports empty here (see its own doc comment); switching back to it is
+    // what actually proves the unrelated rename didn't touch its snapshot.
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty());
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u); // untouched
+}
+
+TEST_F(SceneManagerTest, RenameActiveScene_WithNothingActiveJustEstablishesThePath)
+{
+    SceneManager manager{ m_Vfs }; // nothing loaded -- the File > New case, nothing to retag
+
+    manager.RenameActiveScene("scenes/untitled.toml");
+
+    ASSERT_TRUE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(*manager.CurrentScenePath(), "scenes/untitled.toml");
+    EXPECT_TRUE(manager.ActiveEntities().empty());
+}
+
 // ─── SaveScene ──────────────────────────────────────────────────────────────
 
 TEST_F(SceneManagerTest, SaveScene_SavesOnlyTheActiveScenesEntities)

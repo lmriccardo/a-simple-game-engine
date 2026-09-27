@@ -87,11 +87,37 @@ add_library(stb::stb_vorbis ALIAS stb_vorbis)
 target_include_directories(stb_vorbis PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/stb>")
 
+# Dear ImGui, vendored via scripts/install-imgui.* into third-party/imgui --
+# compiled from source (no prebuilt lib/find_package, unlike SDL) since
+# that's how ImGui is meant to be consumed. Only the core widgets/backend
+# needed by asge-editor are built; multi-viewport/docking are opt-in flags
+# ImGui itself gates at runtime, not separate source files, so nothing extra
+# is pulled in by not enabling them.
+add_library(imgui STATIC
+    third-party/imgui/imgui.cpp
+    third-party/imgui/imgui_draw.cpp
+    third-party/imgui/imgui_tables.cpp
+    third-party/imgui/imgui_widgets.cpp
+    third-party/imgui/imgui_demo.cpp
+    third-party/imgui/backends/imgui_impl_sdl3.cpp
+    third-party/imgui/backends/imgui_impl_sdlrenderer3.cpp
+)
+add_library(imgui::imgui ALIAS imgui)
+target_include_directories(imgui PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui/backends>")
+target_link_libraries(imgui PUBLIC SDL3::SDL3)
+
 add_subdirectory(src/ASGE)
 
 option(ASGE_BUILD_EXAMPLES "Build the examples folder" ON)
 if(ASGE_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+option(ASGE_BUILD_EDITOR "Build the asge-editor tool" ON)
+if(ASGE_BUILD_EDITOR)
+    add_subdirectory(editor)
 endif()
 
 if(BUILD_TESTING)

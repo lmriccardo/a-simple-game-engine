@@ -1,7 +1,7 @@
 #pragma once
 
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -32,6 +32,26 @@ struct PathFollow
 };
 
 /**
+ * @brief Rebuilds inPathFollow.m_Path from its current m_Waypoints/
+ *        m_Resolution and resets m_Traveled/m_Finished back to their
+ *        defaults.
+ *
+ * asset::Resolver<PathFollow> only ever builds m_Path once (see its own doc
+ * comment) — correct for a component that's just been loaded from a scene
+ * file, but wrong the moment something mutates m_Waypoints/m_Resolution
+ * afterward (the level editor's viewport waypoint editing, say), which
+ * would otherwise leave m_Path silently pointing at the old shape. Call
+ * this any time you mutate either field directly instead of relying on
+ * ResolveAssets to notice.
+ */
+void RebuildPath( PathFollow& inPathFollow ) noexcept;
+
+}
+
+namespace asge::game::scene
+{
+
+/**
  * @brief Round-trips m_Waypoints/m_Speed/m_Loop/m_Resolution only — see
  *        AudioSource's Serializer doc comment for why a scene file
  *        describes what an entity's path is, not where a previous run left
@@ -39,14 +59,20 @@ struct PathFollow
  *        in-code defaults, resolved later by asset::Resolver<PathFollow>.
  */
 template<>
-struct Serializer<PathFollow>
+struct Serializer<components::PathFollow>
 {
     static constexpr str::StringView kTableName = "PathFollow";
 
-    using T = PathFollow;
+    using T = components::PathFollow;
 
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+    static void ToToml(
+                            T inValue,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

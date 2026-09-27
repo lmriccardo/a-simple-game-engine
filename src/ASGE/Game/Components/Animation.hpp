@@ -3,7 +3,7 @@
 #include <memory>
 #include <ASGE/Game/Assets/Asset.hpp>
 #include <ASGE/Game/Assets/FrameTable.hpp>
-#include "Serialize.hpp"
+#include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
@@ -53,6 +53,11 @@ void PlayAnimation( Animation& inAnim, bool inLoop = true ) noexcept;
 /** @brief Pauses playback in place; AnimationSystem stops advancing this Animation until PlayAnimation is called again. */
 void StopAnimation( Animation& inAnim ) noexcept;
 
+}
+
+namespace asge::game::scene
+{
+
 /**
  * @brief Round-trips m_ClipPath and m_FrameDuration only — which clip to
  *        play and how fast, not the live playback progress. FromToml leaves
@@ -63,14 +68,20 @@ void StopAnimation( Animation& inAnim ) noexcept;
  *        animation is, not where a previous run happened to leave it.
  */
 template<>
-struct Serializer<Animation>
+struct Serializer<components::Animation>
 {
     static constexpr str::StringView kTableName = "Animation";
 
-    using T = Animation;
+    using T = components::Animation;
 
-    static void ToToml( T inValue, asge::config::toml::TOMLTableView inTview ) noexcept;
-    static T FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+    static void ToToml(
+                            T inValue,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }
