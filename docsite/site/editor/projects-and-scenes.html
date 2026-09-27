@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Projects &amp; Scenes &middot; ASGE Editor</title>
+<meta name="description" content="Creating/opening an ASGE project, managing multiple scenes, and autosaved editor sessions."/>
+<meta property="og:title" content="Projects &amp; Scenes &middot; ASGE Editor"/>
+<meta property="og:description" content="Creating/opening an ASGE project, managing multiple scenes, and autosaved editor sessions."/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links">
+    <a href="../index.html">Overview</a>
+    <a href="../install.html">Install</a>
+    <a href="../examples/index.html">Examples</a>
+    <a href="index.html" class="active">Editor</a>
+    <a href="../api/index.html">API Reference</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<main>
+
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; Editor overview</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">Level Editor</span>
+        <h1>Projects &amp; Scenes</h1>
+        <p class="lede">A project is the durable unit; a scene is one of the project's levels. The
+        editor tracks both, plus a lightweight session remembering what you had open.</p>
+        <p>An <strong>ASGE Project</strong> (<code>.asgeproject</code>) records VFS mounts, known asset
+        paths, view settings (grid spacing, target game window size) and the list of the project's
+        scene files. Each <strong>Scene</strong> (<code>.asgescene</code>) is a plain TOML file holding
+        one level's entities -- the same format <code>SceneManager::SaveScene</code>/<code>LoadScene</code>
+        use anywhere else in the engine. A small <code>asge.session</code> file next to the executable
+        remembers which project and scene were active, auto-saved every 30 seconds and restored on
+        the next launch.</p>
+      </div>
+      <div class="example-media"><img src="../assets/img/editor/file-menu.png" alt="File menu with New > Create a Project.../Create a Scene... expanded"/></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>File menu</h2>
+    <p class="lede">Everything project/scene-related lives under <strong>File</strong>:</p>
+    <ul class="controls-list">
+      <li><kbd>New &gt; Create a Project...</kbd> <span>Name, folder, grid spacing and game window size; auto-creates and saves an "Empty Scene"</span></li>
+      <li><kbd>New &gt; Create a Scene...</kbd> <span>Adds a new scene to the current project (disabled without one)</span></li>
+      <li><kbd>Save</kbd> / <kbd>Ctrl+P</kbd> <span>Saves only the project file (mounts, assets, view, scene list) -- never scene data, even a dirty scene</span></li>
+      <li><kbd>Save As...</kbd> <span>Copies the project and every scene file to a new folder</span></li>
+      <li><kbd>Save Scene</kbd> / <kbd>Ctrl+S</kbd> <span>Saves the active scene's entities</span></li>
+      <li><kbd>Open...</kbd> / <kbd>Open Scene...</kbd> <span>Opens an existing <code>.asgeproject</code> / adds an existing <code>.asgescene</code> to the current project</span></li>
+    </ul>
+    <p class="lede">Every scene-affecting menu item is disabled while no project is open, and
+    scene-specific ones stay disabled until a scene is active -- there's nowhere for a
+    freshly-created entity or asset import to persist to otherwise.</p>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Multi-scene switching</h2>
+    <div class="example-media" style="grid-template-columns:1fr;">
+      <img src="../assets/img/editor/project-scene-hud.png" alt="Project/Scene HUD panel showing the active project name and a Scene dropdown"/>
+    </div>
+    <p class="lede" style="margin-top:16px;">A small HUD panel next to the viewport's mouse-position
+    readout always shows <code>Project: &lt;name&gt;</code> and a <strong>Scene</strong> dropdown listing
+    every scene the project knows about. Picking a different one switches the active scene --
+    saving the outgoing one first if it's dirty (a filled dot next to the dropdown marks unsaved
+    changes) -- and resets selection, dirty state, and asset resolution for the incoming one.</p>
+    <p>Under the hood, <code>SceneManager</code> keeps exactly one scene's entities live at a time:
+    switching away suspends the outgoing scene into an in-memory snapshot rather than destroying it,
+    and switching back to an already-visited scene restores that snapshot instead of re-reading from
+    disk -- fast repeat switching with no risk of a stale scene's entities bleeding into rendering,
+    picking, or the entity list.</p>
+    <p>The Scene panel itself also lets you rename the active scene in place -- this moves its
+    actual <code>.asgescene</code> file on disk to match, it doesn't leave a copy behind under the old name.</p>
+  </div>
+</section>
+
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE &mdash; A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<script src="../assets/js/main.js"></script>
+
+</body>
+</html>
