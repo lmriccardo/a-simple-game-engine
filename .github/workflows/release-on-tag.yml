@@ -57,6 +57,10 @@ jobs:
       - name: Build
         run: cmake --build --preset ${{ matrix.build_preset }} --config Release
 
+      - name: Install NSIS on Windows
+        if: runner.os == 'Windows'
+        run: choco install nsis -y --no-progress
+
       - name: Package installer (CPack)
         working-directory: build
         run: cpack -C Release
