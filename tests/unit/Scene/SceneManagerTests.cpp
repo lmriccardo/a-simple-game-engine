@@ -274,9 +274,18 @@ TEST_F(SceneManagerTest, RenameActiveScene_LeavesOtherResidentScenesUntouched)
 
     manager.RenameActiveScene("scenes/renamed.toml");
 
-    EXPECT_EQ(manager.EntitiesInScene("scenes/scene.toml").size(), 1u); // untouched
-    EXPECT_TRUE(manager.EntitiesInScene("scenes/b.toml").empty());
+    // b.toml is the (now-renamed) active scene, so EntitiesInScene sees it
+    // directly in the live Registry.
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/b.toml").empty()); // nothing left tagged under the old identity
     EXPECT_EQ(manager.EntitiesInScene("scenes/renamed.toml").size(), 1u);
+
+    // scene.toml is merely snapshotted (suspended, not active) at this point
+    // -- EntitiesInScene only ever sees the live Registry, so it correctly
+    // reports empty here (see its own doc comment); switching back to it is
+    // what actually proves the unrelated rename didn't touch its snapshot.
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty());
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u); // untouched
 }
 
 TEST_F(SceneManagerTest, RenameActiveScene_WithNothingActiveJustEstablishesThePath)
