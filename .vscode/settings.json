@@ -21,6 +21,7 @@
         "audio",
         "versioning",
         "claude-skills",
-        "ui"
+        "ui",
+        "agent"
     ]
 }

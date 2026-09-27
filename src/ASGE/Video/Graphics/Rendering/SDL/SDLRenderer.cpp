@@ -320,6 +320,11 @@ bool asge::video::SDLRenderer::IsValid() const
     return m_Renderer != nullptr;
 }
 
+void* asge::video::SDLRenderer::NativeHandle() const noexcept
+{
+    return m_Renderer;
+}
+
 void asge::video::SDLRenderer::SetCamera( Camera const& inCamera )
 {
     m_Camera = inCamera;

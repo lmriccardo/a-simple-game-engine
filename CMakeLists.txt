@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.31.0)
-project(asge VERSION 0.8.2 LANGUAGES C CXX)
+project(asge VERSION 0.8.5 LANGUAGES C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(ASGE_EDITOR_VERSION 1.1)
+set(PACKAGE_VERSION "${PROJECT_VERSION}e${ASGE_EDITOR_VERSION}")
 
 include(CTest)
 include(GNUInstallDirs)
@@ -87,11 +89,37 @@ add_library(stb::stb_vorbis ALIAS stb_vorbis)
 target_include_directories(stb_vorbis PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/stb>")
 
+# Dear ImGui, vendored via scripts/install-imgui.* into third-party/imgui --
+# compiled from source (no prebuilt lib/find_package, unlike SDL) since
+# that's how ImGui is meant to be consumed. Only the core widgets/backend
+# needed by asge-editor are built; multi-viewport/docking are opt-in flags
+# ImGui itself gates at runtime, not separate source files, so nothing extra
+# is pulled in by not enabling them.
+add_library(imgui STATIC
+    third-party/imgui/imgui.cpp
+    third-party/imgui/imgui_draw.cpp
+    third-party/imgui/imgui_tables.cpp
+    third-party/imgui/imgui_widgets.cpp
+    third-party/imgui/imgui_demo.cpp
+    third-party/imgui/backends/imgui_impl_sdl3.cpp
+    third-party/imgui/backends/imgui_impl_sdlrenderer3.cpp
+)
+add_library(imgui::imgui ALIAS imgui)
+target_include_directories(imgui PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui/backends>")
+target_link_libraries(imgui PUBLIC SDL3::SDL3)
+
 add_subdirectory(src/ASGE)
 
 option(ASGE_BUILD_EXAMPLES "Build the examples folder" ON)
 if(ASGE_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+option(ASGE_BUILD_EDITOR "Build the asge-editor tool" ON)
+if(ASGE_BUILD_EDITOR)
+    add_subdirectory(editor)
 endif()
 
 if(BUILD_TESTING)
@@ -126,4 +154,84 @@ if(ASGE_INSTALL)
         NAMESPACE ASGE::
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/ASGE"
     )
+endif()
+
+# ── CPack: end-user installers for asge-editor ──────────────────────────────
+# Wraps whatever install() rules are active (editor/CMakeLists.txt's, mainly)
+# into a real platform installer: an NSIS .exe on Windows, a .deb on Linux,
+# a drag-and-drop .dmg on macOS. `cpack` is a separate step after a normal
+# build+install, not part of the default build -- run `cpack` (or `cpack -G
+# NSIS`/`DEB`/`DragNDrop` explicitly) from the build directory once
+# ASGE_INSTALL/ASGE_BUILD_EDITOR are both ON.
+if(ASGE_INSTALL AND ASGE_BUILD_EDITOR)
+    set(CPACK_PACKAGE_NAME "ASGE Editor")
+    set(CPACK_PACKAGE_VENDOR "ASGE")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A Simple Game Engine -- Level Editor")
+    set(CPACK_PACKAGE_VERSION "${PACKAGE_VERSION}")
+    set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/lmriccardo/a-simple-game-engine")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/LICENSE")
+        set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+    endif()
+
+    if(WIN32)
+        set(CPACK_GENERATOR "NSIS")
+        set(CPACK_PACKAGE_FILE_NAME "asge-editor-${PACKAGE_VERSION}-windows-x64")
+        set(CPACK_PACKAGE_INSTALL_DIRECTORY "ASGE Editor")
+        set(CPACK_NSIS_DISPLAY_NAME "ASGE Editor")
+        set(CPACK_NSIS_PACKAGE_NAME "ASGE Editor")
+        set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/editor/assets/icon.ico")
+        set(CPACK_NSIS_INSTALLED_ICON_NAME "asge-editor.exe")
+
+        # Registers .asgeproject/.asgescene's Explorer icon under HKCU (no
+        # admin rights needed) -- the installer-time equivalent of the .reg
+        # files the editor itself ships (see docs/level_editor_roadmap), but
+        # pointing at wherever THIS install actually landed ($INSTDIR)
+        # instead of a hardcoded dev-machine path, and cleaned up on
+        # uninstall.
+        #
+        # Backslashes are doubled, not single, even though bracket syntax
+        # ([[...]]) itself does no escape processing: CPack re-serializes
+        # this variable into a normal double-quoted set() inside the
+        # CPackConfig.cmake it generates, and that file is then re-parsed as
+        # CMake script by `cpack` itself -- a single "\C"/"\a" there is an
+        # invalid escape sequence. Doubling here is what survives that one
+        # extra round-trip and lands as a single backslash in the final .nsi.
+        #
+        # Single-quoted NSIS string literals, not double-quoted, for the
+        # same reason: that same re-serialization wraps this whole block in
+        # ONE outer double-quoted string with no escaping of embedded quotes
+        # -- a double-quoted literal in here would prematurely close it. NSIS
+        # itself accepts either quote style, so single-quoting sidesteps the
+        # collision entirely rather than fighting it.
+        set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS [[
+  WriteRegStr HKCU 'Software\\Classes\\.asgeproject' '' 'ASGE.Project'
+  WriteRegStr HKCU 'Software\\Classes\\ASGE.Project' '' 'ASGE Project'
+  WriteRegStr HKCU 'Software\\Classes\\ASGE.Project\\DefaultIcon' '' '$INSTDIR\\assets\\asge-project-icon.ico,0'
+  WriteRegStr HKCU 'Software\\Classes\\.asgescene' '' 'ASGE.Scene'
+  WriteRegStr HKCU 'Software\\Classes\\ASGE.Scene' '' 'ASGE Scene'
+  WriteRegStr HKCU 'Software\\Classes\\ASGE.Scene\\DefaultIcon' '' '$INSTDIR\\assets\\asge-scene-icon.ico,0'
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+]])
+        set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS [[
+  DeleteRegKey HKCU 'Software\\Classes\\.asgeproject'
+  DeleteRegKey HKCU 'Software\\Classes\\ASGE.Project'
+  DeleteRegKey HKCU 'Software\\Classes\\.asgescene'
+  DeleteRegKey HKCU 'Software\\Classes\\ASGE.Scene'
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, i 0, i 0)'
+]])
+    elseif(APPLE)
+        set(CPACK_GENERATOR "DragNDrop")
+        set(CPACK_PACKAGE_FILE_NAME "asge-editor-${PACKAGE_VERSION}-macos-arm64")
+        set(CPACK_DMG_VOLUME_NAME "ASGE Editor")
+    else()
+        set(CPACK_GENERATOR "DEB")
+        set(CPACK_PACKAGE_FILE_NAME "asge-editor-${PACKAGE_VERSION}-linux-x64")
+        set(CPACK_DEBIAN_PACKAGE_MAINTAINER "lmriccardo <noreply@github.com>")
+        set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
+        set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+            "${CMAKE_SOURCE_DIR}/editor/packaging/linux/postinst"
+            "${CMAKE_SOURCE_DIR}/editor/packaging/linux/postrm")
+    endif()
+
+    include(CPack)
 endif()

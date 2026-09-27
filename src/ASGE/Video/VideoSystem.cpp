@@ -18,7 +18,7 @@ void asge::video::VideoSystem::Shutdown()
 }
 
 BoolResult asge::video::VideoSystem::Initialize(std::string const &inTitle, int inWidth, int inHeight,
-    GraphicsBackend inBackend)
+    GraphicsBackend inBackend, bool inResizable)
 {
     m_Backend = inBackend;
 
@@ -29,7 +29,7 @@ BoolResult asge::video::VideoSystem::Initialize(std::string const &inTitle, int 
     }
     m_BackendInitialized = true;
 
-    m_Window = video::CreateWindow(inBackend, inTitle, inWidth, inHeight);
+    m_Window = video::CreateWindow(inBackend, inTitle, inWidth, inHeight, inResizable);
     if (!m_Window || !m_Window->IsValid())
     {
         Shutdown();
@@ -54,4 +54,14 @@ video::IRenderer &asge::video::VideoSystem::GetRenderer()
 video::IRenderer const &asge::video::VideoSystem::GetRenderer() const
 {
     return *m_Renderer;
+}
+
+video::IWindow &asge::video::VideoSystem::GetWindow()
+{
+    return *m_Window;
+}
+
+video::IWindow const &asge::video::VideoSystem::GetWindow() const
+{
+    return *m_Window;
 }

@@ -167,6 +167,9 @@ public:
     // Checks if the current renderer is valid or not
     [[nodiscard]] virtual bool IsValid() const = 0;
 
+    // Returns the backend-native renderer handle (e.g. SDL_Renderer*)
+    [[nodiscard]] virtual void* NativeHandle() const noexcept = 0;
+
     /**
      * @brief Sets the camera every subsequent draw call is transformed through
      *

@@ -27,3 +27,10 @@ void asge::logger::Logger::SetLogLevel(LogLevel inLevel) noexcept
 {
     m_Level.store(inLevel, std::memory_order_relaxed);
 }
+
+asge::signals::Signal<LogRecord const&>::conn_type 
+asge::logger::Logger::OnLogConnect(
+    signals::Signal<LogRecord const &>::slot_type inCallback)
+{
+    return m_OnLog.Connect( inCallback );
+}

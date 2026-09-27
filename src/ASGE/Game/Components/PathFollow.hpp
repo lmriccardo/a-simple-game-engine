@@ -31,6 +31,21 @@ struct PathFollow
     bool                   m_Finished{false}; // Whether a non-looping path has reached its end
 };
 
+/**
+ * @brief Rebuilds inPathFollow.m_Path from its current m_Waypoints/
+ *        m_Resolution and resets m_Traveled/m_Finished back to their
+ *        defaults.
+ *
+ * asset::Resolver<PathFollow> only ever builds m_Path once (see its own doc
+ * comment) — correct for a component that's just been loaded from a scene
+ * file, but wrong the moment something mutates m_Waypoints/m_Resolution
+ * afterward (the level editor's viewport waypoint editing, say), which
+ * would otherwise leave m_Path silently pointing at the old shape. Call
+ * this any time you mutate either field directly instead of relying on
+ * ResolveAssets to notice.
+ */
+void RebuildPath( PathFollow& inPathFollow ) noexcept;
+
 }
 
 namespace asge::game::scene

@@ -83,12 +83,14 @@ TEST_F(SceneManagerTest, LoadScene_InvalidPathLeavesActiveSceneUntouched)
     auto result = manager.LoadScene("scenes/does_not_exist.toml");
     EXPECT_FALSE(result.IsOk());
 
-    // The failed load never touched the scene already active.
+    // The failed load never touched the scene already active -- not even
+    // by suspending it into a snapshot before finding out the new load fails.
     auto active = manager.ActiveEntities();
     ASSERT_EQ(active.size(), 1u);
     EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 5.0f);
     ASSERT_TRUE(manager.CurrentScenePath().has_value());
     EXPECT_EQ(*manager.CurrentScenePath(), "scenes/scene.toml");
+    EXPECT_EQ(manager.CachedSceneCount(), 0u); // never suspended
 }
 
 // ─── LoadSceneFromFile ──────────────────────────────────────────────────────
@@ -118,12 +120,14 @@ TEST_F(SceneManagerTest, LoadSceneFromFile_InvalidPathLeavesActiveSceneUntouched
     auto result = manager.LoadSceneFromFile(m_Root / "does_not_exist.toml");
     EXPECT_FALSE(result.IsOk());
 
-    // The failed load never touched the scene already active.
+    // The failed load never touched the scene already active -- not even
+    // by suspending it into a snapshot before finding out the new load fails.
     auto active = manager.ActiveEntities();
     ASSERT_EQ(active.size(), 1u);
     EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 5.0f);
     ASSERT_TRUE(manager.CurrentScenePath().has_value());
     EXPECT_EQ(*manager.CurrentScenePath(), m_ScenePath.string());
+    EXPECT_EQ(manager.CachedSceneCount(), 0u); // never suspended
 }
 
 TEST_F(SceneManagerTest, LoadSceneFromFile_AlreadyActiveSceneIsANoOp)
@@ -171,15 +175,15 @@ TEST_F(SceneManagerTest, LoadSceneFromFile_SameSceneLoadedViaVirtualPathIsATrack
     // residency hit against the virtual-path scene.
     ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
 
-    EXPECT_EQ(manager.GetRegistry().AllEntities().size(), 2u);
+    EXPECT_EQ(manager.GetRegistry().AllEntities().size(), 1u); // scenes/scene.toml suspended, not live
     EXPECT_EQ(manager.CachedSceneCount(), 1u); // scenes/scene.toml resident-inactive, real path active
     ASSERT_TRUE(manager.CurrentScenePath().has_value());
     EXPECT_EQ(*manager.CurrentScenePath(), m_ScenePath.string());
 }
 
-// ─── The shared Registry holds every resident scene, not just the active one ──
+// ─── The shared Registry holds only the active scene -- others are suspended ──
 
-TEST_F(SceneManagerTest, GetRegistry_HoldsEveryResidentSceneWhileActiveEntitiesScopesToOne)
+TEST_F(SceneManagerTest, GetRegistry_HoldsOnlyTheActiveScenesEntitiesNotOtherResidentOnes)
 {
     WriteValidScene(m_ScenePath, 5.0f);
     auto const pathB = m_Root / "b.toml";
@@ -187,14 +191,16 @@ TEST_F(SceneManagerTest, GetRegistry_HoldsEveryResidentSceneWhileActiveEntitiesS
 
     SceneManager manager{ m_Vfs };
     ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
-    ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // scene.toml stays resident, just inactive
+    ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // scene.toml suspended, not live
 
-    EXPECT_EQ(manager.GetRegistry().AllEntities().size(), 2u); // both entities present
-    EXPECT_EQ(manager.ActiveEntities().size(), 1u);            // only b.toml's
+    // Only b.toml's entity is actually live -- a consumer that just
+    // enumerates the whole Registry (RenderSystem, AnimationSystem, ...)
+    // sees exactly one scene's entities, never a mix of two.
+    EXPECT_EQ(manager.GetRegistry().AllEntities().size(), 1u);
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u);
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty()); // suspended, not live
 
-    auto residentInA = manager.EntitiesInScene("scenes/scene.toml");
-    ASSERT_EQ(residentInA.size(), 1u);
-    EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(residentInA[0]).Value().get().m_DX, 5.0f);
+    EXPECT_EQ(manager.CachedSceneCount(), 1u); // still resident, just as a snapshot
 }
 
 // ─── UnloadScene ────────────────────────────────────────────────────────────
@@ -214,6 +220,50 @@ TEST_F(SceneManagerTest, UnloadScene_DestroysActiveEntitiesAndClearsCurrentPath)
 
 TEST_F(SceneManagerTest, UnloadScene_OnlyDestroysTheActiveScenesEntitiesLeavingOthersResident)
 {
+    WriteValidScene(m_ScenePath, 5.0f);
+    auto const pathB = m_Root / "b.toml";
+    WriteValidScene(pathB);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+
+    // In-memory mutation that would survive a snapshot restore but not a
+    // real reload -- proves scene.toml's suspended snapshot is untouched
+    // below, not just that its entity count is unchanged.
+    auto entity = manager.ActiveEntities().at(0);
+    manager.GetRegistry().GetComponent<Velocity>(entity).Value().get().m_DX = 999.0f;
+
+    ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // b.toml active, scene.toml suspended
+
+    manager.UnloadScene(); // unloads b.toml, the active one
+
+    EXPECT_FALSE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(manager.CachedSceneCount(), 1u); // scene.toml's snapshot untouched
+
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk()); // restored from snapshot, not disk
+    auto active = manager.ActiveEntities();
+    ASSERT_EQ(active.size(), 1u);
+    EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 999.0f);
+}
+
+// ─── RenameActiveScene ──────────────────────────────────────────────────────
+
+TEST_F(SceneManagerTest, RenameActiveScene_RetagsActiveEntitiesAndUpdatesCurrentPath)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+
+    manager.RenameActiveScene("scenes/renamed.toml");
+
+    ASSERT_TRUE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(*manager.CurrentScenePath(), "scenes/renamed.toml");
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u); // still findable, now under the new path
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty()); // nothing left under the old one
+}
+
+TEST_F(SceneManagerTest, RenameActiveScene_LeavesOtherResidentScenesUntouched)
+{
     WriteValidScene(m_ScenePath);
     auto const pathB = m_Root / "b.toml";
     WriteValidScene(pathB);
@@ -222,11 +272,31 @@ TEST_F(SceneManagerTest, UnloadScene_OnlyDestroysTheActiveScenesEntitiesLeavingO
     ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
     ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // b.toml active, scene.toml resident-inactive
 
-    manager.UnloadScene(); // unloads b.toml, the active one
+    manager.RenameActiveScene("scenes/renamed.toml");
 
-    EXPECT_FALSE(manager.CurrentScenePath().has_value());
-    EXPECT_TRUE(manager.EntitiesInScene("scenes/b.toml").empty());
-    EXPECT_EQ(manager.EntitiesInScene("scenes/scene.toml").size(), 1u); // untouched
+    // b.toml is the (now-renamed) active scene, so EntitiesInScene sees it
+    // directly in the live Registry.
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/b.toml").empty()); // nothing left tagged under the old identity
+    EXPECT_EQ(manager.EntitiesInScene("scenes/renamed.toml").size(), 1u);
+
+    // scene.toml is merely snapshotted (suspended, not active) at this point
+    // -- EntitiesInScene only ever sees the live Registry, so it correctly
+    // reports empty here (see its own doc comment); switching back to it is
+    // what actually proves the unrelated rename didn't touch its snapshot.
+    EXPECT_TRUE(manager.EntitiesInScene("scenes/scene.toml").empty());
+    ASSERT_TRUE(manager.LoadScene("scenes/scene.toml").IsOk());
+    EXPECT_EQ(manager.ActiveEntities().size(), 1u); // untouched
+}
+
+TEST_F(SceneManagerTest, RenameActiveScene_WithNothingActiveJustEstablishesThePath)
+{
+    SceneManager manager{ m_Vfs }; // nothing loaded -- the File > New case, nothing to retag
+
+    manager.RenameActiveScene("scenes/untitled.toml");
+
+    ASSERT_TRUE(manager.CurrentScenePath().has_value());
+    EXPECT_EQ(*manager.CurrentScenePath(), "scenes/untitled.toml");
+    EXPECT_TRUE(manager.ActiveEntities().empty());
 }
 
 // ─── SaveScene ──────────────────────────────────────────────────────────────
@@ -337,6 +407,7 @@ TEST_F(SceneManagerTest, ApplyPendingTransition_FailedLoadStillClearsPendingAndL
     auto active = manager.ActiveEntities();
     ASSERT_EQ(active.size(), 1u);
     EXPECT_FLOAT_EQ(manager.GetRegistry().GetComponent<Velocity>(active[0]).Value().get().m_DX, 5.0f);
+    EXPECT_EQ(manager.CachedSceneCount(), 0u); // never suspended
 }
 
 // ─── Residency: LoadScene() only reads from disk once per distinct path ───────

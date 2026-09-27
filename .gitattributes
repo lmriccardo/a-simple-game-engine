@@ -1,0 +1,11 @@
+# Normalize text files to LF on every platform -- also keeps graphify's
+# content-hashed semantic cache (graphify-out/cache/semantic) valid across
+# Windows/Linux/macOS checkouts.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.ogg binary
+*.wav binary
+*.ttf binary

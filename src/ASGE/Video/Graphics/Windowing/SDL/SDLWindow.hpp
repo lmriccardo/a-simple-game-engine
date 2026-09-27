@@ -16,7 +16,7 @@ private:
     SDL_Window* m_Window{nullptr};
 
 public:
-    SDLWindow(std::string const& inTitle, int inWidth, int inHeight);
+    SDLWindow(std::string const& inTitle, int inWidth, int inHeight, bool inResizable);
     SDLWindow(SDLWindow&& inOther);
     SDLWindow& operator=(SDLWindow&& inOther);
 

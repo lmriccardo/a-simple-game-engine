@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="ASGE Project file icon">
+  <defs>
+    <linearGradient id="asge-g-project" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b7bff"/>
+      <stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#asge-g-project)"/>
+  <rect x="13" y="31" width="20" height="15" rx="3" fill="#0b0e14" fill-opacity="0.35"/>
+  <rect x="19" y="25" width="20" height="15" rx="3" fill="#0b0e14" fill-opacity="0.6"/>
+  <rect x="25" y="19" width="20" height="15" rx="3" fill="#0b0e14"/>
+</svg>

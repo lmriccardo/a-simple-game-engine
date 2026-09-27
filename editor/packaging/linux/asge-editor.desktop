@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ASGE Editor
+Comment=Level editor for ASGE (A Simple Game Engine)
+Exec=asge-editor %f
+Icon=asge-editor
+Terminal=false
+Categories=Development;IDE;
+MimeType=application/x-asge-project;application/x-asge-scene;
