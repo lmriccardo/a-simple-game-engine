@@ -1,0 +1,21 @@
+#!/bin/sh
+# Refreshes the desktop's mime/icon/desktop-entry caches so the new
+# .asgeproject/.asgescene file-type icons and the ASGE Editor launcher show
+# up immediately, without a logout/login. Every step is best-effort: a
+# minimal desktop-less system may be missing one of these tools entirely,
+# which shouldn't fail the whole package install.
+set -e
+
+if command -v update-mime-database >/dev/null 2>&1; then
+    update-mime-database /usr/share/mime >/dev/null || true
+fi
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null || true
+fi
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications >/dev/null || true
+fi
+
+exit 0

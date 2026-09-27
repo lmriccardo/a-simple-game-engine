@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>ASGE Editor</string>
+    <key>CFBundleDisplayName</key>
+    <string>ASGE Editor</string>
+    <key>CFBundleIdentifier</key>
+    <string>dev.asge.editor</string>
+    <key>CFBundleVersion</key>
+    <string>@PROJECT_VERSION@</string>
+    <key>CFBundleShortVersionString</key>
+    <string>@PROJECT_VERSION@</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleExecutable</key>
+    <string>asge-editor</string>
+    <key>CFBundleIconFile</key>
+    <string>icon.icns</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- Declares the two file types so Finder shows their icons and lets
+         the user double-click one to open it in ASGE Editor -- the same
+         intent as the Windows NSIS registry entries and the Linux
+         shared-mime-info file, just macOS's own declarative mechanism. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>ASGE Project</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>dev.asge.project</string>
+            </array>
+            <key>CFBundleTypeIconFile</key>
+            <string>asge-project-icon.icns</string>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>ASGE Scene</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>dev.asge.scene</string>
+            </array>
+            <key>CFBundleTypeIconFile</key>
+            <string>asge-scene-icon.icns</string>
+        </dict>
+    </array>
+
+    <!-- The Uniform Type Identifiers CFBundleDocumentTypes above refers to --
+         macOS has no bare-extension file-type registry the way Windows/Linux
+         do, everything routes through a UTI, so these have to be declared
+         somewhere; a plain document-consuming app declares them itself via
+         UTExportedTypeDeclarations rather than needing a separate registration step. -->
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>dev.asge.project</string>
+            <key>UTTypeDescription</key>
+            <string>ASGE Project</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+                <string>public.content</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>asgeproject</string>
+                </array>
+            </dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>dev.asge.scene</string>
+            <key>UTTypeDescription</key>
+            <string>ASGE Scene</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+                <string>public.content</string>
+            </array>
+            <key>UTTypeTagSpecification</key>
+            <dict>
+                <key>public.filename-extension</key>
+                <array>
+                    <string>asgescene</string>
+                </array>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>

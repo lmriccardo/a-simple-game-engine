@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-asge-project">
+    <comment>ASGE Project</comment>
+    <glob pattern="*.asgeproject"/>
+    <icon name="application-x-asge-project"/>
+  </mime-type>
+  <mime-type type="application/x-asge-scene">
+    <comment>ASGE Scene</comment>
+    <glob pattern="*.asgescene"/>
+    <icon name="application-x-asge-scene"/>
+  </mime-type>
+</mime-info>
