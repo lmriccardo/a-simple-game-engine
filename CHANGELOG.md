@@ -1,3 +1,95 @@
+## [0.8.5e1.0] - 2026-09-27
+
+
+### Bug Fixes
+
+- :bug: Update a stale test for SceneManager's suspend/resume model
+
+- :bug: Suspend inactive scenes instead of keeping them live in SceneManager's Registry (#110)
+
+- :bug: Rebuild PathFollow::m_Path when waypoints/resolution change
+
+- :bug: Make CameraSystem follow a Sprite's visual center, not Transform's corner
+
+- :bug: Persist known assets across sessions, guard in-use removal
+
+- :bug: Guard native dialogs, work around WSLg cursor bug
+
+- :bug: Fix native file dialogs opening in the parent folder
+
+- :bug: Stack Scene/Entities/Inspector on the right without overlap
+
+- :bug: Register Name in SerializableComponents
+
+- :bug: Thread SaveContext/LoadContext through every component Serializer
+
+- :bug: Add NativeHandle overrides to fake IRenderer test doubles
+
+
+
+
+### Features
+
+- :sparkles: Add mouse click/drag to the run-asge driver
+
+- :sparkles: In-editor spritesheet slicing, Animation lifecycle fixes
+
+- :sparkles: Add FrameTable::Save and an m_OriginAsset field
+
+- :sparkles: Waypoint drag/delete, spline preview, save shortcuts, Collider shapes
+
+- :sparkles: Author PathFollow waypoints from the viewport
+
+- :sparkles: Add working audio preview to the Asset Inspector
+
+- :sparkles: Add file-type icons for .asgeproject/.asgescene
+
+- :sparkles: Add project/session management and multi-scene switching
+
+- :sparkles: Add viewport pan/zoom, camera previews, and a View menu
+
+- :sparkles: Add opt-in resizable window support to VideoSystem
+
+- :sparkles: Add asset dropdowns for Sprite/Animation/AudioSource paths
+
+- :sparkles: Implement Phase 8 session persistence (.asges)
+
+- :sparkles: Phase 7 -- asset awareness (VFS panel, asset browser/inspector)
+
+- :sparkles: Add an in-editor log console
+
+- :sparkles: Add an OnLog signal, fix FormatTimestamp ignoring its argument
+
+- :sparkles: Native Open/Save dialogs, no auto-loaded scene
+
+- :sparkles: Set the editor logo as its window and exe icon
+
+- :sparkles: Add per-component Add/Remove to the Inspector
+
+- :sparkles: Add entity lifecycle -- create, delete, duplicate
+
+- :sparkles: Add SceneManager::RenameActiveScene
+
+- :sparkles: Add viewport free-drag and a translate gizmo
+
+- :sparkles: Add viewport grid and collider overlays
+
+- :sparkles: Generalize the inspector to every serializable component
+
+- :sparkles: Prove select-edit-save-reload round trip on Transform
+
+- :sparkles: Load a real scene into the editor
+
+- :sparkles: Vendor Dear ImGui and add minimal asge-editor executable
+
+
+
+
+### Contributors
+
+- lmriccardo
+
+- La Marca Riccardo
 ## [0.8.4] - 2026-09-24
 
 
@@ -484,6 +576,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.5e1.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.4...v0.8.5e1.0
 [0.8.4]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.1...v0.8.2
