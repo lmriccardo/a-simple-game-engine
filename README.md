@@ -1,6 +1,7 @@
 # ASGE — A Simple Game Engine
 
 [![CTest](https://github.com/lmriccardo/a-simple-game-engine/actions/workflows/ctest.yml/badge.svg)](https://github.com/lmriccardo/a-simple-game-engine/actions/workflows/ctest.yml)
+[![Docs](https://github.com/lmriccardo/a-simple-game-engine/actions/workflows/docs.yml/badge.svg)](https://github.com/lmriccardo/a-simple-game-engine/actions/workflows/docs.yml)
 
 📖 **[Documentation site](https://lmriccardo.github.io/a-simple-game-engine/)** — project overview, installation, the full API reference, and every example with screenshots and source.
 
