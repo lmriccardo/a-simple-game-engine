@@ -1372,10 +1372,10 @@ TEST(CameraSystemTest, ZeroSmoothing_EntityWithResolvedSprite_CentersOnTheSprite
 
     auto entity = registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
-    // Transform::m_X/m_Y is the sprite's dest-rect top-left (SpriteGetDstRect),
-    // not its middle -- dest rect is {500,300,100,60}, so the visual center
-    // is (550,330), not the raw (500,300) Transform point.
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    // Transform::m_WorldCoordinates is the sprite's dest-rect top-left
+    // (SpriteGetDstRect), not its middle -- dest rect is {500,300,100,60},
+    // so the visual center is (550,330), not the raw (500,300) Transform point.
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 300.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 0.0f }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
@@ -1396,7 +1396,7 @@ TEST(CameraSystemTest, ZeroSmoothing_EntityWithUnresolvedSprite_FallsBackToTheRa
     // Sprite present but m_Texture is still null (not yet resolved) --
     // SpriteGetDstRect returns nullopt, so this must fall back to the raw
     // Transform point exactly like an entity with no Sprite at all.
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_X = 500.0f, .m_Y = 300.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {500.0f, 300.0f} }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = nullptr }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Camera{ .m_Zoom = 1.0f, .m_Smoothing = 0.0f }).IsOk());
     registry.SetResource( ActiveCamera{ entity.Value() } );
