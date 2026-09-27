@@ -1,0 +1,18 @@
+#!/bin/sh
+# Counterpart to postinst -- refreshes the same caches after removal so a
+# stale icon/mime/launcher entry doesn't linger once the files are gone.
+set -e
+
+if command -v update-mime-database >/dev/null 2>&1; then
+    update-mime-database /usr/share/mime >/dev/null || true
+fi
+
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor >/dev/null || true
+fi
+
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications >/dev/null || true
+fi
+
+exit 0

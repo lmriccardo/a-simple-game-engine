@@ -27,3 +27,61 @@ if(WIN32)
     configure_file(resources/asge-editor.rc.in "${CMAKE_CURRENT_BINARY_DIR}/asge-editor.rc" @ONLY)
     target_sources(asge-editor PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/asge-editor.rc")
 endif()
+
+# ── Packaging (CPack) ─────────────────────────────────────────────────────
+# Everything below only matters for `cpack`'s installer output, gated behind
+# the same ASGE_INSTALL switch the SDK's own install() rules already use --
+# a dev build (ASGE_INSTALL=OFF, the common case) skips all of it.
+if(ASGE_INSTALL)
+    if(APPLE)
+        # A macOS .app bundle instead of a bare executable, so Finder/
+        # LaunchServices has somewhere to hang the file-type/document
+        # associations below. MACOSX_PACKAGE_LOCATION copies each resource
+        # into Contents/Resources at build time (not just on `cmake --install`),
+        # so cpack's DragNDrop generator packages a bundle that's already
+        # correct straight out of the build tree.
+        set_target_properties(asge-editor PROPERTIES
+            MACOSX_BUNDLE TRUE
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info.plist")
+        configure_file(
+            packaging/macos/Info.plist.in
+            "${CMAKE_CURRENT_BINARY_DIR}/Info.plist" @ONLY)
+
+        set(ASGE_EDITOR_BUNDLE_RESOURCES
+            assets/icon.icns
+            assets/asge-project-icon.icns
+            assets/asge-scene-icon.icns
+        )
+        set_source_files_properties(${ASGE_EDITOR_BUNDLE_RESOURCES} PROPERTIES
+            MACOSX_PACKAGE_LOCATION Resources)
+        target_sources(asge-editor PRIVATE ${ASGE_EDITOR_BUNDLE_RESOURCES})
+    elseif(WIN32)
+        install(TARGETS asge-editor RUNTIME DESTINATION .)
+        if(TARGET SDL3::SDL3-shared)
+            install(FILES "$<TARGET_FILE:SDL3::SDL3-shared>" DESTINATION .)
+        endif()
+        install(DIRECTORY assets/ DESTINATION assets)
+    else()
+        # Linux: a normal FHS-ish layout under the install prefix, plus a
+        # .desktop launcher and the shared-mime-info/icon-theme files that
+        # give .asgeproject/.asgescene their icons in a file manager --
+        # NSIS's registry keys and the macOS Info.plist above are the same
+        # idea, just each platform's own mechanism for it.
+        install(TARGETS asge-editor RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+        install(DIRECTORY assets/ DESTINATION "${CMAKE_INSTALL_DATADIR}/asge-editor/assets")
+        install(FILES packaging/linux/asge-editor.desktop
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+        install(FILES packaging/linux/asge-mime.xml
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/mime/packages"
+            RENAME asge-editor.xml)
+        install(FILES assets/asge-project-icon.png
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/64x64/mimetypes"
+            RENAME application-x-asge-project.png)
+        install(FILES assets/asge-scene-icon.png
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/64x64/mimetypes"
+            RENAME application-x-asge-scene.png)
+        install(FILES assets/icon.png
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/64x64/apps"
+            RENAME asge-editor.png)
+    endif()
+endif()
