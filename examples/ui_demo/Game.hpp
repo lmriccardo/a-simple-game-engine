@@ -31,6 +31,13 @@
  * -- button labels never auto-size, and DrawString doesn't clip yet, so
  * that one's text just overflows past the button's edges.
  *
+ * A fourth row adds a "Checkbox" -- UIRect (footprint) + UICheckbox (box/
+ * check-mark fill colors + m_OnToggled signal) + Interactable, hand-wired
+ * like the first four buttons since asge::game::ui has no CreateCheckbox
+ * factory yet. RenderSystem's Draw(UIRect) picks it up the same way it does
+ * UIButton, drawing an inset m_CheckColor square on top of the box once
+ * m_Checked is toggled true.
+ *
  * Hover/held/m_OnClick are entirely engine-driven: SpawnEntities() sets the
  * resources::UIHitList resource once, RenderSystem rebuilds it every frame,
  * and Update() just calls systems::UIInteractionSystem -- this state never
@@ -46,6 +53,7 @@ class UIDemoState final : public asge::game::state::IGameState<int>
     asge::ecs::Entity m_SpriteButton{ asge::ecs::Entity::Null() }; // has a Sprite -- drawn as the texture instead
     asge::ecs::Entity m_OverlapFront{ asge::ecs::Entity::Null() }; // higher layer -- sits on top of m_OverlapBack
     asge::ecs::Entity m_OverlapBack { asge::ecs::Entity::Null() }; // lower layer, shifted -- partly exposed and still clickable
+    asge::ecs::Entity m_Checkbox    { asge::ecs::Entity::Null() }; // toggled by click -- see UICheckbox::m_OnToggled
 
     void SpawnEntities();
     void RenderSpriteButtonOutline( asge::video::IRenderer& inRenderer ) const;

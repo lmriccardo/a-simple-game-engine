@@ -9,6 +9,7 @@ using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
+using asge::game::components::UICheckbox;
 using asge::game::components::UIRect;
 using asge::game::resources::UIHitList;
 using asge::game::ui::ButtonDesc;
@@ -46,6 +47,13 @@ constexpr float kFittingButtonW = 150.0f, kFittingButtonH = 40.0f;
 
 constexpr float kCroppedButtonX = 560.0f;
 constexpr float kCroppedButtonW = 70.0f, kCroppedButtonH = 24.0f; // too small for its own label
+
+// Fourth row: a hand-wired "Checkbox" -- UICheckbox has no asge::game::ui
+// factory yet, unlike the label/button pair above.
+constexpr float kRow4Y = 620.0f;
+constexpr float kCheckboxX = 220.0f;
+constexpr float kCheckboxSize = 24.0f;
+constexpr float kCheckboxLabelX = kCheckboxX + kCheckboxSize + 12.0f;
 }
 
 UIDemoState::UIDemoState(
@@ -87,7 +95,11 @@ void UIDemoState::SpawnEntities()
     // drawing here; its footprint comes from the texture and scale below.
     // It's still hit-tested (CollectHitList only needs UIRect+Interactable,
     // not what actually got drawn), which is what RenderSpriteButtonOutline
-    // relies on below.
+    // relies on below. UIRect::m_Size is in the same *pre-scale* units as a
+    // Sprite's native texture size (see RectFromSize/SpriteGetDstRect, both
+    // of which multiply by Transform::m_WorldScale themselves) -- passing
+    // the already-scaled 160x160 here double-applies m_WorldScale and blows
+    // the hit rect out to 800x800.
     auto sprited = m_Registry.CreateEntity();
     if ( !sprited ) { sprited.LogError(); return; }
     m_SpriteButton = sprited.Value();
@@ -98,7 +110,7 @@ void UIDemoState::SpawnEntities()
     // m_Texture stays null until Render()'s AssetManager::ResolveAssets call.
     m_Registry.AddComponent<Sprite>( m_SpriteButton, Sprite{ .m_VirtualPath = kSpriteTexturePath } );
     m_Registry.AddComponent<UIRect>( m_SpriteButton, UIRect{
-        .m_Size = { kSpriteButtonScale * kSpriteTextureSize, kSpriteButtonScale * kSpriteTextureSize }
+        .m_Size = { kSpriteTextureSize, kSpriteTextureSize }
     } );
     m_Registry.AddComponent<UIButton>( m_SpriteButton, UIButton{} );
     m_Registry.AddComponent<Interactable>( m_SpriteButton, Interactable{} );
@@ -197,6 +209,39 @@ void UIDemoState::SpawnEntities()
         .m_OnClick = []{ LOG_INFO( "Cropped button clicked!" ); },
     } );
     if ( !croppedButton ) croppedButton.LogError();
+
+    // Hand-wired like the first four buttons -- UICheckbox + Interactable +
+    // UIRect, no asge::game::ui factory for it yet.
+    auto checkbox = m_Registry.CreateEntity();
+    if ( !checkbox ) { checkbox.LogError(); return; }
+    m_Checkbox = checkbox.Value();
+    m_Registry.AddComponent<Transform>( m_Checkbox, Transform{
+        .m_WorldCoordinates = { kCheckboxX, kRow4Y }
+    } );
+    m_Registry.AddComponent<UIRect>( m_Checkbox, UIRect{ .m_Size = { kCheckboxSize, kCheckboxSize } } );
+    m_Registry.AddComponent<UICheckbox>( m_Checkbox, UICheckbox{} );
+    m_Registry.AddComponent<Interactable>( m_Checkbox, Interactable{} );
+    m_Registry.AddComponent<RenderInfo>( m_Checkbox, RenderInfo{ .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent<UICheckbox>( m_Checkbox ) )
+    {
+        result.Value().get().m_OnToggled.Connect( []( bool inChecked )
+        {
+            LOG_INFO( "Checkbox toggled: {}", inChecked ? "checked" : "unchecked" );
+        } );
+    }
+
+    // Caption beside it -- auto-sized, same as the standalone label in row 3.
+    auto checkboxLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = "CheckboxLabel",
+        .m_Position = { kCheckboxLabelX, kRow4Y },
+        .m_Text = TextDesc{
+            .m_Content = "Enable something",
+            .m_FontPath = kFontPath,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !checkboxLabel ) checkboxLabel.LogError();
 }
 
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
@@ -216,9 +261,14 @@ void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer 
                                               : interactable.m_Hovered ? asge::graphics::colors::s_ButtonAccentHover
                                                                        : asge::graphics::colors::s_Gray;
 
+    // rect.m_Size is native (pre-scale) size -- scale it up the same way
+    // RectFromSize/SpriteGetDstRect do, so the outline actually hugs the
+    // sprite's real on-screen footprint instead of its unscaled one.
+    float const width  = rect.m_Size.x() * transform.m_WorldScale.x();
+    float const height = rect.m_Size.y() * transform.m_WorldScale.y();
     asge::math::Rect const outlineRect{
         transform.m_WorldCoordinates.x() - 4.0f, transform.m_WorldCoordinates.y() - 4.0f,
-        rect.m_Size.x() + 8.0f, rect.m_Size.y() + 8.0f
+        width + 8.0f, height + 8.0f
     };
     inRenderer.DrawRect( outlineRect, outline, false );
 }
