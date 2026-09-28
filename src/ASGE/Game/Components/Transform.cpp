@@ -20,5 +20,6 @@ asge::game::components::Transform asge::game::scene::Serializer<asge::game::comp
     result.m_LocalCoordinates = math::Float2{table.Get( "m_X", 0.0f ), table.Get( "m_Y", 0.0f )};
     result.m_LocalScale = math::Float2{table.Get( "m_ScaleX", 1.0f ), table.Get( "m_ScaleY", 1.0f )};
     result.m_LocalRotation = table.Get("m_Rotation", result.m_LocalRotation);
+    result.m_Dirty = true; // request a TransformPropagationSystem recompute of World before this is ever read
     return result;
 }
