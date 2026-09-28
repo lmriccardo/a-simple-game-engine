@@ -157,13 +157,23 @@ bool DrawInspector( Transform& inT ) noexcept
 {
     bool changed = false;
 
-    float pos[2]{ inT.m_X, inT.m_Y };
-    if ( ImGui::DragFloat2( "Position", pos ) ) { inT.m_X = pos[0]; inT.m_Y = pos[1]; changed = true; }
+    float pos[2]{ inT.m_LocalCoordinates.x(), inT.m_LocalCoordinates.y() };
+    if ( ImGui::DragFloat2( "Position", pos ) )
+    {
+        inT.m_LocalCoordinates = { pos[0], pos[1] };
+        inT.m_Dirty = true;
+        changed = true;
+    }
 
-    if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_Rotation, 0.01f ) ) changed = true;
+    if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_LocalRotation, 0.01f ) ) { inT.m_Dirty = true; changed = true; }
 
-    float scale[2]{ inT.m_ScaleX, inT.m_ScaleY };
-    if ( ImGui::DragFloat2( "Scale", scale ) ) { inT.m_ScaleX = scale[0]; inT.m_ScaleY = scale[1]; changed = true; }
+    float scale[2]{ inT.m_LocalScale.x(), inT.m_LocalScale.y() };
+    if ( ImGui::DragFloat2( "Scale", scale ) )
+    {
+        inT.m_LocalScale = { scale[0], scale[1] };
+        inT.m_Dirty = true;
+        changed = true;
+    }
 
     return changed;
 }
@@ -185,22 +195,13 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // m_SourceRect editing is out of scope here (asset-browsing/viewport gizmo
 // territory). m_VirtualPath is a dropdown restricted to inKnownTextures
 // (Phase 10) -- its return reports only whether the path selection changed,
-// not m_Layer/m_YSort edits, since only a path change needs AssetManager::
-// ResolveAssets re-run (see the DrawInspector doc comment above for why
-// that trigger has to stay this narrow).
-// ponytail: m_Layer/m_YSort edits alone (no path change) don't mark the
-// scene dirty -- a real but minor gap, since a second bool would need
-// threading through just for these two fields. Fold them in if that
-// actually bites someone.
+// since only a path change needs AssetManager::ResolveAssets re-run (see the
+// DrawInspector doc comment above for why that trigger has to stay this
+// narrow). Draw order (layer/y-sort) moved out to components::RenderInfo --
+// not yet exposed in this inspector (no ComponentEntry for it below).
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
-    bool const pathChanged = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
-
-    int layer = inSprite.m_Layer;
-    if ( ImGui::DragInt( "Layer", &layer ) ) inSprite.m_Layer = layer;
-
-    ImGui::Checkbox( "Y-Sort", &inSprite.m_YSort );
-    return pathChanged;
+    return DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
 }
 
 // Per-entity cache of each shape's own last-seen dimensions, so switching

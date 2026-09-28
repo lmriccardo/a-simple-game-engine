@@ -7,6 +7,7 @@
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
+#include <ASGE/Game/Systems/TransformPropagationSystem.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
@@ -581,7 +582,7 @@ int main(int, char**)
     {
         if ( auto t = sceneManager.GetRegistry().GetComponent<Transform>( inEntity ) )
         {
-            return { t.Value().get().m_X, t.Value().get().m_Y };
+            return { t.Value().get().m_WorldCoordinates.x(), t.Value().get().m_WorldCoordinates.y() };
         }
         return {};
     };
@@ -814,8 +815,9 @@ int main(int, char**)
                     // needing two absolute ScreenToWorld calls to subtract.
                     float const zoom = videoSys.GetRenderer().GetCamera().m_Zoom;
                     auto& t = transformResult.Value().get();
-                    if (dragAxis != GizmoAxis::Y) t.m_X += event.motion.xrel / zoom;
-                    if (dragAxis != GizmoAxis::X) t.m_Y += event.motion.yrel / zoom;
+                    if (dragAxis != GizmoAxis::Y) t.m_LocalCoordinates.x() += event.motion.xrel / zoom;
+                    if (dragAxis != GizmoAxis::X) t.m_LocalCoordinates.y() += event.motion.yrel / zoom;
+                    t.m_Dirty = true;
                     MarkActiveSceneDirty(currentProject);
                 }
             }
@@ -1624,6 +1626,13 @@ int main(int, char**)
         DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window, freshHasProject);
 
         DrawConsolePanel(window);
+
+        // Flushes this frame's gizmo-drag/inspector edits (and any Hierarchy
+        // reparenting) from Transform's Local into its World fields -- every
+        // overlay below and RenderPipeline itself read World only, and
+        // neither one runs this (see examples/*/Game.cpp for the same
+        // per-frame call gameplay code has to make of its own accord).
+        asge::game::systems::TransformPropagationSystem(sceneManager.GetRegistry());
 
         // Phase 4: viewport overlays, so a position/collider is readable
         // directly off the scene instead of only through the inspector.

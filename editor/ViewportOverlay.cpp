@@ -19,7 +19,7 @@ using namespace asge::game::components;
 asge::math::Rect GetEntityWorldBounds(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, Transform const& inTransform ) noexcept
 {
-    asge::math::Rect bounds{ inTransform.m_X, inTransform.m_Y, 1.0f, 1.0f };
+    asge::math::Rect bounds{ inTransform.m_WorldCoordinates.x(), inTransform.m_WorldCoordinates.y(), 1.0f, 1.0f };
     if ( auto spriteResult = inRegistry.GetComponent<Sprite>( inEntity ) )
     {
         if ( auto dst = SpriteGetDstRect( spriteResult.Value().get(), inTransform ) ) bounds = *dst;
@@ -174,7 +174,7 @@ void DrawColliderOverlays(
         {
             // Collider's world position is Transform's, offset by the
             // shape's own local origin -- see Collider.hpp's doc comment.
-            asge::math::Float2 const worldMin{ t.m_X + rect->m_X, t.m_Y + rect->m_Y };
+            asge::math::Float2 const worldMin{ t.m_WorldCoordinates.x() + rect->m_X, t.m_WorldCoordinates.y() + rect->m_Y };
             asge::math::Float2 const worldMax{ worldMin.x() + rect->m_Width, worldMin.y() + rect->m_Height };
             auto const screenMin = asge::video::WorldToScreen( camera, viewport, worldMin );
             auto const screenMax = asge::video::WorldToScreen( camera, viewport, worldMax );
@@ -184,7 +184,7 @@ void DrawColliderOverlays(
         }
         else if ( auto const* circle = std::get_if<asge::math::Circle>( &collider.m_LocalBounds ) )
         {
-            asge::math::Float2 const worldCenter{ t.m_X + circle->m_Center.x(), t.m_Y + circle->m_Center.y() };
+            asge::math::Float2 const worldCenter{ t.m_WorldCoordinates.x() + circle->m_Center.x(), t.m_WorldCoordinates.y() + circle->m_Center.y() };
             auto const screenCenter = asge::video::WorldToScreen( camera, viewport, worldCenter );
             float const screenRadius = circle->m_Radius * camera.m_Zoom;
 
@@ -280,8 +280,8 @@ void DrawCameraOverlays(
         // in it at its own Camera::m_Zoom -- this box is exactly that.
         float const zoom = cameraResult.Value().get().m_Zoom;
         auto const& t = transformResult.Value().get();
-        float followX = t.m_X;
-        float followY = t.m_Y;
+        float followX = t.m_WorldCoordinates.x();
+        float followY = t.m_WorldCoordinates.y();
         if ( auto spriteResult = inRegistry.GetComponent<Sprite>( entity ) )
         {
             if ( auto dst = SpriteGetDstRect( spriteResult.Value().get(), t ) )
