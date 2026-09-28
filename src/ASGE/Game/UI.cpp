@@ -3,6 +3,7 @@
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
@@ -122,6 +123,34 @@ asge::game::ui::CreateButton( ecs::Registry& inReg, ButtonDesc const& inDesc )
 
     // Button text fills the button's UIRect and is cropped to it: never auto-size
     if ( auto r = AddText( inReg, e, inDesc.m_Text, false ); !r )
+        return fail( r.Error() );
+
+    return entityR;
+}
+
+asge::Result<asge::ecs::Entity>
+asge::game::ui::CreateCheckbox( ecs::Registry& inReg, CheckboxDesc const& inDesc )
+{
+    auto entityR = CreateUIEntity( inReg, inDesc.m_Name, inDesc.m_Position, inDesc.m_Size, inDesc.m_ScreenSpace );
+    if ( !entityR ) return entityR;
+    ecs::Entity const e = entityR.Value();
+
+    auto const fail = [&]( auto const& inError ) {
+        auto _ = inReg.DestroyEntity( e );
+        return Result<ecs::Entity>::Err( inError );
+    };
+
+    if ( auto r = inReg.AddComponent<components::Interactable>( e, components::Interactable{
+             .m_Enabled = inDesc.m_Enabled } ); !r )
+    {
+        return fail( r.Error() );
+    }
+
+    components::UICheckbox checkbox{
+        .m_BoxColors = inDesc.m_BoxColors, .m_CheckColor = inDesc.m_CheckColor, .m_Checked = inDesc.m_Checked
+    };
+    if ( inDesc.m_OnToggled ) checkbox.m_OnToggled.Connect( inDesc.m_OnToggled );
+    if ( auto r = inReg.AddComponent<components::UICheckbox>( e, std::move( checkbox ) ); !r )
         return fail( r.Error() );
 
     return entityR;
