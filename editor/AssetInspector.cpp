@@ -132,7 +132,8 @@ std::string FormatSize( std::uintmax_t inBytes ) noexcept
 void DrawAssetInspectorPanel(
     AssetPick& ioSelectedAsset, asge::filesystem::VirtualFileSystem const& inVfs,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    asge::audio::AudioDevice& inAudioDevice, asge::ecs::Registry& inRegistry ) noexcept
+    asge::audio::AudioDevice& inAudioDevice, asge::ecs::Registry& inRegistry,
+    bool inOpenCreateClip ) noexcept
 {
     if ( ioSelectedAsset.m_Kind == AssetPickKind::None ) return;
     AssetPick const& inSelectedAsset = ioSelectedAsset; // read-only from here down
@@ -221,11 +222,25 @@ void DrawAssetInspectorPanel(
                     ioSelectedAsset = AssetPick{ AssetPickKind::Animation, associatedClip };
                 }
             }
-            else if ( ImGui::Button( "Create Clip" ) )
+
+            // Phase 14: "Create Clip" itself moved out to the Assets panel's
+            // row context menu -- this just reacts to that request, one
+            // frame after it's set (ioSelectedAsset already names this
+            // texture by the time main.cpp gets here, same frame as the
+            // click). A texture that already has a clip opens it instead of
+            // re-slicing, same as the old inline button's own behavior.
+            if ( inOpenCreateClip )
             {
-                g_CreateClipRows = 1;
-                g_CreateClipColumns = 1;
-                ImGui::OpenPopup( "Create Clip" );
+                if ( !associatedClip.empty() )
+                {
+                    ioSelectedAsset = AssetPick{ AssetPickKind::Animation, associatedClip };
+                }
+                else
+                {
+                    g_CreateClipRows = 1;
+                    g_CreateClipColumns = 1;
+                    ImGui::OpenPopup( "Create Clip" );
+                }
             }
         }
         else

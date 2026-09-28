@@ -1,5 +1,6 @@
 #include "AssetBrowser.hpp"
 #include "FileDialog.hpp"
+#include "Inspector.hpp" // GetEntityLabel, for the "Attach To" submenu's entity list
 
 #include <ASGE/Core/Filesystem/FileIO.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
@@ -87,6 +88,57 @@ std::set<std::string> MergedAudio( asge::ecs::Registry& inRegistry ) noexcept
     CollectUsedPaths( inRegistry, textures, animations, audio );
     return audio;
 }
+
+// Phase 14: one asset row's right-click menu -- Create Entity/Attach To for
+// every kind, plus Create Clip for a texture row only (inAllowCreateClip).
+// Only ever reports one action into ioResult per frame, same "one user
+// gesture" assumption DrawEntityListPanel's own context menu makes; actually
+// creating the entity/attaching the component/opening the modal is deferred
+// to the caller (main.cpp for the first two, DrawAssetInspectorPanel's own
+// inOpenCreateClip for the third) rather than done here.
+void DrawAssetContextMenu(
+    asge::ecs::Registry& inRegistry, AssetPickKind inKind, std::string const& inPath,
+    bool inAllowCreateClip, bool inHasProject, AssetBrowserResult& ioResult ) noexcept
+{
+    if ( !ImGui::BeginPopupContextItem() ) return;
+
+    ImGui::BeginDisabled( !inHasProject );
+    if ( ImGui::MenuItem( "Create Entity" ) )
+    {
+        ioResult.m_ContextAction = AssetContextAction::CreateEntity;
+        ioResult.m_ContextKind = inKind;
+        ioResult.m_ContextPath = inPath;
+    }
+    if ( ImGui::BeginMenu( "Attach To" ) )
+    {
+        auto const entities = inRegistry.AllEntities();
+        for ( auto entity : entities )
+        {
+            std::string const label = GetEntityLabel( inRegistry, entity ) + "##" + std::to_string( entity.m_Index );
+            if ( ImGui::MenuItem( label.c_str() ) )
+            {
+                ioResult.m_ContextAction = AssetContextAction::AttachTo;
+                ioResult.m_ContextKind = inKind;
+                ioResult.m_ContextPath = inPath;
+                ioResult.m_ContextTarget = entity;
+            }
+        }
+        if ( entities.empty() ) ImGui::TextDisabled( "(no entities)" );
+        ImGui::EndMenu();
+    }
+    ImGui::EndDisabled();
+
+    // Not gated on inHasProject -- writes a clip file next to the texture
+    // regardless of any active project/scene, same as the inline button
+    // this replaces (see DrawAssetInspectorPanel's own inOpenCreateClip).
+    if ( inAllowCreateClip && ImGui::MenuItem( "Create Clip" ) )
+    {
+        ioResult.m_Pick = { AssetPickKind::Texture, inPath };
+        ioResult.m_OpenCreateClip = true;
+    }
+
+    ImGui::EndPopup();
+}
 }
 
 std::vector<std::string> KnownTexturePaths( asge::ecs::Registry& inRegistry ) noexcept
@@ -133,7 +185,7 @@ void ClearKnownAssets() noexcept
     g_LoadedAudio.clear();
 }
 
-AssetPick DrawAssetBrowserPanel(
+AssetBrowserResult DrawAssetBrowserPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
     bool inHasProject ) noexcept
 {
@@ -206,7 +258,7 @@ AssetPick DrawAssetBrowserPanel(
     std::set<std::string> usedTextures, usedAnimations, usedAudio;
     CollectUsedPaths( inRegistry, usedTextures, usedAnimations, usedAudio );
 
-    AssetPick pick;
+    AssetBrowserResult result;
 
     // FirstUseEver, not Always -- (10, 30) is a constant, not derived from
     // DisplaySize, so there's nothing a resize could invalidate here; unlike
@@ -259,8 +311,13 @@ AssetPick DrawAssetBrowserPanel(
             // the click before the button ever sees it without this flag).
             if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
             {
-                pick = { AssetPickKind::Texture, path };
+                result.m_Pick = { AssetPickKind::Texture, path };
             }
+            // Bound to the Selectable just above (BeginPopupContextItem with
+            // no explicit id ties to the last item) -- must come before the
+            // "x" button below, else right-clicking the row would test the
+            // button's own tiny rect instead of the whole row.
+            DrawAssetContextMenu( inRegistry, AssetPickKind::Texture, path, /*inAllowCreateClip=*/true, inHasProject, result );
             // Only a manually "Load Asset..."-ed entry can be un-loaded --
             // one derived purely from scene usage has nothing here to
             // remove; it'd just reappear next frame from the entity itself.
@@ -292,8 +349,9 @@ AssetPick DrawAssetBrowserPanel(
             ImGui::PushID( path.c_str() );
             if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
             {
-                pick = { AssetPickKind::Animation, path };
+                result.m_Pick = { AssetPickKind::Animation, path };
             }
+            DrawAssetContextMenu( inRegistry, AssetPickKind::Animation, path, /*inAllowCreateClip=*/false, inHasProject, result );
             if ( g_LoadedAnimations.count( path ) )
             {
                 ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
@@ -322,8 +380,9 @@ AssetPick DrawAssetBrowserPanel(
             ImGui::PushID( path.c_str() );
             if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
             {
-                pick = { AssetPickKind::Audio, path };
+                result.m_Pick = { AssetPickKind::Audio, path };
             }
+            DrawAssetContextMenu( inRegistry, AssetPickKind::Audio, path, /*inAllowCreateClip=*/false, inHasProject, result );
             if ( g_LoadedAudio.count( path ) )
             {
                 ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
@@ -346,5 +405,5 @@ AssetPick DrawAssetBrowserPanel(
     }
 
     ImGui::End();
-    return pick;
+    return result;
 }

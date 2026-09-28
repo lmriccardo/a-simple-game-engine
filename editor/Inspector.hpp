@@ -158,3 +158,13 @@ InspectorResult DrawInspectorPanel(
  *        wherever the previous scene's counter left off.
  */
 void ResetEntityDisplayIds() noexcept;
+
+/**
+ * @brief inEntity's Name::m_Name if it has one and it's non-empty, else
+ *        "Entity #N" (a stable, ever-increasing id assigned the first time
+ *        this entity is seen -- see ResetEntityDisplayIds). Used by the
+ *        Entities tree and Inspector header; exposed here (Phase 14) so
+ *        AssetBrowser.cpp's "Attach To" submenu lists entities under the
+ *        same names.
+ */
+std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept;

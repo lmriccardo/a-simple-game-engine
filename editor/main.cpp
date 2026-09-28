@@ -47,6 +47,9 @@ using asge::game::components::PathFollow;
 using asge::game::components::Collider;
 using asge::game::components::Animation;
 using asge::game::components::StopAnimation;
+using asge::game::components::Sprite;
+using asge::game::components::AudioSource;
+using asge::game::components::RenderInfo;
 using asge::game::components::AttachChild;
 using asge::game::components::DetachChild;
 using asge::ecs::components::DestroyEntityGraph;
@@ -139,6 +142,51 @@ asge::ecs::Entity DuplicateEntity(
 
     inRegistry.AddComponent<asge::game::scene::SceneId>( created.Value(), asge::game::scene::SceneId{ inScenePath } );
     return created.Value();
+}
+
+/**
+ * @brief Phase 14: attaches inEntity the component "corresponding" to an
+ *        asset of inKind, pointed at inPath -- Sprite::m_VirtualPath for a
+ *        Texture, Animation::m_ClipPath for an Animation clip,
+ *        AudioSource::m_VirtualClipPath for Audio. Backs both the Assets
+ *        panel's "Create Entity" and "Attach To" context-menu actions, which
+ *        differ only in whether inEntity is freshly created.
+ *
+ * A Sprite also gets a RenderInfo if it doesn't already have one (same
+ * auto-attach Inspector.cpp's own Sprite Add-Component does) -- every Sprite
+ * is meant to have one, not just ones added through the Inspector.
+ */
+void AttachAssetComponent(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, AssetPickKind inKind, std::string const& inPath ) noexcept
+{
+    switch ( inKind )
+    {
+    case AssetPickKind::Texture:
+    {
+        Sprite sprite{};
+        sprite.m_VirtualPath = inPath;
+        inRegistry.AddComponent<Sprite>( inEntity, sprite );
+        (void)inRegistry.GetOrAddComponent<RenderInfo>( inEntity );
+        break;
+    }
+    case AssetPickKind::Animation:
+    {
+        Animation animation{};
+        animation.m_ClipPath = inPath;
+        StopAnimation( animation ); // same "don't auto-play in the editor" reasoning as Inspector's Add Component
+        inRegistry.AddComponent<Animation>( inEntity, animation );
+        break;
+    }
+    case AssetPickKind::Audio:
+    {
+        AudioSource audioSource{};
+        audioSource.m_VirtualClipPath = inPath;
+        inRegistry.AddComponent<AudioSource>( inEntity, audioSource );
+        break;
+    }
+    case AssetPickKind::None:
+        break;
+    }
 }
 
 /**
@@ -250,6 +298,28 @@ void SwitchToScene(
     for ( auto [ entity, animation ] : inSceneManager.GetRegistry().View<Animation>() )
     {
         StopAnimation( animation.get() );
+    }
+
+    // Phase 14: a scene saved before RenderInfo existed (or a Sprite that
+    // otherwise ended up on an entity without going through this editor's
+    // own Add Component/Create Entity/Attach To, which already attach one --
+    // see AttachAssetComponent) can have a Sprite with no RenderInfo. Give
+    // it the same default those paths do, and persist it back to this
+    // scene's own file immediately -- a one-time fixup per file, not
+    // something that should need a second silent "it's dirty now" save
+    // later to actually land on disk.
+    bool migratedRenderInfo = false;
+    for ( auto [entity, sprite] : inSceneManager.GetRegistry().View<Sprite>() )
+    {
+        (void)sprite;
+        if ( inSceneManager.GetRegistry().HasComponent<RenderInfo>( entity ) ) continue;
+        (void)inSceneManager.GetRegistry().GetOrAddComponent<RenderInfo>( entity );
+        migratedRenderInfo = true;
+    }
+    if ( migratedRenderInfo )
+    {
+        auto const saveResult = inSceneManager.SaveScene( target.m_Path );
+        if ( !saveResult ) saveResult.LogError();
     }
 }
 
@@ -1671,9 +1741,53 @@ int main(int, char**)
         // opens the Asset Inspector below on that entry; a Sprite gets its
         // texture by picking one at Add Component time instead (see
         // Inspector.hpp's DrawInspectorPanel).
-        AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
-        if (assetPick.m_Kind != AssetPickKind::None) selectedAsset = assetPick;
-        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry());
+        auto const assetBrowserResult = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
+        if (assetBrowserResult.m_Pick.m_Kind != AssetPickKind::None) selectedAsset = assetBrowserResult.m_Pick;
+        DrawAssetInspectorPanel(
+            selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry(),
+            assetBrowserResult.m_OpenCreateClip);
+
+        // Phase 14: an asset row's "Create Entity"/"Attach To" context menu
+        // -- same "goes through the same Registry calls gameplay code uses"
+        // as Phase 13's New Child, plus the RenderInfo auto-attach for a
+        // Sprite (see AttachAssetComponent).
+        switch (assetBrowserResult.m_ContextAction)
+        {
+        case AssetContextAction::CreateEntity:
+        {
+            auto created = sceneManager.GetRegistry().CreateEntity();
+            if (created)
+            {
+                sceneManager.GetRegistry().AddComponent<Transform>(created.Value(), Transform{});
+                AttachAssetComponent(
+                    sceneManager.GetRegistry(), created.Value(),
+                    assetBrowserResult.m_ContextKind, assetBrowserResult.m_ContextPath);
+                if (auto const& path = sceneManager.CurrentScenePath())
+                {
+                    sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                        created.Value(), asge::game::scene::SceneId{*path});
+                }
+                selectedEntity = created.Value(); // "directly opens the inspector panel" -- Inspector shows whatever's selected
+                // A freshly-attached Sprite/Animation/AudioSource has nothing
+                // resolved yet (m_Texture etc. stay null) until this runs --
+                // same reasoning as EntityAction::ComponentsChanged above.
+                assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                MarkActiveSceneDirty(currentProject);
+            }
+            else created.LogError();
+            break;
+        }
+        case AssetContextAction::AttachTo:
+            AttachAssetComponent(
+                sceneManager.GetRegistry(), assetBrowserResult.m_ContextTarget,
+                assetBrowserResult.m_ContextKind, assetBrowserResult.m_ContextPath);
+            selectedEntity = assetBrowserResult.m_ContextTarget;
+            assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+            MarkActiveSceneDirty(currentProject);
+            break;
+        case AssetContextAction::None:
+            break;
+        }
 
         // Always-on panel: lists/adds VirtualFileSystem mounts, and surfaces
         // any root the current scene's assets reference but isn't mounted --

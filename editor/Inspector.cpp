@@ -11,6 +11,7 @@
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
+#include <ASGE/Game/Components/RenderInfo.hpp>
 
 #include <imgui.h>
 
@@ -45,22 +46,6 @@ std::uint32_t GetOrAssignDisplayId( asge::ecs::Entity inEntity ) noexcept
     auto const [it, inserted] = g_EntityDisplayIds.try_emplace( inEntity, g_NextEntityDisplayId );
     if ( inserted ) ++g_NextEntityDisplayId;
     return it->second;
-}
-
-// inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
-// -- used for both the entity list and the inspector header, so the two
-// panels never disagree about what to call an entity.
-std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
-{
-    auto const displayId = GetOrAssignDisplayId( inEntity ); // always assigned, even if Name ends up used instead
-    if ( auto r = inRegistry.GetComponent<Name>( inEntity ); r && !r.Value().get().m_Name.empty() )
-    {
-        return r.Value().get().m_Name;
-    }
-
-    char buf[32];
-    std::snprintf( buf, sizeof(buf), "Entity #%u", displayId );
-    return buf;
 }
 
 /**
@@ -198,11 +183,24 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // (Phase 10) -- its return reports only whether the path selection changed,
 // since only a path change needs AssetManager::ResolveAssets re-run (see the
 // DrawInspector doc comment above for why that trigger has to stay this
-// narrow). Draw order (layer/y-sort) moved out to components::RenderInfo --
-// not yet exposed in this inspector (no ComponentEntry for it below).
+// narrow). Draw order (layer/y-sort/screen-space) moved out to its own
+// components::RenderInfo section, below.
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
     return DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+}
+
+// Phase 14: every field round-trips through Serializer<RenderInfo> verbatim
+// (no asset path/entity reference to reconcile), so unlike Sprite's own
+// section every edit here can just report "changed" directly.
+bool DrawInspector( RenderInfo& inRenderInfo ) noexcept
+{
+    bool changed = ImGui::DragInt( "Layer", &inRenderInfo.m_Layer );
+    if ( ImGui::Checkbox( "Y-Sort", &inRenderInfo.m_YSort ) ) changed = true;
+    if ( ImGui::Checkbox( "Screen Space", &inRenderInfo.m_ScreenSpace ) ) changed = true;
+    if ( ImGui::Checkbox( "Inherit Sort From Parent", &inRenderInfo.m_InheritSortFromParent ) ) changed = true;
+    if ( ImGui::DragInt( "Local Order", &inRenderInfo.m_LocalOrder ) ) changed = true;
+    return changed;
 }
 
 // Per-entity cache of each shape's own last-seen dimensions, so switching
@@ -437,6 +435,7 @@ ComponentEntry const kComponentEntries[]{
     MakeComponentEntry<Velocity>( "Velocity" ),
     MakeComponentEntry<Rigidbody>( "Rigidbody" ),
     MakeComponentEntry<Sprite>( "Sprite" ),
+    MakeComponentEntry<RenderInfo>( "RenderInfo" ),
     MakeComponentEntry<Collider>( "Collider" ),
     MakeComponentEntry<Camera>( "Camera" ),
     MakeComponentEntry<AudioSource>( "AudioSource" ),
@@ -512,6 +511,7 @@ bool DrawAddComponentControl(
             Sprite sprite{};
             sprite.m_VirtualPath = inKnownTextures[textureIndex];
             inRegistry.AddComponent<Sprite>( inEntity, sprite );
+            (void)inRegistry.GetOrAddComponent<RenderInfo>( inEntity ); // Phase 14: every Sprite gets a RenderInfo, once
             return true;
         }
         return false;
@@ -669,6 +669,24 @@ void DrawEntityTreeNode(
 
 }
 
+// inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
+// -- used for both the entity list and the inspector header, so the two
+// panels never disagree about what to call an entity. Declared in
+// Inspector.hpp (Phase 14) so AssetBrowser.cpp's "Attach To" submenu can
+// label entities the same way.
+std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    auto const displayId = GetOrAssignDisplayId( inEntity ); // always assigned, even if Name ends up used instead
+    if ( auto r = inRegistry.GetComponent<Name>( inEntity ); r && !r.Value().get().m_Name.empty() )
+    {
+        return r.Value().get().m_Name;
+    }
+
+    char buf[32];
+    std::snprintf( buf, sizeof(buf), "Entity #%u", displayId );
+    return buf;
+}
+
 void ResetEntityDisplayIds() noexcept
 {
     g_EntityDisplayIds.clear();
@@ -776,6 +794,8 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= rigidbodyChanged;
     bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
+    bool const renderInfoChanged = DrawSection<RenderInfo>( inRegistry, inSelected, "RenderInfo" );
+    fieldChanged |= renderInfoChanged;
     bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider", inSelected, ioColliderDraw );
     fieldChanged |= colliderChanged;
     bool const cameraChanged = DrawSection<Camera>( inRegistry, inSelected, "Camera" );

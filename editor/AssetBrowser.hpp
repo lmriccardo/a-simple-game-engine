@@ -25,6 +25,33 @@ struct AssetPick
 };
 
 /**
+ * @brief Phase 14: which action (if any) an asset row's right-click context
+ *        menu requested this frame -- CreateEntity makes a new entity with
+ *        the asset's corresponding component (Sprite/Animation/AudioSource);
+ *        AttachTo does the same to an existing entity, picked from the
+ *        menu's own submenu, instead of creating one.
+ */
+enum class AssetContextAction { None, CreateEntity, AttachTo };
+
+/**
+ * @brief DrawAssetBrowserPanel's full per-frame report. m_Pick is the
+ *        pre-Phase-14 "clicked an entry to preview it" signal, unchanged;
+ *        m_OpenCreateClip and m_ContextAction/m_ContextKind/m_ContextPath/
+ *        m_ContextTarget (Phase 14) come from a row's right-click menu
+ *        instead, and are mutually exclusive with m_Pick and each other in
+ *        practice (one user gesture per frame).
+ */
+struct AssetBrowserResult
+{
+    AssetPick          m_Pick;
+    bool               m_OpenCreateClip = false;                          // a texture row's "Create Clip" -- see DrawAssetInspectorPanel's inOpenCreateClip
+    AssetContextAction m_ContextAction  = AssetContextAction::None;
+    AssetPickKind      m_ContextKind    = AssetPickKind::None;             // asset kind m_ContextAction applies to
+    std::string        m_ContextPath;                                     // that asset's virtual path
+    asge::ecs::Entity  m_ContextTarget  = asge::ecs::Entity::Null();       // AttachTo only: the entity picked from the submenu
+};
+
+/**
  * @brief Panel listing every texture/animation-clip/audio-clip virtual path
  *        known to the editor: every distinct, non-empty Sprite::m_VirtualPath/
  *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
@@ -44,14 +71,19 @@ struct AssetPick
  * ".wav"/".ogg" -> audio clip, matching media::AudioClip::Load's own
  * extension dispatch).
  *
- * Clicking an entry (of any kind) just returns it here -- the caller shows
- * it in DrawAssetInspectorPanel, it doesn't assign anything.
+ * Clicking an entry (of any kind) just returns it in m_Pick -- the caller
+ * shows it in DrawAssetInspectorPanel, it doesn't assign anything.
+ * Right-clicking one opens Create Entity/Attach To (every kind) plus Create
+ * Clip (textures only) -- same "this file only reports what was asked, the
+ * caller (main.cpp) performs the actual Registry calls" separation
+ * DrawEntityListPanel's EntityListResult already uses for Phase 13.
  *
- * @param inHasProject "Load Asset..." is disabled while false -- an
- *        imported path only persists anywhere (a project's own known-asset
- *        list, see main.cpp's SaveProject) once one exists to persist it to.
+ * @param inHasProject "Load Asset...", "Create Entity" and "Attach To" are
+ *        disabled while false -- a created/attached-to entity gets no
+ *        SceneId to tag it into anything without an active project/scene,
+ *        same reasoning as the Entities panel's own "Create Entity" button.
  */
-AssetPick DrawAssetBrowserPanel(
+AssetBrowserResult DrawAssetBrowserPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
     bool inHasProject ) noexcept;
 
