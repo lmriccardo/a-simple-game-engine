@@ -429,9 +429,32 @@ renderable component is added, but only once.
       texture and opens the same slicer modal (or jumps to the clip
       already associated with it, if one exists).
 
-## Phase ... - Disabled Entities
+## Phase 15 - Disabled Entities
 
-- [ ]
+**Goal**: Some entities can be disabled or enabled at runtime using the new
+`asge::ecs::markers::Disable` component and the `asge::ecs::Registry::DisableEntity`
+function. If the entity is a subtree root in the Hierarchy, then also all of 
+its children are disabled as well recursively. 
+
+- [x] A `Disable` checkbox sits at the top of the Inspector panel, bound to
+      the selected entity's own `Disable` marker -- checking it calls
+      `Registry::DisableEntity`, unchecking removes the marker. Disabling a
+      subtree root needs no extra recursion of its own: `Registry::
+      IsDisabled` already walks up through `Hierarchy::m_Parent`, so one
+      marker on the root is all every descendant needs to already read as
+      disabled. An entity disabled only because an ancestor is (not itself)
+      shows an "(inherited from parent)" hint next to the unchecked box.
+
+- [x] The viewport's Collider/Camera overlays and the selected entity's
+      PathFollow waypoint overlay all skip a `Registry::IsDisabled()`
+      entity, so a disabled entity's gizmos stop showing along with
+      everything else about it.
+
+- [x] The Entities tree shows a small hand-drawn closed-eye icon (no icon
+      font in this project) on a disabled entity's own row, and on every
+      ancestor up to the outer root when a descendant anywhere in its
+      subtree is disabled -- so a disabled entity stays visible from the
+      tree even while its row is collapsed away.
 
 ## Phase ... - UI
 
