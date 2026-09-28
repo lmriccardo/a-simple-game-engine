@@ -58,11 +58,13 @@ constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
 
 /**
- * @brief Finds the topmost entity (by iteration order) whose
- *        GetEntityWorldBounds contains inWorldPos, or Entity::Null() if none.
+ * @brief Finds the topmost entity (by RenderSystem's own resolved draw
+ *        order -- see IsDrawnAbove) whose GetEntityWorldBounds contains
+ *        inWorldPos, or Entity::Null() if none match.
  *
- * No multi-select yet, so the last match wins rather than resolving overlap
- * by draw order.
+ * No multi-select yet. Ties in draw order (e.g. neither has a Transform+
+ * Sprite/UIRect RenderSystem would ever actually draw) fall back to
+ * IsDrawnAbove's own entity-index tiebreak, same as RenderSystem's sort.
  */
 asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Float2 inWorldPos ) noexcept
 {
@@ -75,7 +77,12 @@ asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Flo
         auto const hitRect = GetEntityWorldBounds( inRegistry, entity, transformResult.Value().get() );
         bool const hit = inWorldPos.x() >= hitRect.m_X && inWorldPos.x() <= hitRect.m_X + hitRect.m_Width
                        && inWorldPos.y() >= hitRect.m_Y && inWorldPos.y() <= hitRect.m_Y + hitRect.m_Height;
-        if ( hit ) picked = entity;
+        if ( !hit ) continue;
+
+        if ( picked == asge::ecs::Entity::Null() || asge::game::systems::IsDrawnAbove( inRegistry, entity, picked ) )
+        {
+            picked = entity;
+        }
     }
     return picked;
 }
@@ -1820,8 +1827,10 @@ int main(int, char**)
             targetGameWidth, targetGameHeight);
         // Shown for the selected entity's PathFollow regardless of whether
         // "Select Waypoints" mode is active, so placed waypoints stay
-        // visible once selection ends, not just while adding them.
-        if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity))
+        // visible once selection ends, not just while adding them -- unless
+        // the entity is disabled, same as the Collider/Camera overlays.
+        if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity);
+            pf && !sceneManager.GetRegistry().IsDisabled(selectedEntity))
         {
             DrawPathFollowWaypointOverlay(
                 videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), pf.Value().get().m_Waypoints,

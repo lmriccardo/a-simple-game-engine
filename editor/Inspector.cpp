@@ -12,6 +12,7 @@
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
+#include <ASGE/Core/ECS/Markers.hpp>
 
 #include <imgui.h>
 
@@ -576,6 +577,40 @@ bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
     return false;
 }
 
+// Phase 15: true if inEntity itself carries the Disable marker, or any
+// entity anywhere in its own subtree does -- independent of whether that
+// subtree is currently expanded in the tree, so a collapsed ancestor's row
+// still shows the closed-eye hint below without having to open every level
+// down to the actually-disabled entity.
+bool SubtreeHasDisabled( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    if ( inRegistry.HasComponent<asge::ecs::markers::Disable>( inEntity ) ) return true;
+
+    bool found = false;
+    asge::ecs::components::ForEachChild( inRegistry, inEntity, [&]( asge::ecs::Entity inChild )
+    {
+        if ( !found && SubtreeHasDisabled( inRegistry, inChild ) ) found = true;
+    } );
+    return found;
+}
+
+// A small hand-drawn closed-eye glyph -- no icon font in this project (same
+// reasoning as AssetInspector.cpp's transport-control icons): a shallow
+// eyelid arc plus two short lashes, distinct enough from an open eye
+// (which would have a pupil) at this size. Purely a paint call, not a
+// widget -- callers place it themselves, same technique
+// PlayPauseIconButton/RewindIconButton use for their own icon body.
+void DrawClosedEyeIcon( ImDrawList* inDrawList, ImVec2 inCenter, float inRadius, ImU32 inColor ) noexcept
+{
+    ImVec2 const left{ inCenter.x - inRadius, inCenter.y };
+    ImVec2 const right{ inCenter.x + inRadius, inCenter.y };
+    ImVec2 const top{ inCenter.x, inCenter.y - inRadius * 0.6f };
+    inDrawList->AddBezierQuadratic( left, top, right, inColor, 1.5f );
+
+    inDrawList->AddLine( left,  ImVec2{ left.x - inRadius * 0.35f,  left.y + inRadius * 0.5f },  inColor, 1.5f );
+    inDrawList->AddLine( right, ImVec2{ right.x + inRadius * 0.35f, right.y + inRadius * 0.5f }, inColor, 1.5f );
+}
+
 // Phase 13: one row of DrawEntityListPanel's tree, recursing into
 // inEntity's own children (if any) via ecs::components::ForEachChild.
 // Reports at most one HierarchyAction into ioResult per frame -- New Child/
@@ -603,6 +638,17 @@ void DrawEntityTreeNode(
     // same class of collision DrawSection's PushID guards against.
     std::string const label = GetEntityLabel( inRegistry, inEntity ) + "##" + std::to_string( inEntity.m_Index );
     bool const open = ImGui::TreeNodeEx( label.c_str(), flags );
+
+    // Phase 15: shown for this row's own Disable marker, or any descendant's
+    // -- so a disabled entity N levels deep still surfaces up through every
+    // collapsed ancestor above it, not just its own row.
+    if ( SubtreeHasDisabled( inRegistry, inEntity ) )
+    {
+        ImVec2 const rowMin = ImGui::GetItemRectMin();
+        ImVec2 const rowMax = ImGui::GetItemRectMax();
+        ImVec2 const eyeCenter{ ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 18.0f, ( rowMin.y + rowMax.y ) * 0.5f };
+        DrawClosedEyeIcon( ImGui::GetWindowDrawList(), eyeCenter, 6.0f, ImGui::GetColorU32( ImGuiCol_TextDisabled ) );
+    }
 
     // OpenOnArrow means a click on the label itself (not the arrow) reaches
     // here without also toggling open/closed -- exactly "select this row".
@@ -756,6 +802,45 @@ InspectorResult DrawInspectorPanel(
     EntityAction action = EntityAction::None;
 
     ImGui::Begin( "Inspector" );
+
+    // Two independent accumulators (bitwise-OR, not ||, so every section
+    // still draws even once one reports a change -- short-circuiting would
+    // skip the rest of the entity's components for the remainder of this
+    // frame). componentsChanged keeps its original, narrow meaning (Add/
+    // Remove plus an asset-path selection change) and still drives
+    // EntityAction::ComponentsChanged/ResolveAssets exactly as before;
+    // fieldChanged (Phase 11) is fed by every section regardless of type,
+    // for InspectorResult::m_FieldChanged -- see its own doc comment for
+    // why the two can't just be the same signal.
+    bool componentsChanged = false;
+    bool fieldChanged = false;
+
+    // Phase 15: this entity's own Disable marker only, not the inherited
+    // Registry::IsDisabled() effective state -- a child of a disabled
+    // ancestor has nothing of its own to toggle here (the (inherited) hint
+    // below covers that case instead). Recursively disabling children isn't
+    // this checkbox's job either: IsDisabled() already walks up through
+    // Hierarchy::m_Parent on its own, so a subtree root's Disable alone is
+    // enough for every descendant to already read as disabled.
+    bool ownDisable = inRegistry.HasComponent<asge::ecs::markers::Disable>( inSelected );
+    if ( ImGui::Checkbox( "Disabled", &ownDisable ) )
+    {
+        if ( ownDisable )
+        {
+            inRegistry.DisableEntity( inSelected );
+        }
+        else if ( auto const result = inRegistry.RemoveComponent<asge::ecs::markers::Disable>( inSelected ); !result )
+        {
+            result.LogError();
+        }
+        fieldChanged = true;
+    }
+    else if ( !ownDisable && inRegistry.IsDisabled( inSelected ) )
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "(inherited from parent)" );
+    }
+
     ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );
 
     // Phase 13: read-only -- reparenting happens through the Entities tree's
@@ -771,18 +856,6 @@ InspectorResult DrawInspectorPanel(
     if ( ImGui::Button( "Delete" ) ) action = EntityAction::Delete;
 
     ImGui::Separator();
-
-    // Two independent accumulators (bitwise-OR, not ||, so every section
-    // still draws even once one reports a change -- short-circuiting would
-    // skip the rest of the entity's components for the remainder of this
-    // frame). componentsChanged keeps its original, narrow meaning (Add/
-    // Remove plus an asset-path selection change) and still drives
-    // EntityAction::ComponentsChanged/ResolveAssets exactly as before;
-    // fieldChanged (Phase 11) is fed by every section regardless of type,
-    // for InspectorResult::m_FieldChanged -- see its own doc comment for
-    // why the two can't just be the same signal.
-    bool componentsChanged = false;
-    bool fieldChanged = false;
 
     bool const nameChanged = DrawSection<Name>( inRegistry, inSelected, "Name" );
     fieldChanged |= nameChanged;

@@ -154,6 +154,8 @@ void DrawColliderOverlays(
 
     for ( auto entity : inRegistry.AllEntities() )
     {
+        if ( inRegistry.IsDisabled( entity ) ) continue;
+
         auto transformResult = inRegistry.GetComponent<Transform>( entity );
         auto colliderResult = inRegistry.GetComponent<Collider>( entity );
         if ( !transformResult || !colliderResult ) continue;
@@ -267,6 +269,8 @@ void DrawCameraOverlays(
     // entities exist or which (if any) is resources::ActiveCamera.
     for ( auto entity : inRegistry.AllEntities() )
     {
+        if ( inRegistry.IsDisabled( entity ) ) continue;
+
         auto cameraResult = inRegistry.GetComponent<Camera>( entity );
         auto transformResult = inRegistry.GetComponent<Transform>( entity );
         if ( !cameraResult || !transformResult ) continue;
