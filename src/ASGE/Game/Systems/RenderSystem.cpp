@@ -351,6 +351,52 @@ void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawIt
     }
 }
 
+/** @brief The subset of DrawItem's own sort key operator< needs, computed for one entity outside of a Collect<T> pass -- backs IsDrawnAbove. */
+struct SortKey
+{
+    RenderInfoResolved m_RenderInfo;
+    float              m_SortY;
+    ecs::Entity        m_Entity;
+};
+
+SortKey ComputeSortKey( ecs::Registry const& inReg, ecs::Entity inEntity ) noexcept
+{
+    RenderInfoResolved const render = ResolveRenderInfo( inReg, inEntity );
+
+    float sortY = 0.0f;
+    if ( auto tResult = inReg.GetComponent<Transform>( inEntity ) )
+    {
+        auto const& t = tResult.Value().get();
+        auto const dst = GetAnyDstRect( inReg, inEntity, t );
+        float const ownSortY = t.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f );
+        sortY = ( render.m_Owner == inEntity ) ? ownSortY : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
+    }
+
+    return SortKey{ render, sortY, inEntity };
+}
+
+// Same ordering DrawItem's own operator< uses, minus its final tiebreak
+// (m_Visual.index()) -- unreachable there too for two distinct entities,
+// since m_Entity.m_Index alone already disambiguates any two of them.
+bool operator<( SortKey const& a, SortKey const& b ) noexcept
+{
+    auto const& ra = a.m_RenderInfo;
+    auto const& rb = b.m_RenderInfo;
+    if ( ra.m_ScreenSpace != rb.m_ScreenSpace ) return !ra.m_ScreenSpace;
+    if ( ra.m_Layer != rb.m_Layer ) return ra.m_Layer < rb.m_Layer;
+    if ( ( ra.m_YSort || rb.m_YSort ) && a.m_SortY != b.m_SortY ) return a.m_SortY < b.m_SortY;
+    if ( ra.m_Owner.m_Index != rb.m_Owner.m_Index ) return ra.m_Owner.m_Index < rb.m_Owner.m_Index;
+    if ( ra.m_LocalOrder != rb.m_LocalOrder ) return ra.m_LocalOrder < rb.m_LocalOrder;
+    if ( ra.m_Depth != rb.m_Depth ) return ra.m_Depth < rb.m_Depth;
+    return a.m_Entity.m_Index < b.m_Entity.m_Index;
+}
+
+}
+
+bool asge::game::systems::IsDrawnAbove(
+    ecs::Registry const& inRegistry, ecs::Entity inA, ecs::Entity inB ) noexcept
+{
+    return ComputeSortKey( inRegistry, inB ) < ComputeSortKey( inRegistry, inA );
 }
 
 void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept

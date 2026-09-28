@@ -93,4 +93,19 @@ void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noe
 void RenderPipeline(
     ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
 
+/**
+ * @brief True if inA sorts after inB in RenderSystem's own resolved draw
+ *        order -- i.e. inA is drawn on top of inB -- without re-deriving
+ *        that order from scratch: same resolved RenderInfo (screen-space
+ *        last, then layer, then y-sort's bottom edge, then sort owner/
+ *        local order/inheritance depth), tie-broken by entity index.
+ *        For a tool (a viewport picker, say) that needs "which of these
+ *        two would end up on top" outside of an actual draw pass.
+ *
+ * An entity with no Sprite/UIRect (nothing RenderSystem would draw) still
+ * resolves a layer/screen-space position -- it just never sorts by y, since
+ * there's no dst rect to compute a bottom edge from.
+ */
+bool IsDrawnAbove( ecs::Registry const& inRegistry, ecs::Entity inA, ecs::Entity inB ) noexcept;
+
 }
