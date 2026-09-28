@@ -20,6 +20,7 @@
 #include "Components/UI/Common.hpp"
 #include "Components/UI/UIButton.hpp"
 #include "Components/UI/UILabel.hpp"
+#include "Components/UI/UICheckbox.hpp"
 
 namespace asge::game::components
 {
@@ -38,10 +39,11 @@ using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
     AudioSource, Camera, PathFollow, Name, ecs::components::Hierarchy,
     ecs::markers::Disable, UIButton, RenderInfo, UIRect, Interactable,
-    UILabel
+    UILabel, UICheckbox
 >;
 
 /** @brief Every component type belonging to the UI subsystem. */
-using UIComponents = std::tuple<UIButton, UIRect, Interactable, UILabel>;
+using UIComponents = std::tuple<
+    UIButton, UIRect, Interactable, UILabel, UICheckbox>;
 
 }
