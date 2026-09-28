@@ -7,6 +7,7 @@ namespace
 {
 
 using namespace asge::ecs;
+using namespace asge::ecs::components;
 using namespace asge::game::components;
 using namespace asge::math;
 
@@ -74,7 +75,7 @@ void asge::game::systems::TransformPropagationSystem( asge::ecs::Registry& inReg
     for ( auto [entity, t] : inRegistry.View<asge::game::components::Transform>() )
     {
         auto& transform = t.get();
-        auto h = inRegistry.GetComponent<asge::game::components::Hierarchy>(entity);
+        auto h = inRegistry.GetComponent<asge::ecs::components::Hierarchy>(entity);
         if ( !h || h.Value().get().m_Parent == asge::ecs::Entity::Null() )
         {
             bool const wasDirty = transform.m_Dirty;

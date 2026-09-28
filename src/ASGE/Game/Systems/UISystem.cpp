@@ -12,7 +12,7 @@ namespace
 
 using namespace asge::game;
 using namespace asge::ecs;
-using InteractableComponents = std::tuple<components::UIButton>;
+using InteractableComponents = std::tuple<asge::game::components::UIButton>;
 
 template<typename T>
 void ResolveInteractionsImpl( 
@@ -22,7 +22,7 @@ void ResolveInteractionsImpl(
 
 void ResolveInteractionsImpl( 
     [[maybe_unused]] Registry& inReg, [[maybe_unused]] Entity inEntity, 
-    [[maybe_unused]] components::UIButton& inButton ) noexcept 
+    [[maybe_unused]] asge::game::components::UIButton& inButton ) noexcept
 {
     inButton.m_OnClick.Emit();
 }

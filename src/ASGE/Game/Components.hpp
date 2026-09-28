@@ -2,6 +2,9 @@
 
 #include <tuple>
 
+#include <ASGE/Core/ECS/Hierarchy.hpp>
+#include <ASGE/Core/ECS/Tags.hpp>
+
 #include "Components/Transform.hpp"
 #include "Components/Velocity.hpp"
 #include "Components/Sprite.hpp"
@@ -33,8 +36,9 @@ namespace asge::game::components
  */
 using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
-    AudioSource, Camera, PathFollow, Name, Hierarchy, UIButton,
-    RenderInfo, UIRect, Interactable, UILabel
+    AudioSource, Camera, PathFollow, Name, ecs::components::Hierarchy, 
+    ecs::components::DisableTag, UIButton, RenderInfo, UIRect, Interactable, 
+    UILabel
 >;
 
 /** @brief Every component type belonging to the UI subsystem. */

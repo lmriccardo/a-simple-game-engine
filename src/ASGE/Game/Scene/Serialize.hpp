@@ -4,6 +4,7 @@
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Configuration/TOML_TableView.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
+#include <ASGE/Core/ECS/Tags.hpp>
 #include "IdContext.hpp"
 
 namespace asge::game::scene
@@ -66,6 +67,23 @@ struct Serializer<math::Circle>
 
     static void ToToml( math::Circle inShape, asge::config::toml::TOMLTableView inTview ) noexcept;
     static math::Circle FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+};
+
+template<>
+struct Serializer<ecs::components::DisableTag>
+{
+    static constexpr str::StringView kTableName = "Disabled";
+    using T = ecs::components::DisableTag;
+
+    static void ToToml(
+        [[maybe_unused]]    T inValue,
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
+
+    /** @brief Reads a T back out of inTview, as previously written by ToToml. */
+    static T FromToml(
+                            asge::config::toml::TOMLTableView inTview,
+        [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
 }

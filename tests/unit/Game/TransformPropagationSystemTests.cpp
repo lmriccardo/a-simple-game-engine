@@ -13,7 +13,7 @@ namespace
 using asge::ecs::Entity;
 using asge::ecs::Registry;
 using asge::game::components::AttachChild;
-using asge::game::components::Hierarchy;
+using asge::ecs::components::Hierarchy;
 using asge::game::components::Transform;
 using asge::math::Float2;
 

@@ -209,7 +209,9 @@ public:
      *
      * Looks up each type's pool via FindPool — no pool is created for a
      * type that has never been used — so the result may be empty if any
-     * of Ts has never been added to an entity yet.
+     * of Ts has never been added to an entity yet. Entities carrying
+     * components::DisableTag are skipped unless Ts includes it or the
+     * caller chains View::IncludeDisabled() onto the result.
      *
      * @tparam Ts Component types the returned view requires.
      * @return A View<Ts...> yielding (Entity, Ts&...) for each match.
@@ -217,19 +219,19 @@ public:
     template<typename ... Ts>
     [[nodiscard]] asge::ecs::View<Ts...> View() noexcept
     {
-        return asge::ecs::View<Ts...>(FindPool<Ts>()...);
+        return asge::ecs::View<Ts...>(FindPool<components::DisableTag>(), FindPool<Ts>()...);
     }
 
     /**
-     * @brief Read-only counterpart to View() — same lookup, but returns
-     *        View<Ts const...>, so iterating yields (Entity, Ts const&...)
-     *        instead of mutable references. The only overload callable
-     *        through a Registry const&.
+     * @brief Read-only counterpart to View() — same lookup (including the
+     *        DisableTag skip), but returns View<Ts const...>, so iterating
+     *        yields (Entity, Ts const&...) instead of mutable references.
+     *        The only overload callable through a Registry const&.
      */
     template<typename ... Ts>
     [[nodiscard]] asge::ecs::View<Ts const...> View() const noexcept
     {
-        return asge::ecs::View<Ts const...>(FindPool<Ts>()...);
+        return asge::ecs::View<Ts const...>(FindPool<components::DisableTag>(), FindPool<Ts>()...);
     }
 
     /**

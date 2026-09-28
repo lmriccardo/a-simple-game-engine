@@ -68,6 +68,7 @@ add_library(ASGE STATIC
 
     # Entity-Component-System
     Core/ECS/Registry.cpp
+    Core/ECS/Hierarchy.cpp
 
     # ECS components
     Game/Components/Transform.cpp

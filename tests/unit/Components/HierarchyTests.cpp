@@ -12,11 +12,11 @@ namespace
 using asge::ecs::Entity;
 using asge::ecs::Registry;
 using asge::game::components::AttachChild;
-using asge::game::components::DestroyEntityGraph;
 using asge::game::components::DetachChild;
-using asge::game::components::ForEachChild;
-using asge::game::components::Hierarchy;
-using asge::game::components::IsAncestor;
+using asge::ecs::components::DestroyEntityGraph;
+using asge::ecs::components::ForEachChild;
+using asge::ecs::components::Hierarchy;
+using asge::ecs::components::IsAncestor;
 using asge::game::components::Transform;
 
 Entity MakeEntity(Registry& inRegistry)

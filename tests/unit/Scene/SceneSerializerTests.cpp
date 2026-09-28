@@ -16,6 +16,7 @@ namespace
 
 using namespace asge::game::scene;
 using namespace asge::game::components;
+using asge::ecs::components::Hierarchy;
 using asge::config::toml::TOMLTableView;
 
 class SceneSerializerTest : public ::testing::Test

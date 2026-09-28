@@ -6,6 +6,7 @@
 #include <ASGE/Core/Functools.hpp>
 #include "Entity.hpp"
 #include "ComponentPool.hpp"
+#include "Tags.hpp"
 
 namespace asge::ecs
 {
@@ -26,6 +27,11 @@ namespace asge::ecs
  *          to an entity afterwards.
  * @warning Holds raw pointers into the pools it was built from; must not
  *          outlive the Registry (or ComponentPool instances) that produced them.
+ *
+ * An entity carrying components::DisableTag is skipped during iteration by
+ * default -- call IncludeDisabled() to see it anyway. This skip does not
+ * apply if DisableTag itself is one of Ts, since the caller is then
+ * explicitly asking to see disabled entities.
  *
  * Ts may be const-qualified (e.g. `View<Sprite const>`, what
  * Registry::View<Ts...>() const returns) to get (Entity, Ts const&...)
@@ -53,25 +59,42 @@ private:
     using Tuple_t   = std::tuple<Pool<Ts>*...>;
     using Variant_t = std::variant<Pool<Ts>*...>;
 
-    Tuple_t               m_Pools;         // Pointers to every pool contributing to the View
-    bool                  m_Valid;         // false if any pool is nullptr
-    IComponentPool const* m_SmallestPool;  // The least dense pool, drives iteration -- only ever read from, so const regardless of Ts
+    static constexpr bool kSkipDisabled = !( std::is_same_v<std::remove_const_t<Ts>, components::DisableTag> || ... );
+
+    IComponentPool const* m_DisabledPool;    // Pool with entities associated a Disable Flag
+    Tuple_t               m_Pools;           // Pointers to every pool contributing to the View
+    bool                  m_Valid;           // false if any pool is nullptr
+    IComponentPool const* m_SmallestPool;    // The least dense pool, drives iteration -- only ever read from, so const regardless of Ts
+    
+    bool m_IncludeDisabled{false}; // Set when the called would like to include also disabled entities
+
+    class Iterator; // Forward declaration
+    friend class Iterator; // Now it can access private View methods
 
     // Forward iterator over (Entity, Ts&...) tuples for entities present in
     // every pool in m_ActivePools; steps through the smallest pool's dense
     // storage, skipping entities the other pools don't also contain.
     class Iterator
     {
-        Tuple_t               m_ActivePools;
-        IComponentPool const* m_SmallestPool;
-        std::size_t           m_Index{};
+        View const* m_View;
+        std::size_t m_Index{};
 
         // True only if every pool in m_ActivePools contains this entity.
         bool PassesAllPools( Entity entity ) const
         {
-            return std::apply( 
+            bool selector {true};
+            if constexpr ( View::kSkipDisabled )
+            {
+                if (   !m_View->m_IncludeDisabled && m_View->m_DisabledPool 
+                    &&  m_View->m_DisabledPool->Contains( entity ) )
+                {
+                    selector = false;
+                }
+            } else {}
+
+            return selector && std::apply( 
                 [&]( auto*... pools ) {return ( pools->Contains(entity) && ... );}, 
-                m_ActivePools
+                m_View->m_Pools
             );
         }
 
@@ -80,35 +103,33 @@ private:
         {
             // No smallest pool means the owning View is invalid (see class
             // docs): nothing to iterate, so leave m_Index untouched.
-            if ( !m_SmallestPool ) return;
+            if ( !m_View->m_SmallestPool ) return;
 
-            std::size_t const size = m_SmallestPool->Size();
-            while ( m_Index < size && !PassesAllPools( m_SmallestPool->Entities()[m_Index] ) )
+            std::size_t const size = m_View->m_SmallestPool->Size();
+            while ( m_Index < size && !PassesAllPools( m_View->m_SmallestPool->Entities()[m_Index] ) )
             {
                 ++m_Index;
             }
         }
 
     public:
-
         using iterator_category = std::forward_iterator_tag;
         using value_type        = View::value_type;
         using difference_type   = std::ptrdiff_t;
         using pointer           = void;
         using reference         = value_type;
 
-        Iterator( Tuple_t const& inPools, IComponentPool const* inSmallestPool, std::size_t inIndex )
-            : m_ActivePools( inPools ), m_SmallestPool( inSmallestPool )
-            , m_Index( inIndex )
+        Iterator(View const* inView, std::size_t inIndex) 
+        : m_View( inView ), m_Index( inIndex )
         {
             SkipToValid();
         }
 
         value_type operator*()
         {
-            Entity const entity = m_SmallestPool->Entities()[m_Index];
+            Entity const entity = m_View->m_SmallestPool->Entities()[m_Index];
             auto components = functools::MapTuple( 
-                m_ActivePools,
+                m_View->m_Pools,
                 [&]( auto* pool ){ return std::ref( pool->Get(entity).Value() ); }
             );
             
@@ -145,8 +166,9 @@ public:
      * that type has never been used), typically Registry::FindPool<T>()'s
      * result — Registry::View<Ts...>() is the intended way to construct this.
      */
-    View( Pool<Ts>*&& ... inPools )
-        : m_Pools(std::forward<Pool<Ts>*>(inPools)...)
+    View( IComponentPool const* inDisabledPool, Pool<Ts>*&& ... inPools )
+        : m_DisabledPool(inDisabledPool)
+        , m_Pools(std::forward<Pool<Ts>*>(inPools)...)
         , m_Valid(!_internal::traits::has_nullptr(m_Pools))
         , m_SmallestPool( m_Valid ? GetSmallestPool() : nullptr )
     {
@@ -156,14 +178,25 @@ public:
     Iterator begin()
     {
         if ( !m_Valid ) return end();
-        return Iterator( m_Pools, m_SmallestPool, 0 );
+        return Iterator( this, 0 );
     }
 
     /** @brief One-past-the-last element of the view. */
     Iterator end()
     {
         std::size_t const size = m_Valid ? m_SmallestPool->Size() : 0;
-        return Iterator( m_Pools, m_SmallestPool, size );
+        return Iterator( this, size );
+    }
+
+    /**
+     * @brief Opts this view back into entities carrying components::DisableTag.
+     * @return *this, moved -- chain directly off Registry::View(), e.g.
+     *         `for (auto ... : registry.View<T>().IncludeDisabled())`.
+     */
+    View IncludeDisabled() && noexcept
+    {
+        m_IncludeDisabled = true;
+        return std::move( *this );
     }
 };
 

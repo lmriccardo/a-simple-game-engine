@@ -34,3 +34,16 @@ asge::math::Circle asge::game::scene::Serializer<asge::math::Circle>::FromToml(
         inTview.Get("m_Radius", 0.0f)
     };
 }
+
+void asge::game::scene::Serializer<asge::ecs::components::DisableTag>::ToToml(
+    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+{
+    inTview.Table( str::String( kTableName ) );
+}
+
+asge::ecs::components::DisableTag 
+asge::game::scene::Serializer<asge::ecs::components::DisableTag>::FromToml(
+    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+{
+    return ecs::components::DisableTag{};
+}

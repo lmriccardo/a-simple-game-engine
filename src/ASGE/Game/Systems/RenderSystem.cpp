@@ -96,7 +96,7 @@ RenderInfoResolved ResolveRenderInfo( ecs::Registry const& inReg, ecs::Entity in
         inTarget, 0, targetRi.m_LocalOrder
     };
 
-    auto hResult = inReg.GetComponent<Hierarchy>( inTarget );
+    auto hResult = inReg.GetComponent<asge::ecs::components::Hierarchy>( inTarget );
     if ( !hResult || hResult.Value().get().m_Parent == ecs::Entity::Null() ) return resolved;
 
     auto const parent = ResolveRenderInfo( inReg, hResult.Value().get().m_Parent );

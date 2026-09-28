@@ -11,15 +11,16 @@
 namespace
 {
 
+using namespace asge::ecs::components;
 using namespace asge::game::components;
 using namespace asge::game::scene;
 using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyUIButtonRenderInfoUIRectInteractableUILabel)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableTagUIButtonRenderInfoUIRectInteractableUILabel)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 16);
+    static_assert(std::tuple_size_v<SerializableComponents> == 17);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -31,11 +32,12 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
     static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
     static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
-    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, UIButton>);
-    static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, RenderInfo>);
-    static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, UIRect>);
-    static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, Interactable>);
-    static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, UILabel>);
+    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, DisableTag>);
+    static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, UIButton>);
+    static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, RenderInfo>);
+    static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, UIRect>);
+    static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, Interactable>);
+    static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, UILabel>);
     SUCCEED();
 }
 
@@ -53,6 +55,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
     EXPECT_EQ(Serializer<Name>::kTableName, "Name");
     EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
+    EXPECT_EQ(Serializer<DisableTag>::kTableName, "Disabled");
     EXPECT_EQ(Serializer<UIButton>::kTableName, "UIButton");
     EXPECT_EQ(Serializer<RenderInfo>::kTableName, "RenderInfo");
     EXPECT_EQ(Serializer<UIRect>::kTableName, "UIRect");
