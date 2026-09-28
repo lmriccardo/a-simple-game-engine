@@ -12,13 +12,14 @@ namespace
 {
 
 using namespace asge::ecs::components;
+using namespace asge::ecs::markers;
 using namespace asge::game::components;
 using namespace asge::game::scene;
 using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableTagUIButtonRenderInfoUIRectInteractableUILabel)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabel)
 {
     static_assert(std::tuple_size_v<SerializableComponents> == 17);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
@@ -32,7 +33,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
     static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
     static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
-    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, DisableTag>);
+    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, Disable>);
     static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, UIButton>);
     static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, RenderInfo>);
     static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, UIRect>);
@@ -55,7 +56,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
     EXPECT_EQ(Serializer<Name>::kTableName, "Name");
     EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
-    EXPECT_EQ(Serializer<DisableTag>::kTableName, "Disabled");
+    EXPECT_EQ(Serializer<Disable>::kTableName, "Disabled");
     EXPECT_EQ(Serializer<UIButton>::kTableName, "UIButton");
     EXPECT_EQ(Serializer<RenderInfo>::kTableName, "RenderInfo");
     EXPECT_EQ(Serializer<UIRect>::kTableName, "UIRect");

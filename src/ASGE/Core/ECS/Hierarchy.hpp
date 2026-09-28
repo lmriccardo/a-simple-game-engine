@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ASGE/Core/Functools.hpp>
+#include <concepts>
 #include "Registry.hpp"
 
 namespace asge::ecs::components
@@ -58,10 +58,15 @@ bool IsAncestor( ecs::Registry& inReg, ecs::Entity inPotentialAncestor, ecs::Ent
  *        captured by the caller's own iteration, so it may safely call
  *        AttachChild/DetachChild on the entity it's currently visiting --
  *        that entity's own m_NextSibling is read before inFn runs.
+ *
+ * Constrained via std::invocable rather than functools' function_trait,
+ * since inFn is allowed to be a generic lambda (e.g. `[](auto child){...}`)
+ * -- a generic call operator has no fixed argument type to extract until
+ * it's actually invoked, so invocability with ecs::Entity is the only
+ * thing that can honestly be checked here.
  */
 template<typename Callable>
-requires (functools::_internal::arity_v<Callable> == 1)
-    &&   (std::is_same_v<functools::_internal::arg_t<Callable, 0>, ecs::Entity>)
+requires std::invocable<Callable, ecs::Entity>
 void ForEachChild( ecs::Registry& inReg, ecs::Entity inParent, Callable&& inFn )
 {
     auto parentHResult = inReg.GetComponent<Hierarchy>(inParent);

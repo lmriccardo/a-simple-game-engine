@@ -4,7 +4,7 @@
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Configuration/TOML_TableView.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
-#include <ASGE/Core/ECS/Tags.hpp>
+#include <ASGE/Core/ECS/Markers.hpp>
 #include "IdContext.hpp"
 
 namespace asge::game::scene
@@ -70,10 +70,10 @@ struct Serializer<math::Circle>
 };
 
 template<>
-struct Serializer<ecs::components::DisableTag>
+struct Serializer<ecs::markers::Disable>
 {
     static constexpr str::StringView kTableName = "Disabled";
-    using T = ecs::components::DisableTag;
+    using T = ecs::markers::Disable;
 
     static void ToToml(
         [[maybe_unused]]    T inValue,

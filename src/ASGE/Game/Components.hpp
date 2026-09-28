@@ -3,7 +3,7 @@
 #include <tuple>
 
 #include <ASGE/Core/ECS/Hierarchy.hpp>
-#include <ASGE/Core/ECS/Tags.hpp>
+#include <ASGE/Core/ECS/Markers.hpp>
 
 #include "Components/Transform.hpp"
 #include "Components/Velocity.hpp"
@@ -36,8 +36,8 @@ namespace asge::game::components
  */
 using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
-    AudioSource, Camera, PathFollow, Name, ecs::components::Hierarchy, 
-    ecs::components::DisableTag, UIButton, RenderInfo, UIRect, Interactable, 
+    AudioSource, Camera, PathFollow, Name, ecs::components::Hierarchy,
+    ecs::markers::Disable, UIButton, RenderInfo, UIRect, Interactable,
     UILabel
 >;
 

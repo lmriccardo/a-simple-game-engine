@@ -1,6 +1,6 @@
 #pragma once
 
-namespace asge::ecs::components 
+namespace asge::ecs::markers
 {
 
 /**
@@ -8,8 +8,8 @@ namespace asge::ecs::components
  *
  * Registry::View() skips any entity carrying this tag unless the caller
  * opts back in with View::IncludeDisabled(), or Ts itself includes
- * DisableTag (in which case the skip is not applied at all).
+ * Disable (in which case the skip is not applied at all).
  */
-struct DisableTag {};
+struct Disable {};
 
 }

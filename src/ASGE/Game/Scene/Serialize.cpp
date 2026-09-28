@@ -35,15 +35,15 @@ asge::math::Circle asge::game::scene::Serializer<asge::math::Circle>::FromToml(
     };
 }
 
-void asge::game::scene::Serializer<asge::ecs::components::DisableTag>::ToToml(
+void asge::game::scene::Serializer<asge::ecs::markers::Disable>::ToToml(
     T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String( kTableName ) );
 }
 
-asge::ecs::components::DisableTag 
-asge::game::scene::Serializer<asge::ecs::components::DisableTag>::FromToml(
+asge::ecs::markers::Disable
+asge::game::scene::Serializer<asge::ecs::markers::Disable>::FromToml(
     asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
-    return ecs::components::DisableTag{};
+    return ecs::markers::Disable{};
 }

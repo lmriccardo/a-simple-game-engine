@@ -2,11 +2,12 @@
 
 #include <tuple>
 #include <type_traits>
+#include <functional>
 #include <ASGE/Core/TraitFunctions.hpp>
 #include <ASGE/Core/Functools.hpp>
 #include "Entity.hpp"
 #include "ComponentPool.hpp"
-#include "Tags.hpp"
+#include "Markers.hpp"
 
 namespace asge::ecs
 {
@@ -26,12 +27,17 @@ namespace asge::ecs
  *          the view is permanently empty — even if that type is added
  *          to an entity afterwards.
  * @warning Holds raw pointers into the pools it was built from; must not
- *          outlive the Registry (or ComponentPool instances) that produced them.
+ *          outlive the Registry (or ComponentPool instances) that produced
+ *          them -- including indirectly, through the IsDisabled predicate
+ *          below.
  *
- * An entity carrying components::DisableTag is skipped during iteration by
- * default -- call IncludeDisabled() to see it anyway. This skip does not
- * apply if DisableTag itself is one of Ts, since the caller is then
- * explicitly asking to see disabled entities.
+ * An entity is skipped during iteration by default if the IsDisabled
+ * predicate passed in at construction says so (Registry::View() binds this
+ * to Registry::IsDisabled(), i.e. the entity carries markers::Disable
+ * itself, or any ancestor in its Hierarchy chain does) -- call
+ * IncludeDisabled() to see it anyway. This skip does not apply if Disable
+ * itself is one of Ts, since the caller is then explicitly asking to see
+ * disabled entities.
  *
  * Ts may be const-qualified (e.g. `View<Sprite const>`, what
  * Registry::View<Ts...>() const returns) to get (Entity, Ts const&...)
@@ -59,10 +65,10 @@ private:
     using Tuple_t   = std::tuple<Pool<Ts>*...>;
     using Variant_t = std::variant<Pool<Ts>*...>;
 
-    static constexpr bool kSkipDisabled = !( std::is_same_v<std::remove_const_t<Ts>, components::DisableTag> || ... );
+    static constexpr bool kSkipDisabled = !( std::is_same_v<std::remove_const_t<Ts>, markers::Disable> || ... );
 
-    IComponentPool const* m_DisabledPool;    // Pool with entities associated a Disable Flag
-    Tuple_t               m_Pools;           // Pointers to every pool contributing to the View
+    std::function<bool(Entity)> m_IsDisabled; // Registry::IsDisabled(), bound at construction -- see class docs
+    Tuple_t                m_Pools;          // Pointers to every pool contributing to the View
     bool                  m_Valid;           // false if any pool is nullptr
     IComponentPool const* m_SmallestPool;    // The least dense pool, drives iteration -- only ever read from, so const regardless of Ts
     
@@ -85,8 +91,8 @@ private:
             bool selector {true};
             if constexpr ( View::kSkipDisabled )
             {
-                if (   !m_View->m_IncludeDisabled && m_View->m_DisabledPool 
-                    &&  m_View->m_DisabledPool->Contains( entity ) )
+                if (   !m_View->m_IncludeDisabled && m_View->m_IsDisabled
+                    &&  m_View->m_IsDisabled( entity ) )
                 {
                     selector = false;
                 }
@@ -165,9 +171,11 @@ public:
      * inPools[i] should be the pool for the i-th type in Ts (nullptr if
      * that type has never been used), typically Registry::FindPool<T>()'s
      * result — Registry::View<Ts...>() is the intended way to construct this.
+     * inIsDisabled need not be set (an empty std::function skips the check
+     * below entirely, same as every entity passing it).
      */
-    View( IComponentPool const* inDisabledPool, Pool<Ts>*&& ... inPools )
-        : m_DisabledPool(inDisabledPool)
+    View( std::function<bool(Entity)> inIsDisabled, Pool<Ts>*&& ... inPools )
+        : m_IsDisabled(std::move(inIsDisabled))
         , m_Pools(std::forward<Pool<Ts>*>(inPools)...)
         , m_Valid(!_internal::traits::has_nullptr(m_Pools))
         , m_SmallestPool( m_Valid ? GetSmallestPool() : nullptr )
@@ -189,7 +197,7 @@ public:
     }
 
     /**
-     * @brief Opts this view back into entities carrying components::DisableTag.
+     * @brief Opts this view back into entities carrying markers::Disable.
      * @return *this, moved -- chain directly off Registry::View(), e.g.
      *         `for (auto ... : registry.View<T>().IncludeDisabled())`.
      */

@@ -1,5 +1,6 @@
 #include <ASGE/Core/ECS/Registry.hpp>
-#include <ASGE/Core/ECS/Tags.hpp>
+#include <ASGE/Core/ECS/Markers.hpp>
+#include <ASGE/Core/ECS/Hierarchy.hpp>
 
 #include <gtest/gtest.h>
 
@@ -13,7 +14,9 @@ namespace
 using asge::ecs::Entity;
 using asge::ecs::EntityIndex;
 using asge::ecs::Registry;
-using asge::ecs::components::DisableTag;
+using asge::ecs::markers::Disable;
+using asge::ecs::components::AttachChild;
+using asge::ecs::components::DetachChild;
 
 struct Position
 {
@@ -285,16 +288,16 @@ TEST(RegistryTest, View_ConstRegistryOnlyVisitsEntitiesWithEveryRequestedCompone
     EXPECT_EQ(seen[0], both.m_Index);
 }
 
-// ─── Registry::View — DisableTag filtering ─────────────────────────────────────
+// ─── Registry::View — Disable filtering ─────────────────────────────────────
 
-TEST(RegistryTest, View_EntityWithDisableTag_IsSkippedByDefault)
+TEST(RegistryTest, View_EntityWithDisable_IsSkippedByDefault)
 {
     Registry registry;
     auto enabled = registry.CreateEntity().Value();
     auto disabled = registry.CreateEntity().Value();
     ASSERT_TRUE(registry.AddComponent<Position>(enabled, Position{ 1.0f, 1.0f }).IsOk());
     ASSERT_TRUE(registry.AddComponent<Position>(disabled, Position{ 2.0f, 2.0f }).IsOk());
-    ASSERT_TRUE(registry.AddComponent<DisableTag>(disabled, DisableTag{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Disable>(disabled, Disable{}).IsOk());
 
     std::vector<EntityIndex> seen;
     for (auto [entity, pos] : registry.View<Position>())
@@ -307,14 +310,14 @@ TEST(RegistryTest, View_EntityWithDisableTag_IsSkippedByDefault)
     EXPECT_EQ(seen[0], enabled.m_Index);
 }
 
-TEST(RegistryTest, View_IncludeDisabled_EntityWithDisableTagIsVisible)
+TEST(RegistryTest, View_IncludeDisabled_EntityWithDisableIsVisible)
 {
     Registry registry;
     auto enabled = registry.CreateEntity().Value();
     auto disabled = registry.CreateEntity().Value();
     ASSERT_TRUE(registry.AddComponent<Position>(enabled, Position{}).IsOk());
     ASSERT_TRUE(registry.AddComponent<Position>(disabled, Position{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent<DisableTag>(disabled, DisableTag{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Disable>(disabled, Disable{}).IsOk());
 
     std::vector<EntityIndex> seen;
     for (auto [entity, pos] : registry.View<Position>().IncludeDisabled())
@@ -327,16 +330,16 @@ TEST(RegistryTest, View_IncludeDisabled_EntityWithDisableTagIsVisible)
     EXPECT_EQ(seen, (std::vector<EntityIndex>{ enabled.m_Index, disabled.m_Index }));
 }
 
-TEST(RegistryTest, View_ExplicitlyRequestingDisableTag_IsNotFilteredOut)
+TEST(RegistryTest, View_ExplicitlyRequestingDisable_IsNotFilteredOut)
 {
-    // Ts itself includes DisableTag here, so the "skip disabled entities"
+    // Ts itself includes Disable here, so the "skip disabled entities"
     // behavior does not apply -- the caller is asking for disabled entities
     // by name, not accidentally filtering them out from under themselves.
     Registry registry;
     auto disabled = registry.CreateEntity().Value();
-    ASSERT_TRUE(registry.AddComponent<DisableTag>(disabled, DisableTag{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Disable>(disabled, Disable{}).IsOk());
 
-    auto view = registry.View<DisableTag>();
+    auto view = registry.View<Disable>();
     std::size_t count = 0;
     for (auto it = view.begin(); it != view.end(); ++it) ++count;
     EXPECT_EQ(count, 1u);
@@ -344,7 +347,7 @@ TEST(RegistryTest, View_ExplicitlyRequestingDisableTag_IsNotFilteredOut)
 
 TEST(RegistryTest, View_NoEntityEverTaggedDisabled_BehavesExactlyAsWithoutTheFeature)
 {
-    // DisableTag's pool is never created (FindPool<DisableTag>() is
+    // Disable's pool is never created (FindPool<Disable>() is
     // nullptr) -- the view must still visit every entity normally rather
     // than mistaking "no disabled pool" for "everything filtered".
     Registry registry;
@@ -362,14 +365,14 @@ TEST(RegistryTest, View_NoEntityEverTaggedDisabled_BehavesExactlyAsWithoutTheFea
     EXPECT_EQ(seen[0], e.m_Index);
 }
 
-TEST(RegistryTest, View_ConstRegistry_EntityWithDisableTagIsSkippedByDefault)
+TEST(RegistryTest, View_ConstRegistry_EntityWithDisableIsSkippedByDefault)
 {
     Registry registry;
     auto enabled = registry.CreateEntity().Value();
     auto disabled = registry.CreateEntity().Value();
     ASSERT_TRUE(registry.AddComponent<Position>(enabled, Position{}).IsOk());
     ASSERT_TRUE(registry.AddComponent<Position>(disabled, Position{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent<DisableTag>(disabled, DisableTag{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Disable>(disabled, Disable{}).IsOk());
 
     Registry const& constRegistry = registry;
     std::vector<EntityIndex> seen;
@@ -388,7 +391,7 @@ TEST(RegistryTest, View_ConstRegistry_IncludeDisabledMakesItVisible)
     Registry registry;
     auto disabled = registry.CreateEntity().Value();
     ASSERT_TRUE(registry.AddComponent<Position>(disabled, Position{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent<DisableTag>(disabled, DisableTag{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Disable>(disabled, Disable{}).IsOk());
 
     Registry const& constRegistry = registry;
     std::vector<EntityIndex> seen;
@@ -402,21 +405,127 @@ TEST(RegistryTest, View_ConstRegistry_IncludeDisabledMakesItVisible)
     EXPECT_EQ(seen[0], disabled.m_Index);
 }
 
-TEST(RegistryTest, View_ConstRegistry_ExplicitlyRequestingDisableTagIsNotFilteredOut)
+TEST(RegistryTest, View_ConstRegistry_ExplicitlyRequestingDisableIsNotFilteredOut)
 {
     // Regression test: View<Ts const...>() used to compare the const-
-    // qualified Ts against the unqualified DisableTag type, so this case
-    // never matched and a const view over DisableTag itself came back
+    // qualified Ts against the unqualified Disable type, so this case
+    // never matched and a const view over Disable itself came back
     // empty even when a disabled entity existed.
     Registry registry;
     auto disabled = registry.CreateEntity().Value();
-    ASSERT_TRUE(registry.AddComponent<DisableTag>(disabled, DisableTag{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent<Disable>(disabled, Disable{}).IsOk());
 
     Registry const& constRegistry = registry;
-    auto view = constRegistry.View<DisableTag>();
+    auto view = constRegistry.View<Disable>();
     std::size_t count = 0;
     for (auto it = view.begin(); it != view.end(); ++it) ++count;
     EXPECT_EQ(count, 1u);
+}
+
+// ─── Registry::DisableEntity / IsDisabled — hierarchy propagation ─────────────
+
+TEST(RegistryTest, IsDisabled_EntityWithNoDisableAndNoHierarchy_IsFalse)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    EXPECT_FALSE(registry.IsDisabled(e));
+}
+
+TEST(RegistryTest, IsDisabled_DisableEntity_MarksItDisabled)
+{
+    Registry registry;
+    auto e = registry.CreateEntity().Value();
+    registry.DisableEntity(e);
+    EXPECT_TRUE(registry.IsDisabled(e));
+}
+
+TEST(RegistryTest, IsDisabled_ChildOfDisabledParent_IsDisabled)
+{
+    Registry registry;
+    auto parent = registry.CreateEntity().Value();
+    auto child = registry.CreateEntity().Value();
+    AttachChild(registry, parent, child);
+
+    registry.DisableEntity(parent);
+
+    EXPECT_TRUE(registry.IsDisabled(child));
+}
+
+TEST(RegistryTest, IsDisabled_GrandchildOfDisabledAncestor_IsDisabled)
+{
+    // Regression case: IsDisabled walks the whole Hierarchy chain, not just
+    // one level -- disabling a grandparent must reach a grandchild too.
+    Registry registry;
+    auto grandparent = registry.CreateEntity().Value();
+    auto parent = registry.CreateEntity().Value();
+    auto child = registry.CreateEntity().Value();
+    AttachChild(registry, grandparent, parent);
+    AttachChild(registry, parent, child);
+
+    registry.DisableEntity(grandparent);
+
+    EXPECT_TRUE(registry.IsDisabled(parent));
+    EXPECT_TRUE(registry.IsDisabled(child));
+}
+
+TEST(RegistryTest, IsDisabled_AttachingUnderAnAlreadyDisabledParent_TheNewChildIsDisabled)
+{
+    Registry registry;
+    auto parent = registry.CreateEntity().Value();
+    registry.DisableEntity(parent);
+
+    auto child = registry.CreateEntity().Value();
+    AttachChild(registry, parent, child);
+
+    EXPECT_TRUE(registry.IsDisabled(child));
+}
+
+TEST(RegistryTest, IsDisabled_DetachingFromADisabledParent_ChildIsNoLongerDisabled)
+{
+    Registry registry;
+    auto parent = registry.CreateEntity().Value();
+    auto child = registry.CreateEntity().Value();
+    AttachChild(registry, parent, child);
+    registry.DisableEntity(parent);
+    ASSERT_TRUE(registry.IsDisabled(child));
+
+    DetachChild(registry, child);
+
+    EXPECT_FALSE(registry.IsDisabled(child));
+}
+
+TEST(RegistryTest, IsDisabled_RemovingDisableFromAnAncestor_WholeSubtreeIsNoLongerDisabled)
+{
+    // There is no separate "inherited disable" marker to forget to clean up
+    // -- removing Disable from the ancestor is the only state that ever
+    // needed changing, so the whole subtree is consistent immediately.
+    Registry registry;
+    auto parent = registry.CreateEntity().Value();
+    auto child = registry.CreateEntity().Value();
+    AttachChild(registry, parent, child);
+    registry.DisableEntity(parent);
+    ASSERT_TRUE(registry.IsDisabled(child));
+
+    ASSERT_TRUE(registry.RemoveComponent<Disable>(parent).IsOk());
+
+    EXPECT_FALSE(registry.IsDisabled(parent));
+    EXPECT_FALSE(registry.IsDisabled(child));
+}
+
+TEST(RegistryTest, View_ChildOfDisabledParent_IsSkippedEvenThoughOnlyTheParentCarriesDisable)
+{
+    Registry registry;
+    auto parent = registry.CreateEntity().Value();
+    auto child = registry.CreateEntity().Value();
+    ASSERT_TRUE(registry.AddComponent<Position>(child, Position{}).IsOk());
+    AttachChild(registry, parent, child);
+
+    registry.DisableEntity(parent);
+
+    auto view = registry.View<Position>();
+    std::size_t count = 0;
+    for (auto it = view.begin(); it != view.end(); ++it) ++count;
+    EXPECT_EQ(count, 0u);
 }
 
 // ─── Registry::GetComponent / HasComponent — const and non-const access ───────
