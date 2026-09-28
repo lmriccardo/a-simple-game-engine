@@ -11,6 +11,7 @@
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
+#include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Scene/SceneId.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
@@ -46,6 +47,9 @@ using asge::game::components::PathFollow;
 using asge::game::components::Collider;
 using asge::game::components::Animation;
 using asge::game::components::StopAnimation;
+using asge::game::components::AttachChild;
+using asge::game::components::DetachChild;
+using asge::ecs::components::DestroyEntityGraph;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
@@ -1550,7 +1554,8 @@ int main(int, char**)
 
         // Phase 3: entity list panel drives the same selection state as
         // viewport picking (Phase 2) -- one selection state, two input paths.
-        if (DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity, freshHasProject))
+        auto const entityListResult = DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity, freshHasProject);
+        if (entityListResult.m_CreateClicked)
         {
             // Phase 5: "Create entity" goes through the same Registry::
             // CreateEntity() + AddComponent() gameplay code uses -- no
@@ -1571,6 +1576,58 @@ int main(int, char**)
                 MarkActiveSceneDirty(currentProject);
             }
             else created.LogError();
+        }
+
+        // Phase 13: New Child/Detach/Remove (the Entities tree's row context
+        // menu) and Reparent (a row dropped onto another) -- same "goes
+        // through the same Registry/Hierarchy calls gameplay code uses" as
+        // Create Entity above.
+        switch (entityListResult.m_Action)
+        {
+        case HierarchyAction::NewChild:
+        {
+            auto created = sceneManager.GetRegistry().CreateEntity();
+            if (created)
+            {
+                sceneManager.GetRegistry().AddComponent<Transform>(created.Value(), Transform{});
+                if (auto const& path = sceneManager.CurrentScenePath())
+                {
+                    sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                        created.Value(), asge::game::scene::SceneId{*path});
+                }
+                AttachChild(sceneManager.GetRegistry(), entityListResult.m_Target, created.Value());
+                selectedEntity = created.Value();
+                MarkActiveSceneDirty(currentProject);
+            }
+            else created.LogError();
+            break;
+        }
+        case HierarchyAction::Detach:
+            DetachChild(sceneManager.GetRegistry(), entityListResult.m_Target);
+            MarkActiveSceneDirty(currentProject);
+            break;
+        case HierarchyAction::Remove:
+        {
+            DestroyEntityGraph(sceneManager.GetRegistry(), entityListResult.m_Target);
+            // Remove can take out a whole subtree at once -- selectedEntity
+            // might have been one of its descendants, not just the
+            // right-clicked entity itself, so re-check aliveness rather than
+            // only comparing against m_Target (same check DuplicateEntity
+            // already does for the same reason).
+            auto const alive = sceneManager.GetRegistry().AllEntities();
+            if (std::find(alive.begin(), alive.end(), selectedEntity) == alive.end())
+            {
+                selectedEntity = asge::ecs::Entity::Null();
+            }
+            MarkActiveSceneDirty(currentProject);
+            break;
+        }
+        case HierarchyAction::Reparent:
+            AttachChild(sceneManager.GetRegistry(), entityListResult.m_NewParent, entityListResult.m_Target);
+            MarkActiveSceneDirty(currentProject);
+            break;
+        case HierarchyAction::None:
+            break;
         }
 
         auto const inspectorResult = DrawInspectorPanel(

@@ -10,6 +10,7 @@
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Name.hpp>
+#include <ASGE/Game/Components/Hierarchy.hpp>
 
 #include <imgui.h>
 
@@ -575,6 +576,97 @@ bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
     return false;
 }
 
+// Phase 13: one row of DrawEntityListPanel's tree, recursing into
+// inEntity's own children (if any) via ecs::components::ForEachChild.
+// Reports at most one HierarchyAction into ioResult per frame -- New Child/
+// Detach/Remove from this row's own context menu, or Reparent if another
+// row's drag payload was dropped onto it -- the same "one user gesture per
+// frame" assumption InspectorResult's EntityAction already makes. Actually
+// executing any of these (CreateEntity, AttachChild/DetachChild,
+// DestroyEntityGraph) is deferred to the caller in main.cpp, which owns the
+// SceneManager this Registry belongs to; mutating the Hierarchy mid-walk
+// here would invalidate the child list this recursion is still iterating.
+void DrawEntityTreeNode(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult ) noexcept
+{
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
+    bool const isRoot = !hierarchy || hierarchy.Value().get().m_Parent == asge::ecs::Entity::Null();
+    bool const hasChildren = hierarchy && hierarchy.Value().get().m_FirstChild != asge::ecs::Entity::Null();
+
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+    if ( inEntity == ioSelected ) flags |= ImGuiTreeNodeFlags_Selected;
+    if ( !hasChildren ) flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+    // "##<index>" suffix keeps each row's ImGui ID unique even when two
+    // entities share the same (or default, unnamed) display label -- the
+    // same class of collision DrawSection's PushID guards against.
+    std::string const label = GetEntityLabel( inRegistry, inEntity ) + "##" + std::to_string( inEntity.m_Index );
+    bool const open = ImGui::TreeNodeEx( label.c_str(), flags );
+
+    // OpenOnArrow means a click on the label itself (not the arrow) reaches
+    // here without also toggling open/closed -- exactly "select this row".
+    if ( ImGui::IsItemClicked( ImGuiMouseButton_Left ) ) ioSelected = inEntity;
+
+    if ( ImGui::BeginDragDropSource() )
+    {
+        ImGui::SetDragDropPayload( "ASGE_ENTITY", &inEntity, sizeof( inEntity ) );
+        ImGui::TextUnformatted( label.c_str() );
+        ImGui::EndDragDropSource();
+    }
+    if ( ImGui::BeginDragDropTarget() )
+    {
+        // Cycle/no-op guards (dropping onto itself, onto one of its own
+        // descendants, or to where it already is) live in AttachChild
+        // itself -- not duplicated here, the drop always just reports the
+        // gesture and lets the caller's AttachChild call decide.
+        if ( auto const* payload = ImGui::AcceptDragDropPayload( "ASGE_ENTITY" ) )
+        {
+            asge::ecs::Entity dragged;
+            std::memcpy( &dragged, payload->Data, sizeof( dragged ) );
+            ioResult.m_Action = HierarchyAction::Reparent;
+            ioResult.m_Target = dragged;
+            ioResult.m_NewParent = inEntity;
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    if ( ImGui::BeginPopupContextItem() )
+    {
+        if ( ImGui::MenuItem( "New Child" ) )
+        {
+            ioResult.m_Action = HierarchyAction::NewChild;
+            ioResult.m_Target = inEntity;
+        }
+        if ( ImGui::MenuItem( "Detach", nullptr, false, !isRoot ) )
+        {
+            ioResult.m_Action = HierarchyAction::Detach;
+            ioResult.m_Target = inEntity;
+        }
+        if ( ImGui::MenuItem( "Remove" ) )
+        {
+            ioResult.m_Action = HierarchyAction::Remove;
+            ioResult.m_Target = inEntity;
+        }
+        ImGui::EndPopup();
+    }
+
+    if ( open && hasChildren )
+    {
+        // Snapshotted up front, not walked live -- ioResult's action (if any
+        // gets set this frame) is only applied by the caller after this
+        // whole tree finishes drawing, so the Hierarchy itself never
+        // changes mid-recursion; this is just ForEachChild's own contract
+        // (safe to reparent/detach the entity currently being visited, not
+        // safe to assume its sibling links survive an arbitrary mutation).
+        std::vector<asge::ecs::Entity> children;
+        asge::ecs::components::ForEachChild(
+            inRegistry, inEntity, [&]( asge::ecs::Entity inChild ) { children.push_back( inChild ); } );
+        for ( auto child : children ) DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult );
+    }
+    if ( open && hasChildren ) ImGui::TreePop();
+}
+
 }
 
 void ResetEntityDisplayIds() noexcept
@@ -583,7 +675,7 @@ void ResetEntityDisplayIds() noexcept
     g_NextEntityDisplayId = 0;
 }
 
-bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
+EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
 {
     // Anchored flush to the right edge, re-snapping only on an actual
     // resize -- see AnchorCondOnResize's own doc comment.
@@ -591,35 +683,39 @@ bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
     ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), AnchorCondOnResize() );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, 160.0f ), ImGuiCond_FirstUseEver );
 
+    EntityListResult result;
+
     ImGui::Begin( "Entities" );
     if ( !inHasProject ) ImGui::BeginDisabled();
-    bool const createClicked = ImGui::Button( "Create Entity" );
+    result.m_CreateClicked = ImGui::Button( "Create Entity" );
     if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
 
-    // AllEntities() is a raw storage-slot scan (ascending Entity::m_Index),
-    // not creation order -- listing in that order let a newly created
-    // entity land in a low, just-freed slot and appear above older ones
-    // instead of after them. Sorted by the same creation-order id
-    // GetEntityLabel's numbering is built on instead.
+    // Root entities only (no Hierarchy, or one with no parent) -- every
+    // other entity is reached recursively, as some root's descendant,
+    // through DrawEntityTreeNode's own ForEachChild walk. AllEntities() is a
+    // raw storage-slot scan (ascending Entity::m_Index), not creation order
+    // -- listing roots in that order let a newly created one land in a low,
+    // just-freed slot and appear above older ones instead of after them.
+    // Sorted by the same creation-order id GetEntityLabel's numbering is
+    // built on instead.
     auto entities = inRegistry.AllEntities();
-    std::sort( entities.begin(), entities.end(), []( asge::ecs::Entity inA, asge::ecs::Entity inB ) noexcept
+    std::vector<asge::ecs::Entity> roots;
+    for ( auto entity : entities )
+    {
+        auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( entity );
+        if ( !hierarchy || hierarchy.Value().get().m_Parent == asge::ecs::Entity::Null() ) roots.push_back( entity );
+    }
+    std::sort( roots.begin(), roots.end(), []( asge::ecs::Entity inA, asge::ecs::Entity inB ) noexcept
     {
         return GetOrAssignDisplayId( inA ) < GetOrAssignDisplayId( inB );
     } );
 
-    for ( auto entity : entities )
-    {
-        // "##<index>" suffix keeps each row's ImGui ID unique even when two
-        // entities share the same (or default, unnamed) display label --
-        // the same class of collision DrawSection's PushID guards against.
-        std::string const label = GetEntityLabel( inRegistry, entity )
-            + "##" + std::to_string( entity.m_Index );
-        if ( ImGui::Selectable( label.c_str(), entity == ioSelected ) ) ioSelected = entity;
-    }
+    for ( auto root : roots ) DrawEntityTreeNode( inRegistry, root, ioSelected, result );
+
     ImGui::End();
 
-    return createClicked;
+    return result;
 }
 
 InspectorResult DrawInspectorPanel(
@@ -643,6 +739,14 @@ InspectorResult DrawInspectorPanel(
 
     ImGui::Begin( "Inspector" );
     ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );
+
+    // Phase 13: read-only -- reparenting happens through the Entities tree's
+    // drag-and-drop/context menu, not here.
+    if ( auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inSelected );
+         hierarchy && hierarchy.Value().get().m_Parent != asge::ecs::Entity::Null() )
+    {
+        ImGui::TextDisabled( "Parent: %s", GetEntityLabel( inRegistry, hierarchy.Value().get().m_Parent ).c_str() );
+    }
 
     if ( ImGui::Button( "Duplicate" ) ) action = EntityAction::Duplicate;
     ImGui::SameLine();
