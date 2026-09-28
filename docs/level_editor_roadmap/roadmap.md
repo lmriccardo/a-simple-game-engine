@@ -365,6 +365,47 @@ errors or cross-scene bleed.
       shows its path/size, every `FrameTable` field, and a live cycling
       preview of its sliced frames.
 
+## Phase 13 - Entities Hierarchy
+
+**Goal**: From the merge with branch `mils/0.9.0-ui-framework` there have
+have been introduced the concept of Entity hierarchy, using the `Hierarchy`
+component and the concept of *disabled* entities using the `Disable` marker.
+I would like to add those concepts into the ASGE Editor.
+
+- [x] The Entities panel is now a `Hierarchy`-aware tree instead of a flat
+      list: root entities (no `Hierarchy`, or one with no parent) at the top
+      level, each one's children nested underneath via
+      `ecs::components::ForEachChild`, with collapsible arrows per subtree —
+      no `Hierarchy` component itself shown in the Entity inspector.
+
+- [x] The Inspector panel shows a read-only `Parent: <name>` line above the
+      Duplicate/Delete buttons whenever the selected entity has one.
+
+- [x] Right-clicking an entity row opens a context menu with `New Child`
+      (creates a new entity with only a `Transform`, attached as that row's
+      child), `Detach` (disabled on a root row — detaches a child, making it
+      a new root), and `Remove` (destroys the entity; if it has children,
+      the whole subtree goes with it).
+
+- [x] Dragging one entity row onto another reparents the dragged one under
+      the drop target. Cycle prevention (dropping an entity onto its own
+      descendant, or onto itself) isn't duplicated in the UI — it's already
+      guaranteed by `AttachChild` itself, which no-ops those cases.
+
+      Reparenting/detaching goes through the `asge::game::components`
+      wrappers around `AttachChild`/`DetachChild`, not the bare
+      `asge::ecs::components` ones — the wrappers also flag the moved
+      entity's `Transform::m_Dirty`, which is what makes
+      `TransformPropagationSystem` recompute its `m_World*` under the new
+      parent (or as a fresh root) on the very next frame.
+
+## Phase 14 - Disabled Entities
+
+- [ ]
+
+## Phase 15 - UI
+
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no
