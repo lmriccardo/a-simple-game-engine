@@ -1,11 +1,14 @@
 #include <ASGE/Game/Systems/UISystem.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Events/Events.hpp>
 
 #include <gtest/gtest.h>
+
+#include <optional>
 
 namespace
 {
@@ -17,6 +20,7 @@ using asge::event::MouseMotionEvent;
 using asge::event::SystemEvent;
 using asge::game::components::Interactable;
 using asge::game::components::UIButton;
+using asge::game::components::UICheckbox;
 using asge::game::resources::HitEntry;
 using asge::game::resources::UIHitList;
 using asge::input::InputState;
@@ -61,6 +65,21 @@ Entity AddButton( Registry& inRegistry )
 UIButton& Button( Registry& inRegistry, Entity inEntity )
 {
     return inRegistry.GetComponent<UIButton>( inEntity ).Value().get();
+}
+
+/** @brief Creates a full "Checkbox" (UICheckbox + Interactable) -- see AddButton's own doc comment for why no UIRect. */
+Entity AddCheckbox( Registry& inRegistry )
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), UICheckbox{}).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Interactable{}).IsOk());
+    return entity.Value();
+}
+
+UICheckbox& Checkbox( Registry& inRegistry, Entity inEntity )
+{
+    return inRegistry.GetComponent<UICheckbox>( inEntity ).Value().get();
 }
 
 Interactable& Interact( Registry& inRegistry, Entity inEntity )
@@ -332,6 +351,84 @@ TEST(UIInteractionSystemTest, ReleaseWhileNeverHeld_DoesNotFireOnClick)
     asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_FALSE( clicked );
+}
+
+// ─── UICheckbox toggling ─────────────────────────────────────────────────────
+
+TEST(UIInteractionSystemTest, ReleaseWhileHeldAndHovered_TogglesCheckedAndFiresOnToggled)
+{
+    Registry registry;
+    auto const entity = AddCheckbox( registry );
+    Interact(registry, entity).m_Held = true; // as if UIInteractionSystem set it on a prior frame's press
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
+    } } );
+
+    std::optional<bool> toggledTo;
+    Checkbox(registry, entity).m_OnToggled.Connect( [&toggledTo]( bool inChecked ){ toggledTo = inChecked; } );
+
+    InputState input;
+    input.Consume( MotionEvent(50.0f, 25.0f) ); // still over the checkbox
+    input.Consume( MouseButtonEv(MouseButton::LEFT, true) ); // down last frame...
+    input.NewFrame();
+    input.Consume( MouseButtonEv(MouseButton::LEFT, false) ); // ...released this one
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    ASSERT_TRUE( toggledTo.has_value() );
+    EXPECT_TRUE( *toggledTo );
+    EXPECT_TRUE( Checkbox(registry, entity).m_Checked );
+    EXPECT_TRUE( Interact(registry, entity).m_Clicked );
+}
+
+TEST(UIInteractionSystemTest, TwoCompletedClicksInARow_TogglesBackToUnchecked)
+{
+    Registry registry;
+    auto const entity = AddCheckbox( registry );
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
+    } } );
+
+    // Same held-then-released-while-hovered shape as ReleaseWhileHeldAndHovered_
+    // TogglesCheckedAndFiresOnToggled above, run twice.
+    auto const releaseWhileHeldAndHovered = [&]
+    {
+        Interact(registry, entity).m_Held = true; // as if a prior frame's press set it
+        InputState input;
+        input.Consume( MotionEvent(50.0f, 25.0f) );
+        input.Consume( MouseButtonEv(MouseButton::LEFT, true) );
+        input.NewFrame();
+        input.Consume( MouseButtonEv(MouseButton::LEFT, false) );
+        asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+    };
+
+    releaseWhileHeldAndHovered();
+    EXPECT_TRUE( Checkbox(registry, entity).m_Checked );
+
+    releaseWhileHeldAndHovered();
+    EXPECT_FALSE( Checkbox(registry, entity).m_Checked );
+}
+
+TEST(UIInteractionSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotToggleChecked)
+{
+    // Pressed down on the checkbox, dragged off it, then released -- a
+    // cancelled click, not a completed one (see the equivalent UIButton test).
+    Registry registry;
+    auto const entity = AddCheckbox( registry );
+    Interact(registry, entity).m_Held = true;
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 50.0f }, true }
+    } } );
+
+    InputState input;
+    input.Consume( MotionEvent(500.0f, 500.0f) ); // moved off the checkbox first
+    input.Consume( MouseButtonEv(MouseButton::LEFT, true) );
+    input.NewFrame();
+    input.Consume( MouseButtonEv(MouseButton::LEFT, false) );
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FALSE( Checkbox(registry, entity).m_Checked );
 }
 
 }

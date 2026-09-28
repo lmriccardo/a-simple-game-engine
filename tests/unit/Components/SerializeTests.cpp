@@ -19,9 +19,9 @@ using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabel)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 17);
+    static_assert(std::tuple_size_v<SerializableComponents> == 18);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -39,6 +39,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, UIRect>);
     static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, Interactable>);
     static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, UILabel>);
+    static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UICheckbox>);
     SUCCEED();
 }
 
@@ -62,6 +63,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<UIRect>::kTableName, "UIRect");
     EXPECT_EQ(Serializer<Interactable>::kTableName, "Interactable");
     EXPECT_EQ(Serializer<UILabel>::kTableName, "UILabel");
+    EXPECT_EQ(Serializer<UICheckbox>::kTableName, "UICheckbox");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -930,6 +932,61 @@ TEST(UILabelSerializerTest, FromToml_FontAndResolvedPathNeverReconstructed)
     UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
     EXPECT_EQ(restored.m_Font, nullptr);
     EXPECT_TRUE(restored.m_ResolvedFontPath.empty());
+}
+
+// ─── UICheckbox ─────────────────────────────────────────────────────────────
+
+TEST(UICheckboxSerializerTest, ToToml_WritesMBoxColorsMCheckColorAndMCheckedUnderUICheckboxTable)
+{
+    TOMLBuilder builder;
+    UICheckbox value{};
+    value.m_BoxColors.m_Color = { 1, 2, 3, 255 };
+    value.m_CheckColor = { 9, 8, 7, 255 };
+    value.m_Checked = true;
+    Serializer<UICheckbox>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UICheckbox]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Color"), std::string::npos);
+    EXPECT_NE(dump.find("m_CheckColor"), std::string::npos);
+    EXPECT_NE(dump.find("m_Checked = true"), std::string::npos);
+}
+
+TEST(UICheckboxSerializerTest, RoundTrips_BoxColorsCheckColorAndChecked)
+{
+    TOMLBuilder builder;
+    UICheckbox original{};
+    original.m_BoxColors.m_Color = { 1, 2, 3, 4 };
+    original.m_BoxColors.m_HoverColor = { 5, 6, 7, 8 };
+    original.m_BoxColors.m_PressedColor = { 9, 10, 11, 12 };
+    original.m_CheckColor = { 13, 14, 15, 16 };
+    original.m_Checked = true;
+    Serializer<UICheckbox>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UICheckbox const restored = Serializer<UICheckbox>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_BoxColors.m_Color.r, 1);
+    EXPECT_EQ(restored.m_BoxColors.m_Color.g, 2);
+    EXPECT_EQ(restored.m_BoxColors.m_Color.b, 3);
+    EXPECT_EQ(restored.m_BoxColors.m_Color.a, 4);
+    EXPECT_EQ(restored.m_BoxColors.m_HoverColor.r, 5);
+    EXPECT_EQ(restored.m_BoxColors.m_PressedColor.r, 9);
+    EXPECT_EQ(restored.m_CheckColor.r, 13);
+    EXPECT_EQ(restored.m_CheckColor.g, 14);
+    EXPECT_EQ(restored.m_CheckColor.b, 15);
+    EXPECT_EQ(restored.m_CheckColor.a, 16);
+    EXPECT_TRUE(restored.m_Checked);
+}
+
+TEST(UICheckboxSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UICheckbox"); // present but empty
+
+    UICheckbox const restored = Serializer<UICheckbox>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UICheckbox const defaults{};
+    EXPECT_EQ(restored.m_BoxColors.m_Color.r, defaults.m_BoxColors.m_Color.r);
+    EXPECT_EQ(restored.m_CheckColor.r, defaults.m_CheckColor.r);
+    EXPECT_EQ(restored.m_Checked, defaults.m_Checked);
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────

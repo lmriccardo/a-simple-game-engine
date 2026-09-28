@@ -15,6 +15,7 @@
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
@@ -213,6 +214,20 @@ void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<Dra
 
 // ---- Drawing: one overload per visual type ------------------------------------
 
+/** @brief Picks inColors' m_PressedColor/m_HoverColor/m_Color by inE's sibling Interactable, shared by UIButton and UICheckbox's box fill. */
+graphics::RGBA_Color PickStateColor(
+    ecs::Registry const& inReg, ecs::Entity inE, details::StateColors const& inColors)
+{
+    if ( auto interactable = inReg.GetComponent<Interactable>( inE ) )
+    {
+        auto const& i = interactable.Value().get();
+        if ( i.m_Held && i.m_Hovered ) return inColors.m_PressedColor;
+        if ( i.m_Hovered ) return inColors.m_HoverColor;
+    }
+
+    return inColors.m_Color;
+}
+
 /** @brief Draws a Sprite's texture into inItem.m_DstRect, routing through the affine overloads when the entity's Transform is rotated. */
 void Draw(
     [[maybe_unused]] ecs::Registry const& inReg,
@@ -239,19 +254,7 @@ void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer, 
     DrawItem const& inItem, UIButton const& inButton)
 {
-    auto const& colors = inButton.m_Colors;
-    bool hovered = false;
-    bool held = false;
-    if ( auto interactable = inReg.GetComponent<Interactable>( inItem.m_Entity ) )
-    {
-        hovered = interactable.Value().get().m_Hovered;
-        held    = interactable.Value().get().m_Held;
-    }
-
-    graphics::RGBA_Color const color = held    ? colors.m_PressedColor
-                                     : hovered ? colors.m_HoverColor
-                                               : colors.m_Color;
-
+    auto const color = PickStateColor( inReg, inItem.m_Entity, inButton.m_Colors );
     inRenderer.DrawRect( inItem.m_DstRect, color, true );
 }
 
@@ -295,16 +298,43 @@ void Draw(
 }
 
 /**
- * @brief Draws a UIRect as a filled rect, using the sibling UIButton's
- *        StateColors picked by the sibling Interactable's m_Held/m_Hovered
- *        (held takes priority); does nothing without a sibling UIButton --
- *        a missing Interactable just means never hovered/held.
+ * @brief Draws a UICheckbox's box (PickStateColor'd from m_BoxColors, like
+ *        UIButton) and, if checked, an inset filled square in m_CheckColor
+ *        on top -- inset 15% of the box's width/height on each side.
  */
 void Draw(
-    ecs::Registry const& inReg, video::IRenderer& inRenderer, 
+    ecs::Registry const& inReg, video::IRenderer& inRenderer,
+    DrawItem const& inItem, UICheckbox const& inCheckbox)
+{
+    math::Rect const& box = inItem.m_DstRect;
+    auto const color = PickStateColor( inReg, inItem.m_Entity, inCheckbox.m_BoxColors );
+    inRenderer.DrawRect( box, color, true );
+
+    if ( !inCheckbox.m_Checked ) return;
+
+    // Check mark: inner square, inset 15% of the box on each side
+    float const insetX = box.m_Width  * 0.15f;
+    float const insetY = box.m_Height * 0.15f;
+    math::Rect const checkBox{
+        box.m_X + insetX, box.m_Y + insetY,
+        box.m_Width  - 2.0f * insetX,
+        box.m_Height - 2.0f * insetY
+    };
+
+    inRenderer.DrawRect( checkBox, inCheckbox.m_CheckColor, true );
+}
+
+/**
+ * @brief Draws a UIRect by dispatching to whichever of UIWidgets it also
+ *        carries (UIButton/UICheckbox pick their fill color from a sibling
+ *        Interactable's m_Held/m_Hovered; a missing Interactable just means
+ *        never hovered/held); does nothing if it carries none of them.
+ */
+void Draw(
+    ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
 {
-    using UIWidgets = std::tuple<UIButton, UILabel>;
+    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox>;
     functools::ForEachTupleType<UIWidgets>( [&]<typename T> 
         {
             if ( auto r = inReg.GetComponent<T>( inItem.m_Entity ) )

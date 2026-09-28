@@ -3,6 +3,7 @@
 #include <tuple>
 
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -12,7 +13,8 @@ namespace
 
 using namespace asge::game;
 using namespace asge::ecs;
-using InteractableComponents = std::tuple<asge::game::components::UIButton>;
+using InteractableComponents = std::tuple<
+    asge::game::components::UIButton, asge::game::components::UICheckbox>;
 
 template<typename T>
 void ResolveInteractionsImpl( 
@@ -25,6 +27,14 @@ void ResolveInteractionsImpl(
     [[maybe_unused]] asge::game::components::UIButton& inButton ) noexcept
 {
     inButton.m_OnClick.Emit();
+}
+
+void ResolveInteractionsImpl( 
+    [[maybe_unused]] Registry& inReg, [[maybe_unused]] Entity inEntity, 
+    asge::game::components::UICheckbox& inCheckbox ) noexcept
+{
+    inCheckbox.m_Checked = !inCheckbox.m_Checked;
+    inCheckbox.m_OnToggled.Emit(inCheckbox.m_Checked);
 }
 
 template<std::size_t... Is>

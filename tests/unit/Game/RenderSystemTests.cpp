@@ -5,6 +5,7 @@
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
@@ -29,6 +30,7 @@ using asge::game::components::RenderInfo;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
+using asge::game::components::UICheckbox;
 using asge::game::components::UILabel;
 using asge::game::components::VerticalAlign;
 using asge::game::components::UIRect;
@@ -901,6 +903,89 @@ TEST(RenderSystemTest, UIRect_EntityAlsoHasASprite_OnlyTheSpriteIsDrawn)
 
     EXPECT_EQ(renderer.m_Calls.size(), 1u);     // the Sprite...
     EXPECT_TRUE(renderer.m_RectCalls.empty());  // ...not the UIRect
+}
+
+// ─── RenderSystem — UICheckbox ───────────────────────────────────────────────────
+
+TEST(RenderSystemTest, UICheckbox_Unchecked_DrawsOnlyTheBoxRect)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UICheckbox checkbox;
+    checkbox.m_BoxColors.m_Color = { 10, 20, 30, 255 };
+    checkbox.m_Checked = false;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {24.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), checkbox).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u); // the box only -- no check mark
+    auto const& box = renderer.m_RectCalls[0];
+    EXPECT_TRUE(box.m_Fill);
+    EXPECT_EQ(box.m_Color.r, 10);
+    EXPECT_EQ(box.m_Color.g, 20);
+    EXPECT_EQ(box.m_Color.b, 30);
+}
+
+TEST(RenderSystemTest, UICheckbox_Checked_DrawsBoxThenAnInsetCheckMarkRect)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UICheckbox checkbox;
+    checkbox.m_CheckColor = { 1, 2, 3, 255 };
+    checkbox.m_Checked = true;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {24.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), checkbox).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 2u); // box, then the check mark on top
+    auto const& mark = renderer.m_RectCalls[1];
+    EXPECT_TRUE(mark.m_Fill);
+    EXPECT_EQ(mark.m_Color.r, 1);
+    EXPECT_EQ(mark.m_Color.g, 2);
+    EXPECT_EQ(mark.m_Color.b, 3);
+    // Inset 15% of the 24x24 box on each side -- a 3.6px margin, 16.8x16.8 mark.
+    EXPECT_FLOAT_EQ(mark.m_Rect.m_X, 103.6f);
+    EXPECT_FLOAT_EQ(mark.m_Rect.m_Y, 53.6f);
+    EXPECT_FLOAT_EQ(mark.m_Rect.m_Width, 16.8f);
+    EXPECT_FLOAT_EQ(mark.m_Rect.m_Height, 16.8f);
+}
+
+TEST(RenderSystemTest, UICheckbox_HeldAndHovered_BoxUsesPressedColorLikeUIButton)
+{
+    // PickStateColor is shared with UIButton (see RenderSystem.cpp) --
+    // regression coverage for UICheckbox actually being wired into the
+    // UIWidgets dispatch tuple Draw(UIRect) walks, not just having its own
+    // Draw() overload defined but never called.
+    Registry registry;
+    RecordingRenderer renderer;
+    UICheckbox checkbox;
+    checkbox.m_BoxColors.m_PressedColor = { 70, 80, 90, 255 };
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {24.0f, 24.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), checkbox).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{ .m_Hovered = true, .m_Held = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_FALSE(renderer.m_RectCalls.empty());
+    auto const& box = renderer.m_RectCalls[0];
+    EXPECT_EQ(box.m_Color.r, 70);
+    EXPECT_EQ(box.m_Color.g, 80);
+    EXPECT_EQ(box.m_Color.b, 90);
 }
 
 // ─── RenderSystem — UIHitList ───────────────────────────────────────────────────
