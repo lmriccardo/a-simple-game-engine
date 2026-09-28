@@ -143,6 +143,12 @@ public:
      * than treated as fatal, since inRenderer only exists once the caller
      * has a window (unlike component construction, which can happen
      * earlier, e.g. while loading a scene).
+     *
+     * Walks every entity via `View<Ts>().IncludeDisabled()`, not the
+     * disabled-skipping `View<Ts>()` every gameplay system uses — a
+     * `markers::Disable`d entity should already have a live texture/clip
+     * ready the instant something re-enables it, not still be waiting on
+     * some unrelated future resolve to notice it exists.
      */
     void ResolveAssets( ecs::Registry& inRegistry, video::IRenderer& inRenderer );
 };

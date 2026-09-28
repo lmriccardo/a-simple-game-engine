@@ -74,7 +74,7 @@ void asge::game::asset::AssetManager::ResolveAssets(
 {
     [&]<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
         ( [&] {
-            for (auto [e, c] : inRegistry.View<Ts>()) {
+            for (auto [e, c] : inRegistry.View<Ts>().IncludeDisabled()) {
                 Resolver<Ts>{}(*this, inRegistry, inRenderer, c.get());
             }
         }(), ... );
