@@ -399,11 +399,43 @@ I would like to add those concepts into the ASGE Editor.
       `TransformPropagationSystem` recompute its `m_World*` under the new
       parent (or as a fresh root) on the very next frame.
 
-## Phase 14 - Disabled Entities
+## Phase 14 - RenderInfo Component and Create/Attach-To entity from Asset
+
+**Goal**: In the same merge as before I have also introduced `RenderInfo`
+component, which is used to driver rendering information like Y sorting,
+screen space, and other dets. This new component should be attached
+automatically to an entity whenever a `Sprite` texture or any other
+renderable component is added, but only once. 
+
+- [x] Every path that attaches a Sprite (Inspector's Add Component, and the
+      new Create Entity/Attach To below) also does
+      `Registry::GetOrAddComponent<RenderInfo>`, so it gets a default
+      `RenderInfo` once and only once. `RenderInfo` also got its own
+      Inspector section (Layer/Y-Sort/Screen Space/Inherit Sort From
+      Parent/Local Order), so it's actually editable. A scene loaded with a
+      Sprite but no `RenderInfo` (a pre-existing file) gets one attached and
+      the scene is re-saved right away.
+
+- [x] Right-clicking a texture/animation/audio row in the Assets panel opens
+      `Create Entity`/`Attach To` (both disabled without an active
+      project); `Attach To` opens a submenu listing every entity by name.
+      Both attach the row's corresponding component (Sprite/Animation/
+      AudioSource, pointed at that asset) via a shared
+      `AttachAssetComponent`, differing only in whether the entity is
+      freshly created.
+
+- [x] `Create Clip` moved from the Asset Inspector's inline button to a
+      texture row's own context menu entry -- picking it selects the
+      texture and opens the same slicer modal (or jumps to the clip
+      already associated with it, if one exists).
+
+## Phase ... - Disabled Entities
 
 - [ ]
 
-## Phase 15 - UI
+## Phase ... - UI
+
+- [ ]
 
 
 ## Explicitly deferred — do not build until a concrete need forces it
