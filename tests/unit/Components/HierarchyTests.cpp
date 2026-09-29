@@ -17,6 +17,7 @@ using asge::ecs::components::DestroyEntityGraph;
 using asge::ecs::components::ForEachChild;
 using asge::ecs::components::Hierarchy;
 using asge::ecs::components::IsAncestor;
+using asge::ecs::components::SanitizeHierarchy;
 using asge::game::components::Transform;
 
 Entity MakeEntity(Registry& inRegistry)
@@ -422,6 +423,263 @@ TEST(DestroyEntityGraphTest, DestroysEveryChildOfAMultiChildRoot)
     DestroyEntityGraph(registry, root);
 
     EXPECT_TRUE(registry.AllEntities().empty());
+}
+
+TEST(DestroyEntityGraphTest, NonRootSubtree_UnlinksItselfFromTheSurvivingParent)
+{
+    Registry registry;
+    auto root = MakeEntity(registry);
+    auto child = MakeEntity(registry);
+    auto grandchild = MakeEntity(registry);
+    AttachChild(registry, root, child);
+    AttachChild(registry, child, grandchild);
+
+    DestroyEntityGraph(registry, child);
+
+    auto const& rootH = registry.GetComponent<Hierarchy>(root).Value().get();
+    EXPECT_EQ(rootH.m_FirstChild, Entity::Null());
+    EXPECT_EQ(rootH.m_LastChild, Entity::Null());
+}
+
+// ─── Registry::DestroyEntity and the Hierarchy ──────────────────────────────
+
+TEST(DestroyEntityHierarchyTest, OnlyChild_ParentIsLeftWithNoChildren)
+{
+    // The editor's Inspector "Delete" on a child of a child crashed the
+    // process: the parent kept m_FirstChild/m_LastChild pointing at the dead
+    // child, and the next ForEachChild over it aborted.
+    Registry registry;
+    auto p1 = MakeEntity(registry);
+    auto p2 = MakeEntity(registry);
+    auto c = MakeEntity(registry);
+    AttachChild(registry, p1, p2);
+    AttachChild(registry, p2, c);
+
+    ASSERT_TRUE(registry.DestroyEntity(c).IsOk());
+
+    auto const& p2H = registry.GetComponent<Hierarchy>(p2).Value().get();
+    EXPECT_EQ(p2H.m_FirstChild, Entity::Null());
+    EXPECT_EQ(p2H.m_LastChild, Entity::Null());
+
+    int visited = 0;
+    ForEachChild(registry, p2, [&](Entity) { ++visited; });
+    EXPECT_EQ(visited, 0);
+}
+
+TEST(DestroyEntityHierarchyTest, MiddleOfThree_SiblingsAreSplicedTogether)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    auto c = MakeEntity(registry);
+    AttachChild(registry, parent, a);
+    AttachChild(registry, parent, b);
+    AttachChild(registry, parent, c);
+
+    ASSERT_TRUE(registry.DestroyEntity(b).IsOk());
+
+    EXPECT_EQ(registry.GetComponent<Hierarchy>(a).Value().get().m_NextSibling, c);
+    EXPECT_EQ(registry.GetComponent<Hierarchy>(c).Value().get().m_PrevSibling, a);
+
+    std::vector<Entity> visited;
+    ForEachChild(registry, parent, [&](Entity inChild) { visited.push_back(inChild); });
+    EXPECT_EQ(visited, (std::vector<Entity>{ a, c }));
+}
+
+TEST(DestroyEntityHierarchyTest, ParentWithChildren_ChildrenSurviveAsRoots)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    AttachChild(registry, parent, a);
+    AttachChild(registry, parent, b);
+
+    ASSERT_TRUE(registry.DestroyEntity(parent).IsOk());
+
+    for (auto child : { a, b })
+    {
+        auto const& h = registry.GetComponent<Hierarchy>(child).Value().get();
+        EXPECT_EQ(h.m_Parent, Entity::Null());
+        EXPECT_EQ(h.m_PrevSibling, Entity::Null());
+        EXPECT_EQ(h.m_NextSibling, Entity::Null());
+    }
+}
+
+TEST(DestroyEntityHierarchyTest, EntityWithNoHierarchy_StillDestroysCleanly)
+{
+    Registry registry;
+    auto entity = MakeEntity(registry);
+
+    EXPECT_TRUE(registry.DestroyEntity(entity).IsOk());
+    EXPECT_TRUE(registry.AllEntities().empty());
+}
+
+// ─── SanitizeHierarchy ──────────────────────────────────────────────────────
+
+Entity MakeWithHierarchy(Registry& inRegistry, Hierarchy inHierarchy = {})
+{
+    auto entity = MakeEntity(inRegistry);
+    EXPECT_TRUE(inRegistry.AddComponent(entity, inHierarchy).IsOk());
+    return entity;
+}
+
+Hierarchy& H(Registry& inRegistry, Entity inEntity)
+{
+    return inRegistry.GetComponent<Hierarchy>(inEntity).Value().get();
+}
+
+TEST(SanitizeHierarchyTest, SelfParent_BecomesARootAndWalkingUpTerminates)
+{
+    // A saved scene had an entity that was its own parent, which hung
+    // Registry::IsDisabled's walk up the parent chain forever.
+    Registry registry;
+    auto e = MakeWithHierarchy(registry);
+    H(registry, e).m_Parent = e;
+
+    SanitizeHierarchy(registry, { e });
+
+    EXPECT_EQ(H(registry, e).m_Parent, Entity::Null());
+    EXPECT_FALSE(registry.IsDisabled(e));
+}
+
+TEST(SanitizeHierarchyTest, MutualParentCycle_IsBrokenSoExactlyOneOfThemIsARoot)
+{
+    Registry registry;
+    auto a = MakeWithHierarchy(registry);
+    auto b = MakeWithHierarchy(registry);
+    H(registry, a).m_Parent = b;
+    H(registry, b).m_Parent = a;
+
+    SanitizeHierarchy(registry, { a, b });
+
+    int roots = 0;
+    for (auto e : { a, b }) if (H(registry, e).m_Parent == Entity::Null()) ++roots;
+    EXPECT_EQ(roots, 1);
+    EXPECT_FALSE(registry.IsDisabled(a));
+    EXPECT_FALSE(registry.IsDisabled(b));
+}
+
+TEST(SanitizeHierarchyTest, ParentPointersWithNoSiblingLinks_AreRebuiltIntoAProperChain)
+{
+    Registry registry;
+    auto parent = MakeWithHierarchy(registry);
+    auto a = MakeWithHierarchy(registry, Hierarchy{ .m_Parent = parent });
+    auto b = MakeWithHierarchy(registry, Hierarchy{ .m_Parent = parent });
+
+    SanitizeHierarchy(registry, { parent, a, b });
+
+    EXPECT_EQ(H(registry, parent).m_FirstChild, a);
+    EXPECT_EQ(H(registry, parent).m_LastChild, b);
+    EXPECT_EQ(H(registry, a).m_NextSibling, b);
+    EXPECT_EQ(H(registry, b).m_PrevSibling, a);
+    EXPECT_EQ(H(registry, a).m_PrevSibling, Entity::Null());
+    EXPECT_EQ(H(registry, b).m_NextSibling, Entity::Null());
+}
+
+TEST(SanitizeHierarchyTest, ConsistentSiblingOrder_IsKeptEvenWhenItDiffersFromEntityOrder)
+{
+    // Sibling order decides a panel's layout slots, so it must survive.
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    AttachChild(registry, parent, b);
+    AttachChild(registry, parent, a); // order: b, a -- opposite of creation order
+
+    SanitizeHierarchy(registry, { parent, a, b });
+
+    std::vector<Entity> order;
+    ForEachChild(registry, parent, [&](Entity inChild) { order.push_back(inChild); });
+    EXPECT_EQ(order, (std::vector<Entity>{ b, a }));
+}
+
+TEST(SanitizeHierarchyTest, ChildTheParentsChainNamesButWhoseParentIsElsewhere_IsNotClaimed)
+{
+    // The stale state DestroyEntity used to leave: a parent still listing
+    // an entity that has since moved under another parent.
+    Registry registry;
+    auto p = MakeWithHierarchy(registry);
+    auto q = MakeWithHierarchy(registry);
+    auto x = MakeWithHierarchy(registry, Hierarchy{ .m_Parent = q });
+    H(registry, p).m_FirstChild = x;
+    H(registry, p).m_LastChild = x;
+
+    SanitizeHierarchy(registry, { p, q, x });
+
+    EXPECT_EQ(H(registry, p).m_FirstChild, Entity::Null());
+    EXPECT_EQ(H(registry, q).m_FirstChild, x);
+    EXPECT_EQ(H(registry, x).m_Parent, q);
+}
+
+TEST(SanitizeHierarchyTest, ParentOutsideTheGivenEntities_BecomesARoot)
+{
+    Registry registry;
+    auto outside = MakeWithHierarchy(registry);
+    auto child = MakeWithHierarchy(registry, Hierarchy{ .m_Parent = outside });
+
+    SanitizeHierarchy(registry, { child });
+
+    EXPECT_EQ(H(registry, child).m_Parent, Entity::Null());
+}
+
+TEST(SanitizeHierarchyTest, ParentThatIsGone_BecomesARoot)
+{
+    Registry registry;
+    auto gone = MakeWithHierarchy(registry);
+    auto child = MakeWithHierarchy(registry, Hierarchy{ .m_Parent = gone });
+    ASSERT_TRUE(registry.DestroyEntity(gone).IsOk());
+
+    SanitizeHierarchy(registry, { child });
+
+    EXPECT_EQ(H(registry, child).m_Parent, Entity::Null());
+}
+
+TEST(SanitizeHierarchyTest, AlreadyConsistentTree_IsLeftExactlyAsItWas)
+{
+    Registry registry;
+    auto root = MakeEntity(registry);
+    auto a = MakeEntity(registry);
+    auto b = MakeEntity(registry);
+    auto grandchild = MakeEntity(registry);
+    AttachChild(registry, root, a);
+    AttachChild(registry, root, b);
+    AttachChild(registry, a, grandchild);
+
+    SanitizeHierarchy(registry, { root, a, b, grandchild });
+
+    EXPECT_EQ(H(registry, root).m_FirstChild, a);
+    EXPECT_EQ(H(registry, root).m_LastChild, b);
+    EXPECT_EQ(H(registry, a).m_NextSibling, b);
+    EXPECT_EQ(H(registry, a).m_FirstChild, grandchild);
+    EXPECT_EQ(H(registry, grandchild).m_Parent, a);
+}
+
+TEST(SanitizeHierarchyTest, EntitiesWithNoHierarchy_AreIgnored)
+{
+    Registry registry;
+    auto plain = MakeEntity(registry);
+
+    SanitizeHierarchy(registry, { plain });
+
+    EXPECT_FALSE(registry.HasComponent<Hierarchy>(plain));
+}
+
+TEST(ForEachChildTest, DanglingChildLink_StopsInsteadOfAborting)
+{
+    Registry registry;
+    auto parent = MakeEntity(registry);
+    auto child = MakeEntity(registry);
+    AttachChild(registry, parent, child);
+
+    // Force the stale state DestroyEntity used to leave behind: strip the
+    // child's pools without going through the unlinking DestroyEntity.
+    ASSERT_TRUE(registry.RemoveComponent<Hierarchy>(child).IsOk());
+
+    int visited = 0;
+    ForEachChild(registry, parent, [&](Entity) { ++visited; });
+    EXPECT_EQ(visited, 0);
 }
 
 }

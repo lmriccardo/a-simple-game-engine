@@ -340,6 +340,71 @@ TEST_F(SceneSerializerTest, LoadFromFile_ValidSceneFile_RecreatesEntitiesWithSav
     EXPECT_FLOAT_EQ(loaded.GetComponent<Velocity>(all[0]).Value().get().m_DY, 8.0f);
 }
 
+TEST_F(SceneSerializerTest, LoadFromFile_CorruptHierarchyLinks_LoadsWithARepairedTreeInsteadOfHanging)
+{
+    // The shape of a real scene saved after the old Inspector "Delete" left
+    // stale links behind: entity 2 is its own parent (which hung every walk up
+    // the parent chain), entity 0 points at a sibling that has no links back,
+    // and entity 1 lists a first child that says it has no parent.
+    ASSERT_TRUE(asge::filesystem::WriteText( m_ScenePath, R"(
+[[entity]]
+Id = 0
+[entity.Hierarchy]
+m_Parent = 2
+m_LastChild = -1
+m_FirstChild = -1
+m_NextSibling = -1
+m_PrevSibling = 3
+
+[[entity]]
+Id = 1
+[entity.Hierarchy]
+m_Parent = -1
+m_LastChild = -1
+m_FirstChild = 3
+m_NextSibling = -1
+m_PrevSibling = -1
+
+[[entity]]
+Id = 2
+[entity.Hierarchy]
+m_Parent = 2
+m_LastChild = -1
+m_FirstChild = -1
+m_NextSibling = -1
+m_PrevSibling = -1
+
+[[entity]]
+Id = 3
+[entity.Hierarchy]
+m_Parent = -1
+m_LastChild = -1
+m_FirstChild = -1
+m_NextSibling = -1
+m_PrevSibling = -1
+)" ).IsOk());
+
+    SceneSerializer serializer{ m_Vfs };
+    asge::ecs::Registry loaded;
+    ASSERT_TRUE(serializer.LoadFromFile( loaded, m_ScenePath ).IsOk());
+
+    auto const all = loaded.AllEntities();
+    ASSERT_EQ(all.size(), 4u);
+    auto const e0 = all[0], e1 = all[1], e2 = all[2], e3 = all[3];
+    auto const h = [&](asge::ecs::Entity inE) -> Hierarchy const&
+    { return loaded.GetComponent<Hierarchy>(inE).Value().get(); };
+
+    EXPECT_EQ(h(e2).m_Parent, asge::ecs::Entity::Null()); // its own parent is dropped
+    EXPECT_EQ(h(e0).m_Parent, e2);                        // a real parent link survives
+    EXPECT_EQ(h(e2).m_FirstChild, e0);
+    EXPECT_EQ(h(e2).m_LastChild, e0);
+    EXPECT_EQ(h(e0).m_PrevSibling, asge::ecs::Entity::Null()); // the dangling prev is gone
+    EXPECT_EQ(h(e1).m_FirstChild, asge::ecs::Entity::Null());  // the child that isn't its own is dropped
+    EXPECT_EQ(h(e3).m_Parent, asge::ecs::Entity::Null());
+
+    for (auto e : all) EXPECT_FALSE(loaded.IsDisabled(e)); // every walk up the chain terminates
+}
+
 TEST_F(SceneSerializerTest, LoadFromFile_FileDoesNotExistReturnsError)
 {
     SceneSerializer serializer{ m_Vfs };
