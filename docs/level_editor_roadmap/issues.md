@@ -22,6 +22,15 @@
       pointers -- dropping self-parents and cycles, keeping the stored sibling
       order where it's consistent -- so a corrupt scene loads instead of hanging.
 
-- [ ] Duplicate Entity does not work for Hierarchy ...or more importantly,
+- [x] Duplicate Entity does not work for Hierarchy ...or more importantly,
       in case it is inside a panel with a layout it is not applied for the
       duplicated entity.
+
+      Root cause: `DuplicateEntity` copied every serializable component
+      verbatim, `Hierarchy` included, so the copy claimed the original's
+      parent, siblings and children without being in any of their lists. The
+      parent's child list never contained the copy, so `UILayoutSystem` never
+      laid it out. `Hierarchy` is no longer copied: the copy is attached to the
+      original's parent (after its existing children, so it takes the panel's
+      next layout slot), and the original's whole subtree is duplicated under
+      it.
