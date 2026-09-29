@@ -105,6 +105,18 @@ public:
         m_Assets.emplace( std::move(key), asset );
         return Result<asset_ptr>::Ok( asset );
     }
+
+    /**
+     * @brief Remove a cached asset from the pool
+     */
+    void Remove( str::StringCRef inVirtualPath, KeyArgs ...inArgs ) noexcept
+    {
+        Key key{ str::String( inVirtualPath ), inArgs... };
+        if ( auto it = m_Assets.find( key ); it != m_Assets.end() )
+        {
+            m_Assets.erase( it );
+        }
+    }
 };
 
 }

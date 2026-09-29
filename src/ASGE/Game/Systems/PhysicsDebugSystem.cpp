@@ -1,13 +1,13 @@
 #include "PhysicsDebugSystem.hpp"
 #include "PhysicsSystem.hpp"
 
-#include <ASGE/Core/Media/Color.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 
 namespace
 {
 
 /** @brief The outline color DebugDrawColliders uses for one ResolutionType. */
-asge::media::RGBA_Color ColorForResolution( asge::game::components::ResolutionType inResolution ) noexcept
+asge::graphics::RGBA_Color ColorForResolution( asge::game::components::ResolutionType inResolution ) noexcept
 {
     using asge::game::components::ResolutionType;
     switch ( inResolution )

@@ -120,6 +120,21 @@ public:
     void DestroyAllEntities() noexcept;
 
     /**
+     * @brief Disables an entity by adding the Disable marker to it alone.
+     *        No effect on its children -- IsDisabled() derives their
+     *        disabled state by walking up to this entity, so nothing
+     *        needs writing to them.
+     */
+    void DisableEntity( Entity inEntity ) noexcept;
+
+    /**
+     * @brief True if inEntity carries the Disable marker itself, or any
+     *        ancestor in its Hierarchy chain does. Walks up via
+     *        components::Hierarchy::m_Parent, so cost is O(depth).
+     */
+    bool IsDisabled( Entity inEntity ) const noexcept;
+
+    /**
      * @brief Attaches inComponent to inEntity, creating T's pool on first use.
      * @return A reference to the stored component, or an error if inEntity's
      *         index is out of range or T's pool is full.
@@ -195,12 +210,23 @@ public:
         return pool && pool->Contains( inEntity );
     }
 
+    /** @brief Gets inEntity's existing component of type T, or default-
+     *         constructs and attaches one first if it doesn't have one yet. */
+    template<typename T>
+    [[nodiscard]] std::reference_wrapper<T> GetOrAddComponent( Entity inEntity ) noexcept
+    {
+        if ( !HasComponent<T>( inEntity ) ) AddComponent<T>( inEntity, T{} );
+        return GetComponent<T>( inEntity ).Value();
+    }
+
     /**
      * @brief Returns a lazy view over entities that have every component in Ts.
      *
      * Looks up each type's pool via FindPool — no pool is created for a
      * type that has never been used — so the result may be empty if any
-     * of Ts has never been added to an entity yet.
+     * of Ts has never been added to an entity yet. Entities IsDisabled()
+     * considers disabled are skipped unless Ts includes markers::Disable
+     * or the caller chains View::IncludeDisabled() onto the result.
      *
      * @tparam Ts Component types the returned view requires.
      * @return A View<Ts...> yielding (Entity, Ts&...) for each match.
@@ -208,19 +234,23 @@ public:
     template<typename ... Ts>
     [[nodiscard]] asge::ecs::View<Ts...> View() noexcept
     {
-        return asge::ecs::View<Ts...>(FindPool<Ts>()...);
+        return asge::ecs::View<Ts...>(
+            [this]( Entity inEntity ){ return IsDisabled( inEntity ); }, FindPool<Ts>()...
+        );
     }
 
     /**
-     * @brief Read-only counterpart to View() — same lookup, but returns
-     *        View<Ts const...>, so iterating yields (Entity, Ts const&...)
-     *        instead of mutable references. The only overload callable
-     *        through a Registry const&.
+     * @brief Read-only counterpart to View() — same lookup (including the
+     *        IsDisabled() skip), but returns View<Ts const...>, so iterating
+     *        yields (Entity, Ts const&...) instead of mutable references.
+     *        The only overload callable through a Registry const&.
      */
     template<typename ... Ts>
     [[nodiscard]] asge::ecs::View<Ts const...> View() const noexcept
     {
-        return asge::ecs::View<Ts const...>(FindPool<Ts>()...);
+        return asge::ecs::View<Ts const...>(
+            [this]( Entity inEntity ){ return IsDisabled( inEntity ); }, FindPool<Ts>()...
+        );
     }
 
     /**

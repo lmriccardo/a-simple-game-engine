@@ -34,7 +34,8 @@ ASGE is under active development, worked through a
 - ✅ Asset pipeline (virtual file system, asset handles)
 - ✅ Scene management
 - ✅ Physics
-- 🚧 Audio, UI, and more — see
+- ✅ Audio
+- 🚧 UI, and more — see
   [docs/roadmap](docs/roadmap/README.md) for the full plan.
 
 Separately, an in-development [level editor](docs/level_editor_roadmap/roadmap.md)

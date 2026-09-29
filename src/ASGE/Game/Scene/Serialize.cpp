@@ -10,7 +10,7 @@ void asge::game::scene::Serializer<asge::math::Rect>::ToToml(
 }
 
 asge::math::Rect asge::game::scene::Serializer<asge::math::Rect>::FromToml(
-    asge::config::toml::TOMLTableView inTview ) noexcept
+    asge::config::toml::TOMLTableView inTview) noexcept
 {
     return math::Rect{
         inTview.Get("m_OffsetX", 0.0f), inTview.Get("m_OffsetY", 0.0f),
@@ -27,10 +27,23 @@ void asge::game::scene::Serializer<asge::math::Circle>::ToToml(
 }
 
 asge::math::Circle asge::game::scene::Serializer<asge::math::Circle>::FromToml(
-    asge::config::toml::TOMLTableView inTview ) noexcept
+    asge::config::toml::TOMLTableView inTview) noexcept
 {
     return math::Circle{
         math::Float2{ inTview.Get("m_OffsetX", 0.0f), inTview.Get("m_OffsetY", 0.0f) },
-        inTview.Get("m_Radius",  0.0f)
+        inTview.Get("m_Radius", 0.0f)
     };
+}
+
+void asge::game::scene::Serializer<asge::ecs::markers::Disable>::ToToml(
+    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+{
+    inTview.Table( str::String( kTableName ) );
+}
+
+asge::ecs::markers::Disable
+asge::game::scene::Serializer<asge::ecs::markers::Disable>::FromToml(
+    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+{
+    return ecs::markers::Disable{};
 }

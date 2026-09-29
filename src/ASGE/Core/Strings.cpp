@@ -2,6 +2,26 @@
 
 using namespace asge::str;
 
+String asge::str::ToString(TextAlign inAlign) noexcept
+{
+    switch (inAlign)
+    {
+        case TextAlign::Left:   return "left";
+        case TextAlign::Center: return "center";
+        case TextAlign::Right:  return "right";
+    }
+    return "none";
+}
+
+TextAlign asge::str::FromString(StringView inStr) noexcept
+{
+    if (inStr == "left")   return TextAlign::Left;
+    if (inStr == "center") return TextAlign::Center;
+    if (inStr == "right")  return TextAlign::Right;
+
+    return TextAlign::None;
+}
+
 StringView asge::str::Trim(StringView inSv) noexcept
 {
     return Trim( inSv, " \t\r\n" );
@@ -45,7 +65,7 @@ std::vector<String> asge::str::Split(StringView inSv, const char *inSep)
     return outVector;
 }
 
-String asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
+String asge::str::EncodeUtf8(std::uint32_t inCp) noexcept
 {
     std::string out;
     if (inCp < 0x80)
@@ -68,7 +88,68 @@ String asge::str::EncodeUTF8(std::uint32_t inCp) noexcept
     return out;
 }
 
-String asge::str::ToUTF8(U8String const &inStr) noexcept
+String asge::str::ToUtf8(U8String const &inStr) noexcept
 {
     return String(reinterpret_cast<const char*>(inStr.data()), inStr.size());
+}
+
+std::size_t asge::str::CodePointLength(StringView inStr) noexcept
+{
+    std::size_t count{0};
+
+    for ( std::size_t ii = 0; ii < inStr.size();)
+    {
+        unsigned char const c = static_cast<unsigned char>( inStr[ii] );
+
+        // UTF-8 leading byte tells the code point's total byte length:
+        // 0xxxxxxx = 1 byte, 110xxxxx = 2 bytes, 1110xxxx = 3 bytes,
+        // 11110xxx = 4 bytes. Anything else is malformed input, treat it
+        // as 1 byte to avoid infinite loop.
+        std::size_t len{1};
+        if      ((c & 0x80) == 0x00) len = 1;
+        else if ((c & 0xE0) == 0xC0) len = 2;
+        else if ((c & 0xF0) == 0xE0) len = 3;
+        else if ((c & 0xF8) == 0xF0) len = 4;
+
+        ii += len;
+        ++count;
+    }
+
+    return count;
+}
+
+int asge::str::DecodeUtf8(StringView inText, std::size_t &ioPos) noexcept
+{
+    auto const c = static_cast<unsigned char>( inText[ioPos] );
+    int len = 1, cp = c;
+    if      ( ( c & 0xE0 ) == 0xC0 ) { len = 2; cp = c & 0x1F; }
+    else if ( ( c & 0xF0 ) == 0xE0 ) { len = 3; cp = c & 0x0F; }
+    else if ( ( c & 0xF8 ) == 0xF0 ) { len = 4; cp = c & 0x07; }
+    else if ( c & 0x80 )             { ++ioPos; return 0xFFFD; }
+
+    if ( ioPos + len > inText.size() ) { ioPos = inText.size(); return 0xFFFD; }
+    for ( int i = 1; i < len; ++i ) cp = ( cp << 6 ) | ( inText[ioPos + i] & 0x3F );
+    ioPos += len;
+    return cp;
+}
+
+String asge::str::Justify(
+    StringView inStr, TextAlign inAlignment, std::size_t inWidth) noexcept
+{
+    std::size_t const actualSize = CodePointLength( inStr );
+    if ( inWidth <= actualSize ) return String(inStr);
+    std::size_t const totalPad = inWidth - actualSize;
+
+    switch ( inAlignment )
+    {
+    case TextAlign::Left:  return String(inStr) + String( totalPad, ' ' );
+    case TextAlign::Right: return String( totalPad, ' ' ) + String(inStr);
+    case TextAlign::Center:
+    {
+        std::size_t const leftPad  = totalPad / 2;
+        std::size_t const rightPad = totalPad - leftPad;
+        return String(leftPad, ' ') + String(inStr) + String(rightPad, ' ');
+    }
+    default: return String(inStr);
+    }
 }

@@ -20,8 +20,8 @@ using asge::video::IRenderer;
 using asge::video::ITexture;
 using asge::video::IWindow;
 using asge::media::Image;
-using asge::media::PixelFormat;
-using asge::media::RGBA_Color;
+using asge::graphics::PixelFormat;
+using asge::graphics::RGBA_Color;
 
 class FakeWindow final : public IWindow
 {

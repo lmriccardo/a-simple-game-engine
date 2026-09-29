@@ -49,8 +49,22 @@ MEMBER_FUNCTION_TRAIT(const, noexcept)
 #undef MEMBER_FUNCTION_TRAIT
 
 // ─── Functor / Lambda (delegates to operator()) ──────────────
+//
+// &T::operator() only names one addressable function when T's call
+// operator isn't itself a template -- a generic lambda (e.g.
+// `[](auto x){...}`) has no fixed signature to inspect until it's
+// actually instantiated at a call site, so this specialization is gated
+// on HasConcreteCallOperator. For a generic T, function_trait<T> is left
+// incomplete instead of hard-erroring on decltype(&T::operator()); use
+// HasFunctionTrait below to detect that, and prefer std::invocable over
+// arity_v/arg_t when you just need to know if a generic callable accepts
+// specific argument types.
 template<typename T>
-struct function_trait : function_trait<decltype(&T::operator())>
+concept HasConcreteCallOperator = requires { &T::operator(); };
+
+template<typename T>
+requires HasConcreteCallOperator<T>
+struct function_trait<T> : function_trait<decltype(&T::operator())>
 {
     using class_type = void;
 };
@@ -80,6 +94,16 @@ using arg_t = std::tuple_element_t<N, args_type_t<T>>;
 template<typename T>
 inline constexpr std::size_t arity_v = std::tuple_size_v<args_type_t<T>>;
 
+/**
+ * @brief True if function_trait<T> can actually describe T's call
+ *        signature. False for a generic (templated) call operator, where
+ *        there is no fixed args_type/return_type to report -- guard
+ *        arity_v/arg_t/args_type_t with this in a requires-clause so they
+ *        fail cleanly (SFINAE) rather than hard-erroring on such a T.
+ */
+template<typename T>
+concept HasFunctionTrait = requires { typename function_trait<T>::args_type; };
+
 template<typename Callable, typename T>
 concept MemberFunctionOf =
     std::is_member_function_pointer_v<std::remove_reference_t<Callable>> &&
@@ -87,6 +111,16 @@ concept MemberFunctionOf =
         class_type_t<std::remove_reference_t<Callable>>,
         std::remove_reference_t<T>
     >;
+
+template <typename F, typename T>
+concept TypeInvocable = requires( F& inFn ) { inFn.template operator()<T>(); };
+
+template <typename Tuple, typename F>
+struct InvocableForAllTypes : std::false_type {};
+
+template <typename... Ts, typename F>
+struct InvocableForAllTypes<std::tuple<Ts...>, F>
+    : std::bool_constant<( TypeInvocable<F, Ts> && ... )> {};
 
 }
 
@@ -284,4 +318,18 @@ auto PrependToTuple( T&& value, Tuple&& t )
     return std::tuple_cat( std::make_tuple(std::forward<T>(value)), std::forward<Tuple>(t) );
 }
 
+/**
+ * @brief Calls `inFn.template operator()<T>()` for each element type T of Tuple, in order.
+ *
+ * Tuple is only a type list; no tuple object is created.
+ */
+template<typename Tuple, typename Callable>
+requires (_internal::InvocableForAllTypes<Tuple, std::remove_cvref_t<Callable>>::value)
+void ForEachTupleType(Callable&& inFn)
+{
+    [&]<typename ...Ts>(std::type_identity<std::tuple<Ts...>>)
+    {
+        ( inFn.template operator()<Ts>(), ... );
+    }(std::type_identity<Tuple>{});
+}
 }

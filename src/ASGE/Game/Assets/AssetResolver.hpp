@@ -18,6 +18,7 @@ enum class AssetKind
     Texture,
     AnimationClip,
     AudioClip,
+    Font,
 };
 
 /** @brief One virtual path a component references, and what kind of asset it is. */
@@ -120,6 +121,27 @@ struct Resolver<components::PathFollow>
 };
 
 /**
+ * @brief Resolves UILabel::m_FontPath into m_Font via AssetManager::GetFont,
+ *        re-resolving whenever m_FontPath differs from m_ResolvedFontPath --
+ *        so repointing it to a new font loads it, and clearing it to empty
+ *        releases m_Font back to nullptr -- rather than resolving once and
+ *        never again. m_Font is a non-owning pointer into AssetManager's
+ *        font pool, which never evicts entries, so it stays valid as long
+ *        as the AssetManager does.
+ */
+template<>
+struct Resolver<components::UILabel>
+{
+    using C = components::UILabel;
+    void operator()(
+                         AssetManager&      inAssetManager,
+        [[maybe_unused]] ecs::Registry&     inRegistry,
+        [[maybe_unused]] video::IRenderer&  inRenderer,
+                         C&                 inLabel
+    ) const noexcept;
+};
+
+/**
  * @brief Customization point CollectAssetRefs dispatches to, per component
  *        type, to report which virtual path (if any) one component instance
  *        references, without resolving it — Resolver<T>'s read-only sibling.
@@ -153,6 +175,13 @@ template<>
 struct AssetRefs<components::AudioSource>
 {
     std::optional<AssetRef> operator()( components::AudioSource const& inAudioSource ) const noexcept;
+};
+
+/** @brief Reports UILabel::m_FontPath as an AssetKind::Font reference, if set. */
+template<>
+struct AssetRefs<components::UILabel>
+{
+    std::optional<AssetRef> operator()( components::UILabel const& inLabel ) const noexcept;
 };
 
 /**

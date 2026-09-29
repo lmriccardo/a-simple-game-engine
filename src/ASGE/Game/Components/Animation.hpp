@@ -36,11 +36,11 @@ struct Animation
     frame_table m_Clip{};     // Resolved FrameTable asset -- null until AssetManager::ResolveAssets runs
     str::String m_ResolvedClipPath{}; // Runtime-only: the path m_Clip was actually last resolved from
 
-    float       m_FrameDuration{0.1f}; // Seconds each frame is shown before advancing
-    std::size_t m_CurrentFrame{0};     // Index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
-    float       m_ElapsedTime{0.0f};   // Seconds accumulated toward the next frame advance
-    bool        m_Loop{true};          // Wrap to frame 0 at the end instead of stopping there
-    bool        m_Playing{true};       // Whether AnimationSystem advances this Animation at all
+    float       m_FrameDuration{0.1f}; // Serialized. Seconds each frame is shown before advancing
+    std::size_t m_CurrentFrame{0};     // Not serialized -- index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
+    float       m_ElapsedTime{0.0f};   // Not serialized -- seconds accumulated toward the next frame advance
+    bool        m_Loop{true};          // Not serialized -- wrap to frame 0 at the end instead of stopping there
+    bool        m_Playing{true};       // Not serialized -- whether AnimationSystem advances this Animation at all
 };
 
 /**

@@ -16,6 +16,7 @@ namespace
 
 using namespace asge::game::scene;
 using namespace asge::game::components;
+using asge::ecs::components::Hierarchy;
 using asge::config::toml::TOMLTableView;
 
 class SceneSerializerTest : public ::testing::Test
@@ -92,7 +93,7 @@ TEST_F(SceneSerializerTest, Save_EntityWithSubsetOfComponents_WritesOnlyThoseSub
     auto entity = m_Registry.CreateEntity();
     ASSERT_TRUE(entity.IsOk());
 
-    Transform const transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f };
+    Transform const transform{ .m_LocalCoordinates = {1.0f, 2.0f}, .m_LocalScale = {3.0f, 4.0f}, .m_LocalRotation = 0.5f };
     Sprite sprite{};
     sprite.m_VirtualPath = "textures/checker.bmp";
 
@@ -110,12 +111,12 @@ TEST_F(SceneSerializerTest, Save_EntityWithSubsetOfComponents_WritesOnlyThoseSub
     EXPECT_TRUE(entityView.HasTable("Sprite"));
     EXPECT_FALSE(entityView.HasTable("Velocity"));
 
-    Transform const restoredTransform = Serializer<Transform>::FromToml(entityView, asge::game::scene::LoadContext{});
-    EXPECT_FLOAT_EQ(restoredTransform.m_X, transform.m_X);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Y, transform.m_Y);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Rotation, transform.m_Rotation);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleX, transform.m_ScaleX);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleY, transform.m_ScaleY);
+    Transform const restoredTransform = Serializer<Transform>::FromToml( entityView, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.x(), transform.m_LocalCoordinates.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.y(), transform.m_LocalCoordinates.y());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalRotation, transform.m_LocalRotation);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.x(), transform.m_LocalScale.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.y(), transform.m_LocalScale.y());
 
     Sprite const restoredSprite = Serializer<Sprite>::FromToml(entityView, asge::game::scene::LoadContext{});
     EXPECT_EQ(restoredSprite.m_VirtualPath, sprite.m_VirtualPath);
@@ -194,7 +195,7 @@ TEST_F(SceneSerializerTest, Load_ValidSceneFile_RecreatesEntitiesWithSavedCompon
     ASSERT_TRUE(withVelocity.IsOk());
     ASSERT_TRUE(bare.IsOk());
 
-    Transform const transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f };
+    Transform const transform{ .m_LocalCoordinates = {1.0f, 2.0f}, .m_LocalScale = {3.0f, 4.0f}, .m_LocalRotation = 0.5f };
     Velocity const velocity{ 5.0f, 6.0f };
     ASSERT_TRUE(m_Registry.AddComponent( withTransform.Value(), transform ).IsOk());
     ASSERT_TRUE(m_Registry.AddComponent( withVelocity.Value(), velocity ).IsOk());
@@ -218,11 +219,11 @@ TEST_F(SceneSerializerTest, Load_ValidSceneFile_RecreatesEntitiesWithSavedCompon
     EXPECT_FALSE(loaded.HasComponent<Velocity>(all[0]));
     auto restoredTransformResult = loaded.GetComponent<Transform>(all[0]);
     Transform const& restoredTransform = restoredTransformResult.Value().get();
-    EXPECT_FLOAT_EQ(restoredTransform.m_X, transform.m_X);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Y, transform.m_Y);
-    EXPECT_FLOAT_EQ(restoredTransform.m_Rotation, transform.m_Rotation);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleX, transform.m_ScaleX);
-    EXPECT_FLOAT_EQ(restoredTransform.m_ScaleY, transform.m_ScaleY);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.x(), transform.m_LocalCoordinates.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalCoordinates.y(), transform.m_LocalCoordinates.y());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalRotation, transform.m_LocalRotation);
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.x(), transform.m_LocalScale.x());
+    EXPECT_FLOAT_EQ(restoredTransform.m_LocalScale.y(), transform.m_LocalScale.y());
 
     ASSERT_TRUE(loaded.HasComponent<Velocity>(all[1]));
     auto restoredVelocityResult = loaded.GetComponent<Velocity>(all[1]);
@@ -339,6 +340,71 @@ TEST_F(SceneSerializerTest, LoadFromFile_ValidSceneFile_RecreatesEntitiesWithSav
     EXPECT_FLOAT_EQ(loaded.GetComponent<Velocity>(all[0]).Value().get().m_DY, 8.0f);
 }
 
+TEST_F(SceneSerializerTest, LoadFromFile_CorruptHierarchyLinks_LoadsWithARepairedTreeInsteadOfHanging)
+{
+    // The shape of a real scene saved after the old Inspector "Delete" left
+    // stale links behind: entity 2 is its own parent (which hung every walk up
+    // the parent chain), entity 0 points at a sibling that has no links back,
+    // and entity 1 lists a first child that says it has no parent.
+    ASSERT_TRUE(asge::filesystem::WriteText( m_ScenePath, R"(
+[[entity]]
+Id = 0
+[entity.Hierarchy]
+m_Parent = 2
+m_LastChild = -1
+m_FirstChild = -1
+m_NextSibling = -1
+m_PrevSibling = 3
+
+[[entity]]
+Id = 1
+[entity.Hierarchy]
+m_Parent = -1
+m_LastChild = -1
+m_FirstChild = 3
+m_NextSibling = -1
+m_PrevSibling = -1
+
+[[entity]]
+Id = 2
+[entity.Hierarchy]
+m_Parent = 2
+m_LastChild = -1
+m_FirstChild = -1
+m_NextSibling = -1
+m_PrevSibling = -1
+
+[[entity]]
+Id = 3
+[entity.Hierarchy]
+m_Parent = -1
+m_LastChild = -1
+m_FirstChild = -1
+m_NextSibling = -1
+m_PrevSibling = -1
+)" ).IsOk());
+
+    SceneSerializer serializer{ m_Vfs };
+    asge::ecs::Registry loaded;
+    ASSERT_TRUE(serializer.LoadFromFile( loaded, m_ScenePath ).IsOk());
+
+    auto const all = loaded.AllEntities();
+    ASSERT_EQ(all.size(), 4u);
+    auto const e0 = all[0], e1 = all[1], e2 = all[2], e3 = all[3];
+    auto const h = [&](asge::ecs::Entity inE) -> Hierarchy const&
+    { return loaded.GetComponent<Hierarchy>(inE).Value().get(); };
+
+    EXPECT_EQ(h(e2).m_Parent, asge::ecs::Entity::Null()); // its own parent is dropped
+    EXPECT_EQ(h(e0).m_Parent, e2);                        // a real parent link survives
+    EXPECT_EQ(h(e2).m_FirstChild, e0);
+    EXPECT_EQ(h(e2).m_LastChild, e0);
+    EXPECT_EQ(h(e0).m_PrevSibling, asge::ecs::Entity::Null()); // the dangling prev is gone
+    EXPECT_EQ(h(e1).m_FirstChild, asge::ecs::Entity::Null());  // the child that isn't its own is dropped
+    EXPECT_EQ(h(e3).m_Parent, asge::ecs::Entity::Null());
+
+    for (auto e : all) EXPECT_FALSE(loaded.IsDisabled(e)); // every walk up the chain terminates
+}
+
 TEST_F(SceneSerializerTest, LoadFromFile_FileDoesNotExistReturnsError)
 {
     SceneSerializer serializer{ m_Vfs };
@@ -394,6 +460,75 @@ TEST_F(SceneSerializerTest, Load_MidLoopFailureRollsBackOnlyThisCallsEntitiesLea
     auto all = almostFull.AllEntities();
     EXPECT_EQ(all.size(), asge::ecs::kMaxEntities - 1);
     EXPECT_NE(std::find(all.begin(), all.end(), sentinel.Value()), all.end());
+}
+
+TEST_F(SceneSerializerTest, Load_HierarchyComponent_ReconnectsParentChildRelationshipsAmongTheNewlyCreatedEntities)
+{
+    auto root = m_Registry.CreateEntity();
+    auto childA = m_Registry.CreateEntity();
+    auto childB = m_Registry.CreateEntity();
+    ASSERT_TRUE(root.IsOk());
+    ASSERT_TRUE(childA.IsOk());
+    ASSERT_TRUE(childB.IsOk());
+
+    AttachChild( m_Registry, root.Value(), childA.Value() );
+    AttachChild( m_Registry, root.Value(), childB.Value() );
+
+    SceneSerializer serializer{ m_Vfs };
+    ASSERT_TRUE(serializer.Save( m_Registry, m_ScenePath ).IsOk());
+    ASSERT_TRUE(m_Vfs.Mount("scenes", m_Root.string()).IsOk());
+
+    // Pre-populate `loaded` with five unrelated entities before Load() runs,
+    // so root/childA/childB's counterparts land at indices 5-7 there rather
+    // than 0-2 -- guaranteeing they can't possibly equal m_Registry's own
+    // entities by coincidence, and so proving the Hierarchy links checked
+    // below only work because FromToml actually resolved ids through
+    // LoadContext, not because it copied the original Entity values through
+    // untouched.
+    asge::ecs::Registry loaded;
+    for ( int i = 0; i < 5; ++i )
+    {
+        ASSERT_TRUE(loaded.CreateEntity().IsOk());
+    }
+
+    ASSERT_TRUE(serializer.Load( loaded, "scenes/scene.toml" ).IsOk());
+
+    // AllEntities() walks slots in index order, and Load() creates its
+    // entities in the order it encounters entity[N] blocks (root, childA,
+    // childB, per Save's own creation-order guarantee) -- so with `loaded`
+    // otherwise untouched, they land at the next three free indices in that
+    // same order.
+    auto const all = loaded.AllEntities();
+    ASSERT_EQ(all.size(), 8u);
+    auto const loadedRoot = all[5];
+    auto const loadedChildA = all[6];
+    auto const loadedChildB = all[7];
+
+    // None of the original handles survived the round trip -- confirms the
+    // assertions below are only possible because FromToml actually resolved
+    // ids through LoadContext, not because it copied the old Entity values.
+    EXPECT_NE(loadedRoot, root.Value());
+    EXPECT_NE(loadedChildA, childA.Value());
+    EXPECT_NE(loadedChildB, childB.Value());
+
+    ASSERT_TRUE(loaded.HasComponent<Hierarchy>(loadedRoot));
+    ASSERT_TRUE(loaded.HasComponent<Hierarchy>(loadedChildA));
+    ASSERT_TRUE(loaded.HasComponent<Hierarchy>(loadedChildB));
+
+    auto const& rootH = loaded.GetComponent<Hierarchy>(loadedRoot).Value().get();
+    EXPECT_EQ(rootH.m_Parent, asge::ecs::Entity::Null());
+    EXPECT_EQ(rootH.m_FirstChild, loadedChildA);
+    EXPECT_EQ(rootH.m_LastChild, loadedChildB);
+
+    auto const& childAH = loaded.GetComponent<Hierarchy>(loadedChildA).Value().get();
+    EXPECT_EQ(childAH.m_Parent, loadedRoot);
+    EXPECT_EQ(childAH.m_PrevSibling, asge::ecs::Entity::Null());
+    EXPECT_EQ(childAH.m_NextSibling, loadedChildB);
+
+    auto const& childBH = loaded.GetComponent<Hierarchy>(loadedChildB).Value().get();
+    EXPECT_EQ(childBH.m_Parent, loadedRoot);
+    EXPECT_EQ(childBH.m_PrevSibling, loadedChildA);
+    EXPECT_EQ(childBH.m_NextSibling, asge::ecs::Entity::Null());
 }
 
 }

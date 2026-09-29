@@ -30,18 +30,18 @@ public:
 
     template<_internal::Numeric... Us>
     requires (sizeof...(Us) == 2)
-    explicit Vec2( Us... inValues ) : base( inValues... )
+    constexpr explicit Vec2( Us... inValues ) : base( inValues... )
     {}
 
-    Vec2( std::initializer_list<T> inList ) : base( inList )
+    constexpr Vec2( std::initializer_list<T> inList ) : base( inList )
     {}
 
     Vec2(const base& inBase) : base(inBase) {}
 
-    reference x() { return (*this)[0]; }
-    reference y() { return (*this)[1]; }
-    value_type x() const { return (*this)[0]; }
-    value_type y() const { return (*this)[1]; }
+    constexpr reference x() { return (*this)[0]; }
+    constexpr reference y() { return (*this)[1]; }
+    constexpr value_type x() const { return (*this)[0]; }
+    constexpr value_type y() const { return (*this)[1]; }
 
     using base::operator+;
     using base::operator-;
@@ -62,5 +62,10 @@ using Int2 = Vec2<int>;
 using Int642 = Vec2<std::int64_t>;
 
 DEFINE_REBIND_TRAIT(Vec2)
+
+/** @brief Rotates inVector by inAngle radians about the origin. Positive
+ *  angles turn clockwise on screen, matching this engine's screen-space
+ *  (Y-down) convention. */
+Float2 Rotate( Float2 inVector, float inAngle ) noexcept;
 
 }

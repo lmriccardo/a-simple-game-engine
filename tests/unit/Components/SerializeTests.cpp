@@ -1,5 +1,6 @@
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Components/Name.hpp>
+#include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Core/Configuration/TOML_Builder.hpp>
 
 #include <gtest/gtest.h>
@@ -10,15 +11,17 @@
 namespace
 {
 
+using namespace asge::ecs::components;
+using namespace asge::ecs::markers;
 using namespace asge::game::components;
 using namespace asge::game::scene;
 using asge::config::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowName)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 10);
+    static_assert(std::tuple_size_v<SerializableComponents> == 21);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -29,6 +32,17 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Camera>);
     static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
     static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
+    static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
+    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, Disable>);
+    static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, UIButton>);
+    static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, RenderInfo>);
+    static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, UIRect>);
+    static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, Interactable>);
+    static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, UILabel>);
+    static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UICheckbox>);
+    static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UISlider>);
+    static_assert(std::is_same_v<std::tuple_element_t<19, SerializableComponents>, UIPanel>);
+    static_assert(std::is_same_v<std::tuple_element_t<20, SerializableComponents>, UILayoutItem>);
     SUCCEED();
 }
 
@@ -45,6 +59,17 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Camera>::kTableName, "Camera");
     EXPECT_EQ(Serializer<PathFollow>::kTableName, "PathFollow");
     EXPECT_EQ(Serializer<Name>::kTableName, "Name");
+    EXPECT_EQ(Serializer<Hierarchy>::kTableName, "Hierarchy");
+    EXPECT_EQ(Serializer<Disable>::kTableName, "Disabled");
+    EXPECT_EQ(Serializer<UIButton>::kTableName, "UIButton");
+    EXPECT_EQ(Serializer<RenderInfo>::kTableName, "RenderInfo");
+    EXPECT_EQ(Serializer<UIRect>::kTableName, "UIRect");
+    EXPECT_EQ(Serializer<Interactable>::kTableName, "Interactable");
+    EXPECT_EQ(Serializer<UILabel>::kTableName, "UILabel");
+    EXPECT_EQ(Serializer<UICheckbox>::kTableName, "UICheckbox");
+    EXPECT_EQ(Serializer<UISlider>::kTableName, "UISlider");
+    EXPECT_EQ(Serializer<UIPanel>::kTableName, "UIPanel");
+    EXPECT_EQ(Serializer<UILayoutItem>::kTableName, "UILayoutItem");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -52,7 +77,9 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
 TEST(TransformSerializerTest, ToToml_WritesAllFieldsUnderTransformTable)
 {
     TOMLBuilder builder;
-    Serializer<Transform>::ToToml(Transform{ 1.0f, 2.0f, 0.5f, 3.0f, 4.0f }, builder, asge::game::scene::SaveContext{});
+    Serializer<Transform>::ToToml(
+        Transform{ .m_LocalCoordinates = {1.0f, 2.0f}, .m_LocalScale = {3.0f, 4.0f}, .m_LocalRotation = 0.5f },
+        builder, asge::game::scene::SaveContext{} );
 
     auto const dump = builder.ToString();
     EXPECT_NE(dump.find("[Transform]"), std::string::npos);
@@ -66,15 +93,15 @@ TEST(TransformSerializerTest, ToToml_WritesAllFieldsUnderTransformTable)
 TEST(TransformSerializerTest, RoundTripsThroughToTomlAndFromToml)
 {
     TOMLBuilder builder;
-    Transform const original{ 10.0f, -5.0f, 1.25f, 2.0f, 0.5f };
-    Serializer<Transform>::ToToml(original, builder, asge::game::scene::SaveContext{});
+    Transform const original{ .m_LocalCoordinates = {10.0f, -5.0f}, .m_LocalScale = {2.0f, 0.5f}, .m_LocalRotation = 1.25f };
+    Serializer<Transform>::ToToml( original, builder, asge::game::scene::SaveContext{} );
 
-    Transform const restored = Serializer<Transform>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_FLOAT_EQ(restored.m_X, original.m_X);
-    EXPECT_FLOAT_EQ(restored.m_Y, original.m_Y);
-    EXPECT_FLOAT_EQ(restored.m_Rotation, original.m_Rotation);
-    EXPECT_FLOAT_EQ(restored.m_ScaleX, original.m_ScaleX);
-    EXPECT_FLOAT_EQ(restored.m_ScaleY, original.m_ScaleY);
+    Transform const restored = Serializer<Transform>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.x(), original.m_LocalCoordinates.x());
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.y(), original.m_LocalCoordinates.y());
+    EXPECT_FLOAT_EQ(restored.m_LocalRotation, original.m_LocalRotation);
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.x(), original.m_LocalScale.x());
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.y(), original.m_LocalScale.y());
 }
 
 TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
@@ -83,11 +110,11 @@ TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     builder.Table("Transform"); // present but empty
     Transform const restored = Serializer<Transform>::FromToml(builder, asge::game::scene::LoadContext{});
 
-    EXPECT_FLOAT_EQ(restored.m_X, 0.0f);
-    EXPECT_FLOAT_EQ(restored.m_Y, 0.0f);
-    EXPECT_FLOAT_EQ(restored.m_Rotation, 0.0f);
-    EXPECT_FLOAT_EQ(restored.m_ScaleX, 1.0f); // Transform's own default, not 0
-    EXPECT_FLOAT_EQ(restored.m_ScaleY, 1.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.x(), 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalCoordinates.y(), 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalRotation, 0.0f);
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.x(), 1.0f); // Transform's own default, not 0
+    EXPECT_FLOAT_EQ(restored.m_LocalScale.y(), 1.0f);
 }
 
 // ─── Velocity ─────────────────────────────────────────────────────────────
@@ -563,6 +590,699 @@ TEST(NameSerializerTest, FromToml_MissingKeyDefaultsToEmptyString)
 
     Name const restored = Serializer<Name>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(restored.m_Name.empty());
+}
+
+// ─── Hierarchy ──────────────────────────────────────────────────────────────
+//
+// Unlike every other component here, Hierarchy's fields are themselves
+// Entity references -- a raw handle can't survive a save/load round trip
+// (Load() creates entirely new entities), so ToToml/FromToml go through
+// SaveContext::Resolve/LoadContext::Resolve instead of writing/reading the
+// Entity directly. These tests exercise that resolution explicitly, with
+// SaveContext/LoadContext built by hand rather than relying on a real
+// SceneSerializer -- see SceneSerializerTests.cpp for the full round trip
+// through an actual parent/child graph.
+
+TEST(HierarchySerializerTest, ToToml_WritesEachFieldAsItsSaveContextResolvedId)
+{
+    TOMLBuilder builder;
+    asge::ecs::Entity const parent{ 3, 0 };
+    asge::ecs::Entity const firstChild{ 5, 0 };
+    asge::ecs::Entity const lastChild{ 7, 0 };
+
+    asge::game::scene::SaveContext ctx;
+    ctx.m_Ids[parent] = 10;
+    ctx.m_Ids[firstChild] = 11;
+    ctx.m_Ids[lastChild] = 12;
+
+    Hierarchy const value{ .m_Parent = parent, .m_FirstChild = firstChild, .m_LastChild = lastChild };
+    // m_PrevSibling/m_NextSibling left at Entity::Null().
+    Serializer<Hierarchy>::ToToml( value, builder, ctx );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Hierarchy]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Parent = 10"), std::string::npos);
+    EXPECT_NE(dump.find("m_FirstChild = 11"), std::string::npos);
+    EXPECT_NE(dump.find("m_LastChild = 12"), std::string::npos);
+    EXPECT_NE(dump.find("m_PrevSibling = -1"), std::string::npos);
+    EXPECT_NE(dump.find("m_NextSibling = -1"), std::string::npos);
+}
+
+TEST(HierarchySerializerTest, ToToml_EntityNotInSaveContextResolvesToNegativeOne)
+{
+    // Resolve returns -1 for an Entity SaveContext never learned about --
+    // same as Entity::Null() -- rather than throwing or crashing.
+    TOMLBuilder builder;
+    asge::game::scene::SaveContext const emptyCtx;
+    Hierarchy const value{ .m_Parent = asge::ecs::Entity{ 9, 0 } };
+    Serializer<Hierarchy>::ToToml( value, builder, emptyCtx );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("m_Parent = -1"), std::string::npos);
+}
+
+TEST(HierarchySerializerTest, FromToml_ResolvesIdsBackToTheCorrectEntitiesViaLoadContext)
+{
+    TOMLBuilder builder;
+    auto table = builder.Table("Hierarchy");
+    table.Set<int>( "m_Parent", 10 );
+    table.Set<int>( "m_FirstChild", 11 );
+    table.Set<int>( "m_LastChild", -1 );
+    table.Set<int>( "m_PrevSibling", -1 );
+    table.Set<int>( "m_NextSibling", -1 );
+
+    asge::ecs::Entity const parent{ 3, 0 };
+    asge::ecs::Entity const firstChild{ 5, 1 };
+    asge::game::scene::LoadContext ctx;
+    ctx.m_Entities[10] = parent;
+    ctx.m_Entities[11] = firstChild;
+
+    Hierarchy const restored = Serializer<Hierarchy>::FromToml( builder, ctx );
+    EXPECT_EQ(restored.m_Parent, parent);
+    EXPECT_EQ(restored.m_FirstChild, firstChild);
+    EXPECT_EQ(restored.m_LastChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_PrevSibling, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_NextSibling, asge::ecs::Entity::Null());
+}
+
+TEST(HierarchySerializerTest, FromToml_MissingKeysDefaultEveryFieldToNullEntity)
+{
+    TOMLBuilder builder;
+    builder.Table("Hierarchy"); // present but empty
+
+    // Present in the context but never referenced by the (empty) table --
+    // proves the default comes from the missing key, not an empty context.
+    asge::game::scene::LoadContext ctx;
+    ctx.m_Entities[10] = asge::ecs::Entity{ 3, 0 };
+
+    Hierarchy const restored = Serializer<Hierarchy>::FromToml( builder, ctx );
+    EXPECT_EQ(restored.m_Parent, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_FirstChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_LastChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_PrevSibling, asge::ecs::Entity::Null());
+    EXPECT_EQ(restored.m_NextSibling, asge::ecs::Entity::Null());
+}
+
+TEST(HierarchySerializerTest, RoundTripsThroughToTomlAndFromTomlWithMatchingContexts)
+{
+    TOMLBuilder builder;
+    asge::ecs::Entity const parent{ 1, 0 };
+    asge::ecs::Entity const firstChild{ 2, 0 };
+    asge::ecs::Entity const lastChild{ 3, 0 };
+    asge::ecs::Entity const prevSibling{ 4, 0 };
+    asge::ecs::Entity const nextSibling{ 5, 0 };
+
+    asge::game::scene::SaveContext saveCtx;
+    saveCtx.m_Ids[parent] = 0;
+    saveCtx.m_Ids[firstChild] = 1;
+    saveCtx.m_Ids[lastChild] = 2;
+    saveCtx.m_Ids[prevSibling] = 3;
+    saveCtx.m_Ids[nextSibling] = 4;
+
+    Hierarchy const original{
+        .m_Parent = parent, .m_FirstChild = firstChild, .m_LastChild = lastChild,
+        .m_NextSibling = nextSibling, .m_PrevSibling = prevSibling
+    };
+    Serializer<Hierarchy>::ToToml( original, builder, saveCtx );
+
+    // A real Load() maps the same saved ids onto freshly created entities,
+    // never the originals -- use different Entity values here than saveCtx
+    // did, so this only passes if FromToml actually performs the id lookup
+    // rather than smuggling the original handle through some other path.
+    asge::ecs::Entity const newParent{ 10, 0 };
+    asge::ecs::Entity const newFirstChild{ 11, 0 };
+    asge::ecs::Entity const newLastChild{ 12, 0 };
+    asge::ecs::Entity const newPrevSibling{ 13, 0 };
+    asge::ecs::Entity const newNextSibling{ 14, 0 };
+
+    asge::game::scene::LoadContext loadCtx;
+    loadCtx.m_Entities[0] = newParent;
+    loadCtx.m_Entities[1] = newFirstChild;
+    loadCtx.m_Entities[2] = newLastChild;
+    loadCtx.m_Entities[3] = newPrevSibling;
+    loadCtx.m_Entities[4] = newNextSibling;
+
+    Hierarchy const restored = Serializer<Hierarchy>::FromToml( builder, loadCtx );
+    EXPECT_EQ(restored.m_Parent, newParent);
+    EXPECT_EQ(restored.m_FirstChild, newFirstChild);
+    EXPECT_EQ(restored.m_LastChild, newLastChild);
+    EXPECT_EQ(restored.m_PrevSibling, newPrevSibling);
+    EXPECT_EQ(restored.m_NextSibling, newNextSibling);
+}
+
+// ─── UIButton ───────────────────────────────────────────────────────────────
+
+TEST(UIButtonSerializerTest, ToToml_WritesMColorsUnderUIButtonTable)
+{
+    TOMLBuilder builder;
+    UIButton value{};
+    value.m_Colors.m_Color = { 1, 2, 3, 255 };
+    Serializer<UIButton>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIButton]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Color"), std::string::npos);
+}
+
+TEST(UIButtonSerializerTest, RoundTrips_ColorHoverColorAndPressedColor)
+{
+    TOMLBuilder builder;
+    UIButton original{};
+    original.m_Colors.m_Color = { 1, 2, 3, 4 };
+    original.m_Colors.m_HoverColor = { 5, 6, 7, 8 };
+    original.m_Colors.m_PressedColor = { 9, 10, 11, 12 };
+    Serializer<UIButton>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Colors.m_Color.r, 1);
+    EXPECT_EQ(restored.m_Colors.m_Color.g, 2);
+    EXPECT_EQ(restored.m_Colors.m_Color.b, 3);
+    EXPECT_EQ(restored.m_Colors.m_Color.a, 4);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.r, 5);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.g, 6);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.b, 7);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.a, 8);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.r, 9);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.g, 10);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.b, 11);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.a, 12);
+}
+
+TEST(UIButtonSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIButton"); // present but empty
+
+    UIButton const restored = Serializer<UIButton>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UIButton const defaults{};
+    EXPECT_EQ(restored.m_Colors.m_Color.r, defaults.m_Colors.m_Color.r);
+    EXPECT_EQ(restored.m_Colors.m_HoverColor.r, defaults.m_Colors.m_HoverColor.r);
+    EXPECT_EQ(restored.m_Colors.m_PressedColor.r, defaults.m_Colors.m_PressedColor.r);
+}
+
+// ─── UIRect ───────────────────────────────────────────────────────────────────
+
+TEST(UIRectSerializerTest, ToToml_WritesMSizeUnderUIRectTable)
+{
+    TOMLBuilder builder;
+    Serializer<UIRect>::ToToml( UIRect{ .m_Size = {100.0f, 30.0f} }, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIRect]"), std::string::npos);
+    EXPECT_NE(dump.find("m_SizeX = 100.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_SizeY = 30.0"), std::string::npos);
+}
+
+TEST(UIRectSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    UIRect const original{ .m_Size = {64.0f, 20.0f} };
+    Serializer<UIRect>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIRect const restored = Serializer<UIRect>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Size.x(), original.m_Size.x());
+    EXPECT_FLOAT_EQ(restored.m_Size.y(), original.m_Size.y());
+}
+
+TEST(UIRectSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIRect"); // present but empty
+
+    UIRect const restored = Serializer<UIRect>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Size.x(), 80.0f);
+    EXPECT_FLOAT_EQ(restored.m_Size.y(), 24.0f);
+}
+
+// ─── Interactable ─────────────────────────────────────────────────────────────
+
+TEST(InteractableSerializerTest, ToToml_WritesMEnabledUnderInteractableTable)
+{
+    TOMLBuilder builder;
+    Serializer<Interactable>::ToToml( Interactable{ .m_Enabled = false }, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Interactable]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Enabled = false"), std::string::npos);
+}
+
+TEST(InteractableSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    Serializer<Interactable>::ToToml( Interactable{ .m_Enabled = false }, builder, asge::game::scene::SaveContext{} );
+
+    Interactable const restored = Serializer<Interactable>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FALSE(restored.m_Enabled);
+}
+
+TEST(InteractableSerializerTest, FromToml_HoveredHeldClickedAlwaysResetToStructDefaults)
+{
+    // Serializer<Interactable> only round-trips m_Enabled -- FromToml must
+    // never carry over m_Hovered/m_Held/m_Clicked, none of which is
+    // something a scene file describes.
+    TOMLBuilder builder;
+    Serializer<Interactable>::ToToml( Interactable{}, builder, asge::game::scene::SaveContext{} );
+
+    Interactable const restored = Serializer<Interactable>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FALSE(restored.m_Hovered);
+    EXPECT_FALSE(restored.m_Held);
+    EXPECT_FALSE(restored.m_Clicked);
+}
+
+// ─── UILabel ──────────────────────────────────────────────────────────────────
+
+TEST(UILabelSerializerTest, ToToml_WritesFieldsUnderUILabelTable)
+{
+    TOMLBuilder builder;
+    UILabel value{};
+    value.m_FontPath = "fonts/ui.ttf";
+    value.m_Text = "Start";
+    value.m_Align = asge::str::TextAlign::Center;
+    value.m_VerticalAlign = VerticalAlign::Bottom;
+    value.m_FontPixelHeight = 24;
+    Serializer<UILabel>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UILabel]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_FontPath = "fonts/ui.ttf")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Text = "Start")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_Align = "center")"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_VerticalAlign = "bottom")"), std::string::npos);
+    EXPECT_NE(dump.find("m_FontPixelHeight = 24"), std::string::npos);
+}
+
+TEST(UILabelSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    UILabel original{};
+    original.m_FontPath = "fonts/ui.ttf";
+    original.m_Text = "Quit";
+    original.m_Align = asge::str::TextAlign::Right;
+    original.m_VerticalAlign = VerticalAlign::Top;
+    original.m_FontPixelHeight = 32;
+    original.m_Color = { 1, 2, 3, 4 };
+    Serializer<UILabel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_FontPath, original.m_FontPath);
+    EXPECT_EQ(restored.m_Text, original.m_Text);
+    EXPECT_EQ(restored.m_Align, original.m_Align);
+    EXPECT_EQ(restored.m_VerticalAlign, original.m_VerticalAlign);
+    EXPECT_EQ(restored.m_FontPixelHeight, original.m_FontPixelHeight);
+    EXPECT_EQ(restored.m_Color.r, 1);
+    EXPECT_EQ(restored.m_Color.g, 2);
+    EXPECT_EQ(restored.m_Color.b, 3);
+    EXPECT_EQ(restored.m_Color.a, 4);
+}
+
+TEST(UILabelSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UILabel"); // present but empty
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UILabel const defaults{};
+    EXPECT_TRUE(restored.m_FontPath.empty());
+    EXPECT_EQ(restored.m_Text, defaults.m_Text);
+    EXPECT_EQ(restored.m_Align, defaults.m_Align);
+    EXPECT_EQ(restored.m_VerticalAlign, defaults.m_VerticalAlign);
+    EXPECT_EQ(restored.m_FontPixelHeight, defaults.m_FontPixelHeight);
+    EXPECT_EQ(restored.m_Color.r, defaults.m_Color.r);
+}
+
+TEST(UILabelSerializerTest, FromToml_UnrecognizedTextAlignValueBecomesNone)
+{
+    TOMLBuilder builder;
+    builder.Table("UILabel").Set<std::string>( "m_Align", "diagonal" );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Align, asge::str::TextAlign::None);
+}
+
+TEST(UILabelSerializerTest, FromToml_UnrecognizedVerticalAlignValueBecomesTop)
+{
+    TOMLBuilder builder;
+    builder.Table("UILabel").Set<std::string>( "m_VerticalAlign", "diagonal" );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_VerticalAlign, VerticalAlign::Top);
+}
+
+TEST(UILabelSerializerTest, FromToml_FontAndResolvedPathNeverReconstructed)
+{
+    // m_Font/m_ResolvedFontPath are resolved by asset::Resolver<UILabel>,
+    // not serialized -- FromToml must always start with them null/empty.
+    TOMLBuilder builder;
+    Serializer<UILabel>::ToToml( UILabel{ .m_FontPath = "fonts/ui.ttf" }, builder, asge::game::scene::SaveContext{} );
+
+    UILabel const restored = Serializer<UILabel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Font, nullptr);
+    EXPECT_TRUE(restored.m_ResolvedFontPath.empty());
+}
+
+// ─── UICheckbox ─────────────────────────────────────────────────────────────
+
+TEST(UICheckboxSerializerTest, ToToml_WritesMBoxColorsMCheckColorAndMCheckedUnderUICheckboxTable)
+{
+    TOMLBuilder builder;
+    UICheckbox value{};
+    value.m_BoxColors.m_Color = { 1, 2, 3, 255 };
+    value.m_CheckColor = { 9, 8, 7, 255 };
+    value.m_Checked = true;
+    Serializer<UICheckbox>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UICheckbox]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Color"), std::string::npos);
+    EXPECT_NE(dump.find("m_CheckColor"), std::string::npos);
+    EXPECT_NE(dump.find("m_Checked = true"), std::string::npos);
+}
+
+TEST(UICheckboxSerializerTest, RoundTrips_BoxColorsCheckColorAndChecked)
+{
+    TOMLBuilder builder;
+    UICheckbox original{};
+    original.m_BoxColors.m_Color = { 1, 2, 3, 4 };
+    original.m_BoxColors.m_HoverColor = { 5, 6, 7, 8 };
+    original.m_BoxColors.m_PressedColor = { 9, 10, 11, 12 };
+    original.m_CheckColor = { 13, 14, 15, 16 };
+    original.m_Checked = true;
+    Serializer<UICheckbox>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UICheckbox const restored = Serializer<UICheckbox>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_BoxColors.m_Color.r, 1);
+    EXPECT_EQ(restored.m_BoxColors.m_Color.g, 2);
+    EXPECT_EQ(restored.m_BoxColors.m_Color.b, 3);
+    EXPECT_EQ(restored.m_BoxColors.m_Color.a, 4);
+    EXPECT_EQ(restored.m_BoxColors.m_HoverColor.r, 5);
+    EXPECT_EQ(restored.m_BoxColors.m_PressedColor.r, 9);
+    EXPECT_EQ(restored.m_CheckColor.r, 13);
+    EXPECT_EQ(restored.m_CheckColor.g, 14);
+    EXPECT_EQ(restored.m_CheckColor.b, 15);
+    EXPECT_EQ(restored.m_CheckColor.a, 16);
+    EXPECT_TRUE(restored.m_Checked);
+}
+
+TEST(UICheckboxSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UICheckbox"); // present but empty
+
+    UICheckbox const restored = Serializer<UICheckbox>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UICheckbox const defaults{};
+    EXPECT_EQ(restored.m_BoxColors.m_Color.r, defaults.m_BoxColors.m_Color.r);
+    EXPECT_EQ(restored.m_CheckColor.r, defaults.m_CheckColor.r);
+    EXPECT_EQ(restored.m_Checked, defaults.m_Checked);
+}
+
+// ─── UISlider ───────────────────────────────────────────────────────────────
+
+TEST(UISliderSerializerTest, ToToml_WritesRangeValueAndTrackColorUnderUISliderTable)
+{
+    TOMLBuilder builder;
+    UISlider value{};
+    value.m_Min = -1.0f;
+    value.m_Max = 4.0f;
+    value.m_Value = 2.5f;
+    Serializer<UISlider>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UISlider]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Min = -1.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Max = 4.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Value = 2.5"), std::string::npos);
+    EXPECT_NE(dump.find("m_TrackColor"), std::string::npos);
+}
+
+TEST(UISliderSerializerTest, RoundTrips_RangeValueTrackColorAndThumbColors)
+{
+    TOMLBuilder builder;
+    UISlider original{};
+    original.m_Min = -1.0f;
+    original.m_Max = 4.0f;
+    original.m_Value = 2.5f;
+    original.m_TrackColor = { 1, 2, 3, 4 };
+    original.m_ThumbColor.m_Color = { 5, 6, 7, 8 };
+    original.m_ThumbColor.m_HoverColor = { 9, 10, 11, 12 };
+    original.m_ThumbColor.m_PressedColor = { 13, 14, 15, 16 };
+    Serializer<UISlider>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UISlider const restored = Serializer<UISlider>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Min, -1.0f);
+    EXPECT_FLOAT_EQ(restored.m_Max, 4.0f);
+    EXPECT_FLOAT_EQ(restored.m_Value, 2.5f);
+    EXPECT_EQ(restored.m_TrackColor.r, 1);
+    EXPECT_EQ(restored.m_TrackColor.g, 2);
+    EXPECT_EQ(restored.m_TrackColor.b, 3);
+    EXPECT_EQ(restored.m_TrackColor.a, 4);
+    EXPECT_EQ(restored.m_ThumbColor.m_Color.r, 5);
+    EXPECT_EQ(restored.m_ThumbColor.m_HoverColor.r, 9);
+    EXPECT_EQ(restored.m_ThumbColor.m_PressedColor.r, 13);
+}
+
+TEST(UISliderSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UISlider"); // present but empty
+
+    UISlider const restored = Serializer<UISlider>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UISlider const defaults{};
+    EXPECT_FLOAT_EQ(restored.m_Min, defaults.m_Min);
+    EXPECT_FLOAT_EQ(restored.m_Max, defaults.m_Max);
+    EXPECT_FLOAT_EQ(restored.m_Value, defaults.m_Value);
+    EXPECT_EQ(restored.m_TrackColor.r, defaults.m_TrackColor.r);
+    EXPECT_EQ(restored.m_ThumbColor.m_Color.r, defaults.m_ThumbColor.m_Color.r);
+}
+
+// ─── UIPanel ────────────────────────────────────────────────────────────────
+
+TEST(UIPanelSerializerTest, ToToml_WritesColorsPaddingMarginBorderAndLayoutUnderUIPanelTable)
+{
+    TOMLBuilder builder;
+    UIPanel value{};
+    value.m_Padding = { 1.0f, 2.0f };
+    value.m_Margin = { 3.0f, 4.0f };
+    value.m_Border = false;
+    value.m_Layout = LayoutGrid{ .m_Rows = 2, .m_Cols = 5 };
+    Serializer<UIPanel>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIPanel]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Background"), std::string::npos);
+    EXPECT_NE(dump.find("m_BorderColor"), std::string::npos);
+    EXPECT_NE(dump.find("m_PaddingX = 1.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_MarginY = 4.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Border = false"), std::string::npos);
+    EXPECT_NE(dump.find("m_LayoutType = \"Grid\""), std::string::npos);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_ColorsPaddingMarginAndBorder)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Background = { 1, 2, 3, 4 };
+    original.m_BorderColor = { 5, 6, 7, 8 };
+    original.m_Padding = { 1.5f, 2.5f };
+    original.m_Margin = { 3.5f, 4.5f };
+    original.m_Border = false;
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Background.r, 1);
+    EXPECT_EQ(restored.m_Background.g, 2);
+    EXPECT_EQ(restored.m_Background.b, 3);
+    EXPECT_EQ(restored.m_Background.a, 4);
+    EXPECT_EQ(restored.m_BorderColor.r, 5);
+    EXPECT_EQ(restored.m_BorderColor.g, 6);
+    EXPECT_EQ(restored.m_BorderColor.b, 7);
+    EXPECT_EQ(restored.m_BorderColor.a, 8);
+    EXPECT_FLOAT_EQ(restored.m_Padding.x(), 1.5f);
+    EXPECT_FLOAT_EQ(restored.m_Padding.y(), 2.5f);
+    EXPECT_FLOAT_EQ(restored.m_Margin.x(), 3.5f);
+    EXPECT_FLOAT_EQ(restored.m_Margin.y(), 4.5f);
+    EXPECT_FALSE(restored.m_Border);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_Spacing)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Spacing = { 6.0f, 7.5f };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Spacing.x(), 6.0f);
+    EXPECT_FLOAT_EQ(restored.m_Spacing.y(), 7.5f);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_AbsoluteLayout)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutAbsolute{};
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_TRUE(std::holds_alternative<LayoutAbsolute>(restored.m_Layout));
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_GridLayoutRowsAndCols)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutGrid{ .m_Rows = 2, .m_Cols = 5 };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    auto const* grid = std::get_if<LayoutGrid>(&restored.m_Layout);
+    ASSERT_NE(grid, nullptr);
+    EXPECT_EQ(grid->m_Rows, 2);
+    EXPECT_EQ(grid->m_Cols, 5);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_VStackLayoutRows)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutVStack{ .m_Rows = 7 };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    auto const* vstack = std::get_if<LayoutVStack>(&restored.m_Layout);
+    ASSERT_NE(vstack, nullptr);
+    EXPECT_EQ(vstack->m_Rows, 7);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_HStackLayoutCols)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutHStack{ .m_Cols = 6 };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    auto const* hstack = std::get_if<LayoutHStack>(&restored.m_Layout);
+    ASSERT_NE(hstack, nullptr);
+    EXPECT_EQ(hstack->m_Cols, 6);
+}
+
+TEST(UIPanelSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIPanel"); // present but empty
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UIPanel const defaults{};
+    EXPECT_EQ(restored.m_Background.r, defaults.m_Background.r);
+    EXPECT_EQ(restored.m_BorderColor.r, defaults.m_BorderColor.r);
+    EXPECT_FLOAT_EQ(restored.m_Padding.x(), defaults.m_Padding.x());
+    EXPECT_FLOAT_EQ(restored.m_Margin.x(), defaults.m_Margin.x());
+    EXPECT_EQ(restored.m_Border, defaults.m_Border);
+    EXPECT_TRUE(std::holds_alternative<LayoutAbsolute>(restored.m_Layout));
+}
+
+// ─── UILayoutItem ───────────────────────────────────────────────────────────
+
+TEST(UILayoutItemSerializerTest, ToToml_WritesFillAndAlignUnderUILayoutItemTable)
+{
+    TOMLBuilder builder;
+    UILayoutItem value{ .m_FillX = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::End };
+    Serializer<UILayoutItem>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UILayoutItem]"), std::string::npos);
+    EXPECT_NE(dump.find("m_FillX = false"), std::string::npos);
+    EXPECT_NE(dump.find("m_FillY = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_AlignX = \"Center\""), std::string::npos);
+    EXPECT_NE(dump.find("m_AlignY = \"End\""), std::string::npos);
+}
+
+TEST(UILayoutItemSerializerTest, RoundTrips_EveryAlignmentAndFillFlag)
+{
+    for ( auto const alignX : { SlotAlign::Start, SlotAlign::Center, SlotAlign::End } )
+    {
+        TOMLBuilder builder;
+        UILayoutItem const original{ .m_FillX = false, .m_FillY = false, .m_AlignX = alignX, .m_AlignY = SlotAlign::End };
+        Serializer<UILayoutItem>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+        UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
+        EXPECT_FALSE(restored.m_FillX);
+        EXPECT_FALSE(restored.m_FillY);
+        EXPECT_EQ(restored.m_AlignX, alignX);
+        EXPECT_EQ(restored.m_AlignY, SlotAlign::End);
+    }
+}
+
+TEST(UILayoutItemSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UILayoutItem"); // present but empty
+
+    UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_TRUE(restored.m_FillX);
+    EXPECT_TRUE(restored.m_FillY);
+    EXPECT_EQ(restored.m_AlignX, SlotAlign::Start);
+    EXPECT_EQ(restored.m_AlignY, SlotAlign::Start);
+}
+
+TEST(UILayoutItemSerializerTest, FromToml_UnknownAlignName_FallsBackToStart)
+{
+    TOMLBuilder builder;
+    builder.Table("UILayoutItem").Set("m_AlignX", std::string("Sideways"));
+
+    UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_AlignX, SlotAlign::Start);
+}
+
+// ─── RenderInfo ─────────────────────────────────────────────────────────────
+
+TEST(RenderInfoSerializerTest, ToToml_WritesAllFieldsUnderRenderInfoTable)
+{
+    TOMLBuilder builder;
+    Serializer<RenderInfo>::ToToml(
+        RenderInfo{
+            .m_Layer = 3, .m_YSort = true, .m_ScreenSpace = true,
+            .m_InheritSortFromParent = true, .m_LocalOrder = -1
+        },
+        builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[RenderInfo]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Layer = 3"), std::string::npos);
+    EXPECT_NE(dump.find("m_YSort = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_ScreenSpace = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_InheritSortFromParent = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_LocalOrder = -1"), std::string::npos);
+}
+
+TEST(RenderInfoSerializerTest, RoundTripsThroughToTomlAndFromToml)
+{
+    TOMLBuilder builder;
+    RenderInfo const original{
+        .m_Layer = 5, .m_YSort = true, .m_ScreenSpace = true,
+        .m_InheritSortFromParent = true, .m_LocalOrder = 2
+    };
+    Serializer<RenderInfo>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    RenderInfo const restored = Serializer<RenderInfo>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Layer, original.m_Layer);
+    EXPECT_EQ(restored.m_YSort, original.m_YSort);
+    EXPECT_EQ(restored.m_ScreenSpace, original.m_ScreenSpace);
+    EXPECT_EQ(restored.m_InheritSortFromParent, original.m_InheritSortFromParent);
+    EXPECT_EQ(restored.m_LocalOrder, original.m_LocalOrder);
+}
+
+TEST(RenderInfoSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("RenderInfo"); // present but empty
+
+    RenderInfo const restored = Serializer<RenderInfo>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Layer, 0);
+    EXPECT_FALSE(restored.m_YSort);
+    EXPECT_FALSE(restored.m_ScreenSpace);
+    EXPECT_FALSE(restored.m_InheritSortFromParent);
+    EXPECT_EQ(restored.m_LocalOrder, 0);
 }
 
 }

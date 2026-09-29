@@ -9,10 +9,11 @@ namespace asge::game::components
  * @brief Marks an entity as a camera target for systems::CameraSystem.
  *
  * Only takes effect once this entity is set as resources::ActiveCamera's
- * m_Entity — CameraSystem then reads this entity's own Transform (m_X/m_Y)
- * each frame as the world-space point to center the view on, and this
- * component for how to get there. Camera itself carries no position of its
- * own; the owning entity's Transform is the single source of truth for it.
+ * m_Entity — CameraSystem then reads this entity's own Transform
+ * (m_WorldCoordinates) each frame as the world-space point to center the
+ * view on, and this component for how to get there. Camera itself carries
+ * no position of its own; the owning entity's Transform is the single
+ * source of truth for it.
  */
 struct Camera
 {

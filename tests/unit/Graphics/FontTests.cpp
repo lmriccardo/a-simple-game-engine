@@ -21,6 +21,7 @@ namespace
 {
 
 using namespace asge::media;
+using namespace asge::graphics;
 using asge::errors::FontError;
 
 std::filesystem::path AhemPath()
@@ -110,6 +111,41 @@ TEST(FontGlyphTest, UnbakedCodepointReturnsUnexistingCodepointError)
 
     ASSERT_FALSE(glyph.IsOk());
     EXPECT_EQ(glyph.Code(), make_error_code(FontError::UnexistingCodepoint));
+}
+
+TEST(FontMeasureTest, SingleLineWidthIsSumOfGlyphAdvances)
+{
+    // Ahem: each glyph's advance == the bake pixel height (see
+    // FontGlyphTest.BakedCodepointAdvanceMatchesRequestedPixelHeight), so
+    // "Hi"'s width is exactly 2 * pixelHeight, no font-metric guesswork.
+    constexpr int pixelHeight = 20;
+    auto result = Font::Load(AhemPath(), pixelHeight);
+    ASSERT_TRUE(result.IsOk());
+    auto const& font = result.Value();
+
+    auto const size = font.Measure("Hi");
+    EXPECT_FLOAT_EQ(size.x(), 2 * pixelHeight);
+    EXPECT_FLOAT_EQ(size.y(), static_cast<float>(font.GetAscent() - font.GetDescent()));
+}
+
+TEST(FontMeasureTest, EmptyStringMeasuresToZeroWidth)
+{
+    auto result = Font::Load(AhemPath(), 20);
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_FLOAT_EQ(result.Value().Measure("").x(), 0.0f);
+}
+
+TEST(FontMeasureTest, MultiLineText_WidthIsTheLongestLine_HeightAddsALineHeightPerBreak)
+{
+    constexpr int pixelHeight = 20;
+    auto result = Font::Load(AhemPath(), pixelHeight);
+    ASSERT_TRUE(result.IsOk());
+    auto const& font = result.Value();
+
+    auto const size = font.Measure("Hi\nWorld"); // "Hi" (2 chars) vs "World" (5 chars)
+    EXPECT_FLOAT_EQ(size.x(), 5 * pixelHeight); // the longer line wins, not the last one
+    EXPECT_FLOAT_EQ(size.y(),
+        static_cast<float>(font.GetLineHeight() + (font.GetAscent() - font.GetDescent())));
 }
 
 TEST(FontMoveTest, MoveConstructionPreservesGlyphLookupAndAtlas)

@@ -33,8 +33,8 @@ enum class ResolutionType
  * @brief A hitbox used for collision detection — a Rect or a Circle.
  *
  * Independent of Sprite — an entity's hitbox doesn't have to match its
- * drawn size. Its world position is Transform.m_X/m_Y (top-left, same
- * convention as RenderSystem) offset by the shape's own local origin
+ * drawn size. Its world position is Transform.m_WorldCoordinates (top-left,
+ * same convention as RenderSystem) offset by the shape's own local origin
  * (Rect's x/y, or Circle's m_Center).
  */
 struct Collider
@@ -72,6 +72,7 @@ bool LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept;
 namespace asge::game::scene
 {
 
+/** @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask) -- Collider carries no runtime-only state beyond them. */
 template<>
 struct Serializer<components::Collider>
 {

@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -294,6 +295,27 @@ TEST(TOMLParserTest, Parse_IntValue)
     auto* val = GetOrNull<int>(root, "count");
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(*val, 7);
+}
+
+TEST(TOMLParserTest, Parse_IntPastInt32RangeWidensToInt64)
+{
+    // Past INT_MAX -- std::stoi throws out_of_range, which ParseValue must
+    // catch and retry as an Int64 rather than failing the whole parse.
+    auto root = ParseOk("big = 4294967296\n");
+    EXPECT_EQ(GetOrNull<int>(root, "big"), nullptr); // not stored as a 32-bit int...
+    auto* val = GetOrNull<std::int64_t>(root, "big");
+    ASSERT_NE(val, nullptr); // ...but as an Int64
+    EXPECT_EQ(*val, 4294967296LL);
+}
+
+TEST(TOMLParserTest, Parse_SmallIntStillParsesAsPlainIntNotInt64)
+{
+    // Regression: adding Int64 support must not widen every ordinary int.
+    auto root = ParseOk("count = 42\n");
+    EXPECT_EQ(GetOrNull<std::int64_t>(root, "count"), nullptr);
+    auto* val = GetOrNull<int>(root, "count");
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(*val, 42);
 }
 
 TEST(TOMLParserTest, Parse_DoubleValue)

@@ -52,7 +52,7 @@ asge::BoolResult asge::filesystem::VirtualFileSystem::Mount(
     {
         return BoolResult::Err( 
             make_error_code( errors::VfsError::AlreadyMounted ),
-            inMntPoint + " -> " + str::ToUTF8( realPath.u8string() )
+            inMntPoint + " -> " + str::ToUtf8( realPath.u8string() )
         );
     }
 
@@ -129,7 +129,7 @@ asge::BoolResult asge::filesystem::VirtualFileSystem::Unmount(
     {
         return BoolResult::Err(
             make_error_code( errors::VfsError::NotMounted ),
-            str::ToUTF8( realPath.u8string() )
+            str::ToUtf8( realPath.u8string() )
         );
     }
 
@@ -174,7 +174,7 @@ asge::Result<asge::str::String> asge::filesystem::VirtualFileSystem::ToVirtualPa
     Path const target = std::filesystem::weakly_canonical( inRealPath, ec );
     if ( ec )
     {
-        return Result<str::String>::Err( ec, str::ToUTF8( inRealPath.u8string() ) );
+        return Result<str::String>::Err( ec, str::ToUtf8( inRealPath.u8string() ) );
     }
 
     for ( auto const& mountInfo : m_Mounts )
@@ -195,5 +195,5 @@ asge::Result<asge::str::String> asge::filesystem::VirtualFileSystem::ToVirtualPa
 
     return Result<str::String>::Err(
         make_error_code( errors::VfsError::NotMounted ),
-        str::ToUTF8( inRealPath.u8string() ) );
+        str::ToUtf8( inRealPath.u8string() ) );
 }

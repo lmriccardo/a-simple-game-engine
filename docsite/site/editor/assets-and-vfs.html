@@ -19,7 +19,18 @@
     <a href="../index.html">Overview</a>
     <a href="../install.html">Install</a>
     <a href="../examples/index.html">Examples</a>
-    <a href="index.html" class="active">Editor</a>
+    <div class="nav-dropdown">
+    <a href="../editor/index.html" class="active" aria-haspopup="true">Editor<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
+    <div class="nav-menu" role="menu">
+      <a href="../editor/projects-and-scenes.html" role="menuitem">Projects &amp; Scenes</a>
+      <a href="../editor/entities-and-components.html" role="menuitem">Entities &amp; Components</a>
+      <a href="../editor/ui-and-layout.html" role="menuitem">UI &amp; Layout</a>
+      <a href="../editor/viewport-and-navigation.html" role="menuitem">Viewport &amp; Navigation</a>
+      <a href="../editor/assets-and-vfs.html" class="active" role="menuitem">Assets &amp; VFS</a>
+      <a href="../editor/advanced-editing.html" role="menuitem">Advanced Editing</a>
+      <a href="../editor/releases.html" role="menuitem">Editor Releases</a>
+    </div>
+    </div>
     <a href="../api/index.html">API Reference</a>
     <a href="../releases.html">Releases</a>
     <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
@@ -43,7 +54,7 @@
         a panel for the mounts that back those paths and one for browsing/importing what they resolve to.</p>
         <p>The <strong>Virtual File System</strong> panel lists every mount (a virtual root pointing
         at a real directory) and lets you add more via a native folder picker. The <strong>Assets</strong>
-        panel lists every texture, animation clip, and audio clip the editor currently knows about --
+        panel lists every texture, animation clip, audio clip, and font (<code>.ttf</code>) the editor currently knows about --
         either because some entity's component already references it, or because you explicitly
         <strong>Load Asset...</strong>-ed it (needed so an unused-but-imported asset still shows up
         with nothing in the scene referencing it yet).</p>
@@ -57,11 +68,12 @@
   <div class="container">
     <h2>Asset Inspector</h2>
     <p class="lede">Clicking any entry opens the Asset Inspector: absolute path, mountpoint, and file
-    size for all three kinds, plus a kind-specific preview --</p>
+    size for every kind, plus a kind-specific preview --</p>
     <div class="grid">
       <div class="card"><h3>Texture</h3><p>Pixel dimensions and a scaled thumbnail.</p></div>
       <div class="card"><h3>Audio clip</h3><p>Duration, size, and working Play/Pause + Rewind transport controls.</p></div>
       <div class="card"><h3>Animation clip</h3><p>Every <code>FrameTable</code> field plus a live, actually-cycling preview of its sliced frames.</p></div>
+      <div class="card"><h3>Font</h3><p>A sample string rendered with the font's own glyph metrics. Fonts feed a label's <strong>Font Path</strong> in <a href="ui-and-layout.html">UI &amp; Layout</a>; changing a label's font size re-bakes it at the new size.</p></div>
     </div>
   </div>
 </section>

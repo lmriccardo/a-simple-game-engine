@@ -1,5 +1,5 @@
 #include <ASGE/Core/Media/Image.hpp>
-#include <ASGE/Core/Media/PixelFormat.hpp>
+#include <ASGE/Core/Graphics/PixelFormat.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>
@@ -14,6 +14,7 @@ namespace
 {
 
 using namespace asge::media;
+using namespace asge::graphics;
 using asge::errors::ImageError;
 
 // ─── A hand-built, minimal 2x2 solid-red 24bpp BMP ─────────────────────────────

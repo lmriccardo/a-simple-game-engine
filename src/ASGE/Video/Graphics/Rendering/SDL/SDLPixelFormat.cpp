@@ -1,11 +1,11 @@
 #include "SDLPixelFormat.hpp"
 
-SDL_PixelFormat asge::video::MapPixelFormat( media::PixelFormat inFormat ) noexcept
+SDL_PixelFormat asge::video::MapPixelFormat( graphics::PixelFormat inFormat ) noexcept
 {
     switch (inFormat)
     {
-    case media::PixelFormat::RGBA8: return SDL_PIXELFORMAT_RGBA32;
-    case media::PixelFormat::A8:    return SDL_PIXELFORMAT_RGBA32; // expanded, see ExpandPixelsForUpload
+    case graphics::PixelFormat::RGBA8: return SDL_PIXELFORMAT_RGBA32;
+    case graphics::PixelFormat::A8:    return SDL_PIXELFORMAT_RGBA32; // expanded, see ExpandPixelsForUpload
     }
 
     return SDL_PIXELFORMAT_UNKNOWN;
@@ -20,12 +20,12 @@ asge::video::SDLUploadBuffer asge::video::ExpandPixelsForUpload( media::Image co
 
     switch (inImage.Format())
     {
-    case media::PixelFormat::RGBA8:
+    case graphics::PixelFormat::RGBA8:
     {
         auto const stride = inImage.Stride();
         return { std::vector<std::uint8_t>(src, src + stride * height), stride };
     }
-    case media::PixelFormat::A8:
+    case graphics::PixelFormat::A8:
     {
         std::vector<std::uint8_t> data(width * height * 4);
         for (std::size_t i = 0; i < width * height; ++i)

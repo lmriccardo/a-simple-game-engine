@@ -1,6 +1,7 @@
 #include "AssetResolver.hpp"
 
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Functools.hpp>
 
 void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
@@ -70,6 +71,41 @@ void asge::game::asset::Resolver<asge::game::components::PathFollow>::operator()
     inPathFollow.m_Waypoints = inPathFollow.m_Path.Waypoints();
 }
 
+void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(
+    AssetManager &inAssetManager, ecs::Registry &inRegistry,
+    video::IRenderer &inRenderer, C &inLabel) const noexcept
+{
+    // AssetManager::GetFont caches by (path, pixel height) -- the same path
+    // baked at a different size is a different Font asset, so a pixel-height
+    // edit alone (Font Path unchanged) must still re-resolve, not just a
+    // path change.
+    if ( inLabel.m_FontPath == inLabel.m_ResolvedFontPath
+      && inLabel.m_FontPixelHeight == inLabel.m_ResolvedFontPixelHeight ) return;
+    if ( inLabel.m_FontPath.empty() )
+    {
+        inLabel.m_Font = nullptr;
+        inLabel.m_Texture = nullptr;
+        inLabel.m_ResolvedFontPath.clear();
+        inLabel.m_ResolvedFontPixelHeight = 0;
+        return;
+    }
+
+    auto fontAsset = inAssetManager.GetFont( inLabel.m_FontPath, inLabel.m_FontPixelHeight);
+    if ( !fontAsset ) { fontAsset.LogError(); return; }
+    inLabel.m_Font = &fontAsset.Value()->Get();
+
+    // The atlas is already a decoded Image baked into inLabel.m_Font at
+    // load time -- GetFontAtlasTexture turns it into a GPU texture
+    // directly, rather than (incorrectly) re-resolving m_FontPath through
+    // the image/texture pool as if the font file itself were a picture.
+    auto texture = inAssetManager.GetFontAtlasTexture( *inLabel.m_Font, inRenderer );
+    if ( !texture ) { texture.LogError(); return; }
+    inLabel.m_Texture = texture.Value();
+
+    inLabel.m_ResolvedFontPath = inLabel.m_FontPath;
+    inLabel.m_ResolvedFontPixelHeight = inLabel.m_FontPixelHeight;
+}
+
 std::optional<asge::game::asset::AssetRef>
 asge::game::asset::AssetRefs<asge::game::components::Sprite>::operator()(
     components::Sprite const &inSprite) const noexcept
@@ -94,21 +130,30 @@ asge::game::asset::AssetRefs<asge::game::components::AudioSource>::operator()(
     return AssetRef{ AssetKind::AudioClip, inAudioSource.m_VirtualClipPath };
 }
 
+std::optional<asge::game::asset::AssetRef>
+asge::game::asset::AssetRefs<asge::game::components::UILabel>::operator()(
+    components::UILabel const &inLabel) const noexcept
+{
+    if ( inLabel.m_FontPath.empty() ) return std::nullopt;
+    return AssetRef{ AssetKind::Font, inLabel.m_FontPath };
+}
+
 std::vector<asge::game::asset::AssetRef> asge::game::asset::CollectAssetRefs(
     ecs::Registry const &inRegistry)
 {
     std::vector<AssetRef> refs;
 
-    [&]<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
-        ( [&] {
+    functools::ForEachTupleType<components::SerializableComponents>
+    (
+        [&]<typename Ts> {
             for (auto [e, c] : inRegistry.View<Ts>()) {
                 if ( auto ref = AssetRefs<Ts>{}( c.get() ) )
                 {
                     refs.push_back( std::move(*ref) );
                 }
             }
-        }(), ... );
-    }(std::type_identity<components::SerializableComponents>{});
+        }
+    );
 
     return refs;
 }

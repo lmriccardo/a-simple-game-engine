@@ -120,10 +120,12 @@ void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDe
  * length, a looping path wraps back to the start; a non-looping one clamps
  * there and sets m_Finished so it's left alone from then on (a zero-length
  * path, e.g. coincident waypoints, always finishes rather than looping,
- * since there's nothing to wrap around). Also orients Transform::m_Rotation
- * to face the path's tangent direction at the new position, except on a
- * degenerate (zero-tangent) segment, where m_Rotation is left as it was
- * rather than set to NaN.
+ * since there's nothing to wrap around). Also orients Transform::
+ * m_LocalRotation to face the path's tangent direction at the new position,
+ * except on a degenerate (zero-tangent) segment, where m_LocalRotation is
+ * left as it was rather than set to NaN. Writes Transform's Local fields and
+ * marks it m_Dirty, same as MovementSystem -- see TransformPropagationSystem
+ * for how that reaches m_WorldCoordinates.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

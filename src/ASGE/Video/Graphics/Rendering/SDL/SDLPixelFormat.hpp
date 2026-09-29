@@ -1,7 +1,7 @@
 #pragma once
 
 #include <SDL3/SDL.h>
-#include <ASGE/Core/Media/PixelFormat.hpp>
+#include <ASGE/Core/Graphics/PixelFormat.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 
 #include <cstddef>
@@ -14,7 +14,7 @@ namespace asge::video
 /**
  * @brief Maps an asge::graphics::PixelFormat to the SDL_PixelFormat SDLTexture uploads as
  */
-[[nodiscard]] SDL_PixelFormat MapPixelFormat( media::PixelFormat inFormat ) noexcept;
+[[nodiscard]] SDL_PixelFormat MapPixelFormat( graphics::PixelFormat inFormat ) noexcept;
 
 // Tightly-packed pixel bytes ready to hand to SDL_UpdateTexture, plus their stride.
 struct SDLUploadBuffer

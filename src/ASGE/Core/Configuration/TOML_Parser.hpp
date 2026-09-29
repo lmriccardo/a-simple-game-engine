@@ -11,6 +11,7 @@
 #include <tuple>
 #include <optional>
 #include <type_traits>
+#include <cstdint>
 
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Traits.hpp>
@@ -35,6 +36,7 @@ using ValueType = std::variant<
     std::string,
     double,
     int,
+    std::int64_t,
     bool,
     std::vector<TOMLValue>
 >;
@@ -99,7 +101,7 @@ enum class TableType
     Array       // It is a grouping of tables
 };
 
-enum class ElementType { Null, Int, Double, Bool, String, Array };
+enum class ElementType { Null, Int, Int64, Double, Bool, String, Array };
 
 enum class StringType {
     Basic,          // "..."
@@ -132,6 +134,7 @@ template<typename T>
 TOMLTypeInfo DefaultTypeInfoFor() noexcept
 {
     if constexpr ( std::is_same_v<T, int> ) return TOMLTypeInfo{ ElementType::Int };
+    else if constexpr ( std::is_same_v<T, std::int64_t> ) return TOMLTypeInfo{ ElementType::Int64 };
     else if constexpr ( std::is_same_v<T, double> ) return TOMLTypeInfo{ ElementType::Double };
     else if constexpr ( std::is_same_v<T, bool> ) return TOMLTypeInfo{ ElementType::Bool };
     else if constexpr ( std::is_same_v<T, std::string> ) return TOMLTypeInfo{ ElementType::String, StringType::Basic };
@@ -164,6 +167,7 @@ struct to_native_type { using type = void; };
 DEF_TO_NATIVE_TYPE( ElementType::Bool, bool )
 DEF_TO_NATIVE_TYPE( ElementType::String, std::string )
 DEF_TO_NATIVE_TYPE( ElementType::Int, int )
+DEF_TO_NATIVE_TYPE( ElementType::Int64, std::int64_t )
 DEF_TO_NATIVE_TYPE( ElementType::Double, double )
 
 template<ElementType EType>

@@ -54,12 +54,27 @@ void asge::game::asset::AssetManager::UnloadTexture(str::StringCRef inVirtualPat
     m_TextureCache.erase( inVirtualPath );
 }
 
+asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetFontAtlasTexture(
+    media::Font const &inFont, video::IRenderer &inRenderer) noexcept
+{
+    if ( auto it = m_FontAtlasCache.find( &inFont ); it != m_FontAtlasCache.end() )
+        return Result<video::ITexture*>::Ok( it->second.get() );
+
+    auto texture = inRenderer.CreateTexture( inFont.GetAtlasImage() );
+    if ( !texture )
+        return Result<video::ITexture*>::Err( make_error_code( errors::RenderError::TextureCreationFailed ) );
+
+    auto* raw = texture.get();
+    m_FontAtlasCache.emplace( &inFont, std::move( texture ) );
+    return Result<video::ITexture*>::Ok( raw );
+}
+
 void asge::game::asset::AssetManager::ResolveAssets(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer)
 {
     [&]<typename... Ts>(std::type_identity<std::tuple<Ts...>>) {
         ( [&] {
-            for (auto [e, c] : inRegistry.View<Ts>()) {
+            for (auto [e, c] : inRegistry.View<Ts>().IncludeDisabled()) {
                 Resolver<Ts>{}(*this, inRegistry, inRenderer, c.get());
             }
         }(), ... );

@@ -16,6 +16,7 @@ from _shared import (
     ROOT,
     SITE,
     code_card,
+    refresh_editor_nav,
     rel,
     render_page,
     write,
@@ -912,6 +913,9 @@ def main():
     for e in EXAMPLES:
         write(SITE / "examples" / f"{e['slug']}.html", build_example_detail(e))
     write(SITE / "releases.html", build_releases())
+    # site/editor/*.html is hand-written, not generated -- only its navbar is
+    # kept in sync with the shared nav here.
+    refresh_editor_nav()
 
 
 if __name__ == "__main__":

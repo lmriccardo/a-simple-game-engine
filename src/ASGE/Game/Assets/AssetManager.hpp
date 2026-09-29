@@ -43,6 +43,15 @@ class AssetManager
     // (see ResolveAssets' own doc comment) until UnloadTexture() drops it.
     std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache;
 
+    // GetFontAtlasTexture()'s cache, keyed by Font address rather than a
+    // virtual path -- a font's atlas is already a decoded Image sitting in
+    // m_FontPool (baked at Font::Load time), not a separate image file to
+    // resolve through the VFS. Safe to key by address since m_FontPool
+    // never evicts a Font once loaded, so it stays valid (and at the same
+    // address) for the AssetManager's own lifetime. UILabel::m_Texture
+    // only ever points into here.
+    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache;
+
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
 public:
@@ -103,6 +112,19 @@ public:
     void UnloadTexture( str::StringCRef inVirtualPath ) noexcept;
 
     /**
+     * @brief Loads (or returns the cached) GPU texture for inFont's baked
+     *        glyph atlas, creating it via inRenderer on first request.
+     *
+     * Cached by Font address (see m_FontAtlasCache's own doc comment), not
+     * a virtual path -- there is no separate atlas image file to load, the
+     * atlas is already decoded in memory as part of inFont. A failed
+     * texture creation is returned as-is and nothing is cached, so a later
+     * call retries.
+     */
+    [[nodiscard]] Result<video::ITexture*> GetFontAtlasTexture(
+        media::Font const& inFont, video::IRenderer& inRenderer ) noexcept;
+
+    /**
      * @brief Deferred-loads every asset-owning component in inRegistry
      *        whose asset still needs (re)resolving, for every entity that
      *        has one.
@@ -121,6 +143,12 @@ public:
      * than treated as fatal, since inRenderer only exists once the caller
      * has a window (unlike component construction, which can happen
      * earlier, e.g. while loading a scene).
+     *
+     * Walks every entity via `View<Ts>().IncludeDisabled()`, not the
+     * disabled-skipping `View<Ts>()` every gameplay system uses — a
+     * `markers::Disable`d entity should already have a live texture/clip
+     * ready the instant something re-enables it, not still be waiting on
+     * some unrelated future resolve to notice it exists.
      */
     void ResolveAssets( ecs::Registry& inRegistry, video::IRenderer& inRenderer );
 };

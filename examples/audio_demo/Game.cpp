@@ -85,7 +85,7 @@ void AudioDemoState::Render(asge::video::IRenderer &inRenderer)
     // "AMBIENT" indicator (left) -- lit while the looping background hum plays.
     inRenderer.DrawRect(
         asge::math::Rect{ 120.0f, 220.0f, 200.0f, 160.0f },
-        ambientPlaying ? asge::media::RGBA_Color{ 80, 220, 140, 255 } : asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        ambientPlaying ? asge::graphics::RGBA_Color{ 80, 220, 140, 255 } : asge::graphics::RGBA_Color{ 55, 55, 60, 255 },
         true
     );
 
@@ -97,9 +97,9 @@ void AudioDemoState::Render(asge::video::IRenderer &inRenderer)
 
     inRenderer.DrawRect(
         asge::math::Rect{ 480.0f, 220.0f, 200.0f, 160.0f },
-        blipSounding      ? asge::media::RGBA_Color{ 240, 200, 60, 255 } :
-        blipDetached      ? asge::media::RGBA_Color{ 90, 40, 40, 255 }  :
-                             asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        blipSounding      ? asge::graphics::RGBA_Color{ 240, 200, 60, 255 } :
+        blipDetached      ? asge::graphics::RGBA_Color{ 90, 40, 40, 255 }  :
+                             asge::graphics::RGBA_Color{ 55, 55, 60, 255 },
         true
     );
 
@@ -107,10 +107,10 @@ void AudioDemoState::Render(asge::video::IRenderer &inRenderer)
     // tracks m_MasterVolume -- both driven by AudioDevice::SetGain via
     // AdjustMasterVolume, not a separate progress animation.
     asge::math::Rect const volumeTrack{ 120.0f, 440.0f, 560.0f, 24.0f };
-    inRenderer.DrawRect(volumeTrack, asge::media::RGBA_Color{ 90, 90, 100, 255 }, false);
+    inRenderer.DrawRect(volumeTrack, asge::graphics::RGBA_Color{ 90, 90, 100, 255 }, false);
     inRenderer.DrawRect(
         asge::math::Rect{ volumeTrack.m_X, volumeTrack.m_Y, volumeTrack.m_Width * m_MasterVolume, volumeTrack.m_Height },
-        asge::media::RGBA_Color{ 100, 170, 240, 255 },
+        asge::graphics::RGBA_Color{ 100, 170, 240, 255 },
         true
     );
 }

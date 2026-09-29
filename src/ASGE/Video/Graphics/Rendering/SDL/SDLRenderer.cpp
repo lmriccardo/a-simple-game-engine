@@ -58,7 +58,7 @@ asge::video::SDLRenderer::~SDLRenderer()
     Destroy();
 }
 
-void asge::video::SDLRenderer::Clear(media::RGBA_Color const& inColor) const
+void asge::video::SDLRenderer::Clear(graphics::RGBA_Color const& inColor) const
 {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -72,7 +72,7 @@ void asge::video::SDLRenderer::Clear(media::RGBA_Color const& inColor) const
 }
 
 void asge::video::SDLRenderer::DrawRect(
-    math::Rect const& inRect, media::RGBA_Color const &inColor, bool inFill
+    math::Rect const& inRect, graphics::RGBA_Color const &inColor, bool inFill
 ) const {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -92,7 +92,7 @@ void asge::video::SDLRenderer::DrawRect(
 }
 
 void asge::video::SDLRenderer::DrawLine(
-    math::Float2 const &inC1, math::Float2 const &inC2, media::RGBA_Color const& inColor
+    math::Float2 const &inC1, math::Float2 const &inC2, graphics::RGBA_Color const& inColor
 ) const {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -109,7 +109,7 @@ void asge::video::SDLRenderer::DrawLine(
 }
 
 void asge::video::SDLRenderer::DrawCircle(
-    math::Int2 const& inCenter, int inRadius, media::RGBA_Color const &inColor, bool inFill
+    math::Int2 const& inCenter, int inRadius, graphics::RGBA_Color const &inColor, bool inFill
 ) const {
     if (!SDL_SetRenderDrawColor(m_Renderer, inColor.r, inColor.g, inColor.b, inColor.a))
     {
@@ -276,8 +276,8 @@ void asge::video::SDLRenderer::DrawTexture9Grid(
 }
 
 void asge::video::SDLRenderer::DrawString(
-    str::StringView inText, media::Font const &inFont, ITexture &inTexture, 
-    math::Float2 const &inPosition, media::RGBA_Color const &inColor
+    str::StringView inText, media::Font const &inFont, ITexture &inTexture,
+    math::Float2 const &inPosition, graphics::RGBA_Color const &inColor
 ) const noexcept
 {
     inTexture.SetColorMod( inColor );

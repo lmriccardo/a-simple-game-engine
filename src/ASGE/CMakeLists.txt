@@ -28,12 +28,16 @@ add_library(ASGE STATIC
     Core/Time/Time.cpp
 
     # Math utilities implementation
+    Core/Math/LinearAlgebra/Vector2.cpp
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
     Core/Math/Geometry/CatmullRomSpline.cpp
+    Core/Math/Geometry/Rect.cpp
 
-    # Core graphics utilities (backend-agnostic value types: Color, Image, ...)
-    # PixelFormat is header-only now (PixelFormatInfoFor is inline constexpr)
+    # Core graphics value types (backend-agnostic; PixelFormat is header-only)
+    Core/Graphics/Color.cpp
+
+    # Core media assets (loaded/decoded resources: Image, Font, AudioClip)
     Core/Media/Image.cpp
     Core/Media/Font.cpp
     Core/Media/AudioClip.cpp
@@ -64,9 +68,11 @@ add_library(ASGE STATIC
 
     # Entity-Component-System
     Core/ECS/Registry.cpp
+    Core/ECS/Hierarchy.cpp
 
     # ECS components
     Game/Components/Transform.cpp
+    Game/Components/Hierarchy.cpp
     Game/Components/Velocity.cpp
     Game/Components/Rigidbody.cpp
     Game/Components/Collider.cpp
@@ -76,12 +82,22 @@ add_library(ASGE STATIC
     Game/Components/Camera.cpp
     Game/Components/PathFollow.cpp
     Game/Components/Name.cpp
+    Game/Components/RenderInfo.cpp
+    Game/Components/UI/Common.cpp
+    Game/Components/UI/UIButton.cpp
+    Game/Components/UI/UILabel.cpp
+    Game/Components/UI/UICheckbox.cpp
+    Game/Components/UI/UISlider.cpp
+    Game/Components/UI/UIPanel.cpp
+    Game/Components/UI/UILayoutItem.cpp
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp
     Game/Systems/PhysicsDebugSystem.cpp
     Game/Systems/RenderSystem.cpp
     Game/Systems/AudioSystem.cpp
+    Game/Systems/TransformPropagationSystem.cpp
+    Game/Systems/UISystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp
@@ -96,6 +112,9 @@ add_library(ASGE STATIC
 
     # Game Events
     Game/Events.cpp
+
+    # Game UI
+    Game/UI.cpp
 )
 
 add_library(ASGE::ASGE ALIAS ASGE)

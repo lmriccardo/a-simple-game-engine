@@ -34,7 +34,8 @@ Entity MakeCollider(Registry& inRegistry, float inX, float inY, float inW, float
 {
     auto entity = inRegistry.CreateEntity();
     EXPECT_TRUE(entity.IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{ .m_X = inX, .m_Y = inY }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(),
+        Transform{ .m_LocalCoordinates = {inX, inY}, .m_WorldCoordinates = {inX, inY} }).IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Collider{
         .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, inW, inH },
         .m_Resolution = inResolution,
@@ -58,7 +59,7 @@ void RunCollisionResolution(Registry& inRegistry, PhysicsState& inState)
 
 TEST(PhysicsSystemTest, WorldBounds_RectCollider_OffsetByTransformPosition)
 {
-    Transform t{ .m_X = 10.0f, .m_Y = 20.0f };
+    Transform t{ .m_WorldCoordinates = {10.0f, 20.0f} };
     Collider c{ .m_LocalBounds = asge::math::Rect{ 5.0f, 6.0f, 30.0f, 40.0f } };
 
     auto bounds = asge::game::systems::WorldBounds( t, c );
@@ -73,7 +74,7 @@ TEST(PhysicsSystemTest, WorldBounds_RectCollider_OffsetByTransformPosition)
 
 TEST(PhysicsSystemTest, WorldBounds_CircleCollider_CenterOffsetByTransformPosition)
 {
-    Transform t{ .m_X = 10.0f, .m_Y = 20.0f };
+    Transform t{ .m_WorldCoordinates = {10.0f, 20.0f} };
     Collider c{ .m_LocalBounds = asge::math::Circle{ asge::math::Float2{ 5.0f, 6.0f }, 8.0f } };
 
     auto bounds = asge::game::systems::WorldBounds( t, c );
@@ -105,10 +106,10 @@ TEST(PhysicsSystemTest, TwoOverlappingMovableEntities_PushedApartEvenlyOnLeastPe
 
     // Equal masses (Rigidbody{}'s default), so the total correction (4) is
     // split evenly, pushing each entity away from the other.
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, -2.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 8.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_Y, 0.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_Y, 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), -2.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.x(), 8.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.y(), 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.y(), 0.0f);
 
     // Corrected axis (X) is zeroed on both; the untouched axis (Y) is left alone.
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(e1).Value().get().m_DX, 0.0f);
@@ -134,8 +135,8 @@ TEST(PhysicsSystemTest, MovableOverlappingStaticEntity_OnlyMovableGetsTheFullCor
     // The other side has neither a Velocity nor a Rigidbody, so the movable
     // entity absorbs the whole correction -- and the immovable one's
     // Transform is never touched.
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(movable).Value().get().m_X, -4.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(immovable).Value().get().m_X, 6.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(movable).Value().get().m_WorldCoordinates.x(), -4.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(immovable).Value().get().m_WorldCoordinates.x(), 6.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(movable).Value().get().m_DX, 0.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(movable).Value().get().m_DY, 3.0f);
 }
@@ -156,8 +157,8 @@ TEST(PhysicsSystemTest, TwoMovableNonOverlappingEntities_BothLeftUntouched)
     PhysicsState state;
     RunCollisionResolution(registry, state);
 
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 20.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.x(), 20.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(e1).Value().get().m_DX, 1.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(e2).Value().get().m_DX, 2.0f);
 }
@@ -173,8 +174,8 @@ TEST(PhysicsSystemTest, TwoOverlappingImmovableEntities_BothLeftUntouched)
     PhysicsState state;
     RunCollisionResolution(registry, state);
 
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 6.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.x(), 6.0f);
 }
 
 // ─── CollisionResolution — incomplete entities ──────────────────────────────
@@ -195,13 +196,13 @@ TEST(PhysicsSystemTest, EntityMissingTransformOrCollider_SkippedNotCrashed)
 
     auto transformOnly = registry.CreateEntity();
     ASSERT_TRUE(transformOnly.IsOk());
-    ASSERT_TRUE(registry.AddComponent(transformOnly.Value(), Transform{ .m_X = 5.0f }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(transformOnly.Value(), Transform{ .m_LocalCoordinates = {5.0f, 0.0f} }).IsOk());
 
     PhysicsState state;
     EXPECT_NO_THROW(RunCollisionResolution(registry, state));
 
     // Only one entity actually qualifies for the view, so nothing overlaps it.
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(complete).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(complete).Value().get().m_WorldCoordinates.x(), 0.0f);
 }
 
 // ─── DetectCollisions — CollisionLayer/m_Mask filtering ─────────────────────
@@ -223,8 +224,8 @@ TEST(PhysicsSystemTest, DisjointLayerAndMask_OverlappingEntitiesAreNotPushedApar
     PhysicsState state;
     RunCollisionResolution(registry, state);
 
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_X, 6.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.x(), 6.0f);
 }
 
 TEST(PhysicsSystemTest, OneSidedMaskMismatch_StillDoesNotCollide)
@@ -242,7 +243,7 @@ TEST(PhysicsSystemTest, OneSidedMaskMismatch_StillDoesNotCollide)
     PhysicsState state;
     RunCollisionResolution(registry, state);
 
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), 0.0f);
 }
 
 TEST(PhysicsSystemTest, OverlappingSharedLayerBit_StillCollidesNormally)
@@ -262,7 +263,7 @@ TEST(PhysicsSystemTest, OverlappingSharedLayerBit_StillCollidesNormally)
 
     // e1 is the only movable side, so it absorbs the whole correction --
     // same shape as MovableOverlappingStaticEntity_OnlyMovableGetsTheFullCorrection.
-    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_X, -4.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), -4.0f);
 }
 
 // ─── CollisionResolution — Trigger colliders ────────────────────────────────
@@ -315,8 +316,8 @@ TEST_F(TriggerCollisionTest, TwoOverlappingTriggers_FiresOnceAndAppliesNoPushOut
     EXPECT_EQ(m_Overlaps[0].first, e1);
     EXPECT_EQ(m_Overlaps[0].second, e2);
 
-    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(e1).Value().get().m_X, 0.0f);
-    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(e2).Value().get().m_X, 6.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(e1).Value().get().m_WorldCoordinates.x(), 0.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.x(), 6.0f);
     EXPECT_FLOAT_EQ(m_Registry.GetComponent<Velocity>(e1).Value().get().m_DX, 5.0f); // not zeroed
     EXPECT_FLOAT_EQ(m_Registry.GetComponent<Velocity>(e2).Value().get().m_DX, 5.0f);
 }
@@ -335,7 +336,7 @@ TEST_F(TriggerCollisionTest, TriggerOverlappingMovableSolid_FiresTriggerFirstAnd
     EXPECT_EQ(m_Overlaps[0].second, solid);   // ... regardless of View's own pair order (solid was created first)
 
     // The Solid side is movable, but a Trigger pair never pushes anyone out.
-    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(solid).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(solid).Value().get().m_WorldCoordinates.x(), 0.0f);
     EXPECT_FLOAT_EQ(m_Registry.GetComponent<Velocity>(solid).Value().get().m_DX, 5.0f);
 }
 
@@ -389,8 +390,8 @@ TEST_F(TriggerCollisionTest, UnknownResolutionOnEitherSide_SkipsBothPushOutAndTr
     RunCollisions();
 
     EXPECT_TRUE(m_Overlaps.empty());
-    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(movable).Value().get().m_X, 6.0f); // untouched
-    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(unknown).Value().get().m_X, 0.0f);
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(movable).Value().get().m_WorldCoordinates.x(), 6.0f); // untouched
+    EXPECT_FLOAT_EQ(m_Registry.GetComponent<Transform>(unknown).Value().get().m_WorldCoordinates.x(), 0.0f);
 }
 
 // ─── DispatchTriggerEvents — Enter/Stay/Exit across multiple frames ─────────
@@ -429,7 +430,7 @@ TEST_F(TriggerCollisionTest, NoLongerOverlappingNextCall_FiresExitOnce)
     RunCollisions(); // first call, overlapping -> Enter
 
     // Move e2 out of range so the pair no longer overlaps on the next call.
-    m_Registry.GetComponent<Transform>(e2).Value().get().m_X = 500.0f;
+    m_Registry.GetComponent<Transform>(e2).Value().get().m_WorldCoordinates.x() = 500.0f;
     RunCollisions(); // no longer overlapping, same PhysicsState -> Exit
 
     exitConnection.Disconnect();
@@ -500,8 +501,8 @@ TEST(PathFollowingSystemTest, AdvancesTraveledBySpeedTimesDeltaTimeAndMovesTheTr
 
     auto transformResult = registry.GetComponent<Transform>(e);
     ASSERT_TRUE(transformResult.IsOk());
-    EXPECT_NEAR(transformResult.Value().get().m_X, 5.0f, 1e-1f); // halfway along a straight 10-unit line
-    EXPECT_NEAR(transformResult.Value().get().m_Y, 0.0f, 1e-2f);
+    EXPECT_NEAR(transformResult.Value().get().m_LocalCoordinates.x(), 5.0f, 1e-1f); // halfway along a straight 10-unit line
+    EXPECT_NEAR(transformResult.Value().get().m_LocalCoordinates.y(), 0.0f, 1e-2f);
 }
 
 TEST(PathFollowingSystemTest, OrientsRotationToFaceTheTravelDirection)
@@ -514,7 +515,7 @@ TEST(PathFollowingSystemTest, OrientsRotationToFaceTheTravelDirection)
     // Travelling straight along +X -- tangent (1, 0), so rotation is 0 radians.
     auto transformResult = registry.GetComponent<Transform>(e);
     ASSERT_TRUE(transformResult.IsOk());
-    EXPECT_NEAR(transformResult.Value().get().m_Rotation, 0.0f, 1e-2f);
+    EXPECT_NEAR(transformResult.Value().get().m_LocalRotation, 0.0f, 1e-2f);
 }
 
 TEST(PathFollowingSystemTest, NonLoopingPath_ClampsAtTheEndAndMarksFinished)
@@ -532,7 +533,7 @@ TEST(PathFollowingSystemTest, NonLoopingPath_ClampsAtTheEndAndMarksFinished)
 
     auto transformResult = registry.GetComponent<Transform>(e);
     ASSERT_TRUE(transformResult.IsOk());
-    EXPECT_NEAR(transformResult.Value().get().m_X, 10.0f, 1e-1f); // clamped at the last waypoint
+    EXPECT_NEAR(transformResult.Value().get().m_LocalCoordinates.x(), 10.0f, 1e-1f); // clamped at the last waypoint
 }
 
 TEST(PathFollowingSystemTest, LoopingPath_WrapsTraveledPastTheEndInsteadOfFinishing)
@@ -583,7 +584,7 @@ TEST(PathFollowingSystemTest, UnresolvedPath_SkippedNotCrashed)
 
     auto transformResult = registry.GetComponent<Transform>(entity.Value());
     ASSERT_TRUE(transformResult.IsOk());
-    EXPECT_FLOAT_EQ(transformResult.Value().get().m_X, 0.0f); // left untouched
+    EXPECT_FLOAT_EQ(transformResult.Value().get().m_LocalCoordinates.x(), 0.0f); // left untouched
 }
 
 TEST(PathFollowingSystemTest, ZeroLengthLoopingPath_FinishesInsteadOfProducingNaN)
@@ -602,9 +603,9 @@ TEST(PathFollowingSystemTest, ZeroLengthLoopingPath_FinishesInsteadOfProducingNa
 
     auto transformResult = registry.GetComponent<Transform>(e);
     ASSERT_TRUE(transformResult.IsOk());
-    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_X));
-    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_Y));
-    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_Rotation));
+    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_LocalCoordinates.x()));
+    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_LocalCoordinates.y()));
+    EXPECT_FALSE(std::isnan(transformResult.Value().get().m_LocalRotation));
 }
 
 }

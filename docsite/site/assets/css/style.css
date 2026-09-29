@@ -137,6 +137,30 @@ p { color: var(--text); }
 .nav-links a:hover { color: var(--text); background: var(--surface-2); text-decoration: none; }
 .nav-links a.active { color: var(--text); background: var(--surface-2); }
 
+/* Editor dropdown: opens on hover or keyboard focus, no JS. The menu touches
+   the toggle (no gap) so moving the pointer down into it never closes it. */
+.nav-dropdown { position: relative; }
+.nav-dropdown > a .chev { margin-left: 5px; vertical-align: -1px; opacity: 0.7; transition: transform 0.15s; }
+.nav-dropdown:hover > a .chev,
+.nav-dropdown:focus-within > a .chev { transform: rotate(180deg); }
+.nav-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 232px;
+  padding: 6px;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+}
+.nav-dropdown:hover .nav-menu,
+.nav-dropdown:focus-within .nav-menu { display: flex; }
+.nav-menu a { white-space: nowrap; }
+
 .nav-right { display: flex; align-items: center; gap: 8px; }
 
 .icon-btn {
@@ -171,6 +195,18 @@ p { color: var(--text); }
     padding: 8px 20px 16px;
   }
   .site-header.nav-open .nav-links a { padding: 10px 8px; }
+  /* No hover on touch: list the Editor pages inline, indented under it. */
+  .nav-dropdown > a .chev { display: none; }
+  .nav-menu {
+    display: flex;
+    position: static;
+    min-width: 0;
+    padding: 0 0 0 16px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 
 /* ---------- buttons ---------- */

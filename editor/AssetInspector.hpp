@@ -24,11 +24,9 @@
  * any entity's own AudioSource/AudioSystem playback.
  *
  * A texture with an associated animation clip (one of KnownAnimationPaths
- * whose own FrameTable::m_OriginAsset names this texture) shows "Open Clip"
- * in place of "Create Clip", switching straight to that clip's own preview
- * instead of the slicer modal; recomputed fresh every frame, so unloading
- * that clip from the Assets panel reverts the button back to "Create Clip"
- * with no extra bookkeeping needed here.
+ * whose own FrameTable::m_OriginAsset names this texture) shows "Open Clip";
+ * one without shows nothing here (Phase 14 moved "Create Clip" itself out to
+ * the Assets panel's row context menu -- see inOpenCreateClip).
  *
  * @param ioSelectedAsset Cleared back to AssetPickKind::None if the user
  *        closes the panel via its title-bar (x) button -- same
@@ -36,8 +34,15 @@
  *        place" convention as DrawEntityListPanel's ioSelected.
  * @param inRegistry Only used for KnownAnimationPaths, to find a texture's
  *        associated clip (see above).
+ * @param inOpenCreateClip Phase 14: true the one frame the Assets panel's
+ *        "Create Clip" menu item was clicked on the texture ioSelectedAsset
+ *        now names (the caller selects it into ioSelectedAsset first, same
+ *        frame, before calling this). Opens the slicer modal, or -- if a
+ *        clip already exists for this texture -- switches straight to it,
+ *        same as the old inline button used to.
  */
 void DrawAssetInspectorPanel(
     AssetPick& ioSelectedAsset, asge::filesystem::VirtualFileSystem const& inVfs,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    asge::audio::AudioDevice& inAudioDevice, asge::ecs::Registry& inRegistry ) noexcept;
+    asge::audio::AudioDevice& inAudioDevice, asge::ecs::Registry& inRegistry,
+    bool inOpenCreateClip ) noexcept;

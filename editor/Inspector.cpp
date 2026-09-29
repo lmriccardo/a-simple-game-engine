@@ -10,6 +10,15 @@
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Name.hpp>
+#include <ASGE/Game/Components/Hierarchy.hpp>
+#include <ASGE/Game/Components/RenderInfo.hpp>
+#include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UILayoutItem.hpp>
+#include <ASGE/Core/ECS/Markers.hpp>
 
 #include <imgui.h>
 
@@ -44,22 +53,6 @@ std::uint32_t GetOrAssignDisplayId( asge::ecs::Entity inEntity ) noexcept
     auto const [it, inserted] = g_EntityDisplayIds.try_emplace( inEntity, g_NextEntityDisplayId );
     if ( inserted ) ++g_NextEntityDisplayId;
     return it->second;
-}
-
-// inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
-// -- used for both the entity list and the inspector header, so the two
-// panels never disagree about what to call an entity.
-std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
-{
-    auto const displayId = GetOrAssignDisplayId( inEntity ); // always assigned, even if Name ends up used instead
-    if ( auto r = inRegistry.GetComponent<Name>( inEntity ); r && !r.Value().get().m_Name.empty() )
-    {
-        return r.Value().get().m_Name;
-    }
-
-    char buf[32];
-    std::snprintf( buf, sizeof(buf), "Entity #%u", displayId );
-    return buf;
 }
 
 /**
@@ -109,34 +102,6 @@ bool DrawTextField( char const* inLabel, std::string& ioValue ) noexcept
     return false;
 }
 
-// A dropdown restricted to inKnownPaths plus a leading "None" entry -- same
-// shape as DrawAddComponentControl's own "##SpriteTexture" combo below, but
-// with "None" for "no asset assigned yet" (Add-Component's combo has no such
-// option since a Sprite there always gets a real texture up front). The
-// current selection is whichever inKnownPaths entry equals ioPath (or
-// "None" if it's empty or not present in the list, e.g. a freshly-added
-// component). ImGui::Combo only returns true on the frame the picked index
-// actually changes, so this naturally resolves on selection-changed rather
-// than on every frame or keystroke.
-bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept
-{
-    std::vector<char const*> items;
-    items.reserve( inKnownPaths.size() + 1 );
-    items.push_back( "None" );
-    for ( auto const& path : inKnownPaths ) items.push_back( path.c_str() );
-
-    int current = 0;
-    for ( std::size_t i = 0; i < inKnownPaths.size(); ++i )
-    {
-        if ( inKnownPaths[i] == ioPath ) { current = static_cast<int>( i ) + 1; break; }
-    }
-
-    if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
-
-    ioPath = current == 0 ? std::string{} : inKnownPaths[current - 1];
-    return true;
-}
-
 // Phase 11: every DrawInspector now returns bool (true if it changed
 // anything) -- not for the ResolveAssets trigger DrawSection<T>'s bool
 // detection originally existed for (that stays scoped to just Sprite/
@@ -157,13 +122,23 @@ bool DrawInspector( Transform& inT ) noexcept
 {
     bool changed = false;
 
-    float pos[2]{ inT.m_X, inT.m_Y };
-    if ( ImGui::DragFloat2( "Position", pos ) ) { inT.m_X = pos[0]; inT.m_Y = pos[1]; changed = true; }
+    float pos[2]{ inT.m_LocalCoordinates.x(), inT.m_LocalCoordinates.y() };
+    if ( ImGui::DragFloat2( "Position", pos ) )
+    {
+        inT.m_LocalCoordinates = { pos[0], pos[1] };
+        inT.m_Dirty = true;
+        changed = true;
+    }
 
-    if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_Rotation, 0.01f ) ) changed = true;
+    if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_LocalRotation, 0.01f ) ) { inT.m_Dirty = true; changed = true; }
 
-    float scale[2]{ inT.m_ScaleX, inT.m_ScaleY };
-    if ( ImGui::DragFloat2( "Scale", scale ) ) { inT.m_ScaleX = scale[0]; inT.m_ScaleY = scale[1]; changed = true; }
+    float scale[2]{ inT.m_LocalScale.x(), inT.m_LocalScale.y() };
+    if ( ImGui::DragFloat2( "Scale", scale ) )
+    {
+        inT.m_LocalScale = { scale[0], scale[1] };
+        inT.m_Dirty = true;
+        changed = true;
+    }
 
     return changed;
 }
@@ -185,22 +160,26 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // m_SourceRect editing is out of scope here (asset-browsing/viewport gizmo
 // territory). m_VirtualPath is a dropdown restricted to inKnownTextures
 // (Phase 10) -- its return reports only whether the path selection changed,
-// not m_Layer/m_YSort edits, since only a path change needs AssetManager::
-// ResolveAssets re-run (see the DrawInspector doc comment above for why
-// that trigger has to stay this narrow).
-// ponytail: m_Layer/m_YSort edits alone (no path change) don't mark the
-// scene dirty -- a real but minor gap, since a second bool would need
-// threading through just for these two fields. Fold them in if that
-// actually bites someone.
+// since only a path change needs AssetManager::ResolveAssets re-run (see the
+// DrawInspector doc comment above for why that trigger has to stay this
+// narrow). Draw order (layer/y-sort/screen-space) moved out to its own
+// components::RenderInfo section, below.
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
-    bool const pathChanged = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+    return DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+}
 
-    int layer = inSprite.m_Layer;
-    if ( ImGui::DragInt( "Layer", &layer ) ) inSprite.m_Layer = layer;
-
-    ImGui::Checkbox( "Y-Sort", &inSprite.m_YSort );
-    return pathChanged;
+// Phase 14: every field round-trips through Serializer<RenderInfo> verbatim
+// (no asset path/entity reference to reconcile), so unlike Sprite's own
+// section every edit here can just report "changed" directly.
+bool DrawInspector( RenderInfo& inRenderInfo ) noexcept
+{
+    bool changed = ImGui::DragInt( "Layer", &inRenderInfo.m_Layer );
+    if ( ImGui::Checkbox( "Y-Sort", &inRenderInfo.m_YSort ) ) changed = true;
+    if ( ImGui::Checkbox( "Screen Space", &inRenderInfo.m_ScreenSpace ) ) changed = true;
+    if ( ImGui::Checkbox( "Inherit Sort From Parent", &inRenderInfo.m_InheritSortFromParent ) ) changed = true;
+    if ( ImGui::DragInt( "Local Order", &inRenderInfo.m_LocalOrder ) ) changed = true;
+    return changed;
 }
 
 // Per-entity cache of each shape's own last-seen dimensions, so switching
@@ -378,6 +357,220 @@ bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Entity inEntity, Waypoi
     return changed;
 }
 
+// ImGui::ColorEdit4 works in float[4] (0..1); RGBA_Color is uint8 (0..255) --
+// converts both ways, same round-trip shape DrawTextField's scratch buffer
+// is for std::string/InputText.
+bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept
+{
+    float rgba[4]{ ioColor.r / 255.0f, ioColor.g / 255.0f, ioColor.b / 255.0f, ioColor.a / 255.0f };
+    if ( !ImGui::ColorEdit4( inLabel, rgba ) ) return false;
+
+    auto const toU8 = []( float inV ) noexcept
+    { return static_cast<std::uint8_t>( std::clamp( inV, 0.0f, 1.0f ) * 255.0f + 0.5f ); };
+    ioColor = { toU8( rgba[0] ), toU8( rgba[1] ), toU8( rgba[2] ), toU8( rgba[3] ) };
+    return true;
+}
+
+// Phase 16: UIRect/Interactable/UIButton/UILabel are never in kComponentEntries
+// (see DrawSection's own "no entry -> no remove button" fallback) -- a UI
+// widget is a bundle CreateButton/CreateLabel assembles together (see
+// src/ASGE/Game/UI.hpp), not something addable/removable component-by-
+// component; deleting the whole entity is how one goes away.
+// inEntity/inRegistry are only for checking a sibling UILabel's m_AutoSize
+// (Phase 16) -- RenderSystem overwrites m_Size from the label's own measured
+// text every frame while that's set (see RenderSystem.hpp's own doc
+// comment), so editing it here would just get silently stomped right back.
+bool DrawInspector( UIRect& inRect, asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    bool const autoSized = [&]
+    {
+        auto label = inRegistry.GetComponent<UILabel>( inEntity );
+        return label && label.Value().get().m_AutoSize;
+    }();
+
+    if ( autoSized )
+    {
+        ImGui::BeginDisabled();
+        float size[2]{ inRect.m_Size.x(), inRect.m_Size.y() };
+        ImGui::DragFloat2( "Size", size );
+        ImGui::EndDisabled();
+        ImGui::TextDisabled( "(sized automatically -- see UILabel's Auto Size)" );
+        return false;
+    }
+
+    float size[2]{ inRect.m_Size.x(), inRect.m_Size.y() };
+    if ( !ImGui::DragFloat2( "Size", size, 1.0f, 1.0f, 4096.0f ) ) return false;
+    inRect.m_Size = { size[0], size[1] };
+    return true;
+}
+
+// m_Hovered/m_Held/m_Clicked are runtime-only (systems::UIInteractionSystem
+// recomputes them every frame -- see Interactable's own doc comment), so
+// only m_Enabled is exposed here.
+bool DrawInspector( Interactable& inInteractable ) noexcept
+{
+    return ImGui::Checkbox( "Enabled", &inInteractable.m_Enabled );
+}
+
+// m_OnClick is a runtime signal, not something a scene file describes --
+// nothing here to expose.
+bool DrawInspector( UIButton& inButton ) noexcept
+{
+    bool changed = DrawColorField( "Color", inButton.m_Colors.m_Color );
+    if ( DrawColorField( "Hover Color", inButton.m_Colors.m_HoverColor ) ) changed = true;
+    if ( DrawColorField( "Pressed Color", inButton.m_Colors.m_PressedColor ) ) changed = true;
+    return changed;
+}
+
+// m_FontPath is a dropdown restricted to inKnownFonts (Phase 16, same
+// "picked from what's known to be loaded" treatment Sprite/Animation/
+// AudioSource's own paths already get) -- the return reports only whether
+// that selection changed, since only a font change needs
+// AssetManager::ResolveAssets re-run (same narrow-trigger reasoning as
+// Sprite's own DrawInspector above).
+bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFonts ) noexcept
+{
+    bool changed = DrawAssetPathCombo( "Font Path", inLabel.m_FontPath, inKnownFonts );
+
+    DrawTextField( "Text", inLabel.m_Text );
+
+    static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
+    int align = static_cast<int>( inLabel.m_Align );
+    if ( ImGui::Combo( "Align", &align, kAlignNames, 4 ) )
+    {
+        inLabel.m_Align = static_cast<asge::str::TextAlign>( align );
+    }
+
+    static char const* const kVAlignNames[]{ "Top", "Center", "Bottom" };
+    int valign = static_cast<int>( inLabel.m_VerticalAlign );
+    if ( ImGui::Combo( "Vertical Align", &valign, kVAlignNames, 3 ) )
+    {
+        inLabel.m_VerticalAlign = static_cast<VerticalAlign>( valign );
+    }
+
+    DrawColorField( "Color", inLabel.m_Color );
+    // A pixel-height change needs the same re-resolve a path change does --
+    // AssetManager::GetFont caches by (path, pixel height), so this is a
+    // different baked Font asset, not just a bigger/smaller draw of the same
+    // one (see Resolver<UILabel>'s own doc comment).
+    if ( ImGui::DragInt( "Font Size", &inLabel.m_FontPixelHeight, 1.0f, 1, 256 ) ) changed = true;
+    if ( ImGui::IsItemHovered() )
+    {
+        auto const atlasSize = asge::media::Font::GetAtlasSize();
+        ImGui::SetTooltip(
+            "Every font bakes into a fixed %dx%d atlas -- too large a size for a "
+            "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y() );
+    }
+    ImGui::Checkbox( "Auto Size", &inLabel.m_AutoSize );
+
+    return changed;
+}
+
+// Phase 17: UICheckbox/UISlider/UIPanel, like the Phase 16 widgets, are view/
+// edit-only (assembled by CreateCheckbox/CreateSlider/CreatePanel, never added
+// piecemeal). m_OnToggled/m_OnValueChanged are runtime signals -- nothing to
+// expose. m_Checked/m_Value are edited directly so the viewport shows them.
+bool DrawInspector( UICheckbox& inCheckbox ) noexcept
+{
+    bool changed = ImGui::Checkbox( "Checked", &inCheckbox.m_Checked );
+    if ( DrawColorField( "Color", inCheckbox.m_BoxColors.m_Color ) ) changed = true;
+    if ( DrawColorField( "Hover Color", inCheckbox.m_BoxColors.m_HoverColor ) ) changed = true;
+    if ( DrawColorField( "Pressed Color", inCheckbox.m_BoxColors.m_PressedColor ) ) changed = true;
+    if ( DrawColorField( "Check Color", inCheckbox.m_CheckColor ) ) changed = true;
+    return changed;
+}
+
+bool DrawInspector( UISlider& inSlider ) noexcept
+{
+    bool changed = ImGui::DragFloat( "Min", &inSlider.m_Min, 0.05f );
+    if ( ImGui::DragFloat( "Max", &inSlider.m_Max, 0.05f ) ) changed = true;
+    // A value outside [Min, Max] just draws pinned to the nearer end (see
+    // GetThumbPosition), but clamping here keeps what's saved honest.
+    if ( ImGui::SliderFloat( "Value", &inSlider.m_Value, inSlider.m_Min, inSlider.m_Max ) ) changed = true;
+    if ( DrawColorField( "Track Color", inSlider.m_TrackColor ) ) changed = true;
+    if ( DrawColorField( "Thumb Color", inSlider.m_ThumbColor.m_Color ) ) changed = true;
+    if ( DrawColorField( "Thumb Hover Color", inSlider.m_ThumbColor.m_HoverColor ) ) changed = true;
+    if ( DrawColorField( "Thumb Pressed Color", inSlider.m_ThumbColor.m_PressedColor ) ) changed = true;
+    return changed;
+}
+
+// Switching the layout type replaces m_Layout's whole variant alternative
+// (rows/cols reset to that type's defaults); Grid/VStack/HStack then expose
+// their own row/column counts. The panel lays out its Hierarchy children (see
+// systems::UILayoutSystem), so any child of a non-Absolute panel has its
+// position (and, unless its UILayoutItem says otherwise, size) re-derived
+// every frame -- editing those on the child itself is overwritten right back.
+bool DrawInspector( UIPanel& inPanel ) noexcept
+{
+    bool changed = DrawColorField( "Background", inPanel.m_Background );
+    if ( ImGui::Checkbox( "Border", &inPanel.m_Border ) ) changed = true;
+    if ( inPanel.m_Border && DrawColorField( "Border Color", inPanel.m_BorderColor ) ) changed = true;
+
+    auto const drawFloat2 = [&]( char const* inLabel, asge::math::Float2& ioValue ) noexcept
+    {
+        float v[2]{ ioValue.x(), ioValue.y() };
+        if ( !ImGui::DragFloat2( inLabel, v, 0.5f, 0.0f, 4096.0f ) ) return;
+        ioValue = { v[0], v[1] };
+        changed = true;
+    };
+    drawFloat2( "Margin", inPanel.m_Margin );
+    drawFloat2( "Padding", inPanel.m_Padding );
+    drawFloat2( "Spacing", inPanel.m_Spacing );
+
+    static char const* const kLayoutNames[]{ "Absolute", "Grid", "VStack", "HStack" };
+    int layout = static_cast<int>( GetPanelLayout( inPanel ) );
+    if ( ImGui::Combo( "Layout", &layout, kLayoutNames, 4 ) )
+    {
+        switch ( static_cast<PanelLayout>( layout ) )
+        {
+        case PanelLayout::Absolute: inPanel.m_Layout = LayoutAbsolute{}; break;
+        case PanelLayout::Grid:     inPanel.m_Layout = LayoutGrid{}; break;
+        case PanelLayout::VStack:   inPanel.m_Layout = LayoutVStack{}; break;
+        case PanelLayout::HStack:   inPanel.m_Layout = LayoutHStack{}; break;
+        }
+        changed = true;
+    }
+
+    if ( auto* grid = std::get_if<LayoutGrid>( &inPanel.m_Layout ) )
+    {
+        if ( ImGui::DragInt( "Rows", &grid->m_Rows, 0.1f, 1, 64 ) ) changed = true;
+        if ( ImGui::DragInt( "Columns", &grid->m_Cols, 0.1f, 1, 64 ) ) changed = true;
+    }
+    else if ( auto* vstack = std::get_if<LayoutVStack>( &inPanel.m_Layout ) )
+    {
+        if ( ImGui::DragInt( "Rows", &vstack->m_Rows, 0.1f, 1, 64 ) ) changed = true;
+    }
+    else if ( auto* hstack = std::get_if<LayoutHStack>( &inPanel.m_Layout ) )
+    {
+        if ( ImGui::DragInt( "Columns", &hstack->m_Cols, 0.1f, 1, 64 ) ) changed = true;
+    }
+
+    return changed;
+}
+
+// Only meaningful under a UIPanel parent with a non-Absolute layout, but
+// addable to any entity (a child can be attached to a panel afterwards).
+bool DrawInspector( UILayoutItem& inItem ) noexcept
+{
+    static char const* const kAlignNames[]{ "Start", "Center", "End" };
+
+    bool changed = ImGui::Checkbox( "Fill X", &inItem.m_FillX );
+    if ( ImGui::Checkbox( "Fill Y", &inItem.m_FillY ) ) changed = true;
+
+    int alignX = static_cast<int>( inItem.m_AlignX ), alignY = static_cast<int>( inItem.m_AlignY );
+    if ( ImGui::Combo( "Align X", &alignX, kAlignNames, 3 ) )
+    {
+        inItem.m_AlignX = static_cast<SlotAlign>( alignX );
+        changed = true;
+    }
+    if ( ImGui::Combo( "Align Y", &alignY, kAlignNames, 3 ) )
+    {
+        inItem.m_AlignY = static_cast<SlotAlign>( alignY );
+        changed = true;
+    }
+    return changed;
+}
+
 // One entry per DrawSection<T> call below -- reused to drive "Add
 // Component"'s list, since the set of addable types is exactly the set of
 // drawable types. Function pointers (not std::function) since every
@@ -435,11 +628,13 @@ ComponentEntry const kComponentEntries[]{
     MakeComponentEntry<Velocity>( "Velocity" ),
     MakeComponentEntry<Rigidbody>( "Rigidbody" ),
     MakeComponentEntry<Sprite>( "Sprite" ),
+    MakeComponentEntry<RenderInfo>( "RenderInfo" ),
     MakeComponentEntry<Collider>( "Collider" ),
     MakeComponentEntry<Camera>( "Camera" ),
     MakeComponentEntry<AudioSource>( "AudioSource" ),
     MakeComponentEntry<Animation>( "Animation" ),
     MakeComponentEntry<PathFollow>( "PathFollow" ),
+    MakeComponentEntry<UILayoutItem>( "UILayoutItem" ),
 };
 
 // Linear scan over kComponentEntries by name -- only ever called once per
@@ -510,6 +705,7 @@ bool DrawAddComponentControl(
             Sprite sprite{};
             sprite.m_VirtualPath = inKnownTextures[textureIndex];
             inRegistry.AddComponent<Sprite>( inEntity, sprite );
+            (void)inRegistry.GetOrAddComponent<RenderInfo>( inEntity ); // Phase 14: every Sprite gets a RenderInfo, once
             return true;
         }
         return false;
@@ -550,12 +746,20 @@ bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
     {
         ImGui::PushID( inName );
         ImGui::SeparatorText( inName );
-        ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-        if ( ImGui::SmallButton( "x" ) )
+
+        // No entry -- a Phase 16 UI component type, never addable/removable
+        // through the generic control (see this template's own doc comment
+        // above) -- means no "x" at all, rather than dereferencing a null
+        // ComponentEntry*.
+        if ( ComponentEntry const* entry = FindComponentEntry( inName ) )
         {
-            FindComponentEntry( inName )->m_Remove( inRegistry, inEntity );
-            ImGui::PopID();
-            return true;
+            ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
+            if ( ImGui::SmallButton( "x" ) )
+            {
+                entry->m_Remove( inRegistry, inEntity );
+                ImGui::PopID();
+                return true;
+            }
         }
 
         bool changed = false;
@@ -574,6 +778,191 @@ bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
     return false;
 }
 
+// Phase 15: true if inEntity itself carries the Disable marker, or any
+// entity anywhere in its own subtree does -- independent of whether that
+// subtree is currently expanded in the tree, so a collapsed ancestor's row
+// still shows the closed-eye hint below without having to open every level
+// down to the actually-disabled entity.
+bool SubtreeHasDisabled( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    if ( inRegistry.HasComponent<asge::ecs::markers::Disable>( inEntity ) ) return true;
+
+    bool found = false;
+    asge::ecs::components::ForEachChild( inRegistry, inEntity, [&]( asge::ecs::Entity inChild )
+    {
+        if ( !found && SubtreeHasDisabled( inRegistry, inChild ) ) found = true;
+    } );
+    return found;
+}
+
+// A small hand-drawn closed-eye glyph -- no icon font in this project (same
+// reasoning as AssetInspector.cpp's transport-control icons): a shallow
+// eyelid arc plus two short lashes, distinct enough from an open eye
+// (which would have a pupil) at this size. Purely a paint call, not a
+// widget -- callers place it themselves, same technique
+// PlayPauseIconButton/RewindIconButton use for their own icon body.
+void DrawClosedEyeIcon( ImDrawList* inDrawList, ImVec2 inCenter, float inRadius, ImU32 inColor ) noexcept
+{
+    ImVec2 const left{ inCenter.x - inRadius, inCenter.y };
+    ImVec2 const right{ inCenter.x + inRadius, inCenter.y };
+    ImVec2 const top{ inCenter.x, inCenter.y - inRadius * 0.6f };
+    inDrawList->AddBezierQuadratic( left, top, right, inColor, 1.5f );
+
+    inDrawList->AddLine( left,  ImVec2{ left.x - inRadius * 0.35f,  left.y + inRadius * 0.5f },  inColor, 1.5f );
+    inDrawList->AddLine( right, ImVec2{ right.x + inRadius * 0.35f, right.y + inRadius * 0.5f }, inColor, 1.5f );
+}
+
+// Phase 13: one row of DrawEntityListPanel's tree, recursing into
+// inEntity's own children (if any) via ecs::components::ForEachChild.
+// Reports at most one HierarchyAction into ioResult per frame -- New Child/
+// Detach/Remove from this row's own context menu, or Reparent if another
+// row's drag payload was dropped onto it -- the same "one user gesture per
+// frame" assumption InspectorResult's EntityAction already makes. Actually
+// executing any of these (CreateEntity, AttachChild/DetachChild,
+// DestroyEntityGraph) is deferred to the caller in main.cpp, which owns the
+// SceneManager this Registry belongs to; mutating the Hierarchy mid-walk
+// here would invalidate the child list this recursion is still iterating.
+void DrawEntityTreeNode(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult ) noexcept
+{
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
+    bool const isRoot = !hierarchy || hierarchy.Value().get().m_Parent == asge::ecs::Entity::Null();
+    bool const hasChildren = hierarchy && hierarchy.Value().get().m_FirstChild != asge::ecs::Entity::Null();
+
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+    if ( inEntity == ioSelected ) flags |= ImGuiTreeNodeFlags_Selected;
+    if ( !hasChildren ) flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+
+    // "##<index>" suffix keeps each row's ImGui ID unique even when two
+    // entities share the same (or default, unnamed) display label -- the
+    // same class of collision DrawSection's PushID guards against.
+    std::string const label = GetEntityLabel( inRegistry, inEntity ) + "##" + std::to_string( inEntity.m_Index );
+    bool const open = ImGui::TreeNodeEx( label.c_str(), flags );
+
+    // Phase 15: shown for this row's own Disable marker, or any descendant's
+    // -- so a disabled entity N levels deep still surfaces up through every
+    // collapsed ancestor above it, not just its own row.
+    if ( SubtreeHasDisabled( inRegistry, inEntity ) )
+    {
+        ImVec2 const rowMin = ImGui::GetItemRectMin();
+        ImVec2 const rowMax = ImGui::GetItemRectMax();
+        ImVec2 const eyeCenter{ ImGui::GetWindowPos().x + ImGui::GetWindowWidth() - 18.0f, ( rowMin.y + rowMax.y ) * 0.5f };
+        DrawClosedEyeIcon( ImGui::GetWindowDrawList(), eyeCenter, 6.0f, ImGui::GetColorU32( ImGuiCol_TextDisabled ) );
+    }
+
+    // OpenOnArrow means a click on the label itself (not the arrow) reaches
+    // here without also toggling open/closed -- exactly "select this row".
+    if ( ImGui::IsItemClicked( ImGuiMouseButton_Left ) ) ioSelected = inEntity;
+
+    if ( ImGui::BeginDragDropSource() )
+    {
+        ImGui::SetDragDropPayload( "ASGE_ENTITY", &inEntity, sizeof( inEntity ) );
+        ImGui::TextUnformatted( label.c_str() );
+        ImGui::EndDragDropSource();
+    }
+    if ( ImGui::BeginDragDropTarget() )
+    {
+        // Cycle/no-op guards (dropping onto itself, onto one of its own
+        // descendants, or to where it already is) live in AttachChild
+        // itself -- not duplicated here, the drop always just reports the
+        // gesture and lets the caller's AttachChild call decide.
+        if ( auto const* payload = ImGui::AcceptDragDropPayload( "ASGE_ENTITY" ) )
+        {
+            asge::ecs::Entity dragged;
+            std::memcpy( &dragged, payload->Data, sizeof( dragged ) );
+            ioResult.m_Action = HierarchyAction::Reparent;
+            ioResult.m_Target = dragged;
+            ioResult.m_NewParent = inEntity;
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    if ( ImGui::BeginPopupContextItem() )
+    {
+        if ( ImGui::MenuItem( "New Child" ) )
+        {
+            ioResult.m_Action = HierarchyAction::NewChild;
+            ioResult.m_Target = inEntity;
+        }
+        if ( ImGui::MenuItem( "Detach", nullptr, false, !isRoot ) )
+        {
+            ioResult.m_Action = HierarchyAction::Detach;
+            ioResult.m_Target = inEntity;
+        }
+        if ( ImGui::MenuItem( "Remove" ) )
+        {
+            ioResult.m_Action = HierarchyAction::Remove;
+            ioResult.m_Target = inEntity;
+        }
+        ImGui::EndPopup();
+    }
+
+    if ( open && hasChildren )
+    {
+        // Snapshotted up front, not walked live -- ioResult's action (if any
+        // gets set this frame) is only applied by the caller after this
+        // whole tree finishes drawing, so the Hierarchy itself never
+        // changes mid-recursion; this is just ForEachChild's own contract
+        // (safe to reparent/detach the entity currently being visited, not
+        // safe to assume its sibling links survive an arbitrary mutation).
+        std::vector<asge::ecs::Entity> children;
+        asge::ecs::components::ForEachChild(
+            inRegistry, inEntity, [&]( asge::ecs::Entity inChild ) { children.push_back( inChild ); } );
+        for ( auto child : children ) DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult );
+    }
+    if ( open && hasChildren ) ImGui::TreePop();
+}
+
+}
+
+// Declared in Inspector.hpp (Phase 16) so main.cpp's Create UI Element modal
+// can reuse the exact same widget for its Font Path field, not a second,
+// hand-typed one -- see the header doc comment for the shape/behavior.
+bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept
+{
+    std::vector<char const*> items;
+    items.reserve( inKnownPaths.size() + 1 );
+    items.push_back( "None" );
+    for ( auto const& path : inKnownPaths ) items.push_back( path.c_str() );
+
+    int current = 0;
+    for ( std::size_t i = 0; i < inKnownPaths.size(); ++i )
+    {
+        if ( inKnownPaths[i] == ioPath ) { current = static_cast<int>( i ) + 1; break; }
+    }
+
+    if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
+
+    ioPath = current == 0 ? std::string{} : inKnownPaths[current - 1];
+    return true;
+}
+
+// inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
+// ("Button #N"/"Label #N" for a UIButton/UILabel entity, Phase 16 -- checked
+// in that order since a Button's own caption text also carries a UILabel) --
+// used for both the entity list and the inspector header, so the two panels
+// never disagree about what to call an entity. Declared in Inspector.hpp
+// (Phase 14) so AssetBrowser.cpp's "Attach To" submenu can label entities
+// the same way.
+std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    auto const displayId = GetOrAssignDisplayId( inEntity ); // always assigned, even if Name ends up used instead
+    if ( auto r = inRegistry.GetComponent<Name>( inEntity ); r && !r.Value().get().m_Name.empty() )
+    {
+        return r.Value().get().m_Name;
+    }
+
+    char const* prefix = "Entity";
+    if ( inRegistry.HasComponent<UIButton>( inEntity ) ) prefix = "Button";
+    else if ( inRegistry.HasComponent<UICheckbox>( inEntity ) ) prefix = "Checkbox";
+    else if ( inRegistry.HasComponent<UISlider>( inEntity ) ) prefix = "Slider";
+    else if ( inRegistry.HasComponent<UIPanel>( inEntity ) ) prefix = "Panel";
+    else if ( inRegistry.HasComponent<UILabel>( inEntity ) ) prefix = "Label";
+
+    char buf[32];
+    std::snprintf( buf, sizeof(buf), "%s #%u", prefix, displayId );
+    return buf;
 }
 
 void ResetEntityDisplayIds() noexcept
@@ -582,7 +971,7 @@ void ResetEntityDisplayIds() noexcept
     g_NextEntityDisplayId = 0;
 }
 
-bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
+EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
 {
     // Anchored flush to the right edge, re-snapping only on an actual
     // resize -- see AnchorCondOnResize's own doc comment.
@@ -590,35 +979,45 @@ bool DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& io
     ImGui::SetNextWindowPos( ImVec2( rightX, 95.0f ), AnchorCondOnResize() );
     ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, 160.0f ), ImGuiCond_FirstUseEver );
 
+    EntityListResult result;
+
     ImGui::Begin( "Entities" );
     if ( !inHasProject ) ImGui::BeginDisabled();
-    bool const createClicked = ImGui::Button( "Create Entity" );
+    result.m_CreateClicked = ImGui::Button( "Create Entity" );
+    ImGui::SameLine();
+    // Phase 16: the actual Button/Label construction goes through main.cpp's
+    // Type Selection -> Creation modal flow (UI::CreateButton/CreateLabel),
+    // not here -- this panel only reports the click, same division of labor
+    // as "Create Entity" itself.
+    result.m_CreateUIElementClicked = ImGui::Button( "Create UI Element" );
     if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
 
-    // AllEntities() is a raw storage-slot scan (ascending Entity::m_Index),
-    // not creation order -- listing in that order let a newly created
-    // entity land in a low, just-freed slot and appear above older ones
-    // instead of after them. Sorted by the same creation-order id
-    // GetEntityLabel's numbering is built on instead.
+    // Root entities only (no Hierarchy, or one with no parent) -- every
+    // other entity is reached recursively, as some root's descendant,
+    // through DrawEntityTreeNode's own ForEachChild walk. AllEntities() is a
+    // raw storage-slot scan (ascending Entity::m_Index), not creation order
+    // -- listing roots in that order let a newly created one land in a low,
+    // just-freed slot and appear above older ones instead of after them.
+    // Sorted by the same creation-order id GetEntityLabel's numbering is
+    // built on instead.
     auto entities = inRegistry.AllEntities();
-    std::sort( entities.begin(), entities.end(), []( asge::ecs::Entity inA, asge::ecs::Entity inB ) noexcept
+    std::vector<asge::ecs::Entity> roots;
+    for ( auto entity : entities )
+    {
+        auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( entity );
+        if ( !hierarchy || hierarchy.Value().get().m_Parent == asge::ecs::Entity::Null() ) roots.push_back( entity );
+    }
+    std::sort( roots.begin(), roots.end(), []( asge::ecs::Entity inA, asge::ecs::Entity inB ) noexcept
     {
         return GetOrAssignDisplayId( inA ) < GetOrAssignDisplayId( inB );
     } );
 
-    for ( auto entity : entities )
-    {
-        // "##<index>" suffix keeps each row's ImGui ID unique even when two
-        // entities share the same (or default, unnamed) display label --
-        // the same class of collision DrawSection's PushID guards against.
-        std::string const label = GetEntityLabel( inRegistry, entity )
-            + "##" + std::to_string( entity.m_Index );
-        if ( ImGui::Selectable( label.c_str(), entity == ioSelected ) ) ioSelected = entity;
-    }
+    for ( auto root : roots ) DrawEntityTreeNode( inRegistry, root, ioSelected, result );
+
     ImGui::End();
 
-    return createClicked;
+    return result;
 }
 
 InspectorResult DrawInspectorPanel(
@@ -626,6 +1025,7 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
+    std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
     ColliderDrawState& ioColliderDraw ) noexcept
 {
@@ -641,13 +1041,6 @@ InspectorResult DrawInspectorPanel(
     EntityAction action = EntityAction::None;
 
     ImGui::Begin( "Inspector" );
-    ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );
-
-    if ( ImGui::Button( "Duplicate" ) ) action = EntityAction::Duplicate;
-    ImGui::SameLine();
-    if ( ImGui::Button( "Delete" ) ) action = EntityAction::Delete;
-
-    ImGui::Separator();
 
     // Two independent accumulators (bitwise-OR, not ||, so every section
     // still draws even once one reports a change -- short-circuiting would
@@ -661,6 +1054,48 @@ InspectorResult DrawInspectorPanel(
     bool componentsChanged = false;
     bool fieldChanged = false;
 
+    // Phase 15: this entity's own Disable marker only, not the inherited
+    // Registry::IsDisabled() effective state -- a child of a disabled
+    // ancestor has nothing of its own to toggle here (the (inherited) hint
+    // below covers that case instead). Recursively disabling children isn't
+    // this checkbox's job either: IsDisabled() already walks up through
+    // Hierarchy::m_Parent on its own, so a subtree root's Disable alone is
+    // enough for every descendant to already read as disabled.
+    bool ownDisable = inRegistry.HasComponent<asge::ecs::markers::Disable>( inSelected );
+    if ( ImGui::Checkbox( "Disabled", &ownDisable ) )
+    {
+        if ( ownDisable )
+        {
+            inRegistry.DisableEntity( inSelected );
+        }
+        else if ( auto const result = inRegistry.RemoveComponent<asge::ecs::markers::Disable>( inSelected ); !result )
+        {
+            result.LogError();
+        }
+        fieldChanged = true;
+    }
+    else if ( !ownDisable && inRegistry.IsDisabled( inSelected ) )
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "(inherited from parent)" );
+    }
+
+    ImGui::Text( "%s", GetEntityLabel( inRegistry, inSelected ).c_str() );
+
+    // Phase 13: read-only -- reparenting happens through the Entities tree's
+    // drag-and-drop/context menu, not here.
+    if ( auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inSelected );
+         hierarchy && hierarchy.Value().get().m_Parent != asge::ecs::Entity::Null() )
+    {
+        ImGui::TextDisabled( "Parent: %s", GetEntityLabel( inRegistry, hierarchy.Value().get().m_Parent ).c_str() );
+    }
+
+    if ( ImGui::Button( "Duplicate" ) ) action = EntityAction::Duplicate;
+    ImGui::SameLine();
+    if ( ImGui::Button( "Delete" ) ) action = EntityAction::Delete;
+
+    ImGui::Separator();
+
     bool const nameChanged = DrawSection<Name>( inRegistry, inSelected, "Name" );
     fieldChanged |= nameChanged;
     bool const transformChanged = DrawSection<Transform>( inRegistry, inSelected, "Transform" );
@@ -671,6 +1106,8 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= rigidbodyChanged;
     bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
+    bool const renderInfoChanged = DrawSection<RenderInfo>( inRegistry, inSelected, "RenderInfo" );
+    fieldChanged |= renderInfoChanged;
     bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider", inSelected, ioColliderDraw );
     fieldChanged |= colliderChanged;
     bool const cameraChanged = DrawSection<Camera>( inRegistry, inSelected, "Camera" );
@@ -681,6 +1118,29 @@ InspectorResult DrawInspectorPanel(
     componentsChanged |= animationChanged; fieldChanged |= animationChanged;
     bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow", inSelected, ioWaypointEdit );
     fieldChanged |= pathFollowChanged;
+
+    // Phase 16: UIRect/Interactable/UIButton/UILabel -- view/edit-only, see
+    // DrawSection's own "no entry -> no remove button" fallback above for why
+    // these never get an "x" the way every section before this does.
+    bool const uiRectChanged = DrawSection<UIRect>( inRegistry, inSelected, "UIRect", inRegistry, inSelected );
+    fieldChanged |= uiRectChanged;
+    bool const interactableChanged = DrawSection<Interactable>( inRegistry, inSelected, "Interactable" );
+    fieldChanged |= interactableChanged;
+    bool const uiButtonChanged = DrawSection<UIButton>( inRegistry, inSelected, "UIButton" );
+    fieldChanged |= uiButtonChanged;
+    bool const uiLabelChanged = DrawSection<UILabel>( inRegistry, inSelected, "UILabel", inKnownFonts );
+    componentsChanged |= uiLabelChanged; fieldChanged |= uiLabelChanged;
+    // Phase 17: UICheckbox/UISlider/UIPanel are view/edit-only like the above;
+    // UILayoutItem is the exception -- optional per child, so it does get the
+    // generic Add/Remove entry.
+    bool const uiCheckboxChanged = DrawSection<UICheckbox>( inRegistry, inSelected, "UICheckbox" );
+    fieldChanged |= uiCheckboxChanged;
+    bool const uiSliderChanged = DrawSection<UISlider>( inRegistry, inSelected, "UISlider" );
+    fieldChanged |= uiSliderChanged;
+    bool const uiPanelChanged = DrawSection<UIPanel>( inRegistry, inSelected, "UIPanel" );
+    fieldChanged |= uiPanelChanged;
+    bool const uiLayoutItemChanged = DrawSection<UILayoutItem>( inRegistry, inSelected, "UILayoutItem" );
+    fieldChanged |= uiLayoutItemChanged;
 
     bool const addComponentClicked = DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
     componentsChanged |= addComponentClicked; fieldChanged |= addComponentClicked;

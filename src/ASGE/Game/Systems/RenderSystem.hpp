@@ -46,29 +46,42 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
 
 /**
  * @brief Draws every entity that has both a Transform and a Sprite whose
- *        destination rect overlaps the camera's currently visible area.
+ *        destination rect overlaps the camera's currently visible area
+ *        (unless it resolves to screen space -- see below).
  *
- * Transform's position is the sprite's top-left corner (before rotation —
- * see below); scale stretches the drawn size — the texture's native size,
- * or Sprite::m_SourceRect's size when set, so a cropped cell of a larger
- * spritesheet is scaled from its own dimensions rather than the whole
- * sheet's. Entities whose Sprite::m_Texture is null are skipped, as is any
- * entity whose destination rect doesn't overlap IRenderer's current
- * camera/viewport at all (see video::VisibleWorldRect) — cheaper than
- * submitting a draw call the backend would just clip away.
+ * Transform::m_WorldCoordinates is the sprite's top-left corner (before
+ * rotation — see below); m_WorldScale stretches the drawn size — the
+ * texture's native size, or Sprite::m_SourceRect's size when set, so a
+ * cropped cell of a larger spritesheet is scaled from its own dimensions
+ * rather than the whole sheet's. Entities whose Sprite::m_Texture is null
+ * are skipped, as is any world-space entity whose destination rect doesn't
+ * overlap IRenderer's current camera/viewport at all (see
+ * video::VisibleWorldRect) — cheaper than submitting a draw call the
+ * backend would just clip away; a screen-space entity (see below) is never
+ * culled this way.
  *
- * Transform::m_Rotation == 0 (the overwhelming majority of sprites) takes
+ * Transform::m_WorldRotation == 0 (the overwhelming majority of sprites) takes
  * IRenderer's plain Rect-based DrawTexture path; a non-zero rotation
  * instead routes through DrawTextureAffine with corners computed by
  * components::SpriteGetDrawCorners, rotating the sprite around its own
  * center (positive m_Rotation is clockwise on screen).
  *
- * Draw order is sorted, not insertion order: entities are batched by
- * Sprite::m_Layer first (lower layers draw first, so higher layers draw on
- * top); within a layer, entities where either side has Sprite::m_YSort set
- * are further ordered by the sprite's bottom edge (position.y + drawn
- * height) for a 2D painter's-algorithm depth effect; anything still tied
- * falls back to entity index for a stable order.
+ * Draw order is sorted, not insertion order, by each entity's resolved
+ * components::RenderInfo -- an entity with none of its own sorts as
+ * RenderInfo{} (layer 0, no y-sort, world space). World-space entities draw
+ * first, screen-space ones last, under a temporary camera (origin/zoom-1 by
+ * default, or resources::ScreenSpaceCamera's own value if that resource is
+ * set -- see its own doc comment for why) restored to the world camera once
+ * the last one is drawn; within that, by RenderInfo::m_Layer, then
+ * bottom-edge Y when either side opted into RenderInfo::m_YSort, then by
+ * sort owner and m_LocalOrder for entities under a components::Hierarchy
+ * parent with m_InheritSortFromParent set, and finally by entity index for
+ * a stable order.
+ *
+ * Before any of that, a resolved components::UILabel with m_AutoSize writes
+ * its own Font::Measure(m_Text) straight into its sibling components::UIRect's
+ * m_Size, so this frame's destination rect already reflects the current text
+ * rather than whatever size the entity happened to be created with.
  */
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 
@@ -86,5 +99,20 @@ void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noe
  */
 void RenderPipeline(
     ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
+
+/**
+ * @brief True if inA sorts after inB in RenderSystem's own resolved draw
+ *        order -- i.e. inA is drawn on top of inB -- without re-deriving
+ *        that order from scratch: same resolved RenderInfo (screen-space
+ *        last, then layer, then y-sort's bottom edge, then sort owner/
+ *        local order/inheritance depth), tie-broken by entity index.
+ *        For a tool (a viewport picker, say) that needs "which of these
+ *        two would end up on top" outside of an actual draw pass.
+ *
+ * An entity with no Sprite/UIRect (nothing RenderSystem would draw) still
+ * resolves a layer/screen-space position -- it just never sorts by y, since
+ * there's no dst rect to compute a bottom edge from.
+ */
+bool IsDrawnAbove( ecs::Registry const& inRegistry, ecs::Entity inA, ecs::Entity inB ) noexcept;
 
 }

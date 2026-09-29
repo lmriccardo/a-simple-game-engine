@@ -2,6 +2,9 @@
 
 #include <tuple>
 
+#include <ASGE/Core/ECS/Hierarchy.hpp>
+#include <ASGE/Core/ECS/Markers.hpp>
+
 #include "Components/Transform.hpp"
 #include "Components/Velocity.hpp"
 #include "Components/Sprite.hpp"
@@ -11,7 +14,16 @@
 #include "Components/AudioSource.hpp"
 #include "Components/Camera.hpp"
 #include "Components/PathFollow.hpp"
+#include "Components/Hierarchy.hpp"
 #include "Components/Name.hpp"
+#include "Components/RenderInfo.hpp"
+#include "Components/UI/Common.hpp"
+#include "Components/UI/UIButton.hpp"
+#include "Components/UI/UILabel.hpp"
+#include "Components/UI/UICheckbox.hpp"
+#include "Components/UI/UISlider.hpp"
+#include "Components/UI/UIPanel.hpp"
+#include "Components/UI/UILayoutItem.hpp"
 
 namespace asge::game::components
 {
@@ -28,7 +40,13 @@ namespace asge::game::components
  */
 using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
-    AudioSource, Camera, PathFollow, Name
+    AudioSource, Camera, PathFollow, Name, ecs::components::Hierarchy,
+    ecs::markers::Disable, UIButton, RenderInfo, UIRect, Interactable,
+    UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem
 >;
+
+/** @brief Every component type belonging to the UI subsystem. */
+using UIComponents = std::tuple<
+    UIButton, UIRect, Interactable, UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem>;
 
 }

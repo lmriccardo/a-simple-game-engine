@@ -2,10 +2,10 @@
 
 #include <cstddef>
 
-namespace asge::media
+namespace asge::graphics
 {
 
-struct PixelFormatInfo 
+struct PixelFormatInfo
 { 
     std::size_t s_BytesPerPixel; // The total number of bytes for representing a single pixel
 };

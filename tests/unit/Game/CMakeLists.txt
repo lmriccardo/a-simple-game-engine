@@ -2,6 +2,8 @@ add_executable(ASGE_GameTests
     RenderSystemTests.cpp
     PhysicsSystemTests.cpp
     PhysicsDebugSystemTests.cpp
+    TransformPropagationSystemTests.cpp
+    UISystemTests.cpp
     GameStateStackTests.cpp
     GameTests.cpp
 )
@@ -11,6 +13,9 @@ target_link_libraries(ASGE_GameTests
         ASGE
         GTest::gtest_main
 )
+
+target_compile_definitions(ASGE_GameTests
+    PRIVATE ASGE_TEST_FONTS_DIR="${CMAKE_SOURCE_DIR}/tests/support/fonts")
 
 target_compile_options(ASGE_GameTests
     PRIVATE

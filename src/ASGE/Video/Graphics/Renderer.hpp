@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ASGE/Core/Media/Color.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Core/Media/Font.hpp>
 #include <ASGE/Core/Math/Math.hpp>
@@ -17,7 +17,7 @@ public:
     virtual ~IRenderer() = default;
 
     // Clear the screen content
-    virtual void Clear(media::RGBA_Color const& inColor) const = 0;
+    virtual void Clear(graphics::RGBA_Color const& inColor) const = 0;
 
     /**
      * @brief Draw a rectangle to screen
@@ -25,10 +25,10 @@ public:
      * Draw a rectangle to screen given the input position (X, Y), the
      * dimension (W = width, H = height) and the filling color (RGBA).
      */
-    virtual void DrawRect(math::Rect const& inRect, media::RGBA_Color const& inColor, bool inFill) const = 0;
+    virtual void DrawRect(math::Rect const& inRect, graphics::RGBA_Color const& inColor, bool inFill) const = 0;
 
     virtual void DrawLine(math::Float2 const& inC1, math::Float2 const& inC2,
-        media::RGBA_Color const& inColor) const = 0;
+        graphics::RGBA_Color const& inColor) const = 0;
 
     /**
      * @brief Draw a circle to screen
@@ -37,7 +37,7 @@ public:
      * math::MidpointCirclePoints.
      */
     virtual void DrawCircle(math::Int2 const& inCenter, int inRadius,
-        media::RGBA_Color const& inColor, bool inFill) const = 0;
+        graphics::RGBA_Color const& inColor, bool inFill) const = 0;
 
     /**
      * @brief Draw a texture to screen, scaled into the given destination rect
@@ -156,7 +156,7 @@ public:
      */
     virtual void DrawString( str::StringView inText, media::Font const& inFont,
         ITexture & inTexture, math::Float2 const& inPosition,
-        media::RGBA_Color const& inColor ) const noexcept = 0;
+        graphics::RGBA_Color const& inColor ) const noexcept = 0;
 
     // Present the redered content to the screen
     virtual void Present() const = 0;

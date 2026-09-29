@@ -28,7 +28,7 @@ bool IsPixelTransparent( asge::media::Image const& inImage, std::size_t inX, std
 {
     // Alpha is always the last byte of a pixel here: offset 3 of 4 for RGBA8,
     // offset 0 of 1 for A8 (the pixel *is* its alpha).
-    std::size_t const bpp = asge::media::PixelFormatInfoFor( inImage.Format() ).s_BytesPerPixel;
+    std::size_t const bpp = asge::graphics::PixelFormatInfoFor( inImage.Format() ).s_BytesPerPixel;
     std::uint8_t const* row = inImage.Data() + inY * inImage.Stride();
     return row[inX * bpp + (bpp - 1)] == 0;
 }
@@ -36,7 +36,7 @@ bool IsPixelTransparent( asge::media::Image const& inImage, std::size_t inX, std
 }
 
 asge::media::Image::Image(
-    std::size_t inW, std::size_t inH, PixelFormat inFormat, data_t const &inData
+    std::size_t inW, std::size_t inH, graphics::PixelFormat inFormat, data_t const &inData
 ) : m_Width(inW), m_Height(inH), m_Format(inFormat), m_Data(inData)
 {}
 
@@ -45,7 +45,7 @@ asge::math::Int2 asge::media::Image::Dimensions() const noexcept
     return { static_cast<int>(m_Width), static_cast<int>(m_Height) };
 }
 
-asge::media::PixelFormat asge::media::Image::Format() const noexcept
+asge::graphics::PixelFormat asge::media::Image::Format() const noexcept
 {
     return m_Format;
 }
@@ -57,7 +57,7 @@ std::uint8_t const *asge::media::Image::Data() const noexcept
 
 std::size_t asge::media::Image::Stride() const noexcept
 {
-    return m_Width * PixelFormatInfoFor(m_Format).s_BytesPerPixel;
+    return m_Width * graphics::PixelFormatInfoFor(m_Format).s_BytesPerPixel;
 }
 
 asge::math::Rect asge::media::Image::AlphaContentBounds() const noexcept
@@ -144,5 +144,5 @@ asge::Result<asge::media::Image> asge::media::DecodeImage(std::span<const std::b
     std::vector<std::uint8_t> data(pixels, pixels + dataSize);
     stbi_image_free(pixels);
 
-    return Result<Image>::Ok(Image( width, height, PixelFormat::RGBA8, std::move(data)));
+    return Result<Image>::Ok(Image( width, height, graphics::PixelFormat::RGBA8, std::move(data)));
 }

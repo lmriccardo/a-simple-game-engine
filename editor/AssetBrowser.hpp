@@ -9,7 +9,7 @@
 struct SDL_Window;
 
 /** @brief Which kind of asset an AssetBrowser entry the user clicked names. */
-enum class AssetPickKind { None, Texture, Animation, Audio };
+enum class AssetPickKind { None, Texture, Animation, Audio, Font };
 
 /**
  * @brief This frame's pick (if any) from DrawAssetBrowserPanel -- which
@@ -25,9 +25,37 @@ struct AssetPick
 };
 
 /**
- * @brief Panel listing every texture/animation-clip/audio-clip virtual path
- *        known to the editor: every distinct, non-empty Sprite::m_VirtualPath/
- *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
+ * @brief Phase 14: which action (if any) an asset row's right-click context
+ *        menu requested this frame -- CreateEntity makes a new entity with
+ *        the asset's corresponding component (Sprite/Animation/AudioSource);
+ *        AttachTo does the same to an existing entity, picked from the
+ *        menu's own submenu, instead of creating one.
+ */
+enum class AssetContextAction { None, CreateEntity, AttachTo };
+
+/**
+ * @brief DrawAssetBrowserPanel's full per-frame report. m_Pick is the
+ *        pre-Phase-14 "clicked an entry to preview it" signal, unchanged;
+ *        m_OpenCreateClip and m_ContextAction/m_ContextKind/m_ContextPath/
+ *        m_ContextTarget (Phase 14) come from a row's right-click menu
+ *        instead, and are mutually exclusive with m_Pick and each other in
+ *        practice (one user gesture per frame).
+ */
+struct AssetBrowserResult
+{
+    AssetPick          m_Pick;
+    bool               m_OpenCreateClip = false;                          // a texture row's "Create Clip" -- see DrawAssetInspectorPanel's inOpenCreateClip
+    AssetContextAction m_ContextAction  = AssetContextAction::None;
+    AssetPickKind      m_ContextKind    = AssetPickKind::None;             // asset kind m_ContextAction applies to
+    std::string        m_ContextPath;                                     // that asset's virtual path
+    asge::ecs::Entity  m_ContextTarget  = asge::ecs::Entity::Null();       // AttachTo only: the entity picked from the submenu
+};
+
+/**
+ * @brief Panel listing every texture/animation-clip/audio-clip/font virtual
+ *        path known to the editor: every distinct, non-empty
+ *        Sprite::m_VirtualPath/Animation::m_ClipPath/
+ *        AudioSource::m_VirtualClipPath/UILabel::m_FontPath currently in
  *        inRegistry (see asset::CollectAssetRefs), unioned with whatever's
  *        been explicitly imported via "Load Asset..." -- the latter exists
  *        so an empty, freshly-opened scene (no entities, so nothing to
@@ -42,16 +70,26 @@ struct AssetPick
  * texture, via media::Image::IsSupportedFile; ".toml" containing a
  * "[FrameTable]" table -> animation clip, via asset::FrameTable::IsFrameTable;
  * ".wav"/".ogg" -> audio clip, matching media::AudioClip::Load's own
- * extension dispatch).
+ * extension dispatch; ".ttf" -> font, matching media::Font::Load's own
+ * documented "loads a TTF file" contract).
  *
- * Clicking an entry (of any kind) just returns it here -- the caller shows
- * it in DrawAssetInspectorPanel, it doesn't assign anything.
+ * Clicking an entry (of any kind) just returns it in m_Pick -- the caller
+ * shows it in DrawAssetInspectorPanel, it doesn't assign anything.
+ * Right-clicking a texture/animation/audio row opens Create Entity/Attach To
+ * plus Create Clip (textures only) -- same "this file only reports what was
+ * asked, the caller (main.cpp) performs the actual Registry calls"
+ * separation DrawEntityListPanel's EntityListResult already uses for Phase
+ * 13. A font row has no such menu: unlike a texture/clip/audio path, a font
+ * path alone isn't a component gameplay code would ever attach by itself --
+ * it only ever exists as part of a UILabel, which "Create UI Element" (see
+ * editor/Inspector.hpp) is what actually authors.
  *
- * @param inHasProject "Load Asset..." is disabled while false -- an
- *        imported path only persists anywhere (a project's own known-asset
- *        list, see main.cpp's SaveProject) once one exists to persist it to.
+ * @param inHasProject "Load Asset...", "Create Entity" and "Attach To" are
+ *        disabled while false -- a created/attached-to entity gets no
+ *        SceneId to tag it into anything without an active project/scene,
+ *        same reasoning as the Entities panel's own "Create Entity" button.
  */
-AssetPick DrawAssetBrowserPanel(
+AssetBrowserResult DrawAssetBrowserPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
     bool inHasProject ) noexcept;
 
@@ -71,6 +109,9 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
 /** @brief Same as KnownTexturePaths, but the "Audio Clips" section's paths. */
 std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept;
 
+/** @brief Same as KnownTexturePaths, but the "Fonts" section's paths (Phase 16). */
+std::vector<std::string> KnownFontPaths( asge::ecs::Registry& inRegistry ) noexcept;
+
 /**
  * @brief Registers every distinct, non-empty Sprite::m_VirtualPath/
  *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
@@ -86,9 +127,9 @@ std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noex
 void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
 
 /**
- * @brief Adds inTexturePaths/inAnimationPaths/inAudioPaths to the browser's
- *        persistent "known asset" set, as if each had been explicitly
- *        "Load Asset..."-ed.
+ * @brief Adds inTexturePaths/inAnimationPaths/inAudioPaths/inFontPaths to
+ *        the browser's persistent "known asset" set, as if each had been
+ *        explicitly "Load Asset..."-ed.
  *
  * Lets Open Session restore assets that were imported but never assigned to
  * any entity -- RegisterSceneAssets alone can't recover those purely from
@@ -99,7 +140,8 @@ void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
 void ImportAssets(
     std::vector<std::string> const& inTexturePaths,
     std::vector<std::string> const& inAnimationPaths,
-    std::vector<std::string> const& inAudioPaths ) noexcept;
+    std::vector<std::string> const& inAudioPaths,
+    std::vector<std::string> const& inFontPaths = {} ) noexcept;
 
 /**
  * @brief Empties the browser's persistent "known asset" set entirely.

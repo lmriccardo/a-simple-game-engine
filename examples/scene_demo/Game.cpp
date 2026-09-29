@@ -82,8 +82,8 @@ void SceneDemoState::MoveActiveEntities(float inDeltaTime)
         auto velocity  = registry.GetComponent<Velocity>(entity);
         if ( !transform || !velocity ) continue;
 
-        transform.Value().get().m_X += velocity.Value().get().m_DX * inDeltaTime;
-        transform.Value().get().m_Y += velocity.Value().get().m_DY * inDeltaTime;
+        transform.Value().get().m_WorldCoordinates.x() += velocity.Value().get().m_DX * inDeltaTime;
+        transform.Value().get().m_WorldCoordinates.y() += velocity.Value().get().m_DY * inDeltaTime;
     }
 }
 
@@ -119,9 +119,9 @@ void SceneDemoState::RenderActiveEntities(asge::video::IRenderer &inRenderer)
         }
 
         asge::math::Rect const destRect{
-            t.m_X, t.m_Y,
-            srcW * t.m_ScaleX,
-            srcH * t.m_ScaleY
+            t.m_WorldCoordinates.x(), t.m_WorldCoordinates.y(),
+            srcW * t.m_WorldScale.x(),
+            srcH * t.m_WorldScale.y()
         };
 
         if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, destRect );
@@ -142,13 +142,13 @@ void SceneDemoState::WrapAroundScreen()
         if ( !transform ) continue;
 
         auto& t = transform.Value().get();
-        float const margin = 64.0f * std::max(t.m_ScaleX, t.m_ScaleY);
+        float const margin = 64.0f * std::max(t.m_WorldScale.x(), t.m_WorldScale.y());
 
-        if ( t.m_X < -margin )                    t.m_X = kWindowWidth + margin;
-        else if ( t.m_X > kWindowWidth + margin )  t.m_X = -margin;
+        if ( t.m_WorldCoordinates.x() < -margin )                    t.m_WorldCoordinates.x() = kWindowWidth + margin;
+        else if ( t.m_WorldCoordinates.x() > kWindowWidth + margin )  t.m_WorldCoordinates.x() = -margin;
 
-        if ( t.m_Y < -margin )                     t.m_Y = kWindowHeight + margin;
-        else if ( t.m_Y > kWindowHeight + margin )  t.m_Y = -margin;
+        if ( t.m_WorldCoordinates.y() < -margin )                     t.m_WorldCoordinates.y() = kWindowHeight + margin;
+        else if ( t.m_WorldCoordinates.y() > kWindowHeight + margin )  t.m_WorldCoordinates.y() = -margin;
     }
 }
 

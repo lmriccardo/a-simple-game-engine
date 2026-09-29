@@ -97,7 +97,7 @@ public:
         Fill( inValue );
     }
 
-    VecN( std::initializer_list<T> inList )
+    constexpr VecN( std::initializer_list<T> inList )
     {
         Zeros(); // First set all elements to zero
         std::copy_n( inList.begin(), std::min( N, inList.size() ), m_Vector );
@@ -142,13 +142,13 @@ public:
     }
 
     /* Fill the entire vector with the input value */
-    void Fill( value_type const inValue ) noexcept
+    constexpr void Fill( value_type const inValue ) noexcept
     {
         std::fill(m_Vector, m_Vector + N, inValue);
     }
 
     /* Fills the vector with zeros of the corresponding type */
-    void Zeros() noexcept 
+    constexpr void Zeros() noexcept
     {
         Fill(static_cast<value_type>(0));
     }
@@ -166,7 +166,7 @@ public:
     }
 
     /* Returns the element at given position. Throws if out of bound */
-    reference operator[]( size_type inPos )
+    constexpr reference operator[]( size_type inPos )
     {
         if ( inPos >= Size() )
         {
@@ -177,7 +177,7 @@ public:
     }
 
     /* Returns a const-reference to the element at given position. Throws if OOB */
-    const_reference operator[](size_type inPos) const
+    constexpr const_reference operator[](size_type inPos) const
     {
         if ( inPos >= Size() )
         {
