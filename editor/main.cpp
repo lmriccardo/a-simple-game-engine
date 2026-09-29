@@ -14,6 +14,8 @@
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Scene/SceneId.hpp>
+#include <ASGE/Game/Resources/ScreenSpaceCamera.hpp>
+#include <ASGE/Game/UI.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
 
 #include <imgui.h>
@@ -25,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <mutex>
@@ -56,6 +59,26 @@ using asge::ecs::components::DestroyEntityGraph;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
+
+/** @brief Phase 16: which UI widget "Create UI Element"'s Type Selection modal picked. */
+enum class UIElementType { Button, Label };
+
+/** @brief float[4] (0..1, ImGui::ColorEdit4's own range) -> RGBA_Color (0..255). */
+asge::graphics::RGBA_Color ColorFromFloat4( float const inRGBA[4] ) noexcept
+{
+    auto const toU8 = []( float inV ) noexcept
+    { return static_cast<std::uint8_t>( std::clamp( inV, 0.0f, 1.0f ) * 255.0f + 0.5f ); };
+    return { toU8( inRGBA[0] ), toU8( inRGBA[1] ), toU8( inRGBA[2] ), toU8( inRGBA[3] ) };
+}
+
+/** @brief The read-side counterpart to ColorFromFloat4. */
+void FloatFromColor( asge::graphics::RGBA_Color inColor, float outRGBA[4] ) noexcept
+{
+    outRGBA[0] = inColor.r / 255.0f;
+    outRGBA[1] = inColor.g / 255.0f;
+    outRGBA[2] = inColor.b / 255.0f;
+    outRGBA[3] = inColor.a / 255.0f;
+}
 
 /**
  * @brief Finds the topmost entity (by RenderSystem's own resolved draw
@@ -191,6 +214,10 @@ void AttachAssetComponent(
         inRegistry.AddComponent<AudioSource>( inEntity, audioSource );
         break;
     }
+    case AssetPickKind::Font:
+        // A font path alone isn't a component to attach -- see AssetBrowser.hpp's
+        // own doc comment for why the Fonts section offers no such menu item.
+        break;
     case AssetPickKind::None:
         break;
     }
@@ -490,6 +517,27 @@ int main(int, char**)
     // recomputed only on open the way the char buffer's reset is.
     char createSceneNameBuf[128] = "";
     std::string createScenePlaceholder;
+
+    // Phase 16: Create UI Element modal's own draft fields -- reset by
+    // resetUICreateDraft (below, near where the modals are drawn) each time
+    // Type Selection picks a type, same "seeded fresh on open" convention as
+    // the drafts above.
+    UIElementType uiCreateType = UIElementType::Button;
+    char uiCreateNameBuf[128] = "";
+    float uiCreatePos[2]{ 0.0f, 0.0f };
+    float uiCreateSize[2]{ asge::game::ui::consts::kButtonSize.x(), asge::game::ui::consts::kButtonSize.y() };
+    bool uiCreateAutoSize = true;      // Label only -- nullopt m_Size (fit the text) vs. uiCreateSize
+    bool uiCreateScreenSpace = true;
+    bool uiCreateEnabled = true;       // Button only
+    char uiCreateTextBuf[256] = "";
+    std::string uiCreateFontPath; // Phase 16: picked from KnownFontPaths, not hand-typed -- see DrawAssetPathCombo
+    int uiCreateFontPixelHeight = asge::game::ui::consts::kFontPixelHeight;
+    int uiCreateAlign = static_cast<int>( asge::str::TextAlign::Left );
+    int uiCreateVAlign = static_cast<int>( asge::game::components::VerticalAlign::Center );
+    float uiCreateTextColor[4]{};
+    float uiCreateButtonColor[4]{};
+    float uiCreateButtonHoverColor[4]{};
+    float uiCreateButtonPressedColor[4]{};
 
     // Scene panel's own rename field -- resynced from the active scene's
     // current name only when the active scene itself changes (tracked via
@@ -1655,6 +1703,162 @@ int main(int, char**)
             else created.LogError();
         }
 
+        // Phase 16: Create UI Element -- Type Selection -> Creation, with a
+        // Back button on the latter returning to the former. Every OpenPopup
+        // call below sits at this same top-level ID-stack depth (never
+        // issued from inside another popup's own Begin/EndPopupModal block)
+        // -- see the Grid/Game Window modals' own comment above for what
+        // silently breaks otherwise; a Back/Cancel-triggered reopen is
+        // consumed on the following frame instead; same one-frame lag as
+        // hudGroupWidth above, imperceptible here too.
+        auto const resetUICreateDraft = [&](UIElementType inType) noexcept
+        {
+            uiCreateType = inType;
+            uiCreateNameBuf[0] = '\0';
+            uiCreatePos[0] = uiCreatePos[1] = 0.0f;
+            uiCreateSize[0] = asge::game::ui::consts::kButtonSize.x();
+            uiCreateSize[1] = asge::game::ui::consts::kButtonSize.y();
+            uiCreateAutoSize = true;
+            uiCreateScreenSpace = true;
+            uiCreateEnabled = true;
+            uiCreateTextBuf[0] = '\0';
+            uiCreateFontPath.clear();
+            uiCreateFontPixelHeight = asge::game::ui::consts::kFontPixelHeight;
+            uiCreateAlign = static_cast<int>(asge::str::TextAlign::Left);
+            uiCreateVAlign = static_cast<int>(asge::game::components::VerticalAlign::Center);
+            FloatFromColor(asge::game::ui::consts::kDefaultColor, uiCreateTextColor);
+            FloatFromColor(asge::game::ui::consts::kStateColor.m_Color, uiCreateButtonColor);
+            FloatFromColor(asge::game::ui::consts::kStateColor.m_HoverColor, uiCreateButtonHoverColor);
+            FloatFromColor(asge::game::ui::consts::kStateColor.m_PressedColor, uiCreateButtonPressedColor);
+        };
+
+        bool wantOpenUICreate = false;
+        if (entityListResult.m_CreateUIElementClicked) ImGui::OpenPopup("Select UI Element Type");
+
+        if (ImGui::BeginPopupModal("Select UI Element Type", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (ImGui::Selectable("Button"))
+            {
+                resetUICreateDraft(UIElementType::Button);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::Selectable("Label"))
+            {
+                resetUICreateDraft(UIElementType::Label);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::Separator();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
+        if (wantOpenUICreate) ImGui::OpenPopup("Create UI Element");
+
+        bool wantOpenUIType = false;
+        if (ImGui::BeginPopupModal("Create UI Element", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            bool const isButton = uiCreateType == UIElementType::Button;
+            ImGui::Text("Type: %s", isButton ? "Button" : "Label");
+            ImGui::InputTextWithHint("Name", "(unnamed)", uiCreateNameBuf, sizeof(uiCreateNameBuf));
+            ImGui::DragFloat2("Position", uiCreatePos);
+            ImGui::Checkbox("Screen Space", &uiCreateScreenSpace);
+
+            if (isButton)
+            {
+                ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
+                ImGui::Checkbox("Enabled", &uiCreateEnabled);
+                ImGui::ColorEdit4("Color", uiCreateButtonColor);
+                ImGui::ColorEdit4("Hover Color", uiCreateButtonHoverColor);
+                ImGui::ColorEdit4("Pressed Color", uiCreateButtonPressedColor);
+            }
+            else
+            {
+                ImGui::Checkbox("Auto Size", &uiCreateAutoSize);
+                if (!uiCreateAutoSize) ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
+            }
+
+            ImGui::Separator();
+            ImGui::TextUnformatted(isButton ? "Button Text (optional)" : "Text");
+            ImGui::InputText("Content", uiCreateTextBuf, sizeof(uiCreateTextBuf));
+            // Font is a loadable asset like Texture/Audio/Animation (Phase
+            // 16) -- picked from what's known to be loaded, same
+            // DrawAssetPathCombo widget Sprite/AudioSource/Animation's own
+            // dropdowns use, not a hand-typed path.
+            DrawAssetPathCombo("Font Path", uiCreateFontPath, KnownFontPaths(sceneManager.GetRegistry()));
+            ImGui::DragInt("Font Size", &uiCreateFontPixelHeight, 1.0f, 1, 256);
+            if (ImGui::IsItemHovered())
+            {
+                auto const atlasSize = asge::media::Font::GetAtlasSize();
+                ImGui::SetTooltip(
+                    "Every font bakes into a fixed %dx%d atlas -- too large a size for a "
+                    "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y());
+            }
+            static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
+            ImGui::Combo("Align", &uiCreateAlign, kAlignNames, 4);
+            static char const* const kVAlignNames[]{ "Top", "Center", "Bottom" };
+            ImGui::Combo("Vertical Align", &uiCreateVAlign, kVAlignNames, 3);
+            ImGui::ColorEdit4("Text Color", uiCreateTextColor);
+
+            ImGui::Separator();
+            if (ImGui::Button("Back"))
+            {
+                wantOpenUIType = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Discard")) ImGui::CloseCurrentPopup();
+            ImGui::SameLine();
+            if (ImGui::Button("Create"))
+            {
+                asge::game::ui::TextDesc text;
+                text.m_Content = uiCreateTextBuf;
+                text.m_FontPath = uiCreateFontPath;
+                text.m_FontPixelHeight = uiCreateFontPixelHeight;
+                text.m_Align = static_cast<asge::str::TextAlign>(uiCreateAlign);
+                text.m_VerticalAlign = static_cast<asge::game::components::VerticalAlign>(uiCreateVAlign);
+                text.m_Color = ColorFromFloat4(uiCreateTextColor);
+
+                // Phase 16: MUST go through UI.hpp's own Create*, not a
+                // hand-rolled AddComponent sequence -- these are the exact
+                // functions gameplay code uses to spawn a Button/Label.
+                auto created = isButton
+                    ? asge::game::ui::CreateButton(sceneManager.GetRegistry(), asge::game::ui::ButtonDesc{
+                          .m_Name = uiCreateNameBuf, .m_Enabled = uiCreateEnabled,
+                          .m_Position = { uiCreatePos[0], uiCreatePos[1] },
+                          .m_Size = { uiCreateSize[0], uiCreateSize[1] },
+                          .m_Colors = { ColorFromFloat4(uiCreateButtonColor), ColorFromFloat4(uiCreateButtonHoverColor),
+                                        ColorFromFloat4(uiCreateButtonPressedColor) },
+                          .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text })
+                    : asge::game::ui::CreateLabel(sceneManager.GetRegistry(), asge::game::ui::LabelDesc{
+                          .m_Name = uiCreateNameBuf, .m_Position = { uiCreatePos[0], uiCreatePos[1] },
+                          .m_Size = uiCreateAutoSize
+                              ? std::nullopt : std::optional<asge::math::Float2>({ uiCreateSize[0], uiCreateSize[1] }),
+                          .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text });
+
+                if (created)
+                {
+                    if (auto const& path = sceneManager.CurrentScenePath())
+                    {
+                        sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                            created.Value(), asge::game::scene::SceneId{*path});
+                    }
+                    selectedEntity = created.Value();
+                    // A freshly-created UILabel/RenderInfo has nothing
+                    // resolved yet (m_Font/m_Texture stay null) until this
+                    // runs -- same reasoning as
+                    // AssetContextAction::CreateEntity/AttachTo above.
+                    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                    MarkActiveSceneDirty(currentProject);
+                    ImGui::CloseCurrentPopup();
+                }
+                else created.LogError(); // e.g. text content with no font path -- left open so it can be fixed
+            }
+            ImGui::EndPopup();
+        }
+        if (wantOpenUIType) ImGui::OpenPopup("Select UI Element Type");
+
         // Phase 13: New Child/Detach/Remove (the Entities tree's row context
         // menu) and Reparent (a row dropped onto another) -- same "goes
         // through the same Registry/Hierarchy calls gameplay code uses" as
@@ -1712,6 +1916,7 @@ int main(int, char**)
             KnownTexturePaths(sceneManager.GetRegistry()),
             KnownAnimationPaths(sceneManager.GetRegistry()),
             KnownAudioPaths(sceneManager.GetRegistry()),
+            KnownFontPaths(sceneManager.GetRegistry()),
             waypointEdit, colliderDraw);
 
         if (inspectorResult.m_FieldChanged) MarkActiveSceneDirty(currentProject);
@@ -1838,6 +2043,18 @@ int main(int, char**)
         }
 
         ImGui::Render();
+
+        // The editor hijacks IRenderer's camera for its own free-roam pan/
+        // zoom navigation rather than following a components::Camera entity
+        // -- without this, RenderSystem's screen-space content would stay
+        // glued to the window's own raw corner regardless of where that
+        // navigation is currently looking, instead of panning/zooming
+        // together with everything else (see ScreenSpaceCamera's own doc
+        // comment). CameraSystem never overwrites this camera in the editor
+        // (resources::ActiveCamera is never set here), so the value read
+        // here is exactly what RenderSystem will see.
+        sceneManager.GetRegistry().SetResource(
+            asge::game::resources::ScreenSpaceCamera{ videoSys.GetRenderer().GetCamera() });
 
         videoSys.GetRenderer().Clear({ 15, 15, 20, 255 });
         asge::game::systems::RenderPipeline(

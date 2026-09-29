@@ -4,6 +4,7 @@
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
 
 #include <imgui.h>
@@ -23,6 +24,16 @@ asge::math::Rect GetEntityWorldBounds(
     if ( auto spriteResult = inRegistry.GetComponent<Sprite>( inEntity ) )
     {
         if ( auto dst = SpriteGetDstRect( spriteResult.Value().get(), inTransform ) ) bounds = *dst;
+    }
+    else if ( auto rectResult = inRegistry.GetComponent<UIRect>( inEntity ) )
+    {
+        // Same RectFromSize math RenderSystem.cpp's own Collect<UIRect> uses
+        // for its destination rect -- a UI widget (Button/Label) is picked
+        // by its real footprint, not the generic point fallback below.
+        auto const& size = rectResult.Value().get().m_Size;
+        bounds = asge::math::Rect{
+            inTransform.m_WorldCoordinates.x(), inTransform.m_WorldCoordinates.y(),
+            size.x() * inTransform.m_WorldScale.x(), size.y() * inTransform.m_WorldScale.y() };
     }
 
     // Widened (never shrunk) to at least this size, centered on whatever the
@@ -70,6 +81,11 @@ std::optional<GizmoHandlePoints> ComputeGizmoHandles(
 
     auto const worldBounds = GetEntityWorldBounds( inRegistry, inSelected, transformResult.Value().get() );
 
+    // The editor sets resources::ScreenSpaceCamera to this same live camera
+    // every frame (see main.cpp), so RenderSystem draws a screen-space
+    // entity through it too -- the gizmo can just use it uniformly for every
+    // entity rather than re-deriving which camera a given entity resolves
+    // under.
     auto const& camera = inRenderer.GetCamera();
     auto const& viewport = inRenderer.GetViewport();
     auto const screenMin = asge::video::WorldToScreen(

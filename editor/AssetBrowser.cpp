@@ -13,6 +13,7 @@
 #include <imgui.h>
 
 #include <filesystem>
+#include <iterator>
 #include <set>
 #include <string>
 
@@ -28,6 +29,7 @@ using asge::game::asset::CollectAssetRefs;
 std::set<std::string> g_LoadedTextures;
 std::set<std::string> g_LoadedAnimations;
 std::set<std::string> g_LoadedAudio;
+std::set<std::string> g_LoadedFonts;
 
 // SDL_ShowOpenFileDialog's async result -- same FileDialogResult/
 // DrainFileDialogResult plumbing main.cpp's scene dialogs use.
@@ -39,6 +41,7 @@ constexpr SDL_DialogFileFilter kAssetFilters[]{
     { "Images", "png;jpg;jpeg;bmp;tga;gif" },
     { "Animation clip (*.toml)", "toml" },
     { "Audio", "wav;ogg" },
+    { "Font", "ttf" },
 };
 
 // media::AudioClip has no IsSupportedFile equivalent to Image's -- it
@@ -50,9 +53,18 @@ bool HasAudioExtension( fs::path const& inPath ) noexcept
     return inPath.extension() == ".wav" || inPath.extension() == ".ogg";
 }
 
+// media::Font::Load's own doc comment documents only ".ttf" (stb_truetype
+// under the hood) -- mirrored exactly rather than guessing at broader
+// TrueType/OpenType support it never claimed.
+bool HasFontExtension( fs::path const& inPath ) noexcept
+{
+    return inPath.extension() == ".ttf";
+}
+
 void CollectUsedPaths(
     asge::ecs::Registry& inRegistry,
-    std::set<std::string>& outTextures, std::set<std::string>& outAnimations, std::set<std::string>& outAudio ) noexcept
+    std::set<std::string>& outTextures, std::set<std::string>& outAnimations, std::set<std::string>& outAudio,
+    std::set<std::string>& outFonts ) noexcept
 {
     for ( auto const& ref : CollectAssetRefs( inRegistry ) )
     {
@@ -61,6 +73,7 @@ void CollectUsedPaths(
         case AssetKind::Texture:       outTextures.insert( ref.m_VirtualPath ); break;
         case AssetKind::AnimationClip: outAnimations.insert( ref.m_VirtualPath ); break;
         case AssetKind::AudioClip:     outAudio.insert( ref.m_VirtualPath ); break;
+        case AssetKind::Font:          outFonts.insert( ref.m_VirtualPath ); break;
         }
     }
 }
@@ -68,25 +81,33 @@ void CollectUsedPaths(
 std::set<std::string> MergedTextures( asge::ecs::Registry& inRegistry ) noexcept
 {
     std::set<std::string> textures = g_LoadedTextures;
-    std::set<std::string> animations, audio; // discarded -- caller only wants textures
-    CollectUsedPaths( inRegistry, textures, animations, audio );
+    std::set<std::string> animations, audio, fonts; // discarded -- caller only wants textures
+    CollectUsedPaths( inRegistry, textures, animations, audio, fonts );
     return textures;
 }
 
 std::set<std::string> MergedAnimations( asge::ecs::Registry& inRegistry ) noexcept
 {
-    std::set<std::string> textures, audio; // discarded -- caller only wants animations
+    std::set<std::string> textures, audio, fonts; // discarded -- caller only wants animations
     std::set<std::string> animations = g_LoadedAnimations;
-    CollectUsedPaths( inRegistry, textures, animations, audio );
+    CollectUsedPaths( inRegistry, textures, animations, audio, fonts );
     return animations;
 }
 
 std::set<std::string> MergedAudio( asge::ecs::Registry& inRegistry ) noexcept
 {
-    std::set<std::string> textures, animations; // discarded -- caller only wants audio
+    std::set<std::string> textures, animations, fonts; // discarded -- caller only wants audio
     std::set<std::string> audio = g_LoadedAudio;
-    CollectUsedPaths( inRegistry, textures, animations, audio );
+    CollectUsedPaths( inRegistry, textures, animations, audio, fonts );
     return audio;
+}
+
+std::set<std::string> MergedFonts( asge::ecs::Registry& inRegistry ) noexcept
+{
+    std::set<std::string> textures, animations, audio; // discarded -- caller only wants fonts
+    std::set<std::string> fonts = g_LoadedFonts;
+    CollectUsedPaths( inRegistry, textures, animations, audio, fonts );
+    return fonts;
 }
 
 // Phase 14: one asset row's right-click menu -- Create Entity/Attach To for
@@ -159,23 +180,32 @@ std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noex
     return { audio.begin(), audio.end() };
 }
 
+std::vector<std::string> KnownFontPaths( asge::ecs::Registry& inRegistry ) noexcept
+{
+    auto const fonts = MergedFonts( inRegistry );
+    return { fonts.begin(), fonts.end() };
+}
+
 void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept
 {
-    std::set<std::string> textures, animations, audio;
-    CollectUsedPaths( inRegistry, textures, animations, audio );
+    std::set<std::string> textures, animations, audio, fonts;
+    CollectUsedPaths( inRegistry, textures, animations, audio, fonts );
     g_LoadedTextures.insert( textures.begin(), textures.end() );
     g_LoadedAnimations.insert( animations.begin(), animations.end() );
     g_LoadedAudio.insert( audio.begin(), audio.end() );
+    g_LoadedFonts.insert( fonts.begin(), fonts.end() );
 }
 
 void ImportAssets(
     std::vector<std::string> const& inTexturePaths,
     std::vector<std::string> const& inAnimationPaths,
-    std::vector<std::string> const& inAudioPaths ) noexcept
+    std::vector<std::string> const& inAudioPaths,
+    std::vector<std::string> const& inFontPaths ) noexcept
 {
     g_LoadedTextures.insert( inTexturePaths.begin(), inTexturePaths.end() );
     g_LoadedAnimations.insert( inAnimationPaths.begin(), inAnimationPaths.end() );
     g_LoadedAudio.insert( inAudioPaths.begin(), inAudioPaths.end() );
+    g_LoadedFonts.insert( inFontPaths.begin(), inFontPaths.end() );
 }
 
 void ClearKnownAssets() noexcept
@@ -183,6 +213,7 @@ void ClearKnownAssets() noexcept
     g_LoadedTextures.clear();
     g_LoadedAnimations.clear();
     g_LoadedAudio.clear();
+    g_LoadedFonts.clear();
 }
 
 AssetBrowserResult DrawAssetBrowserPanel(
@@ -237,9 +268,15 @@ AssetBrowserResult DrawAssetBrowserPanel(
                     g_LoadedAudio.insert( virtualPath );
                     LOG_INFO( "Loaded audio clip ", virtualPath );
                 }
+                else if ( HasFontExtension( picked ) )
+                {
+                    g_LoadedFonts.insert( virtualPath );
+                    LOG_INFO( "Loaded font ", virtualPath );
+                }
                 else
                 {
-                    LOG_WARNING( "\"", virtualPath, "\" is not a recognized image, FrameTable clip, or audio file" );
+                    LOG_WARNING(
+                        "\"", virtualPath, "\" is not a recognized image, FrameTable clip, audio, or font file" );
                 }
             }
         }
@@ -248,15 +285,16 @@ AssetBrowserResult DrawAssetBrowserPanel(
     std::set<std::string> const textures = MergedTextures( inRegistry );
     std::set<std::string> const animations = MergedAnimations( inRegistry );
     std::set<std::string> const audio = MergedAudio( inRegistry );
+    std::set<std::string> const fonts = MergedFonts( inRegistry );
 
-    // Whether an entity's Sprite/Animation/AudioSource actually references a
-    // path right now -- checked before the "x" is allowed to remove it. The
-    // already-loaded ITexture/clip an entity is using stays cached regardless
-    // of this panel's own bookkeeping, so silently un-importing a path still
-    // in use wouldn't stop it rendering/playing; it would just make the
-    // panel lie about what's actually bound.
-    std::set<std::string> usedTextures, usedAnimations, usedAudio;
-    CollectUsedPaths( inRegistry, usedTextures, usedAnimations, usedAudio );
+    // Whether an entity's Sprite/Animation/AudioSource/UILabel actually
+    // references a path right now -- checked before the "x" is allowed to
+    // remove it. The already-loaded ITexture/clip/Font an entity is using
+    // stays cached regardless of this panel's own bookkeeping, so silently
+    // un-importing a path still in use wouldn't stop it rendering/playing;
+    // it would just make the panel lie about what's actually bound.
+    std::set<std::string> usedTextures, usedAnimations, usedAudio, usedFonts;
+    CollectUsedPaths( inRegistry, usedTextures, usedAnimations, usedAudio, usedFonts );
 
     AssetBrowserResult result;
 
@@ -287,7 +325,7 @@ AssetBrowserResult DrawAssetBrowserPanel(
                 auto const defaultLocation = DialogDefaultLocation( g_PendingLoadDir );
                 SDL_ShowOpenFileDialog(
                     OnFileDialogResult, &g_LoadDialogResult, inWindow,
-                    kAssetFilters, 3, defaultLocation.c_str(), false );
+                    kAssetFilters, static_cast<int>( std::size( kAssetFilters ) ), defaultLocation.c_str(), false );
                 ImGui::CloseCurrentPopup();
             }
         }
@@ -401,6 +439,40 @@ AssetBrowserResult DrawAssetBrowserPanel(
             ImGui::PopID();
         }
         if ( audio.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
+        ImGui::TreePop();
+    }
+
+    if ( ImGui::TreeNodeEx( "Fonts", ImGuiTreeNodeFlags_DefaultOpen ) )
+    {
+        // No DrawAssetContextMenu here -- unlike a texture/clip/audio path, a
+        // font path alone isn't a component gameplay code ever attaches by
+        // itself (see this file's own header doc comment); pick-to-inspect
+        // and un-import are all a font row offers.
+        for ( auto const& path : fonts )
+        {
+            ImGui::PushID( path.c_str() );
+            if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
+            {
+                result.m_Pick = { AssetPickKind::Font, path };
+            }
+            if ( g_LoadedFonts.count( path ) )
+            {
+                ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
+                if ( ImGui::SmallButton( "x" ) )
+                {
+                    if ( usedFonts.count( path ) )
+                    {
+                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
+                    }
+                    else
+                    {
+                        g_LoadedFonts.erase( path );
+                    }
+                }
+            }
+            ImGui::PopID();
+        }
+        if ( fonts.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
         ImGui::TreePop();
     }
 

@@ -12,6 +12,8 @@
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
+#include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Core/ECS/Markers.hpp>
 
 #include <imgui.h>
@@ -94,34 +96,6 @@ bool DrawTextField( char const* inLabel, std::string& ioValue ) noexcept
         return true;
     }
     return false;
-}
-
-// A dropdown restricted to inKnownPaths plus a leading "None" entry -- same
-// shape as DrawAddComponentControl's own "##SpriteTexture" combo below, but
-// with "None" for "no asset assigned yet" (Add-Component's combo has no such
-// option since a Sprite there always gets a real texture up front). The
-// current selection is whichever inKnownPaths entry equals ioPath (or
-// "None" if it's empty or not present in the list, e.g. a freshly-added
-// component). ImGui::Combo only returns true on the frame the picked index
-// actually changes, so this naturally resolves on selection-changed rather
-// than on every frame or keystroke.
-bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept
-{
-    std::vector<char const*> items;
-    items.reserve( inKnownPaths.size() + 1 );
-    items.push_back( "None" );
-    for ( auto const& path : inKnownPaths ) items.push_back( path.c_str() );
-
-    int current = 0;
-    for ( std::size_t i = 0; i < inKnownPaths.size(); ++i )
-    {
-        if ( inKnownPaths[i] == ioPath ) { current = static_cast<int>( i ) + 1; break; }
-    }
-
-    if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
-
-    ioPath = current == 0 ? std::string{} : inKnownPaths[current - 1];
-    return true;
 }
 
 // Phase 11: every DrawInspector now returns bool (true if it changed
@@ -379,6 +353,115 @@ bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Entity inEntity, Waypoi
     return changed;
 }
 
+// ImGui::ColorEdit4 works in float[4] (0..1); RGBA_Color is uint8 (0..255) --
+// converts both ways, same round-trip shape DrawTextField's scratch buffer
+// is for std::string/InputText.
+bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept
+{
+    float rgba[4]{ ioColor.r / 255.0f, ioColor.g / 255.0f, ioColor.b / 255.0f, ioColor.a / 255.0f };
+    if ( !ImGui::ColorEdit4( inLabel, rgba ) ) return false;
+
+    auto const toU8 = []( float inV ) noexcept
+    { return static_cast<std::uint8_t>( std::clamp( inV, 0.0f, 1.0f ) * 255.0f + 0.5f ); };
+    ioColor = { toU8( rgba[0] ), toU8( rgba[1] ), toU8( rgba[2] ), toU8( rgba[3] ) };
+    return true;
+}
+
+// Phase 16: UIRect/Interactable/UIButton/UILabel are never in kComponentEntries
+// (see DrawSection's own "no entry -> no remove button" fallback) -- a UI
+// widget is a bundle CreateButton/CreateLabel assembles together (see
+// src/ASGE/Game/UI.hpp), not something addable/removable component-by-
+// component; deleting the whole entity is how one goes away.
+// inEntity/inRegistry are only for checking a sibling UILabel's m_AutoSize
+// (Phase 16) -- RenderSystem overwrites m_Size from the label's own measured
+// text every frame while that's set (see RenderSystem.hpp's own doc
+// comment), so editing it here would just get silently stomped right back.
+bool DrawInspector( UIRect& inRect, asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    bool const autoSized = [&]
+    {
+        auto label = inRegistry.GetComponent<UILabel>( inEntity );
+        return label && label.Value().get().m_AutoSize;
+    }();
+
+    if ( autoSized )
+    {
+        ImGui::BeginDisabled();
+        float size[2]{ inRect.m_Size.x(), inRect.m_Size.y() };
+        ImGui::DragFloat2( "Size", size );
+        ImGui::EndDisabled();
+        ImGui::TextDisabled( "(sized automatically -- see UILabel's Auto Size)" );
+        return false;
+    }
+
+    float size[2]{ inRect.m_Size.x(), inRect.m_Size.y() };
+    if ( !ImGui::DragFloat2( "Size", size, 1.0f, 1.0f, 4096.0f ) ) return false;
+    inRect.m_Size = { size[0], size[1] };
+    return true;
+}
+
+// m_Hovered/m_Held/m_Clicked are runtime-only (systems::UIInteractionSystem
+// recomputes them every frame -- see Interactable's own doc comment), so
+// only m_Enabled is exposed here.
+bool DrawInspector( Interactable& inInteractable ) noexcept
+{
+    return ImGui::Checkbox( "Enabled", &inInteractable.m_Enabled );
+}
+
+// m_OnClick is a runtime signal, not something a scene file describes --
+// nothing here to expose.
+bool DrawInspector( UIButton& inButton ) noexcept
+{
+    bool changed = DrawColorField( "Color", inButton.m_Colors.m_Color );
+    if ( DrawColorField( "Hover Color", inButton.m_Colors.m_HoverColor ) ) changed = true;
+    if ( DrawColorField( "Pressed Color", inButton.m_Colors.m_PressedColor ) ) changed = true;
+    return changed;
+}
+
+// m_FontPath is a dropdown restricted to inKnownFonts (Phase 16, same
+// "picked from what's known to be loaded" treatment Sprite/Animation/
+// AudioSource's own paths already get) -- the return reports only whether
+// that selection changed, since only a font change needs
+// AssetManager::ResolveAssets re-run (same narrow-trigger reasoning as
+// Sprite's own DrawInspector above).
+bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFonts ) noexcept
+{
+    bool changed = DrawAssetPathCombo( "Font Path", inLabel.m_FontPath, inKnownFonts );
+
+    DrawTextField( "Text", inLabel.m_Text );
+
+    static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
+    int align = static_cast<int>( inLabel.m_Align );
+    if ( ImGui::Combo( "Align", &align, kAlignNames, 4 ) )
+    {
+        inLabel.m_Align = static_cast<asge::str::TextAlign>( align );
+    }
+
+    static char const* const kVAlignNames[]{ "Top", "Center", "Bottom" };
+    int valign = static_cast<int>( inLabel.m_VerticalAlign );
+    if ( ImGui::Combo( "Vertical Align", &valign, kVAlignNames, 3 ) )
+    {
+        inLabel.m_VerticalAlign = static_cast<VerticalAlign>( valign );
+    }
+
+    DrawColorField( "Color", inLabel.m_Color );
+    // A pixel-height change needs the same re-resolve a path change does --
+    // AssetManager::GetFont caches by (path, pixel height), so this is a
+    // different baked Font asset, not just a bigger/smaller draw of the same
+    // one (see Resolver<UILabel>'s own doc comment).
+    if ( ImGui::DragInt( "Font Size", &inLabel.m_FontPixelHeight, 1.0f, 1, 256 ) ) changed = true;
+    if ( ImGui::IsItemHovered() )
+    {
+        auto const atlasSize = asge::media::Font::GetAtlasSize();
+        ImGui::SetTooltip(
+            "Every font bakes into a fixed %dx%d atlas -- too large a size for a "
+            "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y() );
+    }
+    ImGui::Checkbox( "Auto Size", &inLabel.m_AutoSize );
+
+    return changed;
+}
+
 // One entry per DrawSection<T> call below -- reused to drive "Add
 // Component"'s list, since the set of addable types is exactly the set of
 // drawable types. Function pointers (not std::function) since every
@@ -553,12 +636,20 @@ bool DrawSection( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, c
     {
         ImGui::PushID( inName );
         ImGui::SeparatorText( inName );
-        ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-        if ( ImGui::SmallButton( "x" ) )
+
+        // No entry -- a Phase 16 UI component type, never addable/removable
+        // through the generic control (see this template's own doc comment
+        // above) -- means no "x" at all, rather than dereferencing a null
+        // ComponentEntry*.
+        if ( ComponentEntry const* entry = FindComponentEntry( inName ) )
         {
-            FindComponentEntry( inName )->m_Remove( inRegistry, inEntity );
-            ImGui::PopID();
-            return true;
+            ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
+            if ( ImGui::SmallButton( "x" ) )
+            {
+                entry->m_Remove( inRegistry, inEntity );
+                ImGui::PopID();
+                return true;
+            }
         }
 
         bool changed = false;
@@ -715,11 +806,35 @@ void DrawEntityTreeNode(
 
 }
 
+// Declared in Inspector.hpp (Phase 16) so main.cpp's Create UI Element modal
+// can reuse the exact same widget for its Font Path field, not a second,
+// hand-typed one -- see the header doc comment for the shape/behavior.
+bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept
+{
+    std::vector<char const*> items;
+    items.reserve( inKnownPaths.size() + 1 );
+    items.push_back( "None" );
+    for ( auto const& path : inKnownPaths ) items.push_back( path.c_str() );
+
+    int current = 0;
+    for ( std::size_t i = 0; i < inKnownPaths.size(); ++i )
+    {
+        if ( inKnownPaths[i] == ioPath ) { current = static_cast<int>( i ) + 1; break; }
+    }
+
+    if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
+
+    ioPath = current == 0 ? std::string{} : inKnownPaths[current - 1];
+    return true;
+}
+
 // inEntity's Name::m_Name if it has one and it's non-empty, else "Entity #N"
-// -- used for both the entity list and the inspector header, so the two
-// panels never disagree about what to call an entity. Declared in
-// Inspector.hpp (Phase 14) so AssetBrowser.cpp's "Attach To" submenu can
-// label entities the same way.
+// ("Button #N"/"Label #N" for a UIButton/UILabel entity, Phase 16 -- checked
+// in that order since a Button's own caption text also carries a UILabel) --
+// used for both the entity list and the inspector header, so the two panels
+// never disagree about what to call an entity. Declared in Inspector.hpp
+// (Phase 14) so AssetBrowser.cpp's "Attach To" submenu can label entities
+// the same way.
 std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
 {
     auto const displayId = GetOrAssignDisplayId( inEntity ); // always assigned, even if Name ends up used instead
@@ -728,8 +843,12 @@ std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity i
         return r.Value().get().m_Name;
     }
 
+    char const* prefix = "Entity";
+    if ( inRegistry.HasComponent<UIButton>( inEntity ) ) prefix = "Button";
+    else if ( inRegistry.HasComponent<UILabel>( inEntity ) ) prefix = "Label";
+
     char buf[32];
-    std::snprintf( buf, sizeof(buf), "Entity #%u", displayId );
+    std::snprintf( buf, sizeof(buf), "%s #%u", prefix, displayId );
     return buf;
 }
 
@@ -752,6 +871,12 @@ EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs
     ImGui::Begin( "Entities" );
     if ( !inHasProject ) ImGui::BeginDisabled();
     result.m_CreateClicked = ImGui::Button( "Create Entity" );
+    ImGui::SameLine();
+    // Phase 16: the actual Button/Label construction goes through main.cpp's
+    // Type Selection -> Creation modal flow (UI::CreateButton/CreateLabel),
+    // not here -- this panel only reports the click, same division of labor
+    // as "Create Entity" itself.
+    result.m_CreateUIElementClicked = ImGui::Button( "Create UI Element" );
     if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
 
@@ -787,6 +912,7 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
+    std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
     ColliderDrawState& ioColliderDraw ) noexcept
 {
@@ -879,6 +1005,18 @@ InspectorResult DrawInspectorPanel(
     componentsChanged |= animationChanged; fieldChanged |= animationChanged;
     bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow", inSelected, ioWaypointEdit );
     fieldChanged |= pathFollowChanged;
+
+    // Phase 16: UIRect/Interactable/UIButton/UILabel -- view/edit-only, see
+    // DrawSection's own "no entry -> no remove button" fallback above for why
+    // these never get an "x" the way every section before this does.
+    bool const uiRectChanged = DrawSection<UIRect>( inRegistry, inSelected, "UIRect", inRegistry, inSelected );
+    fieldChanged |= uiRectChanged;
+    bool const interactableChanged = DrawSection<Interactable>( inRegistry, inSelected, "Interactable" );
+    fieldChanged |= interactableChanged;
+    bool const uiButtonChanged = DrawSection<UIButton>( inRegistry, inSelected, "UIButton" );
+    fieldChanged |= uiButtonChanged;
+    bool const uiLabelChanged = DrawSection<UILabel>( inRegistry, inSelected, "UILabel", inKnownFonts );
+    componentsChanged |= uiLabelChanged; fieldChanged |= uiLabelChanged;
 
     bool const addComponentClicked = DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
     componentsChanged |= addComponentClicked; fieldChanged |= addComponentClicked;

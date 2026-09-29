@@ -10,10 +10,12 @@ struct ImDrawList;
 
 /**
  * @brief inEntity's world-space bounding rect for viewport purposes
- *        (picking, gizmo placement): its Sprite's destination rect if it
- *        has one and it's resolved, else a 1x1 point at inTransform's
- *        position -- the one place this fallback is defined, shared by
- *        PickEntityAt (main.cpp) and the gizmo below.
+ *        (picking, gizmo placement): its Sprite's destination rect if it has
+ *        one and it's resolved, else its UIRect's own rect (Phase 16 --
+ *        same RectFromSize math RenderSystem.cpp's own Collect<UIRect>
+ *        uses), else a 1x1 point at inTransform's position -- the one place
+ *        this fallback is defined, shared by PickEntityAt (main.cpp) and
+ *        the gizmo below.
  */
 asge::math::Rect GetEntityWorldBounds(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity,

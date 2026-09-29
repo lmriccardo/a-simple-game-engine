@@ -29,6 +29,7 @@ asge::BoolResult SaveProject(
     builder.SetArray( "Textures", KnownTexturePaths( inRegistry ) );
     builder.SetArray( "Animations", KnownAnimationPaths( inRegistry ) );
     builder.SetArray( "Audio", KnownAudioPaths( inRegistry ) );
+    builder.SetArray( "Fonts", KnownFontPaths( inRegistry ) );
 
     std::vector<std::string> scenePaths;
     scenePaths.reserve( inProject.m_Scenes.size() );
@@ -94,7 +95,8 @@ asge::BoolResult LoadProject(
     ImportAssets(
         doc.GetArray<std::string>( "Textures" ),
         doc.GetArray<std::string>( "Animations" ),
-        doc.GetArray<std::string>( "Audio" ) );
+        doc.GetArray<std::string>( "Audio" ),
+        doc.GetArray<std::string>( "Fonts" ) );
 
     outProject = Project{};
     outProject.m_FilePath = inPath;

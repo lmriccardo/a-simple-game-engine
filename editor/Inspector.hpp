@@ -28,15 +28,29 @@ constexpr float kEditorPanelRightMargin = 10.0f;
 enum class HierarchyAction { None, NewChild, Detach, Remove, Reparent };
 
 /**
+ * @brief A dropdown restricted to inKnownPaths plus a leading "None" entry --
+ *        the current selection is whichever entry equals ioPath (or "None"
+ *        if it's empty or not present in the list). Only returns true the
+ *        frame the picked index actually changes. Backs every asset-owning
+ *        field's own picker (Sprite/Animation/AudioSource's dropdowns below,
+ *        Phase 10; the Create UI Element modal's Font Path field, Phase 16)
+ *        rather than a hand-typed, unresolved path.
+ */
+bool DrawAssetPathCombo(
+    char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept;
+
+/**
  * @brief DrawEntityListPanel's full per-frame report. m_CreateClicked is
- *        the pre-Phase-13 "Create Entity" button signal, unchanged; m_Action
- *        (Phase 13) is mutually exclusive with it in practice (one user
- *        gesture per frame) but reported independently since they come from
- *        different widgets.
+ *        the pre-Phase-13 "Create Entity" button signal, unchanged;
+ *        m_CreateUIElementClicked (Phase 16) is its "Create UI Element"
+ *        sibling button; m_Action (Phase 13) is mutually exclusive with
+ *        either in practice (one user gesture per frame) but reported
+ *        independently since they come from different widgets.
  */
 struct EntityListResult
 {
-    bool              m_CreateClicked = false;
+    bool              m_CreateClicked           = false;
+    bool              m_CreateUIElementClicked  = false;
     HierarchyAction   m_Action        = HierarchyAction::None;
     asge::ecs::Entity m_Target        = asge::ecs::Entity::Null(); // entity m_Action applies to (the dragged entity, for Reparent)
     asge::ecs::Entity m_NewParent     = asge::ecs::Entity::Null(); // Reparent only: the row it was dropped onto
@@ -139,6 +153,8 @@ struct ColliderDrawState
  *        (see KnownAnimationPaths).
  * @param inKnownAudio Same as inKnownTextures, for
  *        AudioSource::m_VirtualClipPath (see KnownAudioPaths).
+ * @param inKnownFonts Same as inKnownTextures, for UILabel::m_FontPath (see
+ *        KnownFontPaths, Phase 16).
  * @param ioWaypointEdit See WaypointEditState's own doc comment.
  * @param ioColliderDraw See ColliderDrawState's own doc comment.
  * @return See InspectorResult's own doc comment.
@@ -148,6 +164,7 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownTextures,
     std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
+    std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
     ColliderDrawState& ioColliderDraw ) noexcept;
 
@@ -160,11 +177,12 @@ InspectorResult DrawInspectorPanel(
 void ResetEntityDisplayIds() noexcept;
 
 /**
- * @brief inEntity's Name::m_Name if it has one and it's non-empty, else
- *        "Entity #N" (a stable, ever-increasing id assigned the first time
- *        this entity is seen -- see ResetEntityDisplayIds). Used by the
- *        Entities tree and Inspector header; exposed here (Phase 14) so
- *        AssetBrowser.cpp's "Attach To" submenu lists entities under the
- *        same names.
+ * @brief inEntity's Name::m_Name if it has one and it's non-empty, else a
+ *        type-aware fallback -- "Button #N"/"Label #N" for a UIButton/
+ *        UILabel entity (Phase 16), "Entity #N" otherwise -- N a stable,
+ *        ever-increasing id assigned the first time this entity is seen
+ *        (see ResetEntityDisplayIds). Used by the Entities tree and
+ *        Inspector header; exposed here (Phase 14) so AssetBrowser.cpp's
+ *        "Attach To" submenu lists entities under the same names.
  */
 std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept;

@@ -13,8 +13,10 @@
 #include <algorithm>
 #include <filesystem>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 namespace
 {
@@ -185,6 +187,23 @@ void DrawAssetInspectorPanel(
         {
             ImGui::Text( "Dimensions: unknown" );
         }
+    }
+    else if ( inSelectedAsset.m_Kind == AssetPickKind::Font )
+    {
+        // FindMaxPixelHeight does several bake attempts (binary search) --
+        // cached by path, not recomputed every single frame this panel
+        // happens to be open.
+        static std::string s_CachedPath;
+        static std::optional<int> s_CachedMax;
+        if ( s_CachedPath != inSelectedAsset.m_VirtualPath )
+        {
+            s_CachedPath = inSelectedAsset.m_VirtualPath;
+            auto maxResult = asge::media::Font::FindMaxPixelHeight( resolved.Value() );
+            s_CachedMax = maxResult ? std::optional<int>( maxResult.Value() ) : std::nullopt;
+            if ( !maxResult ) maxResult.LogError();
+        }
+        if ( s_CachedMax ) ImGui::Text( "Max Size: %d px", *s_CachedMax );
+        else ImGui::Text( "Max Size: unknown" );
     }
 
     ImGui::Separator();
@@ -405,6 +424,74 @@ void DrawAssetInspectorPanel(
             {
                 preview.m_Stream->ClearData();
                 preview.m_Stream->PutData( clip );
+            }
+        }
+    }
+    else if ( inSelectedAsset.m_Kind == AssetPickKind::Font )
+    {
+        // A fixed preview size, independent of whatever pixel height any
+        // UILabel using this font happens to be resolved at -- this is
+        // previewing the font file itself, not any particular entity's own
+        // setting (same reasoning as the animation clip preview's own fixed
+        // frame duration).
+        constexpr int kPreviewPixelHeight = 28;
+        auto fontResult = inAssets.GetFont( inSelectedAsset.m_VirtualPath, kPreviewPixelHeight );
+        if ( !fontResult )
+        {
+            fontResult.LogError();
+            ImGui::TextDisabled( "(preview unavailable)" );
+        }
+        else
+        {
+            auto& font = fontResult.Value()->Get();
+            auto texResult = inAssets.GetFontAtlasTexture( font, inRenderer );
+            if ( !texResult )
+            {
+                ImGui::TextDisabled( "(preview unavailable)" );
+            }
+            else
+            {
+                auto* atlasTexture = texResult.Value();
+                auto const atlasSize = atlasTexture->Size();
+                constexpr std::string_view kSampleText = "AaBbCc 0123";
+
+                // Same per-glyph layout SDLRenderer::DrawString uses (pen
+                // advances by each glyph's own advance, positioned by its
+                // bearing) -- drawn via ImGui::Image-style UVs instead of an
+                // IRenderer::DrawXxx call, since this panel has no scene
+                // camera/viewport of its own to draw into (same reason the
+                // texture/animation previews above use ImGui::Image rather
+                // than IRenderer::DrawTexture).
+                ImVec2 const origin = ImGui::GetCursorScreenPos();
+                auto* drawList = ImGui::GetWindowDrawList();
+                float penX = origin.x;
+                float const penY = origin.y + static_cast<float>( font.GetAscent() );
+
+                for ( char c : kSampleText )
+                {
+                    auto glyphResult = font.GetGlyph( static_cast<char32_t>( c ) );
+                    if ( !glyphResult ) continue;
+
+                    auto const& glyph = glyphResult.Value();
+                    ImVec2 const p0{
+                        penX + static_cast<float>( glyph.bearing.x() ), penY + static_cast<float>( glyph.bearing.y() ) };
+                    ImVec2 const p1{ p0.x + static_cast<float>( glyph.size.x() ), p0.y + static_cast<float>( glyph.size.y() ) };
+                    ImVec2 const uv0{
+                        glyph.uv_rect.m_X / static_cast<float>( atlasSize.x() ),
+                        glyph.uv_rect.m_Y / static_cast<float>( atlasSize.y() ) };
+                    ImVec2 const uv1{
+                        ( glyph.uv_rect.m_X + glyph.uv_rect.m_Width ) / static_cast<float>( atlasSize.x() ),
+                        ( glyph.uv_rect.m_Y + glyph.uv_rect.m_Height ) / static_cast<float>( atlasSize.y() ) };
+
+                    drawList->AddImage( atlasTexture->NativeHandle(), p0, p1, uv0, uv1 );
+                    penX += static_cast<float>( glyph.advance );
+                }
+
+                // Reserves the actual layout space the drawn text occupies,
+                // so the panel's own scrolling/sizing accounts for it --
+                // AddImage above draws straight to the window's draw list,
+                // which doesn't advance ImGui's own cursor on its own.
+                ImGui::Dummy( ImVec2( penX - origin.x, static_cast<float>( font.GetLineHeight() ) ) );
             }
         }
     }

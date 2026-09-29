@@ -9,7 +9,7 @@
 struct SDL_Window;
 
 /** @brief Which kind of asset an AssetBrowser entry the user clicked names. */
-enum class AssetPickKind { None, Texture, Animation, Audio };
+enum class AssetPickKind { None, Texture, Animation, Audio, Font };
 
 /**
  * @brief This frame's pick (if any) from DrawAssetBrowserPanel -- which
@@ -52,9 +52,10 @@ struct AssetBrowserResult
 };
 
 /**
- * @brief Panel listing every texture/animation-clip/audio-clip virtual path
- *        known to the editor: every distinct, non-empty Sprite::m_VirtualPath/
- *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
+ * @brief Panel listing every texture/animation-clip/audio-clip/font virtual
+ *        path known to the editor: every distinct, non-empty
+ *        Sprite::m_VirtualPath/Animation::m_ClipPath/
+ *        AudioSource::m_VirtualClipPath/UILabel::m_FontPath currently in
  *        inRegistry (see asset::CollectAssetRefs), unioned with whatever's
  *        been explicitly imported via "Load Asset..." -- the latter exists
  *        so an empty, freshly-opened scene (no entities, so nothing to
@@ -69,14 +70,19 @@ struct AssetBrowserResult
  * texture, via media::Image::IsSupportedFile; ".toml" containing a
  * "[FrameTable]" table -> animation clip, via asset::FrameTable::IsFrameTable;
  * ".wav"/".ogg" -> audio clip, matching media::AudioClip::Load's own
- * extension dispatch).
+ * extension dispatch; ".ttf" -> font, matching media::Font::Load's own
+ * documented "loads a TTF file" contract).
  *
  * Clicking an entry (of any kind) just returns it in m_Pick -- the caller
  * shows it in DrawAssetInspectorPanel, it doesn't assign anything.
- * Right-clicking one opens Create Entity/Attach To (every kind) plus Create
- * Clip (textures only) -- same "this file only reports what was asked, the
- * caller (main.cpp) performs the actual Registry calls" separation
- * DrawEntityListPanel's EntityListResult already uses for Phase 13.
+ * Right-clicking a texture/animation/audio row opens Create Entity/Attach To
+ * plus Create Clip (textures only) -- same "this file only reports what was
+ * asked, the caller (main.cpp) performs the actual Registry calls"
+ * separation DrawEntityListPanel's EntityListResult already uses for Phase
+ * 13. A font row has no such menu: unlike a texture/clip/audio path, a font
+ * path alone isn't a component gameplay code would ever attach by itself --
+ * it only ever exists as part of a UILabel, which "Create UI Element" (see
+ * editor/Inspector.hpp) is what actually authors.
  *
  * @param inHasProject "Load Asset...", "Create Entity" and "Attach To" are
  *        disabled while false -- a created/attached-to entity gets no
@@ -103,6 +109,9 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
 /** @brief Same as KnownTexturePaths, but the "Audio Clips" section's paths. */
 std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept;
 
+/** @brief Same as KnownTexturePaths, but the "Fonts" section's paths (Phase 16). */
+std::vector<std::string> KnownFontPaths( asge::ecs::Registry& inRegistry ) noexcept;
+
 /**
  * @brief Registers every distinct, non-empty Sprite::m_VirtualPath/
  *        Animation::m_ClipPath/AudioSource::m_VirtualClipPath currently in
@@ -118,9 +127,9 @@ std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noex
 void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
 
 /**
- * @brief Adds inTexturePaths/inAnimationPaths/inAudioPaths to the browser's
- *        persistent "known asset" set, as if each had been explicitly
- *        "Load Asset..."-ed.
+ * @brief Adds inTexturePaths/inAnimationPaths/inAudioPaths/inFontPaths to
+ *        the browser's persistent "known asset" set, as if each had been
+ *        explicitly "Load Asset..."-ed.
  *
  * Lets Open Session restore assets that were imported but never assigned to
  * any entity -- RegisterSceneAssets alone can't recover those purely from
@@ -131,7 +140,8 @@ void RegisterSceneAssets( asge::ecs::Registry& inRegistry ) noexcept;
 void ImportAssets(
     std::vector<std::string> const& inTexturePaths,
     std::vector<std::string> const& inAnimationPaths,
-    std::vector<std::string> const& inAudioPaths ) noexcept;
+    std::vector<std::string> const& inAudioPaths,
+    std::vector<std::string> const& inFontPaths = {} ) noexcept;
 
 /**
  * @brief Empties the browser's persistent "known asset" set entirely.
