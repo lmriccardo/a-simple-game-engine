@@ -6,6 +6,7 @@
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 
@@ -182,6 +183,34 @@ asge::game::ui::CreateSlider( ecs::Registry& inReg, SliderDesc const& inDesc )
     if ( inDesc.m_OnValueChanged ) slider.m_OnValueChanged.Connect( inDesc.m_OnValueChanged );
     if ( auto r = inReg.AddComponent<components::UISlider>( e, std::move( slider ) ); !r )
         return fail( r.Error() );
+
+    return entityR;
+}
+
+asge::Result<asge::ecs::Entity>
+asge::game::ui::CreatePanel( ecs::Registry& inReg, PanelDesc const& inDesc )
+{
+    auto entityR = CreateUIEntity( inReg, inDesc.m_Name, inDesc.m_Position, inDesc.m_Size, inDesc.m_ScreenSpace );
+    if ( !entityR ) return entityR;
+    ecs::Entity const e = entityR.Value();
+
+    auto const fail = [&]( auto const& inError ) {
+        auto _ = inReg.DestroyEntity( e );
+        return Result<ecs::Entity>::Err( inError );
+    };
+
+    if ( auto r = inReg.GetComponent<components::RenderInfo>( e ); r )
+        r.Value().get().m_Layer = inDesc.m_Layer;
+    else
+        return fail( r.Error() );
+
+    if ( auto r = inReg.AddComponent<components::UIPanel>( e, components::UIPanel{
+             .m_Background = inDesc.m_Background, .m_Layout = inDesc.m_Layout,
+             .m_Padding = inDesc.m_Padding, .m_Margin = inDesc.m_Margin,
+             .m_Border = inDesc.m_Border, .m_BorderColor = inDesc.m_BorderColor } ); !r )
+    {
+        return fail( r.Error() );
+    }
 
     return entityR;
 }

@@ -17,6 +17,7 @@
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
@@ -352,6 +353,25 @@ void Draw(
     inRenderer.DrawCircle( center, radius, color, true );
 }
 
+void Draw(
+    ecs::Registry const& inReg, video::IRenderer& inRenderer,
+    DrawItem const& inItem, UIPanel const& inPanel)
+{
+    math::Rect const dstBox {
+        inItem.m_DstRect.m_X + inPanel.m_Margin.x(),
+        inItem.m_DstRect.m_Y + inPanel.m_Margin.y(),
+        inItem.m_DstRect.m_Width - 2.0f * inPanel.m_Margin.x(),
+        inItem.m_DstRect.m_Height - 2.0f * inPanel.m_Margin.y(),
+    };
+
+    inRenderer.DrawRect( dstBox, inPanel.m_Background, true );
+
+    if ( inPanel.m_Border )
+    {
+        inRenderer.DrawRect( inItem.m_DstRect, inPanel.m_BorderColor, false );
+    }
+}
+
 /**
  * @brief Draws a UIRect by dispatching to whichever of UIWidgets it also
  *        carries (UIButton/UICheckbox pick their fill color from a sibling
@@ -362,7 +382,7 @@ void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
 {
-    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox, UISlider>;
+    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox, UISlider, UIPanel>;
     functools::ForEachTupleType<UIWidgets>( [&]<typename T> 
         {
             if ( auto r = inReg.GetComponent<T>( inItem.m_Entity ) )

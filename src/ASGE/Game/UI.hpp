@@ -6,6 +6,7 @@
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -42,6 +43,7 @@ namespace consts
 static constexpr int kFontPixelHeight = 16;
 static constexpr math::Float2 kButtonSize = math::Float2{80.0f, 24.0f};
 static constexpr math::Float2 kCheckboxSize = math::Float2{24.0f, 24.0f};
+static constexpr math::Float2 kPanelSize = math::Float2{200.0f, 120.0f};
 static constexpr math::Float2 kSliderSize = math::Float2{160.0f, 24.0f};
 static constexpr graphics::RGBA_Color kDefaultColor = graphics::colors::s_Black;
 static constexpr components::details::StateColors kStateColor =
@@ -108,11 +110,29 @@ struct SliderDesc
     std::function<void(float)>       m_OnValueChanged;
 };
 
+struct PanelDesc
+{
+    str::String                m_Name;
+    math::Float2               m_Position{};
+    math::Float2               m_Size{ consts::kPanelSize };
+    graphics::RGBA_Color       m_Background{ graphics::colors::s_ShadowBlack };
+    components::LayoutSpec     m_Layout{ components::LayoutAbsolute{} };
+    math::Float2               m_Padding{};
+    math::Float2               m_Margin{};
+    bool                       m_Border{ true };
+    graphics::RGBA_Color       m_BorderColor{ graphics::colors::s_LightGray };
+    bool                       m_ScreenSpace{ true };
+    int                        m_Layer{ -1 };            // behind default-layer widgets
+};
+
 Result<ecs::Entity> CreateLabel( ecs::Registry& inReg, LabelDesc const& inDesc );
 Result<ecs::Entity> CreateButton( ecs::Registry& inReg, ButtonDesc const& inDesc );
 Result<ecs::Entity> CreateCheckbox( ecs::Registry& inReg, CheckboxDesc const& inDesc );
 
 /** @brief Creates a draggable slider entity (UIRect + Interactable + UISlider), destroying it again if any component fails to attach. */
 Result<ecs::Entity> CreateSlider( ecs::Registry& inReg, SliderDesc const& inDesc );
+
+/** @brief Creates a non-interactive panel entity (UIRect + UIPanel) drawn as a background, optionally bordered. */
+Result<ecs::Entity> CreatePanel( ecs::Registry& inReg, PanelDesc const& inDesc );
 
 }
