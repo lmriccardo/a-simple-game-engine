@@ -650,12 +650,16 @@ int main(int, char**)
 
     // asge.session -- the ambient "what does the editor currently look
     // like" state (active project + active scene), distinct from a Project
-    // itself and auto-saved/loaded rather than explicitly, at the
-    // executable's own location (SDL_GetBasePath, independent of whatever
-    // the current working directory happens to be) rather than CWD.
+    // itself and auto-saved/loaded rather than explicitly, in the per-user
+    // preferences directory (SDL_GetPrefPath: %APPDATA%\ASGE\Editor on
+    // Windows, created on demand) rather than next to the executable, which
+    // an installed editor (Program Files) can't write to, or the CWD.
     fs::path const sessionFilePath = [] {
-        char const* base = SDL_GetBasePath();
-        return base ? fs::path( base ) / "asge.session" : fs::path( "asge.session" );
+        char* const pref = SDL_GetPrefPath( "ASGE", "Editor" );
+        if ( !pref ) return fs::path( "asge.session" );
+        fs::path path = fs::path( pref ) / "asge.session";
+        SDL_free( pref );
+        return path;
     }();
     float sessionAutosaveTimer = 0.0f;
     constexpr float kSessionAutosaveInterval = 30.0f;
