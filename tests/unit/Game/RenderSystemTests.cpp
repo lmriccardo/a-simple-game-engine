@@ -1282,6 +1282,7 @@ TEST(RenderSystemTest, UILabel_LeftAlign_DrawnAtRectsLeftEdge)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Hi";
     label.m_Align = asge::str::TextAlign::Left;
     label.m_Font = &font;
@@ -1317,6 +1318,7 @@ TEST(RenderSystemTest, UILabel_CenterAlign_DrawnHalfwayIntoTheRectsSlack)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Hi";
     label.m_Align = asge::str::TextAlign::Center;
     label.m_Font = &font;
@@ -1349,6 +1351,7 @@ TEST(RenderSystemTest, UILabel_RightAlign_DrawnAtRectsRightEdgeMinusTextWidth)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Hi";
     label.m_Align = asge::str::TextAlign::Right;
     label.m_Font = &font;
@@ -1380,6 +1383,7 @@ TEST(RenderSystemTest, UILabel_TopVerticalAlign_DrawnAtRectsTopEdge)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Hi";
     label.m_VerticalAlign = VerticalAlign::Top;
     label.m_Font = &font;
@@ -1411,6 +1415,7 @@ TEST(RenderSystemTest, UILabel_CenterVerticalAlign_DrawnHalfwayIntoTheRectsVerti
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Hi";
     label.m_VerticalAlign = VerticalAlign::Center; // also UILabel's own struct default
     label.m_Font = &font;
@@ -1442,6 +1447,7 @@ TEST(RenderSystemTest, UILabel_BottomVerticalAlign_DrawnAtRectsBottomEdgeMinusTe
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Hi";
     label.m_VerticalAlign = VerticalAlign::Bottom;
     label.m_Font = &font;
@@ -1476,6 +1482,7 @@ TEST(RenderSystemTest, UILabel_TextLongerThanItsRect_OverflowsRatherThanBeingCli
     ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {10.0f, 40.0f} }).IsOk()); // far narrower than the text
 
     UILabel label;
+    label.m_AutoSize = false; // a fixed-size rect, as CreateLabel gives any label with an explicit LabelDesc::m_Size
     label.m_Text = "Way too long for this rect";
     label.m_Align = asge::str::TextAlign::Left;
     label.m_Font = &font;
@@ -1487,6 +1494,119 @@ TEST(RenderSystemTest, UILabel_TextLongerThanItsRect_OverflowsRatherThanBeingCli
     ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
     EXPECT_EQ(renderer.m_StringCalls[0].m_Text, "Way too long for this rect"); // drawn whole, not truncated
     EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.x(), 100.0f); // still starts at the rect's left edge
+}
+
+// ─── RenderSystem — UILabel auto-size ────────────────────────────────────────────
+
+namespace
+{
+/** @brief A 200x40 rect carrying a resolved "Hi" label -- the rect deliberately doesn't match the text so a resize is visible. */
+asge::ecs::Entity AddResolvedLabel(
+    Registry& inRegistry, asge::media::Font& inFont, FakeTexture& inAtlas, bool inAutoSize )
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 40.0f} }).IsOk());
+
+    UILabel label;
+    label.m_AutoSize = inAutoSize;
+    label.m_Text = "Hi";
+    label.m_Font = &inFont;
+    label.m_Texture = &inAtlas;
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), label).IsOk());
+    return entity.Value();
+}
+}
+
+TEST(RenderSystemTest, UILabel_AutoSized_RectTracksTheMeasuredTextSize)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+    auto const entity = AddResolvedLabel( registry, font, atlasTexture, true );
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    auto const size = registry.GetComponent<UIRect>(entity).Value().get().m_Size;
+    EXPECT_FLOAT_EQ(size.x(), font.Measure( "Hi" ).x());
+    EXPECT_FLOAT_EQ(size.y(), font.Measure( "Hi" ).y());
+}
+
+TEST(RenderSystemTest, UILabel_AutoSized_RectFollowsALaterTextChange)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+    auto const entity = AddResolvedLabel( registry, font, atlasTexture, true );
+
+    asge::game::systems::RenderSystem(registry, renderer);
+    registry.GetComponent<UILabel>(entity).Value().get().m_Text = "Hello there";
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    auto const size = registry.GetComponent<UIRect>(entity).Value().get().m_Size;
+    EXPECT_FLOAT_EQ(size.x(), font.Measure( "Hello there" ).x());
+}
+
+TEST(RenderSystemTest, UILabel_AutoSizedButFontNotResolvedYet_LeavesTheRectAlone)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+    auto const entity = AddResolvedLabel( registry, font, atlasTexture, true );
+    registry.GetComponent<UILabel>(entity).Value().get().m_Font = nullptr; // not resolved yet
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    auto const size = registry.GetComponent<UIRect>(entity).Value().get().m_Size;
+    EXPECT_FLOAT_EQ(size.x(), 200.0f);
+    EXPECT_FLOAT_EQ(size.y(), 40.0f);
+}
+
+TEST(RenderSystemTest, UILabel_NotAutoSized_RectIsNeverOverwritten)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+    auto const entity = AddResolvedLabel( registry, font, atlasTexture, false );
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    auto const size = registry.GetComponent<UIRect>(entity).Value().get().m_Size;
+    EXPECT_FLOAT_EQ(size.x(), 200.0f);
+    EXPECT_FLOAT_EQ(size.y(), 40.0f);
+}
+
+TEST(RenderSystemTest, UILabel_AutoSizedCenterAligned_HasNoSlackSoItSitsAtTheRectOrigin)
+{
+    // The rect *is* the text's own size, so an alignment offset within it is
+    // zero -- alignment only means something for a fixed-size label.
+    Registry registry;
+    RecordingRenderer renderer;
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+    auto const entity = AddResolvedLabel( registry, font, atlasTexture, true );
+    registry.GetComponent<UILabel>(entity).Value().get().m_Align = asge::str::TextAlign::Center;
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 1u);
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.x(), 100.0f);
 }
 
 // ─── CameraSystem ────────────────────────────────────────────────────────────────
