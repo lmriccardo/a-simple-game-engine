@@ -69,12 +69,19 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
  * Draw order is sorted, not insertion order, by each entity's resolved
  * components::RenderInfo -- an entity with none of its own sorts as
  * RenderInfo{} (layer 0, no y-sort, world space). World-space entities draw
- * first, screen-space ones last, under a temporary origin/zoom-1 camera
- * restored to the world camera once the last one is drawn; within that, by
- * RenderInfo::m_Layer, then bottom-edge Y when either side opted into
- * RenderInfo::m_YSort, then by sort owner and m_LocalOrder for entities
- * under a components::Hierarchy parent with m_InheritSortFromParent set,
- * and finally by entity index for a stable order.
+ * first, screen-space ones last, under a temporary camera (origin/zoom-1 by
+ * default, or resources::ScreenSpaceCamera's own value if that resource is
+ * set -- see its own doc comment for why) restored to the world camera once
+ * the last one is drawn; within that, by RenderInfo::m_Layer, then
+ * bottom-edge Y when either side opted into RenderInfo::m_YSort, then by
+ * sort owner and m_LocalOrder for entities under a components::Hierarchy
+ * parent with m_InheritSortFromParent set, and finally by entity index for
+ * a stable order.
+ *
+ * Before any of that, a resolved components::UILabel with m_AutoSize writes
+ * its own Font::Measure(m_Text) straight into its sibling components::UIRect's
+ * m_Size, so this frame's destination rect already reflects the current text
+ * rather than whatever size the entity happened to be created with.
  */
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 
@@ -92,5 +99,20 @@ void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noe
  */
 void RenderPipeline(
     ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
+
+/**
+ * @brief True if inA sorts after inB in RenderSystem's own resolved draw
+ *        order -- i.e. inA is drawn on top of inB -- without re-deriving
+ *        that order from scratch: same resolved RenderInfo (screen-space
+ *        last, then layer, then y-sort's bottom edge, then sort owner/
+ *        local order/inheritance depth), tie-broken by entity index.
+ *        For a tool (a viewport picker, say) that needs "which of these
+ *        two would end up on top" outside of an actual draw pass.
+ *
+ * An entity with no Sprite/UIRect (nothing RenderSystem would draw) still
+ * resolves a layer/screen-space position -- it just never sorts by y, since
+ * there's no dst rect to compute a bottom edge from.
+ */
+bool IsDrawnAbove( ecs::Registry const& inRegistry, ecs::Entity inA, ecs::Entity inB ) noexcept;
 
 }

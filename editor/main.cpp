@@ -7,11 +7,15 @@
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
+#include <ASGE/Game/Systems/TransformPropagationSystem.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
+#include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Scene/SceneId.hpp>
+#include <ASGE/Game/Resources/ScreenSpaceCamera.hpp>
+#include <ASGE/Game/UI.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
 
 #include <imgui.h>
@@ -23,6 +27,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <mutex>
@@ -45,16 +50,44 @@ using asge::game::components::PathFollow;
 using asge::game::components::Collider;
 using asge::game::components::Animation;
 using asge::game::components::StopAnimation;
+using asge::game::components::Sprite;
+using asge::game::components::AudioSource;
+using asge::game::components::RenderInfo;
+using asge::game::components::AttachChild;
+using asge::game::components::DetachChild;
+using asge::ecs::components::DestroyEntityGraph;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
 
+/** @brief Phase 16: which UI widget "Create UI Element"'s Type Selection modal picked. */
+enum class UIElementType { Button, Label };
+
+/** @brief float[4] (0..1, ImGui::ColorEdit4's own range) -> RGBA_Color (0..255). */
+asge::graphics::RGBA_Color ColorFromFloat4( float const inRGBA[4] ) noexcept
+{
+    auto const toU8 = []( float inV ) noexcept
+    { return static_cast<std::uint8_t>( std::clamp( inV, 0.0f, 1.0f ) * 255.0f + 0.5f ); };
+    return { toU8( inRGBA[0] ), toU8( inRGBA[1] ), toU8( inRGBA[2] ), toU8( inRGBA[3] ) };
+}
+
+/** @brief The read-side counterpart to ColorFromFloat4. */
+void FloatFromColor( asge::graphics::RGBA_Color inColor, float outRGBA[4] ) noexcept
+{
+    outRGBA[0] = inColor.r / 255.0f;
+    outRGBA[1] = inColor.g / 255.0f;
+    outRGBA[2] = inColor.b / 255.0f;
+    outRGBA[3] = inColor.a / 255.0f;
+}
+
 /**
- * @brief Finds the topmost entity (by iteration order) whose
- *        GetEntityWorldBounds contains inWorldPos, or Entity::Null() if none.
+ * @brief Finds the topmost entity (by RenderSystem's own resolved draw
+ *        order -- see IsDrawnAbove) whose GetEntityWorldBounds contains
+ *        inWorldPos, or Entity::Null() if none match.
  *
- * No multi-select yet, so the last match wins rather than resolving overlap
- * by draw order.
+ * No multi-select yet. Ties in draw order (e.g. neither has a Transform+
+ * Sprite/UIRect RenderSystem would ever actually draw) fall back to
+ * IsDrawnAbove's own entity-index tiebreak, same as RenderSystem's sort.
  */
 asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Float2 inWorldPos ) noexcept
 {
@@ -67,7 +100,12 @@ asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Flo
         auto const hitRect = GetEntityWorldBounds( inRegistry, entity, transformResult.Value().get() );
         bool const hit = inWorldPos.x() >= hitRect.m_X && inWorldPos.x() <= hitRect.m_X + hitRect.m_Width
                        && inWorldPos.y() >= hitRect.m_Y && inWorldPos.y() <= hitRect.m_Y + hitRect.m_Height;
-        if ( hit ) picked = entity;
+        if ( !hit ) continue;
+
+        if ( picked == asge::ecs::Entity::Null() || asge::game::systems::IsDrawnAbove( inRegistry, entity, picked ) )
+        {
+            picked = entity;
+        }
     }
     return picked;
 }
@@ -134,6 +172,55 @@ asge::ecs::Entity DuplicateEntity(
 
     inRegistry.AddComponent<asge::game::scene::SceneId>( created.Value(), asge::game::scene::SceneId{ inScenePath } );
     return created.Value();
+}
+
+/**
+ * @brief Phase 14: attaches inEntity the component "corresponding" to an
+ *        asset of inKind, pointed at inPath -- Sprite::m_VirtualPath for a
+ *        Texture, Animation::m_ClipPath for an Animation clip,
+ *        AudioSource::m_VirtualClipPath for Audio. Backs both the Assets
+ *        panel's "Create Entity" and "Attach To" context-menu actions, which
+ *        differ only in whether inEntity is freshly created.
+ *
+ * A Sprite also gets a RenderInfo if it doesn't already have one (same
+ * auto-attach Inspector.cpp's own Sprite Add-Component does) -- every Sprite
+ * is meant to have one, not just ones added through the Inspector.
+ */
+void AttachAssetComponent(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, AssetPickKind inKind, std::string const& inPath ) noexcept
+{
+    switch ( inKind )
+    {
+    case AssetPickKind::Texture:
+    {
+        Sprite sprite{};
+        sprite.m_VirtualPath = inPath;
+        inRegistry.AddComponent<Sprite>( inEntity, sprite );
+        (void)inRegistry.GetOrAddComponent<RenderInfo>( inEntity );
+        break;
+    }
+    case AssetPickKind::Animation:
+    {
+        Animation animation{};
+        animation.m_ClipPath = inPath;
+        StopAnimation( animation ); // same "don't auto-play in the editor" reasoning as Inspector's Add Component
+        inRegistry.AddComponent<Animation>( inEntity, animation );
+        break;
+    }
+    case AssetPickKind::Audio:
+    {
+        AudioSource audioSource{};
+        audioSource.m_VirtualClipPath = inPath;
+        inRegistry.AddComponent<AudioSource>( inEntity, audioSource );
+        break;
+    }
+    case AssetPickKind::Font:
+        // A font path alone isn't a component to attach -- see AssetBrowser.hpp's
+        // own doc comment for why the Fonts section offers no such menu item.
+        break;
+    case AssetPickKind::None:
+        break;
+    }
 }
 
 /**
@@ -245,6 +332,28 @@ void SwitchToScene(
     for ( auto [ entity, animation ] : inSceneManager.GetRegistry().View<Animation>() )
     {
         StopAnimation( animation.get() );
+    }
+
+    // Phase 14: a scene saved before RenderInfo existed (or a Sprite that
+    // otherwise ended up on an entity without going through this editor's
+    // own Add Component/Create Entity/Attach To, which already attach one --
+    // see AttachAssetComponent) can have a Sprite with no RenderInfo. Give
+    // it the same default those paths do, and persist it back to this
+    // scene's own file immediately -- a one-time fixup per file, not
+    // something that should need a second silent "it's dirty now" save
+    // later to actually land on disk.
+    bool migratedRenderInfo = false;
+    for ( auto [entity, sprite] : inSceneManager.GetRegistry().View<Sprite>() )
+    {
+        (void)sprite;
+        if ( inSceneManager.GetRegistry().HasComponent<RenderInfo>( entity ) ) continue;
+        (void)inSceneManager.GetRegistry().GetOrAddComponent<RenderInfo>( entity );
+        migratedRenderInfo = true;
+    }
+    if ( migratedRenderInfo )
+    {
+        auto const saveResult = inSceneManager.SaveScene( target.m_Path );
+        if ( !saveResult ) saveResult.LogError();
     }
 }
 
@@ -408,6 +517,27 @@ int main(int, char**)
     // recomputed only on open the way the char buffer's reset is.
     char createSceneNameBuf[128] = "";
     std::string createScenePlaceholder;
+
+    // Phase 16: Create UI Element modal's own draft fields -- reset by
+    // resetUICreateDraft (below, near where the modals are drawn) each time
+    // Type Selection picks a type, same "seeded fresh on open" convention as
+    // the drafts above.
+    UIElementType uiCreateType = UIElementType::Button;
+    char uiCreateNameBuf[128] = "";
+    float uiCreatePos[2]{ 0.0f, 0.0f };
+    float uiCreateSize[2]{ asge::game::ui::consts::kButtonSize.x(), asge::game::ui::consts::kButtonSize.y() };
+    bool uiCreateAutoSize = true;      // Label only -- nullopt m_Size (fit the text) vs. uiCreateSize
+    bool uiCreateScreenSpace = true;
+    bool uiCreateEnabled = true;       // Button only
+    char uiCreateTextBuf[256] = "";
+    std::string uiCreateFontPath; // Phase 16: picked from KnownFontPaths, not hand-typed -- see DrawAssetPathCombo
+    int uiCreateFontPixelHeight = asge::game::ui::consts::kFontPixelHeight;
+    int uiCreateAlign = static_cast<int>( asge::str::TextAlign::Left );
+    int uiCreateVAlign = static_cast<int>( asge::game::components::VerticalAlign::Center );
+    float uiCreateTextColor[4]{};
+    float uiCreateButtonColor[4]{};
+    float uiCreateButtonHoverColor[4]{};
+    float uiCreateButtonPressedColor[4]{};
 
     // Scene panel's own rename field -- resynced from the active scene's
     // current name only when the active scene itself changes (tracked via
@@ -581,7 +711,7 @@ int main(int, char**)
     {
         if ( auto t = sceneManager.GetRegistry().GetComponent<Transform>( inEntity ) )
         {
-            return { t.Value().get().m_X, t.Value().get().m_Y };
+            return { t.Value().get().m_WorldCoordinates.x(), t.Value().get().m_WorldCoordinates.y() };
         }
         return {};
     };
@@ -814,8 +944,9 @@ int main(int, char**)
                     // needing two absolute ScreenToWorld calls to subtract.
                     float const zoom = videoSys.GetRenderer().GetCamera().m_Zoom;
                     auto& t = transformResult.Value().get();
-                    if (dragAxis != GizmoAxis::Y) t.m_X += event.motion.xrel / zoom;
-                    if (dragAxis != GizmoAxis::X) t.m_Y += event.motion.yrel / zoom;
+                    if (dragAxis != GizmoAxis::Y) t.m_LocalCoordinates.x() += event.motion.xrel / zoom;
+                    if (dragAxis != GizmoAxis::X) t.m_LocalCoordinates.y() += event.motion.yrel / zoom;
+                    t.m_Dirty = true;
                     MarkActiveSceneDirty(currentProject);
                 }
             }
@@ -1548,7 +1679,8 @@ int main(int, char**)
 
         // Phase 3: entity list panel drives the same selection state as
         // viewport picking (Phase 2) -- one selection state, two input paths.
-        if (DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity, freshHasProject))
+        auto const entityListResult = DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity, freshHasProject);
+        if (entityListResult.m_CreateClicked)
         {
             // Phase 5: "Create entity" goes through the same Registry::
             // CreateEntity() + AddComponent() gameplay code uses -- no
@@ -1571,11 +1703,220 @@ int main(int, char**)
             else created.LogError();
         }
 
+        // Phase 16: Create UI Element -- Type Selection -> Creation, with a
+        // Back button on the latter returning to the former. Every OpenPopup
+        // call below sits at this same top-level ID-stack depth (never
+        // issued from inside another popup's own Begin/EndPopupModal block)
+        // -- see the Grid/Game Window modals' own comment above for what
+        // silently breaks otherwise; a Back/Cancel-triggered reopen is
+        // consumed on the following frame instead; same one-frame lag as
+        // hudGroupWidth above, imperceptible here too.
+        auto const resetUICreateDraft = [&](UIElementType inType) noexcept
+        {
+            uiCreateType = inType;
+            uiCreateNameBuf[0] = '\0';
+            uiCreatePos[0] = uiCreatePos[1] = 0.0f;
+            uiCreateSize[0] = asge::game::ui::consts::kButtonSize.x();
+            uiCreateSize[1] = asge::game::ui::consts::kButtonSize.y();
+            uiCreateAutoSize = true;
+            uiCreateScreenSpace = true;
+            uiCreateEnabled = true;
+            uiCreateTextBuf[0] = '\0';
+            uiCreateFontPath.clear();
+            uiCreateFontPixelHeight = asge::game::ui::consts::kFontPixelHeight;
+            uiCreateAlign = static_cast<int>(asge::str::TextAlign::Left);
+            uiCreateVAlign = static_cast<int>(asge::game::components::VerticalAlign::Center);
+            FloatFromColor(asge::game::ui::consts::kDefaultColor, uiCreateTextColor);
+            FloatFromColor(asge::game::ui::consts::kStateColor.m_Color, uiCreateButtonColor);
+            FloatFromColor(asge::game::ui::consts::kStateColor.m_HoverColor, uiCreateButtonHoverColor);
+            FloatFromColor(asge::game::ui::consts::kStateColor.m_PressedColor, uiCreateButtonPressedColor);
+        };
+
+        bool wantOpenUICreate = false;
+        if (entityListResult.m_CreateUIElementClicked) ImGui::OpenPopup("Select UI Element Type");
+
+        if (ImGui::BeginPopupModal("Select UI Element Type", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (ImGui::Selectable("Button"))
+            {
+                resetUICreateDraft(UIElementType::Button);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::Selectable("Label"))
+            {
+                resetUICreateDraft(UIElementType::Label);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::Separator();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+
+        if (wantOpenUICreate) ImGui::OpenPopup("Create UI Element");
+
+        bool wantOpenUIType = false;
+        if (ImGui::BeginPopupModal("Create UI Element", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            bool const isButton = uiCreateType == UIElementType::Button;
+            ImGui::Text("Type: %s", isButton ? "Button" : "Label");
+            ImGui::InputTextWithHint("Name", "(unnamed)", uiCreateNameBuf, sizeof(uiCreateNameBuf));
+            ImGui::DragFloat2("Position", uiCreatePos);
+            ImGui::Checkbox("Screen Space", &uiCreateScreenSpace);
+
+            if (isButton)
+            {
+                ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
+                ImGui::Checkbox("Enabled", &uiCreateEnabled);
+                ImGui::ColorEdit4("Color", uiCreateButtonColor);
+                ImGui::ColorEdit4("Hover Color", uiCreateButtonHoverColor);
+                ImGui::ColorEdit4("Pressed Color", uiCreateButtonPressedColor);
+            }
+            else
+            {
+                ImGui::Checkbox("Auto Size", &uiCreateAutoSize);
+                if (!uiCreateAutoSize) ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
+            }
+
+            ImGui::Separator();
+            ImGui::TextUnformatted(isButton ? "Button Text (optional)" : "Text");
+            ImGui::InputText("Content", uiCreateTextBuf, sizeof(uiCreateTextBuf));
+            // Font is a loadable asset like Texture/Audio/Animation (Phase
+            // 16) -- picked from what's known to be loaded, same
+            // DrawAssetPathCombo widget Sprite/AudioSource/Animation's own
+            // dropdowns use, not a hand-typed path.
+            DrawAssetPathCombo("Font Path", uiCreateFontPath, KnownFontPaths(sceneManager.GetRegistry()));
+            ImGui::DragInt("Font Size", &uiCreateFontPixelHeight, 1.0f, 1, 256);
+            if (ImGui::IsItemHovered())
+            {
+                auto const atlasSize = asge::media::Font::GetAtlasSize();
+                ImGui::SetTooltip(
+                    "Every font bakes into a fixed %dx%d atlas -- too large a size for a "
+                    "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y());
+            }
+            static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
+            ImGui::Combo("Align", &uiCreateAlign, kAlignNames, 4);
+            static char const* const kVAlignNames[]{ "Top", "Center", "Bottom" };
+            ImGui::Combo("Vertical Align", &uiCreateVAlign, kVAlignNames, 3);
+            ImGui::ColorEdit4("Text Color", uiCreateTextColor);
+
+            ImGui::Separator();
+            if (ImGui::Button("Back"))
+            {
+                wantOpenUIType = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Discard")) ImGui::CloseCurrentPopup();
+            ImGui::SameLine();
+            if (ImGui::Button("Create"))
+            {
+                asge::game::ui::TextDesc text;
+                text.m_Content = uiCreateTextBuf;
+                text.m_FontPath = uiCreateFontPath;
+                text.m_FontPixelHeight = uiCreateFontPixelHeight;
+                text.m_Align = static_cast<asge::str::TextAlign>(uiCreateAlign);
+                text.m_VerticalAlign = static_cast<asge::game::components::VerticalAlign>(uiCreateVAlign);
+                text.m_Color = ColorFromFloat4(uiCreateTextColor);
+
+                // Phase 16: MUST go through UI.hpp's own Create*, not a
+                // hand-rolled AddComponent sequence -- these are the exact
+                // functions gameplay code uses to spawn a Button/Label.
+                auto created = isButton
+                    ? asge::game::ui::CreateButton(sceneManager.GetRegistry(), asge::game::ui::ButtonDesc{
+                          .m_Name = uiCreateNameBuf, .m_Enabled = uiCreateEnabled,
+                          .m_Position = { uiCreatePos[0], uiCreatePos[1] },
+                          .m_Size = { uiCreateSize[0], uiCreateSize[1] },
+                          .m_Colors = { ColorFromFloat4(uiCreateButtonColor), ColorFromFloat4(uiCreateButtonHoverColor),
+                                        ColorFromFloat4(uiCreateButtonPressedColor) },
+                          .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text })
+                    : asge::game::ui::CreateLabel(sceneManager.GetRegistry(), asge::game::ui::LabelDesc{
+                          .m_Name = uiCreateNameBuf, .m_Position = { uiCreatePos[0], uiCreatePos[1] },
+                          .m_Size = uiCreateAutoSize
+                              ? std::nullopt : std::optional<asge::math::Float2>({ uiCreateSize[0], uiCreateSize[1] }),
+                          .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text });
+
+                if (created)
+                {
+                    if (auto const& path = sceneManager.CurrentScenePath())
+                    {
+                        sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                            created.Value(), asge::game::scene::SceneId{*path});
+                    }
+                    selectedEntity = created.Value();
+                    // A freshly-created UILabel/RenderInfo has nothing
+                    // resolved yet (m_Font/m_Texture stay null) until this
+                    // runs -- same reasoning as
+                    // AssetContextAction::CreateEntity/AttachTo above.
+                    assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                    MarkActiveSceneDirty(currentProject);
+                    ImGui::CloseCurrentPopup();
+                }
+                else created.LogError(); // e.g. text content with no font path -- left open so it can be fixed
+            }
+            ImGui::EndPopup();
+        }
+        if (wantOpenUIType) ImGui::OpenPopup("Select UI Element Type");
+
+        // Phase 13: New Child/Detach/Remove (the Entities tree's row context
+        // menu) and Reparent (a row dropped onto another) -- same "goes
+        // through the same Registry/Hierarchy calls gameplay code uses" as
+        // Create Entity above.
+        switch (entityListResult.m_Action)
+        {
+        case HierarchyAction::NewChild:
+        {
+            auto created = sceneManager.GetRegistry().CreateEntity();
+            if (created)
+            {
+                sceneManager.GetRegistry().AddComponent<Transform>(created.Value(), Transform{});
+                if (auto const& path = sceneManager.CurrentScenePath())
+                {
+                    sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                        created.Value(), asge::game::scene::SceneId{*path});
+                }
+                AttachChild(sceneManager.GetRegistry(), entityListResult.m_Target, created.Value());
+                selectedEntity = created.Value();
+                MarkActiveSceneDirty(currentProject);
+            }
+            else created.LogError();
+            break;
+        }
+        case HierarchyAction::Detach:
+            DetachChild(sceneManager.GetRegistry(), entityListResult.m_Target);
+            MarkActiveSceneDirty(currentProject);
+            break;
+        case HierarchyAction::Remove:
+        {
+            DestroyEntityGraph(sceneManager.GetRegistry(), entityListResult.m_Target);
+            // Remove can take out a whole subtree at once -- selectedEntity
+            // might have been one of its descendants, not just the
+            // right-clicked entity itself, so re-check aliveness rather than
+            // only comparing against m_Target (same check DuplicateEntity
+            // already does for the same reason).
+            auto const alive = sceneManager.GetRegistry().AllEntities();
+            if (std::find(alive.begin(), alive.end(), selectedEntity) == alive.end())
+            {
+                selectedEntity = asge::ecs::Entity::Null();
+            }
+            MarkActiveSceneDirty(currentProject);
+            break;
+        }
+        case HierarchyAction::Reparent:
+            AttachChild(sceneManager.GetRegistry(), entityListResult.m_NewParent, entityListResult.m_Target);
+            MarkActiveSceneDirty(currentProject);
+            break;
+        case HierarchyAction::None:
+            break;
+        }
+
         auto const inspectorResult = DrawInspectorPanel(
             sceneManager.GetRegistry(), selectedEntity,
             KnownTexturePaths(sceneManager.GetRegistry()),
             KnownAnimationPaths(sceneManager.GetRegistry()),
             KnownAudioPaths(sceneManager.GetRegistry()),
+            KnownFontPaths(sceneManager.GetRegistry()),
             waypointEdit, colliderDraw);
 
         if (inspectorResult.m_FieldChanged) MarkActiveSceneDirty(currentProject);
@@ -1612,9 +1953,53 @@ int main(int, char**)
         // opens the Asset Inspector below on that entry; a Sprite gets its
         // texture by picking one at Add Component time instead (see
         // Inspector.hpp's DrawInspectorPanel).
-        AssetPick const assetPick = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
-        if (assetPick.m_Kind != AssetPickKind::None) selectedAsset = assetPick;
-        DrawAssetInspectorPanel(selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry());
+        auto const assetBrowserResult = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
+        if (assetBrowserResult.m_Pick.m_Kind != AssetPickKind::None) selectedAsset = assetBrowserResult.m_Pick;
+        DrawAssetInspectorPanel(
+            selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry(),
+            assetBrowserResult.m_OpenCreateClip);
+
+        // Phase 14: an asset row's "Create Entity"/"Attach To" context menu
+        // -- same "goes through the same Registry calls gameplay code uses"
+        // as Phase 13's New Child, plus the RenderInfo auto-attach for a
+        // Sprite (see AttachAssetComponent).
+        switch (assetBrowserResult.m_ContextAction)
+        {
+        case AssetContextAction::CreateEntity:
+        {
+            auto created = sceneManager.GetRegistry().CreateEntity();
+            if (created)
+            {
+                sceneManager.GetRegistry().AddComponent<Transform>(created.Value(), Transform{});
+                AttachAssetComponent(
+                    sceneManager.GetRegistry(), created.Value(),
+                    assetBrowserResult.m_ContextKind, assetBrowserResult.m_ContextPath);
+                if (auto const& path = sceneManager.CurrentScenePath())
+                {
+                    sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
+                        created.Value(), asge::game::scene::SceneId{*path});
+                }
+                selectedEntity = created.Value(); // "directly opens the inspector panel" -- Inspector shows whatever's selected
+                // A freshly-attached Sprite/Animation/AudioSource has nothing
+                // resolved yet (m_Texture etc. stay null) until this runs --
+                // same reasoning as EntityAction::ComponentsChanged above.
+                assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+                MarkActiveSceneDirty(currentProject);
+            }
+            else created.LogError();
+            break;
+        }
+        case AssetContextAction::AttachTo:
+            AttachAssetComponent(
+                sceneManager.GetRegistry(), assetBrowserResult.m_ContextTarget,
+                assetBrowserResult.m_ContextKind, assetBrowserResult.m_ContextPath);
+            selectedEntity = assetBrowserResult.m_ContextTarget;
+            assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+            MarkActiveSceneDirty(currentProject);
+            break;
+        case AssetContextAction::None:
+            break;
+        }
 
         // Always-on panel: lists/adds VirtualFileSystem mounts, and surfaces
         // any root the current scene's assets reference but isn't mounted --
@@ -1624,6 +2009,13 @@ int main(int, char**)
         DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window, freshHasProject);
 
         DrawConsolePanel(window);
+
+        // Flushes this frame's gizmo-drag/inspector edits (and any Hierarchy
+        // reparenting) from Transform's Local into its World fields -- every
+        // overlay below and RenderPipeline itself read World only, and
+        // neither one runs this (see examples/*/Game.cpp for the same
+        // per-frame call gameplay code has to make of its own accord).
+        asge::game::systems::TransformPropagationSystem(sceneManager.GetRegistry());
 
         // Phase 4: viewport overlays, so a position/collider is readable
         // directly off the scene instead of only through the inspector.
@@ -1640,8 +2032,10 @@ int main(int, char**)
             targetGameWidth, targetGameHeight);
         // Shown for the selected entity's PathFollow regardless of whether
         // "Select Waypoints" mode is active, so placed waypoints stay
-        // visible once selection ends, not just while adding them.
-        if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity))
+        // visible once selection ends, not just while adding them -- unless
+        // the entity is disabled, same as the Collider/Camera overlays.
+        if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity);
+            pf && !sceneManager.GetRegistry().IsDisabled(selectedEntity))
         {
             DrawPathFollowWaypointOverlay(
                 videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), pf.Value().get().m_Waypoints,
@@ -1649,6 +2043,18 @@ int main(int, char**)
         }
 
         ImGui::Render();
+
+        // The editor hijacks IRenderer's camera for its own free-roam pan/
+        // zoom navigation rather than following a components::Camera entity
+        // -- without this, RenderSystem's screen-space content would stay
+        // glued to the window's own raw corner regardless of where that
+        // navigation is currently looking, instead of panning/zooming
+        // together with everything else (see ScreenSpaceCamera's own doc
+        // comment). CameraSystem never overwrites this camera in the editor
+        // (resources::ActiveCamera is never set here), so the value read
+        // here is exactly what RenderSystem will see.
+        sceneManager.GetRegistry().SetResource(
+            asge::game::resources::ScreenSpaceCamera{ videoSys.GetRenderer().GetCamera() });
 
         videoSys.GetRenderer().Clear({ 15, 15, 20, 255 });
         asge::game::systems::RenderPipeline(

@@ -41,7 +41,7 @@ struct Project
 
 /**
  * @brief Writes inProject's own fields -- every current VirtualFileSystem
- *        mount, every texture/animation/audio path the Assets panel
+ *        mount, every texture/animation/audio/font path the Assets panel
  *        currently knows about, inGridSpacing/inTargetWidth/inTargetHeight,
  *        and inProject.m_Scenes' paths -- to inProject.m_FilePath as
  *        `.asgeproject` TOML.
@@ -60,7 +60,7 @@ asge::BoolResult SaveProject(
 /**
  * @brief Parses inPath as a `.asgeproject`: replaces inVfs's entire mount
  *        table (skipping any whose RealDirectory no longer exists, with a
- *        logged warning), restores every known texture/animation/audio
+ *        logged warning), restores every known texture/animation/audio/font
  *        path into the Assets panel (AssetBrowser::ImportAssets), and fills
  *        outProject (m_FilePath = inPath, m_Scenes from the file's Scenes
  *        list -- each entry's m_Name derived from its path's stem,

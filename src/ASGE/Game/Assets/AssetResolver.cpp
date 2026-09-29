@@ -75,12 +75,18 @@ void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
     video::IRenderer &inRenderer, C &inLabel) const noexcept
 {
-    if ( inLabel.m_FontPath == inLabel.m_ResolvedFontPath ) return;
+    // AssetManager::GetFont caches by (path, pixel height) -- the same path
+    // baked at a different size is a different Font asset, so a pixel-height
+    // edit alone (Font Path unchanged) must still re-resolve, not just a
+    // path change.
+    if ( inLabel.m_FontPath == inLabel.m_ResolvedFontPath
+      && inLabel.m_FontPixelHeight == inLabel.m_ResolvedFontPixelHeight ) return;
     if ( inLabel.m_FontPath.empty() )
     {
         inLabel.m_Font = nullptr;
         inLabel.m_Texture = nullptr;
         inLabel.m_ResolvedFontPath.clear();
+        inLabel.m_ResolvedFontPixelHeight = 0;
         return;
     }
 
@@ -97,6 +103,7 @@ void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(
     inLabel.m_Texture = texture.Value();
 
     inLabel.m_ResolvedFontPath = inLabel.m_FontPath;
+    inLabel.m_ResolvedFontPixelHeight = inLabel.m_FontPixelHeight;
 }
 
 std::optional<asge::game::asset::AssetRef>
@@ -121,6 +128,14 @@ asge::game::asset::AssetRefs<asge::game::components::AudioSource>::operator()(
 {
     if ( inAudioSource.m_VirtualClipPath.empty() ) return std::nullopt;
     return AssetRef{ AssetKind::AudioClip, inAudioSource.m_VirtualClipPath };
+}
+
+std::optional<asge::game::asset::AssetRef>
+asge::game::asset::AssetRefs<asge::game::components::UILabel>::operator()(
+    components::UILabel const &inLabel) const noexcept
+{
+    if ( inLabel.m_FontPath.empty() ) return std::nullopt;
+    return AssetRef{ AssetKind::Font, inLabel.m_FontPath };
 }
 
 std::vector<asge::game::asset::AssetRef> asge::game::asset::CollectAssetRefs(

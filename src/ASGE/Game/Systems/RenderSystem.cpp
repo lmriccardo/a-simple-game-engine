@@ -20,6 +20,7 @@
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
+#include <ASGE/Game/Resources/ScreenSpaceCamera.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
@@ -391,6 +392,27 @@ void Draw(
     );
 }
 
+// A UILabel with m_AutoSize keeps its sibling UIRect's own m_Size in sync
+// with its measured text every frame -- "fit the text" (LabelDesc::m_Size's
+// own doc comment) means the rect tracks whatever the text currently
+// measures at, not just whatever it happened to be sized at creation.
+// Skipped until m_Font actually resolves (see Resolver<UILabel>); until
+// then the rect stays whatever CreateLabel gave it, same as any other
+// unresolved asset-owning component.
+void ResolveLabelAutoSize( ecs::Registry& inRegistry ) noexcept
+{
+    for ( auto [ entity, label ] : inRegistry.View<UILabel>() )
+    {
+        auto const& l = label.get();
+        if ( !l.m_AutoSize || l.m_Font == nullptr ) continue;
+
+        if ( auto rect = inRegistry.GetComponent<UIRect>( entity ) )
+        {
+            rect.Value().get().m_Size = l.m_Font->Measure( l.m_Text );
+        }
+    }
+}
+
 // ----------- Hit List collection ------------------------------------
 
 /**
@@ -429,6 +451,52 @@ void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawIt
     }
 }
 
+/** @brief The subset of DrawItem's own sort key operator< needs, computed for one entity outside of a Collect<T> pass -- backs IsDrawnAbove. */
+struct SortKey
+{
+    RenderInfoResolved m_RenderInfo;
+    float              m_SortY;
+    ecs::Entity        m_Entity;
+};
+
+SortKey ComputeSortKey( ecs::Registry const& inReg, ecs::Entity inEntity ) noexcept
+{
+    RenderInfoResolved const render = ResolveRenderInfo( inReg, inEntity );
+
+    float sortY = 0.0f;
+    if ( auto tResult = inReg.GetComponent<Transform>( inEntity ) )
+    {
+        auto const& t = tResult.Value().get();
+        auto const dst = GetAnyDstRect( inReg, inEntity, t );
+        float const ownSortY = t.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f );
+        sortY = ( render.m_Owner == inEntity ) ? ownSortY : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
+    }
+
+    return SortKey{ render, sortY, inEntity };
+}
+
+// Same ordering DrawItem's own operator< uses, minus its final tiebreak
+// (m_Visual.index()) -- unreachable there too for two distinct entities,
+// since m_Entity.m_Index alone already disambiguates any two of them.
+bool operator<( SortKey const& a, SortKey const& b ) noexcept
+{
+    auto const& ra = a.m_RenderInfo;
+    auto const& rb = b.m_RenderInfo;
+    if ( ra.m_ScreenSpace != rb.m_ScreenSpace ) return !ra.m_ScreenSpace;
+    if ( ra.m_Layer != rb.m_Layer ) return ra.m_Layer < rb.m_Layer;
+    if ( ( ra.m_YSort || rb.m_YSort ) && a.m_SortY != b.m_SortY ) return a.m_SortY < b.m_SortY;
+    if ( ra.m_Owner.m_Index != rb.m_Owner.m_Index ) return ra.m_Owner.m_Index < rb.m_Owner.m_Index;
+    if ( ra.m_LocalOrder != rb.m_LocalOrder ) return ra.m_LocalOrder < rb.m_LocalOrder;
+    if ( ra.m_Depth != rb.m_Depth ) return ra.m_Depth < rb.m_Depth;
+    return a.m_Entity.m_Index < b.m_Entity.m_Index;
+}
+
+}
+
+bool asge::game::systems::IsDrawnAbove(
+    ecs::Registry const& inRegistry, ecs::Entity inA, ecs::Entity inB ) noexcept
+{
+    return ComputeSortKey( inRegistry, inB ) < ComputeSortKey( inRegistry, inA );
 }
 
 void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
@@ -522,6 +590,8 @@ void asge::game::systems::CameraSystem(
 void asge::game::systems::RenderSystem(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer) noexcept
 {
+    ResolveLabelAutoSize( inRegistry ); // before collection, so this frame's Collect<UIRect> sees the up-to-date size
+
     std::vector<DrawItem> drawItems;
     math::Rect const visible = video::VisibleWorldRect( inRenderer.GetCamera(), inRenderer.GetViewport() );
 
@@ -540,10 +610,11 @@ void asge::game::systems::RenderSystem(
         // Screen-space items sort last, so this switch happens at most once per frame
         if ( drawItem.m_RenderInfo.m_ScreenSpace && !inScreenSpace )
         {
-            video::Camera screenCamera = worldCamera;
-            screenCamera.m_X    = 0.0f;
-            screenCamera.m_Y    = 0.0f;
-            screenCamera.m_Zoom = 1.0f;
+            video::Camera screenCamera{}; // origin/zoom-1 -- the correct default for a real shipped game
+            if ( auto override = inRegistry.GetResource<resources::ScreenSpaceCamera>() )
+            {
+                screenCamera = override.Value().get().m_Camera;
+            }
             inRenderer.SetCamera( screenCamera );
             inScreenSpace = true;
         }

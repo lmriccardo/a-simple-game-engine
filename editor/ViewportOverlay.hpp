@@ -10,10 +10,12 @@ struct ImDrawList;
 
 /**
  * @brief inEntity's world-space bounding rect for viewport purposes
- *        (picking, gizmo placement): its Sprite's destination rect if it
- *        has one and it's resolved, else a 1x1 point at inTransform's
- *        position -- the one place this fallback is defined, shared by
- *        PickEntityAt (main.cpp) and the gizmo below.
+ *        (picking, gizmo placement): its Sprite's destination rect if it has
+ *        one and it's resolved, else its UIRect's own rect (Phase 16 --
+ *        same RectFromSize math RenderSystem.cpp's own Collect<UIRect>
+ *        uses), else a 1x1 point at inTransform's position -- the one place
+ *        this fallback is defined, shared by PickEntityAt (main.cpp) and
+ *        the gizmo below.
  */
 asge::math::Rect GetEntityWorldBounds(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity,
@@ -31,7 +33,9 @@ void DrawWorldGrid( asge::video::IRenderer const& inRenderer, ImDrawList* inDraw
 /**
  * @brief Translucent Collider bounds overlay (Rect/Circle), colored by
  *        Collider::m_Layer -- the actual visual value-add over a
- *        coordinates-only editor.
+ *        coordinates-only editor. Skips a Registry::IsDisabled() entity --
+ *        one that wouldn't actually collide at runtime shouldn't still show
+ *        as if it would.
  */
 void DrawColliderOverlays(
     asge::video::IRenderer const& inRenderer, asge::ecs::Registry& inRegistry, ImDrawList* inDrawList ) noexcept;
@@ -69,7 +73,8 @@ void DrawGameWindowPreview(
  * move the editor's own pan/zoom no matter how many Camera entities exist
  * or which (if any) is resources::ActiveCamera. A no-op if either
  * dimension is non-positive, or draws nothing for a scene with no Camera
- * entities at all.
+ * entities at all. Skips a Registry::IsDisabled() entity, same reasoning as
+ * DrawColliderOverlays.
  */
 void DrawCameraOverlays(
     asge::video::IRenderer const& inRenderer, asge::ecs::Registry& inRegistry, ImDrawList* inDrawList,

@@ -4,6 +4,7 @@
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
 
 #include <imgui.h>
@@ -19,10 +20,20 @@ using namespace asge::game::components;
 asge::math::Rect GetEntityWorldBounds(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, Transform const& inTransform ) noexcept
 {
-    asge::math::Rect bounds{ inTransform.m_X, inTransform.m_Y, 1.0f, 1.0f };
+    asge::math::Rect bounds{ inTransform.m_WorldCoordinates.x(), inTransform.m_WorldCoordinates.y(), 1.0f, 1.0f };
     if ( auto spriteResult = inRegistry.GetComponent<Sprite>( inEntity ) )
     {
         if ( auto dst = SpriteGetDstRect( spriteResult.Value().get(), inTransform ) ) bounds = *dst;
+    }
+    else if ( auto rectResult = inRegistry.GetComponent<UIRect>( inEntity ) )
+    {
+        // Same RectFromSize math RenderSystem.cpp's own Collect<UIRect> uses
+        // for its destination rect -- a UI widget (Button/Label) is picked
+        // by its real footprint, not the generic point fallback below.
+        auto const& size = rectResult.Value().get().m_Size;
+        bounds = asge::math::Rect{
+            inTransform.m_WorldCoordinates.x(), inTransform.m_WorldCoordinates.y(),
+            size.x() * inTransform.m_WorldScale.x(), size.y() * inTransform.m_WorldScale.y() };
     }
 
     // Widened (never shrunk) to at least this size, centered on whatever the
@@ -70,6 +81,11 @@ std::optional<GizmoHandlePoints> ComputeGizmoHandles(
 
     auto const worldBounds = GetEntityWorldBounds( inRegistry, inSelected, transformResult.Value().get() );
 
+    // The editor sets resources::ScreenSpaceCamera to this same live camera
+    // every frame (see main.cpp), so RenderSystem draws a screen-space
+    // entity through it too -- the gizmo can just use it uniformly for every
+    // entity rather than re-deriving which camera a given entity resolves
+    // under.
     auto const& camera = inRenderer.GetCamera();
     auto const& viewport = inRenderer.GetViewport();
     auto const screenMin = asge::video::WorldToScreen(
@@ -154,6 +170,8 @@ void DrawColliderOverlays(
 
     for ( auto entity : inRegistry.AllEntities() )
     {
+        if ( inRegistry.IsDisabled( entity ) ) continue;
+
         auto transformResult = inRegistry.GetComponent<Transform>( entity );
         auto colliderResult = inRegistry.GetComponent<Collider>( entity );
         if ( !transformResult || !colliderResult ) continue;
@@ -174,7 +192,7 @@ void DrawColliderOverlays(
         {
             // Collider's world position is Transform's, offset by the
             // shape's own local origin -- see Collider.hpp's doc comment.
-            asge::math::Float2 const worldMin{ t.m_X + rect->m_X, t.m_Y + rect->m_Y };
+            asge::math::Float2 const worldMin{ t.m_WorldCoordinates.x() + rect->m_X, t.m_WorldCoordinates.y() + rect->m_Y };
             asge::math::Float2 const worldMax{ worldMin.x() + rect->m_Width, worldMin.y() + rect->m_Height };
             auto const screenMin = asge::video::WorldToScreen( camera, viewport, worldMin );
             auto const screenMax = asge::video::WorldToScreen( camera, viewport, worldMax );
@@ -184,7 +202,7 @@ void DrawColliderOverlays(
         }
         else if ( auto const* circle = std::get_if<asge::math::Circle>( &collider.m_LocalBounds ) )
         {
-            asge::math::Float2 const worldCenter{ t.m_X + circle->m_Center.x(), t.m_Y + circle->m_Center.y() };
+            asge::math::Float2 const worldCenter{ t.m_WorldCoordinates.x() + circle->m_Center.x(), t.m_WorldCoordinates.y() + circle->m_Center.y() };
             auto const screenCenter = asge::video::WorldToScreen( camera, viewport, worldCenter );
             float const screenRadius = circle->m_Radius * camera.m_Zoom;
 
@@ -267,6 +285,8 @@ void DrawCameraOverlays(
     // entities exist or which (if any) is resources::ActiveCamera.
     for ( auto entity : inRegistry.AllEntities() )
     {
+        if ( inRegistry.IsDisabled( entity ) ) continue;
+
         auto cameraResult = inRegistry.GetComponent<Camera>( entity );
         auto transformResult = inRegistry.GetComponent<Transform>( entity );
         if ( !cameraResult || !transformResult ) continue;
@@ -280,8 +300,8 @@ void DrawCameraOverlays(
         // in it at its own Camera::m_Zoom -- this box is exactly that.
         float const zoom = cameraResult.Value().get().m_Zoom;
         auto const& t = transformResult.Value().get();
-        float followX = t.m_X;
-        float followY = t.m_Y;
+        float followX = t.m_WorldCoordinates.x();
+        float followY = t.m_WorldCoordinates.y();
         if ( auto spriteResult = inRegistry.GetComponent<Sprite>( entity ) )
         {
             if ( auto dst = SpriteGetDstRect( spriteResult.Value().get(), t ) )
