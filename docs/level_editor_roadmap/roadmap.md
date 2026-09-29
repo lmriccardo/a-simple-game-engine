@@ -511,6 +511,35 @@ its children are disabled as well recursively.
       checked alongside the path; the Inspector's Font Size field now reports
       a change too, so `ResolveAssets` actually runs.
 
+## Phase 17 - Additional UI ( Checkboxes, Sliders and Panels )
+
+**Goal**: Add to the editor new UI elements like `UICheckbox`, `UISlider`
+and `UIPanel`. Renders UI elements according to the Panel Layout.
+
+- [x] `Create UI Element`'s Type Selection modal gained Checkbox, Slider and
+      Panel, each with its own Creation fields (Checkbox: box/check colors and
+      checked; Slider: min/max/value, track and thumb colors; Panel: background,
+      border, margin/padding/spacing and a Grid/VStack/HStack/Absolute layout
+      with its rows/columns). Built through `UI::CreateCheckbox`/`CreateSlider`/
+      `CreatePanel` like Phase 16's widgets, never the generic Add Component
+      control. `UICheckbox`/`UISlider`/`UIPanel` got view/edit-only Inspector
+      sections and type-aware `Checkbox #N`/`Slider #N`/`Panel #N` labels.
+
+- [x] Every Creation modal gained a Panel Parent section -- a combo of the
+      scene's existing panels (`(none)` by default, a Panel itself included so
+      panels can nest) that `AttachChild`s the new widget to the chosen one.
+
+- [x] The editor now runs `UILayoutSystem` ahead of `TransformPropagationSystem`
+      every frame, so children of a non-Absolute panel are placed and sized in
+      the viewport as they would be in a game. A child of such a panel has its
+      position (and size, unless its `UILayoutItem` says otherwise) re-derived
+      each frame, so dragging it or editing its Transform doesn't stick.
+
+- [x] `UILayoutItem` (per-child fill/align inside a panel slot) is the one Phase
+      17 component that *is* in `kComponentEntries`, so it can be added or
+      removed from any entity, since a child can be attached to a panel after
+      it was created.
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no
