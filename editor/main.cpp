@@ -8,6 +8,7 @@
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Systems/TransformPropagationSystem.hpp>
+#include <ASGE/Game/Systems/UISystem.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
@@ -61,7 +62,21 @@ constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
 
 /** @brief Phase 16: which UI widget "Create UI Element"'s Type Selection modal picked. */
-enum class UIElementType { Button, Label };
+enum class UIElementType { Button, Label, Checkbox, Slider, Panel };
+
+/** @brief Phase 17: default footprint for each UI widget type, seeding the Creation modal's Size field. */
+asge::math::Float2 DefaultUISize( UIElementType inType ) noexcept
+{
+    switch ( inType )
+    {
+    case UIElementType::Checkbox: return asge::game::ui::consts::kCheckboxSize;
+    case UIElementType::Slider:   return asge::game::ui::consts::kSliderSize;
+    case UIElementType::Panel:    return asge::game::ui::consts::kPanelSize;
+    case UIElementType::Button:
+    case UIElementType::Label:    break;
+    }
+    return asge::game::ui::consts::kButtonSize;
+}
 
 /** @brief float[4] (0..1, ImGui::ColorEdit4's own range) -> RGBA_Color (0..255). */
 asge::graphics::RGBA_Color ColorFromFloat4( float const inRGBA[4] ) noexcept
@@ -151,27 +166,68 @@ int PickWaypointAt(
  *        already uses for its own save-snapshot and cross-scene copies
  *        (SceneId isn't serializable data, so that generic copy can't
  *        carry it; this tags it separately as the one extra step needed).
+ *
+ * Hierarchy is the one component NOT copied: its links are structure, not
+ * data, so a verbatim copy would claim the source's parent, siblings and
+ * children without being in any of their lists. Instead each child of
+ * inSource is duplicated (recursively) and attached under the new entity,
+ * and the copy is left a root -- DuplicateEntity attaches it to a parent.
  */
-asge::ecs::Entity DuplicateEntity(
+asge::ecs::Entity DuplicateSubtree(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSource, asge::str::String const& inScenePath ) noexcept
 {
     auto created = inRegistry.CreateEntity();
     if ( !created ) return asge::ecs::Entity::Null();
+    auto const copy = created.Value();
 
     std::apply( [&]( auto ... component )
     {
         ( [&]
         {
             using T = decltype(component);
-            if ( inRegistry.HasComponent<T>( inSource ) )
+            if constexpr ( !std::is_same_v<T, asge::ecs::components::Hierarchy> )
             {
-                inRegistry.AddComponent<T>( created.Value(), inRegistry.GetComponent<T>( inSource ).Value().get() );
+                if ( inRegistry.HasComponent<T>( inSource ) )
+                {
+                    inRegistry.AddComponent<T>( copy, inRegistry.GetComponent<T>( inSource ).Value().get() );
+                }
             }
         }(), ... );
     }, asge::game::components::SerializableComponents{} );
 
-    inRegistry.AddComponent<asge::game::scene::SceneId>( created.Value(), asge::game::scene::SceneId{ inScenePath } );
-    return created.Value();
+    inRegistry.AddComponent<asge::game::scene::SceneId>( copy, asge::game::scene::SceneId{ inScenePath } );
+
+    std::vector<asge::ecs::Entity> children;
+    asge::ecs::components::ForEachChild( inRegistry, inSource, [&]( asge::ecs::Entity inChild )
+    { children.push_back( inChild ); } );
+    for ( auto child : children )
+    {
+        auto const childCopy = DuplicateSubtree( inRegistry, child, inScenePath );
+        if ( childCopy != asge::ecs::Entity::Null() ) AttachChild( inRegistry, copy, childCopy );
+    }
+
+    return copy;
+}
+
+/**
+ * @brief Duplicates inSource and everything under it (see DuplicateSubtree),
+ *        and puts the copy in the same parent as inSource, after its existing
+ *        children -- so a duplicate inside a UIPanel joins that panel's
+ *        layout as its next slot instead of floating outside it.
+ */
+asge::ecs::Entity DuplicateEntity(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inSource, asge::str::String const& inScenePath ) noexcept
+{
+    auto const copy = DuplicateSubtree( inRegistry, inSource, inScenePath );
+    if ( copy == asge::ecs::Entity::Null() ) return copy;
+
+    if ( auto hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inSource );
+         hierarchy && hierarchy.Value().get().m_Parent != asge::ecs::Entity::Null() )
+    {
+        AttachChild( inRegistry, hierarchy.Value().get().m_Parent, copy );
+    }
+
+    return copy;
 }
 
 /**
@@ -538,6 +594,21 @@ int main(int, char**)
     float uiCreateButtonColor[4]{};
     float uiCreateButtonHoverColor[4]{};
     float uiCreateButtonPressedColor[4]{};
+    // Phase 17: Checkbox/Slider/Panel drafts. The three Button colors above
+    // double as a Checkbox's box colors and a Slider's thumb colors, since
+    // all three are the same StateColors triple.
+    bool uiCreateChecked = false;               // Checkbox only
+    float uiCreateCheckColor[4]{};              // Checkbox only
+    float uiCreateMin = 0.0f, uiCreateMax = 1.0f, uiCreateValue = 0.0f; // Slider only
+    float uiCreateTrackColor[4]{};              // Slider only
+    float uiCreateBackground[4]{};              // Panel only, from here down
+    bool uiCreateBorder = true;
+    float uiCreateBorderColor[4]{};
+    float uiCreateMargin[2]{}, uiCreatePadding[2]{}, uiCreateSpacing[2]{};
+    int uiCreateLayout = 0;                     // asge::game::components::PanelLayout
+    int uiCreateLayoutRows = 3, uiCreateLayoutCols = 3;
+    // Phase 17: "Panel Parent" section -- Null means no parent.
+    asge::ecs::Entity uiCreateParent = asge::ecs::Entity::Null();
 
     // Scene panel's own rename field -- resynced from the active scene's
     // current name only when the active scene itself changes (tracked via
@@ -1716,8 +1787,8 @@ int main(int, char**)
             uiCreateType = inType;
             uiCreateNameBuf[0] = '\0';
             uiCreatePos[0] = uiCreatePos[1] = 0.0f;
-            uiCreateSize[0] = asge::game::ui::consts::kButtonSize.x();
-            uiCreateSize[1] = asge::game::ui::consts::kButtonSize.y();
+            uiCreateSize[0] = DefaultUISize(inType).x();
+            uiCreateSize[1] = DefaultUISize(inType).y();
             uiCreateAutoSize = true;
             uiCreateScreenSpace = true;
             uiCreateEnabled = true;
@@ -1730,6 +1801,20 @@ int main(int, char**)
             FloatFromColor(asge::game::ui::consts::kStateColor.m_Color, uiCreateButtonColor);
             FloatFromColor(asge::game::ui::consts::kStateColor.m_HoverColor, uiCreateButtonHoverColor);
             FloatFromColor(asge::game::ui::consts::kStateColor.m_PressedColor, uiCreateButtonPressedColor);
+
+            uiCreateChecked = false;
+            FloatFromColor(asge::game::ui::consts::kDefaultColor, uiCreateCheckColor);
+            uiCreateMin = 0.0f; uiCreateMax = 1.0f; uiCreateValue = 0.0f;
+            FloatFromColor(asge::graphics::colors::s_Gray, uiCreateTrackColor);
+            FloatFromColor(asge::graphics::colors::s_ShadowBlack, uiCreateBackground);
+            uiCreateBorder = true;
+            FloatFromColor(asge::graphics::colors::s_LightGray, uiCreateBorderColor);
+            uiCreateMargin[0] = uiCreateMargin[1] = 0.0f;
+            uiCreatePadding[0] = uiCreatePadding[1] = 0.0f;
+            uiCreateSpacing[0] = uiCreateSpacing[1] = 0.0f;
+            uiCreateLayout = static_cast<int>(asge::game::components::PanelLayout::Absolute);
+            uiCreateLayoutRows = uiCreateLayoutCols = 3;
+            uiCreateParent = asge::ecs::Entity::Null();
         };
 
         bool wantOpenUICreate = false;
@@ -1749,6 +1834,24 @@ int main(int, char**)
                 wantOpenUICreate = true;
                 ImGui::CloseCurrentPopup();
             }
+            if (ImGui::Selectable("Checkbox"))
+            {
+                resetUICreateDraft(UIElementType::Checkbox);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::Selectable("Slider"))
+            {
+                resetUICreateDraft(UIElementType::Slider);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
+            if (ImGui::Selectable("Panel"))
+            {
+                resetUICreateDraft(UIElementType::Panel);
+                wantOpenUICreate = true;
+                ImGui::CloseCurrentPopup();
+            }
             ImGui::Separator();
             if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
@@ -1760,46 +1863,139 @@ int main(int, char**)
         if (ImGui::BeginPopupModal("Create UI Element", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             bool const isButton = uiCreateType == UIElementType::Button;
-            ImGui::Text("Type: %s", isButton ? "Button" : "Label");
+            bool const isLabel = uiCreateType == UIElementType::Label;
+            bool const isCheckbox = uiCreateType == UIElementType::Checkbox;
+            bool const isSlider = uiCreateType == UIElementType::Slider;
+            bool const isPanel = uiCreateType == UIElementType::Panel;
+            static char const* const kTypeNames[]{ "Button", "Label", "Checkbox", "Slider", "Panel" };
+            ImGui::Text("Type: %s", kTypeNames[static_cast<int>(uiCreateType)]);
             ImGui::InputTextWithHint("Name", "(unnamed)", uiCreateNameBuf, sizeof(uiCreateNameBuf));
             ImGui::DragFloat2("Position", uiCreatePos);
             ImGui::Checkbox("Screen Space", &uiCreateScreenSpace);
 
-            if (isButton)
-            {
-                ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
-                ImGui::Checkbox("Enabled", &uiCreateEnabled);
-                ImGui::ColorEdit4("Color", uiCreateButtonColor);
-                ImGui::ColorEdit4("Hover Color", uiCreateButtonHoverColor);
-                ImGui::ColorEdit4("Pressed Color", uiCreateButtonPressedColor);
-            }
-            else
+            if (isLabel)
             {
                 ImGui::Checkbox("Auto Size", &uiCreateAutoSize);
                 if (!uiCreateAutoSize) ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
             }
-
-            ImGui::Separator();
-            ImGui::TextUnformatted(isButton ? "Button Text (optional)" : "Text");
-            ImGui::InputText("Content", uiCreateTextBuf, sizeof(uiCreateTextBuf));
-            // Font is a loadable asset like Texture/Audio/Animation (Phase
-            // 16) -- picked from what's known to be loaded, same
-            // DrawAssetPathCombo widget Sprite/AudioSource/Animation's own
-            // dropdowns use, not a hand-typed path.
-            DrawAssetPathCombo("Font Path", uiCreateFontPath, KnownFontPaths(sceneManager.GetRegistry()));
-            ImGui::DragInt("Font Size", &uiCreateFontPixelHeight, 1.0f, 1, 256);
-            if (ImGui::IsItemHovered())
+            else
             {
-                auto const atlasSize = asge::media::Font::GetAtlasSize();
-                ImGui::SetTooltip(
-                    "Every font bakes into a fixed %dx%d atlas -- too large a size for a "
-                    "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y());
+                ImGui::DragFloat2("Size", uiCreateSize, 1.0f, 1.0f, 4096.0f);
             }
-            static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
-            ImGui::Combo("Align", &uiCreateAlign, kAlignNames, 4);
-            static char const* const kVAlignNames[]{ "Top", "Center", "Bottom" };
-            ImGui::Combo("Vertical Align", &uiCreateVAlign, kVAlignNames, 3);
-            ImGui::ColorEdit4("Text Color", uiCreateTextColor);
+
+            if (isButton || isCheckbox || isSlider)
+            {
+                ImGui::Checkbox("Enabled", &uiCreateEnabled);
+                // Button state colors / Checkbox box colors / Slider thumb colors
+                ImGui::ColorEdit4(isSlider ? "Thumb Color" : "Color", uiCreateButtonColor);
+                ImGui::ColorEdit4(isSlider ? "Thumb Hover Color" : "Hover Color", uiCreateButtonHoverColor);
+                ImGui::ColorEdit4(isSlider ? "Thumb Pressed Color" : "Pressed Color", uiCreateButtonPressedColor);
+            }
+
+            if (isCheckbox)
+            {
+                ImGui::Checkbox("Checked", &uiCreateChecked);
+                ImGui::ColorEdit4("Check Color", uiCreateCheckColor);
+            }
+
+            if (isSlider)
+            {
+                ImGui::DragFloat("Min", &uiCreateMin, 0.05f);
+                ImGui::DragFloat("Max", &uiCreateMax, 0.05f);
+                ImGui::SliderFloat("Value", &uiCreateValue, uiCreateMin, uiCreateMax);
+                ImGui::ColorEdit4("Track Color", uiCreateTrackColor);
+            }
+
+            if (isPanel)
+            {
+                ImGui::ColorEdit4("Background", uiCreateBackground);
+                ImGui::Checkbox("Border", &uiCreateBorder);
+                if (uiCreateBorder) ImGui::ColorEdit4("Border Color", uiCreateBorderColor);
+                ImGui::DragFloat2("Margin", uiCreateMargin, 0.5f, 0.0f, 4096.0f);
+                ImGui::DragFloat2("Padding", uiCreatePadding, 0.5f, 0.0f, 4096.0f);
+                ImGui::DragFloat2("Spacing", uiCreateSpacing, 0.5f, 0.0f, 4096.0f);
+                static char const* const kLayoutNames[]{ "Absolute", "Grid", "VStack", "HStack" };
+                ImGui::Combo("Layout", &uiCreateLayout, kLayoutNames, 4);
+                auto const layout = static_cast<asge::game::components::PanelLayout>(uiCreateLayout);
+                if (layout == asge::game::components::PanelLayout::Grid)
+                {
+                    ImGui::DragInt("Rows", &uiCreateLayoutRows, 0.1f, 1, 64);
+                    ImGui::DragInt("Columns", &uiCreateLayoutCols, 0.1f, 1, 64);
+                }
+                else if (layout == asge::game::components::PanelLayout::VStack)
+                {
+                    ImGui::DragInt("Rows", &uiCreateLayoutRows, 0.1f, 1, 64);
+                }
+                else if (layout == asge::game::components::PanelLayout::HStack)
+                {
+                    ImGui::DragInt("Columns", &uiCreateLayoutCols, 0.1f, 1, 64);
+                }
+            }
+
+            // Phase 17: Panel Parent -- any widget (a Panel included, for
+            // nesting) can be created as a child of an existing panel, which
+            // then lays it out (systems::UILayoutSystem).
+            ImGui::Separator();
+            ImGui::TextUnformatted("Panel Parent");
+            {
+                std::vector<asge::ecs::Entity> panels;
+                for (auto [entity, panel] : sceneManager.GetRegistry().View<asge::game::components::UIPanel>())
+                {
+                    (void)panel;
+                    panels.push_back(entity);
+                }
+                std::sort(panels.begin(), panels.end(), [&](asge::ecs::Entity inA, asge::ecs::Entity inB)
+                {
+                    return GetEntityLabel(sceneManager.GetRegistry(), inA) < GetEntityLabel(sceneManager.GetRegistry(), inB);
+                });
+
+                std::string const currentLabel = uiCreateParent == asge::ecs::Entity::Null()
+                    ? std::string("(none)") : GetEntityLabel(sceneManager.GetRegistry(), uiCreateParent);
+                if (ImGui::BeginCombo("Parent", currentLabel.c_str()))
+                {
+                    if (ImGui::Selectable("(none)", uiCreateParent == asge::ecs::Entity::Null()))
+                    {
+                        uiCreateParent = asge::ecs::Entity::Null();
+                    }
+                    for (auto panelEntity : panels)
+                    {
+                        ImGui::PushID(static_cast<int>(panelEntity.m_Index));
+                        if (ImGui::Selectable(GetEntityLabel(sceneManager.GetRegistry(), panelEntity).c_str(),
+                                              uiCreateParent == panelEntity))
+                        {
+                            uiCreateParent = panelEntity;
+                        }
+                        ImGui::PopID();
+                    }
+                    ImGui::EndCombo();
+                }
+                if (panels.empty()) ImGui::TextDisabled("No panels in the scene yet.");
+            }
+
+            if (isButton || isLabel)
+            {
+                ImGui::Separator();
+                ImGui::TextUnformatted(isButton ? "Button Text (optional)" : "Text");
+                ImGui::InputText("Content", uiCreateTextBuf, sizeof(uiCreateTextBuf));
+                // Font is a loadable asset like Texture/Audio/Animation (Phase
+                // 16) -- picked from what's known to be loaded, same
+                // DrawAssetPathCombo widget Sprite/AudioSource/Animation's own
+                // dropdowns use, not a hand-typed path.
+                DrawAssetPathCombo("Font Path", uiCreateFontPath, KnownFontPaths(sceneManager.GetRegistry()));
+                ImGui::DragInt("Font Size", &uiCreateFontPixelHeight, 1.0f, 1, 256);
+                if (ImGui::IsItemHovered())
+                {
+                    auto const atlasSize = asge::media::Font::GetAtlasSize();
+                    ImGui::SetTooltip(
+                        "Every font bakes into a fixed %dx%d atlas -- too large a size for a "
+                        "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y());
+                }
+                static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
+                ImGui::Combo("Align", &uiCreateAlign, kAlignNames, 4);
+                static char const* const kVAlignNames[]{ "Top", "Center", "Bottom" };
+                ImGui::Combo("Vertical Align", &uiCreateVAlign, kVAlignNames, 3);
+                ImGui::ColorEdit4("Text Color", uiCreateTextColor);
+            }
 
             ImGui::Separator();
             if (ImGui::Button("Back"))
@@ -1823,22 +2019,72 @@ int main(int, char**)
                 // Phase 16: MUST go through UI.hpp's own Create*, not a
                 // hand-rolled AddComponent sequence -- these are the exact
                 // functions gameplay code uses to spawn a Button/Label.
-                auto created = isButton
-                    ? asge::game::ui::CreateButton(sceneManager.GetRegistry(), asge::game::ui::ButtonDesc{
-                          .m_Name = uiCreateNameBuf, .m_Enabled = uiCreateEnabled,
-                          .m_Position = { uiCreatePos[0], uiCreatePos[1] },
-                          .m_Size = { uiCreateSize[0], uiCreateSize[1] },
-                          .m_Colors = { ColorFromFloat4(uiCreateButtonColor), ColorFromFloat4(uiCreateButtonHoverColor),
-                                        ColorFromFloat4(uiCreateButtonPressedColor) },
-                          .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text })
-                    : asge::game::ui::CreateLabel(sceneManager.GetRegistry(), asge::game::ui::LabelDesc{
-                          .m_Name = uiCreateNameBuf, .m_Position = { uiCreatePos[0], uiCreatePos[1] },
-                          .m_Size = uiCreateAutoSize
-                              ? std::nullopt : std::optional<asge::math::Float2>({ uiCreateSize[0], uiCreateSize[1] }),
-                          .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text });
+                auto& registry = sceneManager.GetRegistry();
+                asge::math::Float2 const position{ uiCreatePos[0], uiCreatePos[1] };
+                asge::math::Float2 const size{ uiCreateSize[0], uiCreateSize[1] };
+                asge::game::components::details::StateColors const stateColors{
+                    ColorFromFloat4(uiCreateButtonColor), ColorFromFloat4(uiCreateButtonHoverColor),
+                    ColorFromFloat4(uiCreateButtonPressedColor) };
+
+                asge::Result<asge::ecs::Entity> created = [&]
+                {
+                    using namespace asge::game::ui;
+                    switch (uiCreateType)
+                    {
+                    case UIElementType::Button:
+                        return CreateButton(registry, ButtonDesc{
+                            .m_Name = uiCreateNameBuf, .m_Enabled = uiCreateEnabled, .m_Position = position,
+                            .m_Size = size, .m_Colors = stateColors, .m_ScreenSpace = uiCreateScreenSpace,
+                            .m_Text = text });
+                    case UIElementType::Label:
+                        return CreateLabel(registry, LabelDesc{
+                            .m_Name = uiCreateNameBuf, .m_Position = position,
+                            .m_Size = uiCreateAutoSize ? std::nullopt : std::optional<asge::math::Float2>(size),
+                            .m_ScreenSpace = uiCreateScreenSpace, .m_Text = text });
+                    case UIElementType::Checkbox:
+                        return CreateCheckbox(registry, CheckboxDesc{
+                            .m_Name = uiCreateNameBuf, .m_Enabled = uiCreateEnabled, .m_Position = position,
+                            .m_Size = size, .m_BoxColors = stateColors,
+                            .m_CheckColor = ColorFromFloat4(uiCreateCheckColor), .m_Checked = uiCreateChecked,
+                            .m_ScreenSpace = uiCreateScreenSpace });
+                    case UIElementType::Slider:
+                        return CreateSlider(registry, SliderDesc{
+                            .m_Name = uiCreateNameBuf, .m_Enabled = uiCreateEnabled, .m_Position = position,
+                            .m_Size = size, .m_Min = uiCreateMin, .m_Max = uiCreateMax, .m_Value = uiCreateValue,
+                            .m_TrackColor = ColorFromFloat4(uiCreateTrackColor), .m_ThumbColor = stateColors,
+                            .m_ScreenSpace = uiCreateScreenSpace });
+                    case UIElementType::Panel:
+                        break;
+                    }
+
+                    using namespace asge::game::components;
+                    LayoutSpec layout = LayoutAbsolute{};
+                    switch (static_cast<PanelLayout>(uiCreateLayout))
+                    {
+                    case PanelLayout::Absolute: break;
+                    case PanelLayout::Grid: layout = LayoutGrid{ .m_Rows = uiCreateLayoutRows, .m_Cols = uiCreateLayoutCols }; break;
+                    case PanelLayout::VStack: layout = LayoutVStack{ .m_Rows = uiCreateLayoutRows }; break;
+                    case PanelLayout::HStack: layout = LayoutHStack{ .m_Cols = uiCreateLayoutCols }; break;
+                    }
+                    return CreatePanel(registry, PanelDesc{
+                        .m_Name = uiCreateNameBuf, .m_Position = position, .m_Size = size,
+                        .m_Background = ColorFromFloat4(uiCreateBackground), .m_Layout = layout,
+                        .m_Padding = { uiCreatePadding[0], uiCreatePadding[1] },
+                        .m_Margin = { uiCreateMargin[0], uiCreateMargin[1] },
+                        .m_Spacing = { uiCreateSpacing[0], uiCreateSpacing[1] },
+                        .m_Border = uiCreateBorder, .m_BorderColor = ColorFromFloat4(uiCreateBorderColor),
+                        .m_ScreenSpace = uiCreateScreenSpace });
+                }();
 
                 if (created)
                 {
+                    // Phase 17: Panel Parent -- the chosen panel lays the new
+                    // widget out from the next frame on (UILayoutSystem).
+                    if (uiCreateParent != asge::ecs::Entity::Null())
+                    {
+                        AttachChild(registry, uiCreateParent, created.Value());
+                    }
+
                     if (auto const& path = sceneManager.CurrentScenePath())
                     {
                         sceneManager.GetRegistry().AddComponent<asge::game::scene::SceneId>(
@@ -2015,6 +2261,10 @@ int main(int, char**)
         // overlay below and RenderPipeline itself read World only, and
         // neither one runs this (see examples/*/Game.cpp for the same
         // per-frame call gameplay code has to make of its own accord).
+        // Phase 17: panels place/resize their children first, so the same
+        // propagation pass below carries the result into World (see
+        // UILayoutSystem's own doc comment).
+        asge::game::systems::UILayoutSystem(sceneManager.GetRegistry());
         asge::game::systems::TransformPropagationSystem(sceneManager.GetRegistry());
 
         // Phase 4: viewport overlays, so a position/collider is readable

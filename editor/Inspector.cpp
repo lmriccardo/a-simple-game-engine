@@ -14,6 +14,10 @@
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <ASGE/Game/Components/UI/UICheckbox.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UILayoutItem.hpp>
 #include <ASGE/Core/ECS/Markers.hpp>
 
 #include <imgui.h>
@@ -462,6 +466,111 @@ bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFon
     return changed;
 }
 
+// Phase 17: UICheckbox/UISlider/UIPanel, like the Phase 16 widgets, are view/
+// edit-only (assembled by CreateCheckbox/CreateSlider/CreatePanel, never added
+// piecemeal). m_OnToggled/m_OnValueChanged are runtime signals -- nothing to
+// expose. m_Checked/m_Value are edited directly so the viewport shows them.
+bool DrawInspector( UICheckbox& inCheckbox ) noexcept
+{
+    bool changed = ImGui::Checkbox( "Checked", &inCheckbox.m_Checked );
+    if ( DrawColorField( "Color", inCheckbox.m_BoxColors.m_Color ) ) changed = true;
+    if ( DrawColorField( "Hover Color", inCheckbox.m_BoxColors.m_HoverColor ) ) changed = true;
+    if ( DrawColorField( "Pressed Color", inCheckbox.m_BoxColors.m_PressedColor ) ) changed = true;
+    if ( DrawColorField( "Check Color", inCheckbox.m_CheckColor ) ) changed = true;
+    return changed;
+}
+
+bool DrawInspector( UISlider& inSlider ) noexcept
+{
+    bool changed = ImGui::DragFloat( "Min", &inSlider.m_Min, 0.05f );
+    if ( ImGui::DragFloat( "Max", &inSlider.m_Max, 0.05f ) ) changed = true;
+    // A value outside [Min, Max] just draws pinned to the nearer end (see
+    // GetThumbPosition), but clamping here keeps what's saved honest.
+    if ( ImGui::SliderFloat( "Value", &inSlider.m_Value, inSlider.m_Min, inSlider.m_Max ) ) changed = true;
+    if ( DrawColorField( "Track Color", inSlider.m_TrackColor ) ) changed = true;
+    if ( DrawColorField( "Thumb Color", inSlider.m_ThumbColor.m_Color ) ) changed = true;
+    if ( DrawColorField( "Thumb Hover Color", inSlider.m_ThumbColor.m_HoverColor ) ) changed = true;
+    if ( DrawColorField( "Thumb Pressed Color", inSlider.m_ThumbColor.m_PressedColor ) ) changed = true;
+    return changed;
+}
+
+// Switching the layout type replaces m_Layout's whole variant alternative
+// (rows/cols reset to that type's defaults); Grid/VStack/HStack then expose
+// their own row/column counts. The panel lays out its Hierarchy children (see
+// systems::UILayoutSystem), so any child of a non-Absolute panel has its
+// position (and, unless its UILayoutItem says otherwise, size) re-derived
+// every frame -- editing those on the child itself is overwritten right back.
+bool DrawInspector( UIPanel& inPanel ) noexcept
+{
+    bool changed = DrawColorField( "Background", inPanel.m_Background );
+    if ( ImGui::Checkbox( "Border", &inPanel.m_Border ) ) changed = true;
+    if ( inPanel.m_Border && DrawColorField( "Border Color", inPanel.m_BorderColor ) ) changed = true;
+
+    auto const drawFloat2 = [&]( char const* inLabel, asge::math::Float2& ioValue ) noexcept
+    {
+        float v[2]{ ioValue.x(), ioValue.y() };
+        if ( !ImGui::DragFloat2( inLabel, v, 0.5f, 0.0f, 4096.0f ) ) return;
+        ioValue = { v[0], v[1] };
+        changed = true;
+    };
+    drawFloat2( "Margin", inPanel.m_Margin );
+    drawFloat2( "Padding", inPanel.m_Padding );
+    drawFloat2( "Spacing", inPanel.m_Spacing );
+
+    static char const* const kLayoutNames[]{ "Absolute", "Grid", "VStack", "HStack" };
+    int layout = static_cast<int>( GetPanelLayout( inPanel ) );
+    if ( ImGui::Combo( "Layout", &layout, kLayoutNames, 4 ) )
+    {
+        switch ( static_cast<PanelLayout>( layout ) )
+        {
+        case PanelLayout::Absolute: inPanel.m_Layout = LayoutAbsolute{}; break;
+        case PanelLayout::Grid:     inPanel.m_Layout = LayoutGrid{}; break;
+        case PanelLayout::VStack:   inPanel.m_Layout = LayoutVStack{}; break;
+        case PanelLayout::HStack:   inPanel.m_Layout = LayoutHStack{}; break;
+        }
+        changed = true;
+    }
+
+    if ( auto* grid = std::get_if<LayoutGrid>( &inPanel.m_Layout ) )
+    {
+        if ( ImGui::DragInt( "Rows", &grid->m_Rows, 0.1f, 1, 64 ) ) changed = true;
+        if ( ImGui::DragInt( "Columns", &grid->m_Cols, 0.1f, 1, 64 ) ) changed = true;
+    }
+    else if ( auto* vstack = std::get_if<LayoutVStack>( &inPanel.m_Layout ) )
+    {
+        if ( ImGui::DragInt( "Rows", &vstack->m_Rows, 0.1f, 1, 64 ) ) changed = true;
+    }
+    else if ( auto* hstack = std::get_if<LayoutHStack>( &inPanel.m_Layout ) )
+    {
+        if ( ImGui::DragInt( "Columns", &hstack->m_Cols, 0.1f, 1, 64 ) ) changed = true;
+    }
+
+    return changed;
+}
+
+// Only meaningful under a UIPanel parent with a non-Absolute layout, but
+// addable to any entity (a child can be attached to a panel afterwards).
+bool DrawInspector( UILayoutItem& inItem ) noexcept
+{
+    static char const* const kAlignNames[]{ "Start", "Center", "End" };
+
+    bool changed = ImGui::Checkbox( "Fill X", &inItem.m_FillX );
+    if ( ImGui::Checkbox( "Fill Y", &inItem.m_FillY ) ) changed = true;
+
+    int alignX = static_cast<int>( inItem.m_AlignX ), alignY = static_cast<int>( inItem.m_AlignY );
+    if ( ImGui::Combo( "Align X", &alignX, kAlignNames, 3 ) )
+    {
+        inItem.m_AlignX = static_cast<SlotAlign>( alignX );
+        changed = true;
+    }
+    if ( ImGui::Combo( "Align Y", &alignY, kAlignNames, 3 ) )
+    {
+        inItem.m_AlignY = static_cast<SlotAlign>( alignY );
+        changed = true;
+    }
+    return changed;
+}
+
 // One entry per DrawSection<T> call below -- reused to drive "Add
 // Component"'s list, since the set of addable types is exactly the set of
 // drawable types. Function pointers (not std::function) since every
@@ -525,6 +634,7 @@ ComponentEntry const kComponentEntries[]{
     MakeComponentEntry<AudioSource>( "AudioSource" ),
     MakeComponentEntry<Animation>( "Animation" ),
     MakeComponentEntry<PathFollow>( "PathFollow" ),
+    MakeComponentEntry<UILayoutItem>( "UILayoutItem" ),
 };
 
 // Linear scan over kComponentEntries by name -- only ever called once per
@@ -845,6 +955,9 @@ std::string GetEntityLabel( asge::ecs::Registry& inRegistry, asge::ecs::Entity i
 
     char const* prefix = "Entity";
     if ( inRegistry.HasComponent<UIButton>( inEntity ) ) prefix = "Button";
+    else if ( inRegistry.HasComponent<UICheckbox>( inEntity ) ) prefix = "Checkbox";
+    else if ( inRegistry.HasComponent<UISlider>( inEntity ) ) prefix = "Slider";
+    else if ( inRegistry.HasComponent<UIPanel>( inEntity ) ) prefix = "Panel";
     else if ( inRegistry.HasComponent<UILabel>( inEntity ) ) prefix = "Label";
 
     char buf[32];
@@ -1017,6 +1130,17 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= uiButtonChanged;
     bool const uiLabelChanged = DrawSection<UILabel>( inRegistry, inSelected, "UILabel", inKnownFonts );
     componentsChanged |= uiLabelChanged; fieldChanged |= uiLabelChanged;
+    // Phase 17: UICheckbox/UISlider/UIPanel are view/edit-only like the above;
+    // UILayoutItem is the exception -- optional per child, so it does get the
+    // generic Add/Remove entry.
+    bool const uiCheckboxChanged = DrawSection<UICheckbox>( inRegistry, inSelected, "UICheckbox" );
+    fieldChanged |= uiCheckboxChanged;
+    bool const uiSliderChanged = DrawSection<UISlider>( inRegistry, inSelected, "UISlider" );
+    fieldChanged |= uiSliderChanged;
+    bool const uiPanelChanged = DrawSection<UIPanel>( inRegistry, inSelected, "UIPanel" );
+    fieldChanged |= uiPanelChanged;
+    bool const uiLayoutItemChanged = DrawSection<UILayoutItem>( inRegistry, inSelected, "UILayoutItem" );
+    fieldChanged |= uiLayoutItemChanged;
 
     bool const addComponentClicked = DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
     componentsChanged |= addComponentClicked; fieldChanged |= addComponentClicked;
