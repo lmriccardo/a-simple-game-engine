@@ -80,6 +80,37 @@ public:
      */
     [[nodiscard]] static Result<Font> Load(const filesystem::Path& inPath, int inPixelHeight);
 
+    /**
+     * @brief The fixed pixel dimensions of the atlas bitmap every Font bakes
+     *        its glyphs into.
+     *
+     * Same for every Font regardless of source file or requested pixel
+     * height -- Load's ASCII 32-126 bake fails (FontError::BakeFailed) once
+     * a requested height's glyphs no longer all fit within it. There's no
+     * formula from this alone to a given font's own actual max safe pixel
+     * height, since that also depends on that font's own glyph shapes; this
+     * just gives a caller (e.g. an editor's Font Size field) something
+     * concrete to reason about instead of an arbitrary guess.
+     */
+    [[nodiscard]] static math::Int2 GetAtlasSize() noexcept;
+
+    /**
+     * @brief The largest pixel height inPath's own font can be baked at
+     *        without its glyphs overflowing GetAtlasSize()'s fixed bitmap.
+     *
+     * Found by binary search using Load itself as the oracle at each
+     * candidate height -- there's no direct formula for this (see
+     * GetAtlasSize's own doc comment for why), but Load's own success/
+     * failure at a given height is exact, so the result here is too, not a
+     * heuristic. Fails with whatever error Load itself hits at 1px (e.g. the
+     * file isn't a valid font at all) rather than a "too big" one.
+     * @param inUpperBound Highest pixel height the search considers;
+     *        defaults to the atlas's own height, since no font can
+     *        plausibly still fit beyond that.
+     */
+    [[nodiscard]] static Result<int> FindMaxPixelHeight(
+        const filesystem::Path& inPath, int inUpperBound = 512 );
+
     [[nodiscard]] Result<GlyphMetrics> GetGlyph(char32_t inCodepoint) const;
     [[nodiscard]] const media::Image& GetAtlasImage() const noexcept;
 

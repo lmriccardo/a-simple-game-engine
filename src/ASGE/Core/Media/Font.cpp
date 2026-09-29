@@ -22,6 +22,34 @@ asge::media::Font::Font(
 , m_Descent(inDescent)
 {}
 
+asge::math::Int2 asge::media::Font::GetAtlasSize() noexcept
+{
+    return { kAtlasW, kAtlasH };
+}
+
+asge::Result<int> asge::media::Font::FindMaxPixelHeight(
+    const filesystem::Path& inPath, int inUpperBound )
+{
+    // 1px first, on its own -- a failure here is the font itself being
+    // invalid (bad/corrupt data), not "too big to fit", so it's propagated
+    // as-is rather than folded into the search below.
+    auto const smallest = Load( inPath, 1 );
+    if ( !smallest ) return Result<int>::Err( smallest.Error() );
+
+    // Binary search over Load itself as the oracle -- exact, not a
+    // heuristic (see this function's own doc comment for why there's no
+    // direct formula). Biased high so it converges on the largest height
+    // that still fits, not the smallest that doesn't.
+    int lo = 1, hi = inUpperBound;
+    while ( lo < hi )
+    {
+        int const mid = lo + ( hi - lo + 1 ) / 2;
+        if ( Load( inPath, mid ) ) lo = mid; else hi = mid - 1;
+    }
+
+    return Result<int>::Ok( lo );
+}
+
 asge::Result<asge::media::Font> asge::media::Font::Load(const filesystem::Path &inPath, int inPixelHeight)
 {
     auto binBuffer = filesystem::ReadBinary( inPath );
