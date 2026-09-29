@@ -17,6 +17,7 @@
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
+#include <ASGE/Game/Resources/ScreenSpaceCamera.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
@@ -313,6 +314,27 @@ void Draw(
     );
 }
 
+// A UILabel with m_AutoSize keeps its sibling UIRect's own m_Size in sync
+// with its measured text every frame -- "fit the text" (LabelDesc::m_Size's
+// own doc comment) means the rect tracks whatever the text currently
+// measures at, not just whatever it happened to be sized at creation.
+// Skipped until m_Font actually resolves (see Resolver<UILabel>); until
+// then the rect stays whatever CreateLabel gave it, same as any other
+// unresolved asset-owning component.
+void ResolveLabelAutoSize( ecs::Registry& inRegistry ) noexcept
+{
+    for ( auto [ entity, label ] : inRegistry.View<UILabel>() )
+    {
+        auto const& l = label.get();
+        if ( !l.m_AutoSize || l.m_Font == nullptr ) continue;
+
+        if ( auto rect = inRegistry.GetComponent<UIRect>( entity ) )
+        {
+            rect.Value().get().m_Size = l.m_Font->Measure( l.m_Text );
+        }
+    }
+}
+
 // ----------- Hit List collection ------------------------------------
 
 /**
@@ -490,6 +512,8 @@ void asge::game::systems::CameraSystem(
 void asge::game::systems::RenderSystem(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer) noexcept
 {
+    ResolveLabelAutoSize( inRegistry ); // before collection, so this frame's Collect<UIRect> sees the up-to-date size
+
     std::vector<DrawItem> drawItems;
     math::Rect const visible = video::VisibleWorldRect( inRenderer.GetCamera(), inRenderer.GetViewport() );
 
@@ -508,10 +532,11 @@ void asge::game::systems::RenderSystem(
         // Screen-space items sort last, so this switch happens at most once per frame
         if ( drawItem.m_RenderInfo.m_ScreenSpace && !inScreenSpace )
         {
-            video::Camera screenCamera = worldCamera;
-            screenCamera.m_X    = 0.0f;
-            screenCamera.m_Y    = 0.0f;
-            screenCamera.m_Zoom = 1.0f;
+            video::Camera screenCamera{}; // origin/zoom-1 -- the correct default for a real shipped game
+            if ( auto override = inRegistry.GetResource<resources::ScreenSpaceCamera>() )
+            {
+                screenCamera = override.Value().get().m_Camera;
+            }
             inRenderer.SetCamera( screenCamera );
             inScreenSpace = true;
         }
