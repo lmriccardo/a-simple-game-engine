@@ -54,6 +54,7 @@ class UIDemoState final : public asge::game::state::IGameState<int>
     asge::ecs::Entity m_OverlapFront{ asge::ecs::Entity::Null() }; // higher layer -- sits on top of m_OverlapBack
     asge::ecs::Entity m_OverlapBack { asge::ecs::Entity::Null() }; // lower layer, shifted -- partly exposed and still clickable
     asge::ecs::Entity m_Checkbox    { asge::ecs::Entity::Null() }; // toggled by click -- see UICheckbox::m_OnToggled
+    asge::ecs::Entity m_Slider      { asge::ecs::Entity::Null() }; // dragged -- see UISlider::m_OnValueChanged
 
     void SpawnEntities();
     void RenderSpriteButtonOutline( asge::video::IRenderer& inRenderer ) const;

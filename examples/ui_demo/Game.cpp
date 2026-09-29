@@ -11,6 +11,7 @@ using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
 using asge::game::components::UIRect;
+using asge::game::components::UISlider;
 using asge::game::resources::UIHitList;
 using asge::game::ui::ButtonDesc;
 using asge::game::ui::CreateButton;
@@ -54,6 +55,11 @@ constexpr float kRow4Y = 620.0f;
 constexpr float kCheckboxX = 220.0f;
 constexpr float kCheckboxSize = 24.0f;
 constexpr float kCheckboxLabelX = kCheckboxX + kCheckboxSize + 12.0f;
+
+// Fifth row: a slider.
+constexpr float kRow5Y = 670.0f;
+constexpr float kSliderX = 220.0f;
+constexpr float kSliderW = 200.0f, kSliderH = 24.0f;
 }
 
 UIDemoState::UIDemoState(
@@ -242,6 +248,26 @@ void UIDemoState::SpawnEntities()
         },
     } );
     if ( !checkboxLabel ) checkboxLabel.LogError();
+
+    // Fifth row: a hand-wired slider (no factory yet). m_Value 0.4 of 0..1.
+    auto slider = m_Registry.CreateEntity();
+    if ( !slider ) { slider.LogError(); return; }
+    m_Slider = slider.Value();
+    m_Registry.AddComponent<Transform>( m_Slider, Transform{
+        .m_WorldCoordinates = { kSliderX, kRow5Y }
+    } );
+    m_Registry.AddComponent<UIRect>( m_Slider, UIRect{ .m_Size = { kSliderW, kSliderH } } );
+    m_Registry.AddComponent<UISlider>( m_Slider, UISlider{ .m_Value = 0.4f } );
+    m_Registry.AddComponent<Interactable>( m_Slider, Interactable{} );
+    m_Registry.AddComponent<RenderInfo>( m_Slider, RenderInfo{ .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent<UISlider>( m_Slider ) )
+    {
+        result.Value().get().m_OnValueChanged.Connect( []( float inValue )
+        {
+            LOG_INFO( "Slider value: {:.2f}", inValue );
+        } );
+    }
 }
 
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
