@@ -16,7 +16,9 @@ using asge::game::ui::ButtonDesc;
 using asge::game::ui::CreateButton;
 using asge::game::ui::CreateLabel;
 using asge::game::ui::CreateSlider;
+using asge::game::ui::CreatePanel;
 using asge::game::ui::LabelDesc;
+using asge::game::ui::PanelDesc;
 using asge::game::ui::SliderDesc;
 using asge::game::ui::TextDesc;
 
@@ -56,6 +58,10 @@ constexpr float kRow4Y = 620.0f;
 constexpr float kCheckboxX = 220.0f;
 constexpr float kCheckboxSize = 24.0f;
 constexpr float kCheckboxLabelX = kCheckboxX + kCheckboxSize + 12.0f;
+
+// A panel framing the checkbox and slider rows.
+constexpr float kPanelX = 200.0f, kPanelY = 600.0f;
+constexpr float kPanelW = 260.0f, kPanelH = 110.0f;
 
 // Fifth row: a slider built through asge::game::ui::CreateSlider.
 constexpr float kRow5Y = 670.0f;
@@ -249,6 +255,15 @@ void UIDemoState::SpawnEntities()
         },
     } );
     if ( !checkboxLabel ) checkboxLabel.LogError();
+
+    // A bordered panel behind rows 4-5 (its default layer is behind widgets').
+    auto panel = CreatePanel( m_Registry, PanelDesc{
+        .m_Name = "Panel",
+        .m_Position = { kPanelX, kPanelY },
+        .m_Size = { kPanelW, kPanelH },
+        .m_Border = true,
+    } );
+    if ( !panel ) panel.LogError();
 
     // Fifth row: a slider through CreateSlider, starting at 0.4 of 0..1.
     auto slider = CreateSlider( m_Registry, SliderDesc{
