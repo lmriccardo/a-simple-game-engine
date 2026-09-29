@@ -3,6 +3,7 @@ add_executable(ASGE_ComponentsTest
     SpriteTests.cpp
     HierarchyTests.cpp
     PathFollowTests.cpp
+    UISliderTests.cpp
 )
 
 target_link_libraries(ASGE_ComponentsTest

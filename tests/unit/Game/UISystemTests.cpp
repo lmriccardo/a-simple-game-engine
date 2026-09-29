@@ -1,6 +1,7 @@
 #include <ASGE/Game/Systems/UISystem.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
@@ -21,6 +22,7 @@ using asge::event::SystemEvent;
 using asge::game::components::Interactable;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
+using asge::game::components::UISlider;
 using asge::game::resources::HitEntry;
 using asge::game::resources::UIHitList;
 using asge::input::InputState;
@@ -80,6 +82,21 @@ Entity AddCheckbox( Registry& inRegistry )
 UICheckbox& Checkbox( Registry& inRegistry, Entity inEntity )
 {
     return inRegistry.GetComponent<UICheckbox>( inEntity ).Value().get();
+}
+
+/** @brief Creates a full "Slider" (UISlider + Interactable, default 0..1 range) -- see AddButton's own doc comment for why no UIRect. */
+Entity AddSlider( Registry& inRegistry )
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), UISlider{}).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Interactable{}).IsOk());
+    return entity.Value();
+}
+
+UISlider& Slider( Registry& inRegistry, Entity inEntity )
+{
+    return inRegistry.GetComponent<UISlider>( inEntity ).Value().get();
 }
 
 Interactable& Interact( Registry& inRegistry, Entity inEntity )
@@ -429,6 +446,142 @@ TEST(UIInteractionSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotToggleCh
     asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_FALSE( Checkbox(registry, entity).m_Checked );
+}
+
+// ─── UISlider dragging ───────────────────────────────────────────────────────
+
+TEST(UIInteractionSystemTest, PressOnSlider_JumpsValueToPointerAndFiresOnValueChanged)
+{
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 100.0f, 0.0f, 200.0f, 20.0f }, true }
+    } } );
+
+    std::optional<float> changedTo;
+    Slider(registry, entity).m_OnValueChanged.Connect( [&changedTo]( float inValue ){ changedTo = inValue; } );
+
+    InputState input;
+    input.Consume( MotionEvent(150.0f, 10.0f) ); // a quarter along the 200px track
+    input.Consume( MouseButtonEv(MouseButton::LEFT, true) );
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    ASSERT_TRUE( changedTo.has_value() );
+    EXPECT_FLOAT_EQ( *changedTo, 0.25f );
+    EXPECT_FLOAT_EQ( Slider(registry, entity).m_Value, 0.25f );
+}
+
+TEST(UIInteractionSystemTest, HeldSliderDraggedOffItsRect_ClampsToTheEndOfTheRange)
+{
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    Interact(registry, entity).m_Held = true;
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 100.0f, 0.0f, 200.0f, 20.0f }, true }
+    } } );
+
+    InputState input = InputAt( 900.0f, 500.0f ); // far right and below, still held
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FLOAT_EQ( Slider(registry, entity).m_Value, 1.0f );
+}
+
+TEST(UIInteractionSystemTest, HeldSliderDraggedLeftOfItsRect_ClampsToMin)
+{
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    Slider(registry, entity).m_Value = 0.7f;
+    Interact(registry, entity).m_Held = true;
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 100.0f, 0.0f, 200.0f, 20.0f }, true }
+    } } );
+
+    InputState input = InputAt( 0.0f, 10.0f );
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FLOAT_EQ( Slider(registry, entity).m_Value, 0.0f );
+}
+
+TEST(UIInteractionSystemTest, HeldSliderPointerUnmoved_DoesNotFireOnValueChangedAgain)
+{
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    Slider(registry, entity).m_Value = 0.5f;
+    Interact(registry, entity).m_Held = true;
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 100.0f, 0.0f, 200.0f, 20.0f }, true }
+    } } );
+
+    int fired = 0;
+    Slider(registry, entity).m_OnValueChanged.Connect( [&fired]( float ){ ++fired; } );
+
+    InputState input = InputAt( 200.0f, 10.0f ); // exactly the current value's x
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_EQ( fired, 0 );
+}
+
+TEST(UIInteractionSystemTest, SliderNotHeld_IgnoresPointerMovement)
+{
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 100.0f, 0.0f, 200.0f, 20.0f }, true }
+    } } );
+
+    InputState input = InputAt( 250.0f, 10.0f ); // hovering only, no press
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FLOAT_EQ( Slider(registry, entity).m_Value, 0.0f );
+}
+
+TEST(UIInteractionSystemTest, SliderWithCustomRange_MapsPointerOntoMinToMax)
+{
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    Slider(registry, entity).m_Min = 10.0f;
+    Slider(registry, entity).m_Max = 20.0f;
+    Interact(registry, entity).m_Held = true;
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 0.0f, 0.0f, 100.0f, 20.0f }, true }
+    } } );
+
+    InputState input = InputAt( 50.0f, 10.0f );
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_FLOAT_EQ( Slider(registry, entity).m_Value, 15.0f );
+}
+
+TEST(UIInteractionSystemTest, CompletedClickOnSlider_DoesNotFireOnValueChangedOnRelease)
+{
+    // Sliders emit while held, not on click completion -- the release frame
+    // with an unmoved pointer must not fire a second, stale emit.
+    Registry registry;
+    auto const entity = AddSlider( registry );
+    Slider(registry, entity).m_Value = 0.5f;
+    Interact(registry, entity).m_Held = true;
+    registry.SetResource( UIHitList{ .m_Entries = {
+        HitEntry{ entity, Rect{ 100.0f, 0.0f, 200.0f, 20.0f }, true }
+    } } );
+
+    int fired = 0;
+    Slider(registry, entity).m_OnValueChanged.Connect( [&fired]( float ){ ++fired; } );
+
+    InputState input;
+    input.Consume( MotionEvent(200.0f, 10.0f) );
+    input.Consume( MouseButtonEv(MouseButton::LEFT, true) );
+    input.NewFrame();
+    input.Consume( MouseButtonEv(MouseButton::LEFT, false) );
+
+    asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
+
+    EXPECT_EQ( fired, 0 );
 }
 
 }

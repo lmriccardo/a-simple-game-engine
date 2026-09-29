@@ -21,7 +21,7 @@ using asge::config::toml::TOMLBuilder;
 
 TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 18);
+    static_assert(std::tuple_size_v<SerializableComponents> == 19);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -40,6 +40,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, Interactable>);
     static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, UILabel>);
     static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UICheckbox>);
+    static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UISlider>);
     SUCCEED();
 }
 
@@ -64,6 +65,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Interactable>::kTableName, "Interactable");
     EXPECT_EQ(Serializer<UILabel>::kTableName, "UILabel");
     EXPECT_EQ(Serializer<UICheckbox>::kTableName, "UICheckbox");
+    EXPECT_EQ(Serializer<UISlider>::kTableName, "UISlider");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -987,6 +989,65 @@ TEST(UICheckboxSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_EQ(restored.m_BoxColors.m_Color.r, defaults.m_BoxColors.m_Color.r);
     EXPECT_EQ(restored.m_CheckColor.r, defaults.m_CheckColor.r);
     EXPECT_EQ(restored.m_Checked, defaults.m_Checked);
+}
+
+// ─── UISlider ───────────────────────────────────────────────────────────────
+
+TEST(UISliderSerializerTest, ToToml_WritesRangeValueAndTrackColorUnderUISliderTable)
+{
+    TOMLBuilder builder;
+    UISlider value{};
+    value.m_Min = -1.0f;
+    value.m_Max = 4.0f;
+    value.m_Value = 2.5f;
+    Serializer<UISlider>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UISlider]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Min = -1.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Max = 4.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Value = 2.5"), std::string::npos);
+    EXPECT_NE(dump.find("m_TrackColor"), std::string::npos);
+}
+
+TEST(UISliderSerializerTest, RoundTrips_RangeValueTrackColorAndThumbColors)
+{
+    TOMLBuilder builder;
+    UISlider original{};
+    original.m_Min = -1.0f;
+    original.m_Max = 4.0f;
+    original.m_Value = 2.5f;
+    original.m_TrackColor = { 1, 2, 3, 4 };
+    original.m_ThumbColor.m_Color = { 5, 6, 7, 8 };
+    original.m_ThumbColor.m_HoverColor = { 9, 10, 11, 12 };
+    original.m_ThumbColor.m_PressedColor = { 13, 14, 15, 16 };
+    Serializer<UISlider>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UISlider const restored = Serializer<UISlider>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Min, -1.0f);
+    EXPECT_FLOAT_EQ(restored.m_Max, 4.0f);
+    EXPECT_FLOAT_EQ(restored.m_Value, 2.5f);
+    EXPECT_EQ(restored.m_TrackColor.r, 1);
+    EXPECT_EQ(restored.m_TrackColor.g, 2);
+    EXPECT_EQ(restored.m_TrackColor.b, 3);
+    EXPECT_EQ(restored.m_TrackColor.a, 4);
+    EXPECT_EQ(restored.m_ThumbColor.m_Color.r, 5);
+    EXPECT_EQ(restored.m_ThumbColor.m_HoverColor.r, 9);
+    EXPECT_EQ(restored.m_ThumbColor.m_PressedColor.r, 13);
+}
+
+TEST(UISliderSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UISlider"); // present but empty
+
+    UISlider const restored = Serializer<UISlider>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UISlider const defaults{};
+    EXPECT_FLOAT_EQ(restored.m_Min, defaults.m_Min);
+    EXPECT_FLOAT_EQ(restored.m_Max, defaults.m_Max);
+    EXPECT_FLOAT_EQ(restored.m_Value, defaults.m_Value);
+    EXPECT_EQ(restored.m_TrackColor.r, defaults.m_TrackColor.r);
+    EXPECT_EQ(restored.m_ThumbColor.m_Color.r, defaults.m_ThumbColor.m_Color.r);
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────

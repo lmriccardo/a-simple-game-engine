@@ -6,6 +6,7 @@
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
@@ -31,6 +32,7 @@ using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
+using asge::game::components::UISlider;
 using asge::game::components::UILabel;
 using asge::game::components::VerticalAlign;
 using asge::game::components::UIRect;
@@ -86,6 +88,10 @@ public:
     // UILabel draws via DrawString, never DrawTexture*/DrawRect either.
     struct StringCall { std::string m_Text; asge::math::Float2 m_Position; };
 
+    // UISlider's thumb draws via DrawCircle.
+    struct CircleCall { asge::math::Int2 m_Center; int m_Radius; asge::graphics::RGBA_Color m_Color; bool m_Fill; };
+
+    mutable std::vector<CircleCall> m_CircleCalls;
     mutable std::vector<DrawCall> m_Calls;
     mutable std::vector<RectCall> m_RectCalls;
     mutable std::vector<StringCall> m_StringCalls;
@@ -100,7 +106,11 @@ public:
 
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
         asge::graphics::RGBA_Color const&) const override {}
-    void DrawCircle(asge::math::Int2 const&, int, asge::graphics::RGBA_Color const&, bool) const override {}
+    void DrawCircle(asge::math::Int2 const& inCenter, int inRadius,
+        asge::graphics::RGBA_Color const& inColor, bool inFill) const override
+    {
+        m_CircleCalls.push_back({ inCenter, inRadius, inColor, inFill });
+    }
 
     void DrawTexture(asge::video::ITexture const&, asge::math::Rect const& inDestRect) const noexcept override
     {
@@ -986,6 +996,70 @@ TEST(RenderSystemTest, UICheckbox_HeldAndHovered_BoxUsesPressedColorLikeUIButton
     EXPECT_EQ(box.m_Color.r, 70);
     EXPECT_EQ(box.m_Color.g, 80);
     EXPECT_EQ(box.m_Color.b, 90);
+}
+
+// ─── RenderSystem — UISlider ─────────────────────────────────────────────────────
+
+TEST(RenderSystemTest, UISlider_DrawsFilledTrackEmptyTrackAndThumbCircle)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UISlider slider;
+    slider.m_Value = 0.25f; // a quarter of 0..1
+    slider.m_TrackColor = { 5, 6, 7, 255 };
+    slider.m_ThumbColor.m_Color = { 40, 50, 60, 255 };
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 20.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), slider).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    // Bar inset 30% of the 20px height top and bottom -- 8px tall, at y = 56.
+    ASSERT_EQ(renderer.m_RectCalls.size(), 2u);
+    auto const& filled = renderer.m_RectCalls[0];
+    EXPECT_TRUE(filled.m_Fill);
+    EXPECT_EQ(filled.m_Color.r, 5);
+    EXPECT_FLOAT_EQ(filled.m_Rect.m_X, 100.0f);
+    EXPECT_FLOAT_EQ(filled.m_Rect.m_Y, 56.0f);
+    EXPECT_FLOAT_EQ(filled.m_Rect.m_Width, 50.0f);
+    EXPECT_FLOAT_EQ(filled.m_Rect.m_Height, 8.0f);
+
+    auto const& empty = renderer.m_RectCalls[1];
+    EXPECT_FALSE(empty.m_Fill);
+    EXPECT_FLOAT_EQ(empty.m_Rect.m_X, 150.0f);
+    EXPECT_FLOAT_EQ(empty.m_Rect.m_Width, 150.0f);
+
+    ASSERT_EQ(renderer.m_CircleCalls.size(), 1u);
+    auto const& thumb = renderer.m_CircleCalls[0];
+    EXPECT_TRUE(thumb.m_Fill);
+    EXPECT_EQ(thumb.m_Center.x(), 150);
+    EXPECT_EQ(thumb.m_Center.y(), 60); // vertically centered in the rect
+    EXPECT_EQ(thumb.m_Radius, 10);
+    EXPECT_EQ(thumb.m_Color.r, 40);
+}
+
+TEST(RenderSystemTest, UISlider_HeldAndHovered_ThumbUsesPressedColor)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UISlider slider;
+    slider.m_ThumbColor.m_PressedColor = { 70, 80, 90, 255 };
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 20.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), slider).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Interactable{ .m_Hovered = true, .m_Held = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_CircleCalls.size(), 1u);
+    EXPECT_EQ(renderer.m_CircleCalls[0].m_Color.r, 70);
 }
 
 // ─── RenderSystem — UIHitList ───────────────────────────────────────────────────
