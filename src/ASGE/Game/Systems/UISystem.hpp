@@ -24,4 +24,17 @@ void UIInteractionSystem(
     ecs::Registry& inReg, input::InputState const& inInput,
     video::Camera const& inCamera);
 
+/**
+ * @brief Places and resizes each UIPanel's children (via Hierarchy, in sibling order)
+ *        into the slots of its Grid/VStack/HStack layout, inset by margin + padding
+ *        with m_Spacing between slots.
+ *
+ * Children are moved (Transform::m_LocalCoordinates, marked dirty) and their UIRect
+ * stretched to fill the slot, or per axis as their UILayoutItem says (fill/keep size,
+ * start/center/end alignment). Sprites and auto-sized labels never stretch. Nested
+ * panels are laid out after their parent. Absolute panels and children past the last
+ * slot are left alone. Run it before TransformPropagationSystem.
+ */
+void UILayoutSystem( ecs::Registry& inReg ) noexcept;
+
 }

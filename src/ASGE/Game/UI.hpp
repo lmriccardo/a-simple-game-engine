@@ -119,6 +119,7 @@ struct PanelDesc
     components::LayoutSpec     m_Layout{ components::LayoutAbsolute{} };
     math::Float2               m_Padding{};
     math::Float2               m_Margin{};
+    math::Float2               m_Spacing{};
     bool                       m_Border{ true };
     graphics::RGBA_Color       m_BorderColor{ graphics::colors::s_LightGray };
     bool                       m_ScreenSpace{ true };

@@ -89,6 +89,7 @@ add_library(ASGE STATIC
     Game/Components/UI/UICheckbox.cpp
     Game/Components/UI/UISlider.cpp
     Game/Components/UI/UIPanel.cpp
+    Game/Components/UI/UILayoutItem.cpp
 
     # Gameplay systems built on top of the ECS
     Game/Systems/PhysicsSystem.cpp

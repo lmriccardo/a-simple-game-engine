@@ -37,8 +37,9 @@ inline constexpr PanelLayout LayoutType_v = LayoutType<T>::value;
  * @brief A rectangular background container, drawn from a sibling UIRect.
  *
  * RenderSystem fills the UIRect inset by m_Margin with m_Background, then, if
- * m_Border is set, outlines the full UIRect in m_BorderColor. m_Layout and
- * m_Padding are stored and serialized but nothing lays children out yet.
+ * m_Border is set, outlines the full UIRect in m_BorderColor. systems::
+ * UILayoutSystem then places and resizes its Hierarchy children into m_Layout's
+ * slots, inset by m_Margin + m_Padding with m_Spacing between neighbouring slots.
  */
 struct UIPanel
 {
@@ -47,9 +48,12 @@ struct UIPanel
     LayoutSpec              m_Layout       { LayoutAbsolute{} };
     math::Float2            m_Padding      { 0.0f, 0.0f };
     math::Float2            m_Margin       { 0.0f, 0.0f };
+    math::Float2            m_Spacing      { 0.0f, 0.0f };
     bool                    m_Border       { true };
     graphics::RGBA_Color    m_BorderColor  { graphics::colors::s_LightGray };
 };
+
+PanelLayout GetPanelLayout( UIPanel const& inPanel ) noexcept;
 
 }
 

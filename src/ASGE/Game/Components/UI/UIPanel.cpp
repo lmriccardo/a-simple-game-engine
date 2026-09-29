@@ -54,6 +54,12 @@ void SerializeLayoutSpec( LayoutSpec inSpec, asge::config::toml::TOMLTableView i
 
 }
 
+asge::game::components::PanelLayout 
+asge::game::components::GetPanelLayout(UIPanel const &inPanel) noexcept
+{
+    return std::visit( [](auto spec){ return LayoutType_v<decltype( spec )>; }, inPanel.m_Layout );
+}
+
 void asge::game::scene::Serializer<asge::game::components::UIPanel>::ToToml(
     T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
@@ -64,6 +70,8 @@ void asge::game::scene::Serializer<asge::game::components::UIPanel>::ToToml(
          .Set( "m_PaddingY", inValue.m_Padding.y() )
          .Set( "m_MarginX", inValue.m_Margin.x() )
          .Set( "m_MarginY", inValue.m_Margin.y() )
+         .Set( "m_SpacingX", inValue.m_Spacing.x() )
+         .Set( "m_SpacingY", inValue.m_Spacing.y() )
          .Set( "m_Border", inValue.m_Border )
          .Set( "m_BorderColor", static_cast<std::int64_t>( graphics::RGBATo32A( inValue.m_BorderColor ) ) );
 
@@ -86,6 +94,10 @@ asge::game::scene::Serializer<asge::game::components::UIPanel>::FromToml(
    
     result.m_Padding = math::Float2{
         table.Get( "m_PaddingX", result.m_Padding.x() ), table.Get( "m_PaddingY", result.m_Padding.y() )
+    };
+
+    result.m_Spacing = math::Float2{
+        table.Get( "m_SpacingX", result.m_Spacing.x() ), table.Get( "m_SpacingY", result.m_Spacing.y() )
     };
 
     result.m_Margin = math::Float2{

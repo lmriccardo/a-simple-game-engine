@@ -206,7 +206,7 @@ asge::game::ui::CreatePanel( ecs::Registry& inReg, PanelDesc const& inDesc )
 
     if ( auto r = inReg.AddComponent<components::UIPanel>( e, components::UIPanel{
              .m_Background = inDesc.m_Background, .m_Layout = inDesc.m_Layout,
-             .m_Padding = inDesc.m_Padding, .m_Margin = inDesc.m_Margin,
+             .m_Padding = inDesc.m_Padding, .m_Margin = inDesc.m_Margin, .m_Spacing = inDesc.m_Spacing,
              .m_Border = inDesc.m_Border, .m_BorderColor = inDesc.m_BorderColor } ); !r )
     {
         return fail( r.Error() );
