@@ -169,5 +169,10 @@ asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
         }
     }
 
+    // A scene file's Hierarchy links are stored verbatim and can be stale or
+    // cyclic (an entity its own parent hangs every walk up the parent chain),
+    // so rebuild them from the parent pointers before anything walks them.
+    ecs::components::SanitizeHierarchy( dstRegistry, createdThisCall );
+
     return BoolResult::Ok();
 }

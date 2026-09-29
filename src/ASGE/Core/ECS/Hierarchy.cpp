@@ -1,5 +1,9 @@
 #include "Hierarchy.hpp"
 
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 void asge::ecs::components::AttachChild(
     ecs::Registry &inReg, ecs::Entity inParent, ecs::Entity inChild)
 {
@@ -77,6 +81,65 @@ bool asge::ecs::components::IsAncestor(
     }
 
     return false;
+}
+
+void asge::ecs::components::SanitizeHierarchy(
+    ecs::Registry &inReg, std::vector<ecs::Entity> const &inEntities )
+{
+    std::vector<ecs::Entity> members;
+    for ( auto entity : inEntities )
+    {
+        if ( inReg.HasComponent<Hierarchy>( entity ) ) members.push_back( entity );
+    }
+    std::unordered_set<ecs::Entity> const memberSet( members.begin(), members.end() );
+
+    // Everything is read from the stored links before any of them is reset.
+    auto const stored = [&]( ecs::Entity inEntity ) -> Hierarchy const&
+    { return inReg.GetComponent<Hierarchy>( inEntity ).Value().get(); };
+
+    // Intended parent: only another member counts, never the entity itself.
+    std::unordered_map<ecs::Entity, ecs::Entity> parentOf;
+    for ( auto entity : members )
+    {
+        auto const parent = stored( entity ).m_Parent;
+        parentOf[entity] = ( parent != entity && memberSet.contains( parent ) ) ? parent : ecs::Entity::Null();
+    }
+
+    // Sibling order: each parent's stored first-child chain, for as long as
+    // it stays consistent (every link a member of that parent, none repeated,
+    // bounded by the member count so a cycle can't spin).
+    std::unordered_map<ecs::Entity, std::vector<ecs::Entity>> children;
+    std::unordered_set<ecs::Entity> placed;
+    for ( auto parent : members )
+    {
+        auto current = stored( parent ).m_FirstChild;
+        for ( std::size_t steps = 0; current != ecs::Entity::Null() && steps < members.size(); ++steps )
+        {
+            auto const it = parentOf.find( current );
+            if ( it == parentOf.end() || it->second != parent || !placed.insert( current ).second ) break;
+            children[parent].push_back( current );
+            current = stored( current ).m_NextSibling;
+        }
+    }
+
+    // Children a chain didn't reach still belong to their parent, after it.
+    for ( auto entity : members )
+    {
+        if ( parentOf[entity] != ecs::Entity::Null() && !placed.contains( entity ) )
+        {
+            children[parentOf[entity]].push_back( entity );
+        }
+    }
+
+    // Rebuild from scratch. AttachChild refuses to close a cycle, so any
+    // multi-entity loop is broken here, leaving the later child a root.
+    for ( auto entity : members ) inReg.GetComponent<Hierarchy>( entity ).Value().get() = Hierarchy{};
+    for ( auto parent : members )
+    {
+        auto const it = children.find( parent );
+        if ( it == children.end() ) continue;
+        for ( auto child : it->second ) AttachChild( inReg, parent, child );
+    }
 }
 
 void asge::ecs::components::DestroyEntityGraph(ecs::Registry &inReg, ecs::Entity inRoot)

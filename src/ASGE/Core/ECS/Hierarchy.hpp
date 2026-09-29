@@ -75,6 +75,7 @@ void ForEachChild( ecs::Registry& inReg, ecs::Entity inParent, Callable&& inFn )
     while ( current != ecs::Entity::Null() )
     {
         auto currentHResult = inReg.GetComponent<Hierarchy>( current );
+        if ( !currentHResult ) break; // a dead entity left linked in: stop rather than abort
         ecs::Entity const next = currentHResult.Value().get().m_NextSibling;
         inFn( current );
         current = next;
@@ -82,10 +83,23 @@ void ForEachChild( ecs::Registry& inReg, ecs::Entity inParent, Callable&& inFn )
 }
 
 /**
+ * @brief Rebuilds every Hierarchy link among inEntities from their m_Parent
+ *        pointers, so data that was never validated (a loaded scene file)
+ *        can't leave the tree inconsistent or cyclic.
+ *
+ * A parent that is the entity itself, isn't in inEntities, or has no
+ * Hierarchy is dropped (the entity becomes a root), and a parent cycle is
+ * broken at the point it would close. Sibling order is kept from each
+ * parent's stored first-child chain wherever that chain is consistent;
+ * children it doesn't reach follow in inEntities order.
+ */
+void SanitizeHierarchy( ecs::Registry& inReg, std::vector<ecs::Entity> const& inEntities );
+
+/**
  * @brief Destroys inRoot and its entire subtree (children, grandchildren,
  *        ...), depth-first via ForEachChild/recursion. Unlike a plain
- *        DestroyEntity(inRoot), this doesn't leave orphaned children behind
- *        pointing at a now-dead parent.
+ *        DestroyEntity(inRoot), which detaches its children and leaves them
+ *        alive as roots, this destroys them too.
  */
 void DestroyEntityGraph(ecs::Registry& inReg, ecs::Entity inRoot);
 
