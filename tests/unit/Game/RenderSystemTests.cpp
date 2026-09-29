@@ -7,6 +7,7 @@
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
@@ -33,6 +34,7 @@ using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
 using asge::game::components::UISlider;
+using asge::game::components::UIPanel;
 using asge::game::components::UILabel;
 using asge::game::components::VerticalAlign;
 using asge::game::components::UIRect;
@@ -1060,6 +1062,64 @@ TEST(RenderSystemTest, UISlider_HeldAndHovered_ThumbUsesPressedColor)
 
     ASSERT_EQ(renderer.m_CircleCalls.size(), 1u);
     EXPECT_EQ(renderer.m_CircleCalls[0].m_Color.r, 70);
+}
+
+// ─── RenderSystem — UIPanel ──────────────────────────────────────────────────────
+
+TEST(RenderSystemTest, UIPanel_WithBorder_DrawsFilledBackgroundThenOutlineOfFullRect)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UIPanel panel;
+    panel.m_Background = { 10, 20, 30, 255 };
+    panel.m_BorderColor = { 200, 210, 220, 255 };
+    panel.m_Margin = { 5.0f, 8.0f };
+    panel.m_Border = true;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Transform{ .m_WorldCoordinates = {100.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), panel).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 2u);
+    auto const& background = renderer.m_RectCalls[0];
+    EXPECT_TRUE(background.m_Fill);
+    EXPECT_EQ(background.m_Color.r, 10);
+    EXPECT_FLOAT_EQ(background.m_Rect.m_X, 105.0f);
+    EXPECT_FLOAT_EQ(background.m_Rect.m_Y, 58.0f);
+    EXPECT_FLOAT_EQ(background.m_Rect.m_Width, 190.0f);
+    EXPECT_FLOAT_EQ(background.m_Rect.m_Height, 84.0f);
+
+    auto const& border = renderer.m_RectCalls[1];
+    EXPECT_FALSE(border.m_Fill);
+    EXPECT_EQ(border.m_Color.r, 200);
+    EXPECT_FLOAT_EQ(border.m_Rect.m_X, 100.0f);
+    EXPECT_FLOAT_EQ(border.m_Rect.m_Y, 50.0f);
+    EXPECT_FLOAT_EQ(border.m_Rect.m_Width, 200.0f);
+    EXPECT_FLOAT_EQ(border.m_Rect.m_Height, 100.0f);
+}
+
+TEST(RenderSystemTest, UIPanel_WithoutBorder_DrawsOnlyTheBackground)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    UIPanel panel;
+    panel.m_Border = false;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), panel).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    EXPECT_TRUE(renderer.m_RectCalls[0].m_Fill);
 }
 
 // ─── RenderSystem — UIHitList ───────────────────────────────────────────────────

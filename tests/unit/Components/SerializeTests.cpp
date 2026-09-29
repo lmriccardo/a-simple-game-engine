@@ -21,7 +21,7 @@ using asge::config::toml::TOMLBuilder;
 
 TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 19);
+    static_assert(std::tuple_size_v<SerializableComponents> == 20);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -41,6 +41,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, UILabel>);
     static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UICheckbox>);
     static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UISlider>);
+    static_assert(std::is_same_v<std::tuple_element_t<19, SerializableComponents>, UIPanel>);
     SUCCEED();
 }
 
@@ -66,6 +67,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<UILabel>::kTableName, "UILabel");
     EXPECT_EQ(Serializer<UICheckbox>::kTableName, "UICheckbox");
     EXPECT_EQ(Serializer<UISlider>::kTableName, "UISlider");
+    EXPECT_EQ(Serializer<UIPanel>::kTableName, "UIPanel");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -1048,6 +1050,121 @@ TEST(UISliderSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_FLOAT_EQ(restored.m_Value, defaults.m_Value);
     EXPECT_EQ(restored.m_TrackColor.r, defaults.m_TrackColor.r);
     EXPECT_EQ(restored.m_ThumbColor.m_Color.r, defaults.m_ThumbColor.m_Color.r);
+}
+
+// ─── UIPanel ────────────────────────────────────────────────────────────────
+
+TEST(UIPanelSerializerTest, ToToml_WritesColorsPaddingMarginBorderAndLayoutUnderUIPanelTable)
+{
+    TOMLBuilder builder;
+    UIPanel value{};
+    value.m_Padding = { 1.0f, 2.0f };
+    value.m_Margin = { 3.0f, 4.0f };
+    value.m_Border = false;
+    value.m_Layout = LayoutGrid{ .m_Rows = 2, .m_Cols = 5 };
+    Serializer<UIPanel>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIPanel]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Background"), std::string::npos);
+    EXPECT_NE(dump.find("m_BorderColor"), std::string::npos);
+    EXPECT_NE(dump.find("m_PaddingX = 1.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_MarginY = 4.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Border = false"), std::string::npos);
+    EXPECT_NE(dump.find("m_LayoutType = \"Grid\""), std::string::npos);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_ColorsPaddingMarginAndBorder)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Background = { 1, 2, 3, 4 };
+    original.m_BorderColor = { 5, 6, 7, 8 };
+    original.m_Padding = { 1.5f, 2.5f };
+    original.m_Margin = { 3.5f, 4.5f };
+    original.m_Border = false;
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Background.r, 1);
+    EXPECT_EQ(restored.m_Background.g, 2);
+    EXPECT_EQ(restored.m_Background.b, 3);
+    EXPECT_EQ(restored.m_Background.a, 4);
+    EXPECT_EQ(restored.m_BorderColor.r, 5);
+    EXPECT_EQ(restored.m_BorderColor.g, 6);
+    EXPECT_EQ(restored.m_BorderColor.b, 7);
+    EXPECT_EQ(restored.m_BorderColor.a, 8);
+    EXPECT_FLOAT_EQ(restored.m_Padding.x(), 1.5f);
+    EXPECT_FLOAT_EQ(restored.m_Padding.y(), 2.5f);
+    EXPECT_FLOAT_EQ(restored.m_Margin.x(), 3.5f);
+    EXPECT_FLOAT_EQ(restored.m_Margin.y(), 4.5f);
+    EXPECT_FALSE(restored.m_Border);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_AbsoluteLayout)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutAbsolute{};
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_TRUE(std::holds_alternative<LayoutAbsolute>(restored.m_Layout));
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_GridLayoutRowsAndCols)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutGrid{ .m_Rows = 2, .m_Cols = 5 };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    auto const* grid = std::get_if<LayoutGrid>(&restored.m_Layout);
+    ASSERT_NE(grid, nullptr);
+    EXPECT_EQ(grid->m_Rows, 2);
+    EXPECT_EQ(grid->m_Cols, 5);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_VStackLayoutRows)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutVStack{ .m_Rows = 7 };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    auto const* vstack = std::get_if<LayoutVStack>(&restored.m_Layout);
+    ASSERT_NE(vstack, nullptr);
+    EXPECT_EQ(vstack->m_Rows, 7);
+}
+
+TEST(UIPanelSerializerTest, RoundTrips_HStackLayoutCols)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Layout = LayoutHStack{ .m_Cols = 6 };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    auto const* hstack = std::get_if<LayoutHStack>(&restored.m_Layout);
+    ASSERT_NE(hstack, nullptr);
+    EXPECT_EQ(hstack->m_Cols, 6);
+}
+
+TEST(UIPanelSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIPanel"); // present but empty
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UIPanel const defaults{};
+    EXPECT_EQ(restored.m_Background.r, defaults.m_Background.r);
+    EXPECT_EQ(restored.m_BorderColor.r, defaults.m_BorderColor.r);
+    EXPECT_FLOAT_EQ(restored.m_Padding.x(), defaults.m_Padding.x());
+    EXPECT_FLOAT_EQ(restored.m_Margin.x(), defaults.m_Margin.x());
+    EXPECT_EQ(restored.m_Border, defaults.m_Border);
+    EXPECT_TRUE(std::holds_alternative<LayoutAbsolute>(restored.m_Layout));
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────
