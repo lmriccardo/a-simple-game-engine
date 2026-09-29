@@ -13,6 +13,11 @@
 #include "Assets/AssetManager.hpp"
 #include "Scene/SceneManager.hpp"
 #include "States/GameStateStack.hpp"
+#include "Systems/AudioSystem.hpp"
+#include "Systems/PhysicsSystem.hpp"
+#include "Systems/RenderSystem.hpp"
+#include "Systems/TransformPropagationSystem.hpp"
+#include "Systems/UISystem.hpp"
 
 namespace asge::game
 {
@@ -70,6 +75,8 @@ private:
     state::GameStateStack<TStateId>                           m_States;
     std::unordered_map<TStateId, std::unique_ptr<StateType>>  m_StateCache;
     bool                                                      m_QuitRequested{false};
+    systems::PhysicsState                                     m_PhysicsState;
+    float                                                     m_LastDeltaTime{0.0f};
 
     /** @brief Returns inId's cached state, creating it via CreateState() on first use. */
     StateType& GetOrCreateState( TStateId inId )
@@ -133,14 +140,45 @@ public:
         return result;
     }
 
+    /**
+     * @brief Runs one frame over the active scene's registry in the only valid order:
+     *        UI interaction, the states' own Update() (game logic), gravity, movement,
+     *        path following, UI layout, one transform propagation, collisions, triggers,
+     *        audio. States never call these systems themselves.
+     */
     void Update( float inDeltaTime, input::InputState const& inInput ) override
     {
+        m_LastDeltaTime = inDeltaTime;
+        systems::UIInteractionSystem( m_SceneManager.GetRegistry(), inInput, video::Camera{} );
+
         if ( auto transition = m_States.Update( inDeltaTime, inInput ) )
             ApplyTransition( *transition );
+
+        auto& registry = m_SceneManager.GetRegistry();
+        systems::GravitySystem( registry, inDeltaTime );
+        systems::MovementSystem( registry, inDeltaTime );
+        systems::PathFollowingSystem( registry, inDeltaTime );
+        systems::UILayoutSystem( registry );
+        systems::TransformPropagationSystem( registry );
+
+        auto contacts = systems::DetectCollisions( registry );
+        systems::ResolveCollisions( registry, contacts );
+        systems::DispatchTriggerEvents( m_PhysicsState, contacts );
+
+        systems::AudioSystem( registry, m_AudioDev );
     }
 
+    /**
+     * @brief Resolves pending assets, clears with the visible state's ClearColor(), lets states
+     *        draw RenderBackground(), draws the scene through RenderPipeline, then states' Render().
+     */
     void Render( video::IRenderer& inRenderer ) override
     {
+        auto& registry = m_SceneManager.GetRegistry();
+        m_Assets.ResolveAssets( registry, inRenderer );
+        inRenderer.Clear( m_States.ClearColor() );
+        m_States.RenderBackground( inRenderer );
+        systems::RenderPipeline( registry, inRenderer, m_LastDeltaTime );
         m_States.Render( inRenderer );
     }
 

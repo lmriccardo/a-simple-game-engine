@@ -1,5 +1,7 @@
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
+#include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Game/Components/Velocity.hpp>
 
 #include <gtest/gtest.h>
 
@@ -38,6 +40,15 @@ public:
         if (m_RenderOrder) m_RenderOrder->push_back(m_Id);
     }
 
+    void RenderBackground(asge::video::IRenderer&) override
+    {
+        if (m_RenderOrder) m_RenderOrder->push_back(-1 - m_Id);
+    }
+
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return m_Clear; }
+
+    asge::graphics::RGBA_Color m_Clear{ 0, 0, 0, 255 };
+
     void OnSystemEvent(asge::event::SystemEvent const&) override { ++m_EventCount; }
     void OnEnter() override { ++m_EnterCount; }
     void OnExit()  override { ++m_ExitCount; }
@@ -48,7 +59,7 @@ public:
 class NullRenderer final : public asge::video::IRenderer
 {
 public:
-    void Clear(asge::graphics::RGBA_Color const&) const override {}
+    void Clear(asge::graphics::RGBA_Color const& inColor) const override { m_LastClear = inColor; }
     void DrawRect(asge::math::Rect const&, asge::graphics::RGBA_Color const&, bool) const override {}
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
         asge::graphics::RGBA_Color const&) const override {}
@@ -77,6 +88,8 @@ public:
     void SetViewport(asge::video::Viewport const& inViewport) override { m_Viewport = inViewport; }
     [[nodiscard]] asge::video::Viewport const& GetViewport() const override { return m_Viewport; }
 
+    mutable asge::graphics::RGBA_Color m_LastClear{};
+
 private:
     asge::video::Camera   m_Camera{};
     asge::video::Viewport m_Viewport{};
@@ -91,6 +104,7 @@ public:
     using Game::Game;
     using Game::SetInitialState;
     using Game::InvalidateState;
+    using Game::m_SceneManager;
 
     std::unordered_map<int, MockGameState*> m_Created;
     std::unordered_map<int, int>            m_CreateCount;
@@ -257,4 +271,39 @@ TEST_F(GameTest, OnSystemEvent_ForwardsToTopmostState)
     EXPECT_EQ(m_Game.m_Created[0]->m_EventCount, 1);
 }
 
+}
+
+// ─── Per-frame system pipeline ───────────────────────────────────────────────
+
+TEST_F(GameTest, Update_RunsMovementAndPropagationOverTheSceneRegistry)
+{
+    using asge::game::components::Transform;
+    using asge::game::components::Velocity;
+
+    m_Game.SetInitialState(0);
+    auto& registry = m_Game.m_SceneManager.GetRegistry();
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity);
+    ASSERT_TRUE(registry.AddComponent<Transform>(entity.Value(), Transform{}));
+    ASSERT_TRUE(registry.AddComponent<Velocity>(entity.Value(), Velocity{ .m_DX = 10.0f }));
+
+    m_Game.Update(2.0f, m_Input);
+
+    auto transform = registry.GetComponent<Transform>(entity.Value());
+    ASSERT_TRUE(transform);
+    EXPECT_FLOAT_EQ(transform.Value().get().m_LocalCoordinates.x(), 20.0f);
+    EXPECT_FLOAT_EQ(transform.Value().get().m_WorldCoordinates.x(), 20.0f);
+}
+
+TEST_F(GameTest, Render_ClearsWithVisibleStatesColorThenDrawsBackgroundBeforeState)
+{
+    std::vector<int> order;
+    m_Game.SetInitialState(0);
+    m_Game.m_Created[0]->m_Clear = { 1, 2, 3, 255 };
+    m_Game.m_Created[0]->m_RenderOrder = &order;
+
+    m_Game.Render(m_Renderer);
+
+    EXPECT_EQ(m_Renderer.m_LastClear.g, 2);
+    EXPECT_EQ(order, (std::vector<int>{ -1, 0 }));
 }
