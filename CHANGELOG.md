@@ -1,3 +1,109 @@
+## [0.8.6e1.2] - 2026-09-29
+
+
+### Bug Fixes
+
+- :bug: Store asge.session in the per-user preferences directory
+
+- :bug: Unlink destroyed entities from the Hierarchy and sanitize loaded links
+
+- :bug: Resolve assets on disabled entities too
+
+- :bug: Fix editor build against Transform's Local/World split
+
+- :bug: Mark loaded Transforms dirty so World gets computed
+
+- :bug: Update post-merge CameraSystemTest cases to Transform's Local/World split
+
+- :bug: Stop Font::Measure from double-advancing past every other character
+
+- :bug: Position UILabel text at its rect's top edge and align it by pixel width
+
+- :bug: Resolve UILabel's font atlas as a texture instead of an image file
+
+- :bug: Make Vec2/Vec3's initializer_list constructor and accessors constexpr
+
+- :bug: Make Vec2/Vec3's variadic constructor constexpr
+
+- :bug: Update every Transform consumer for the Local/World coordinate split
+
+
+
+
+### Features
+
+- :sparkles: Turn the Editor nav link into a dropdown of feature pages
+
+- :sparkles: Add Checkbox, Slider and Panel creation and duplicate hierarchies properly
+
+- :sparkles: Add UI Labels and Buttons support to the editor (Phase 16)
+
+- :sparkles: Expose Font's atlas size and a binary-search max pixel height
+
+- :sparkles: Auto-size UILabel's UIRect and allow an override for its screen-space camera
+
+- :sparkles: Track UILabel fonts as first-class assets
+
+- :sparkles: Disabled-entity support in the editor (Phase 15)
+
+- :sparkles: Expose IsDrawnAbove for draw-order-aware picking
+
+- :sparkles: Auto-attach RenderInfo and create entities from assets (Phase 14)
+
+- :sparkles: Make the Entities panel Hierarchy-aware (Phase 13)
+
+- :sparkles: Lay out the ui_demo panel children with UILayoutSystem
+
+- :sparkles: Add UILayoutSystem and UILayoutItem
+
+- :sparkles: Add a bordered panel to ui_demo
+
+- :sparkles: Add UIPanel component and CreatePanel factory
+
+- :sparkles: Build the ui_demo slider through CreateSlider
+
+- :sparkles: Add CreateSlider factory
+
+- :sparkles: Add a slider row to ui_demo
+
+- :sparkles: Add UISlider component
+
+- :sparkles: Add a checkbox row to ui_demo
+
+- :sparkles: Add CreateCheckbox factory
+
+- :sparkles: Wire UICheckbox into RenderSystem/UISystem and add test coverage
+
+- :sparkles: Add UICheckbox component
+
+- :sparkles: Add hierarchy-aware entity disabling
+
+- :sparkles: Move Hierarchy into ECS core and add DisableTag view filtering
+
+- :sparkles: Add UILabel vertical alignment, defaulting to Center
+
+- :sparkles: Add an autosizable label and fitting/cropped buttons to ui_demo
+
+- :sparkles: Resolve and render UILabel's font atlas texture
+
+- :sparkles: Split UIButton into UIButton + Interactable + UIRect, add 64-bit TOML integers
+
+- :sparkles: Switch ui_demo to UIButtonSystem, add an overlapping-buttons pair
+
+- :sparkles: Add UIButtonSystem, resolving hover/click from a per-frame UIHitList
+
+- :sparkles: Add ui_demo, showcasing UIButton with and without a Sprite
+
+- :sparkles: Add colored UIButton rendering, RGBA_Color serialization, and Sprite/UIButton draw exclusion
+
+- :construction: Work in progress for uibutton rendering and asset resolution
+
+
+
+
+### Contributors
+
+- lmriccardo
 ## [0.8.5e1.0] - 2026-09-27
 
 
@@ -21,9 +127,9 @@
 
 - :bug: Register Name in SerializableComponents
 
-- :bug: Thread SaveContext/LoadContext through every component Serializer
-
 - :bug: Add NativeHandle overrides to fake IRenderer test doubles
+
+- :bug: Thread SaveContext/LoadContext through every component Serializer
 
 
 
@@ -576,6 +682,7 @@
 ### Contributors
 
 - lmriccardo
+[0.8.6e1.2]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.5e1.1...v0.8.6e1.2
 [0.8.5e1.0]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.4...v0.8.5e1.0
 [0.8.4]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/lmriccardo/a-simple-game-engine/compare/v0.8.2...v0.8.3
