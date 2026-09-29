@@ -16,6 +16,7 @@
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
@@ -324,6 +325,33 @@ void Draw(
     inRenderer.DrawRect( checkBox, inCheckbox.m_CheckColor, true );
 }
 
+void Draw(
+    ecs::Registry const& inReg, video::IRenderer& inRenderer,
+    DrawItem const& inItem, UISlider const& inSlider)
+{
+    math::Rect const& box = inItem.m_DstRect;
+    float const insetY = box.m_Height * kTrackBarSize;
+    math::Float2 const valueAt = GetThumbPosition( inSlider, box );
+
+    float const filled_end = valueAt.x(),
+                filled_w   = valueAt.x() - box.m_X,
+                empty_w    = box.m_Width - ( valueAt.x() - box.m_X ),
+                tracked_h  = box.m_Height - 2.0f * insetY;
+
+    // First we need to draw the two rects one filled and the other do not filled
+    math::Rect const filled{ box.m_X, box.m_Y + insetY, filled_w, tracked_h };
+    math::Rect const empty{ filled_end, box.m_Y + insetY, empty_w, tracked_h };
+
+    inRenderer.DrawRect( filled, inSlider.m_TrackColor, true );
+    inRenderer.DrawRect( empty, inSlider.m_TrackColor, false );
+
+    // Then we need to draw the circle with origin at thumb pos and r = h / 2
+    float const radius = box.m_Height / 2.0f;
+    auto const color = PickStateColor( inReg, inItem.m_Entity, inSlider.m_ThumbColor );
+    math::Int2 center = math::Int2{ static_cast<int>(valueAt.x()), static_cast<int>(valueAt.y()) };
+    inRenderer.DrawCircle( center, radius, color, true );
+}
+
 /**
  * @brief Draws a UIRect by dispatching to whichever of UIWidgets it also
  *        carries (UIButton/UICheckbox pick their fill color from a sibling
@@ -334,7 +362,7 @@ void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
 {
-    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox>;
+    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox, UISlider>;
     functools::ForEachTupleType<UIWidgets>( [&]<typename T> 
         {
             if ( auto r = inReg.GetComponent<T>( inItem.m_Entity ) )

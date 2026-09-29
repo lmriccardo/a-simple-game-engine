@@ -1,9 +1,11 @@
 #include "UISystem.hpp"
 
+#include <algorithm>
 #include <tuple>
 
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -14,7 +16,8 @@ namespace
 using namespace asge::game;
 using namespace asge::ecs;
 using InteractableComponents = std::tuple<
-    asge::game::components::UIButton, asge::game::components::UICheckbox>;
+    asge::game::components::UIButton, asge::game::components::UICheckbox,
+    asge::game::components::UISlider>;
 
 template<typename T>
 void ResolveInteractionsImpl( 
@@ -89,6 +92,7 @@ void asge::game::systems::UIInteractionSystem(
     bool const justReleased = inInput.IsMouseButtonReleased( input::MouseButton::LEFT );
 
     ecs::Entity clicked = ecs::Entity::Null();
+    ecs::Entity held    = ecs::Entity::Null(); // at most one -- a press only lands on the frontmost hovered entity
     for ( auto [ entity, interactable ] : inReg.View<components::Interactable>() )
     {
         auto& i = interactable.get();
@@ -113,8 +117,35 @@ void asge::game::systems::UIInteractionSystem(
             }
             i.m_Held = false;
         }
+
+        if ( i.m_Held ) held = entity;
     }
 
+    // Sliders emit continuously while held (press + drag), not on click
+    // completion: map the pointer's x across the hit rect onto [m_Min, m_Max].
+    // Held doesn't require hovered, so a drag survives the cursor leaving the rect.
+    if ( held != ecs::Entity::Null() )
+    {
+        auto slider = inReg.GetComponent<components::UISlider>( held );
+        auto const entry = std::ranges::find( entries, held, &resources::HitEntry::m_Entity );
+        if ( slider && entry != entries.end() )
+        {
+            auto& s = slider.Value().get();
+            float const mouseX = entry->m_ScreenSpace ? screenMouse.x() : worldMouse.x();
+            float const t = entry->m_Rect.m_Width > 0.0f
+                ? std::clamp( ( mouseX - entry->m_Rect.m_X ) / entry->m_Rect.m_Width, 0.0f, 1.0f ) : 0.0f;
+            float const value = s.m_Min + t * ( s.m_Max - s.m_Min );
+
+            if ( value != s.m_Value )
+            {
+                s.m_Value = value;
+                s.m_OnValueChanged.Emit( value );
+            }
+        }
+    }
+
+    // Resolved interactions for those entities that needs a complete click
+    // to emit the actual signal back to the caller.
     if ( clicked != ecs::Entity::Null() )
     {
         ResolveInteractions( inReg, clicked );
