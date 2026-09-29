@@ -5,6 +5,7 @@
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 
@@ -151,6 +152,35 @@ asge::game::ui::CreateCheckbox( ecs::Registry& inReg, CheckboxDesc const& inDesc
     };
     if ( inDesc.m_OnToggled ) checkbox.m_OnToggled.Connect( inDesc.m_OnToggled );
     if ( auto r = inReg.AddComponent<components::UICheckbox>( e, std::move( checkbox ) ); !r )
+        return fail( r.Error() );
+
+    return entityR;
+}
+
+asge::Result<asge::ecs::Entity>
+asge::game::ui::CreateSlider( ecs::Registry& inReg, SliderDesc const& inDesc )
+{
+    auto entityR = CreateUIEntity( inReg, inDesc.m_Name, inDesc.m_Position, inDesc.m_Size, inDesc.m_ScreenSpace );
+    if ( !entityR ) return entityR;
+    ecs::Entity const e = entityR.Value();
+
+    auto const fail = [&]( auto const& inError ) {
+        auto _ = inReg.DestroyEntity( e );
+        return Result<ecs::Entity>::Err( inError );
+    };
+
+    if ( auto r = inReg.AddComponent<components::Interactable>( e, components::Interactable{
+             .m_Enabled = inDesc.m_Enabled } ); !r )
+    {
+        return fail( r.Error() );
+    }
+
+    components::UISlider slider{
+        .m_Min = inDesc.m_Min, .m_Max = inDesc.m_Max, .m_Value = inDesc.m_Value,
+        .m_TrackColor = inDesc.m_TrackColor, .m_ThumbColor = inDesc.m_ThumbColor
+    };
+    if ( inDesc.m_OnValueChanged ) slider.m_OnValueChanged.Connect( inDesc.m_OnValueChanged );
+    if ( auto r = inReg.AddComponent<components::UISlider>( e, std::move( slider ) ); !r )
         return fail( r.Error() );
 
     return entityR;
