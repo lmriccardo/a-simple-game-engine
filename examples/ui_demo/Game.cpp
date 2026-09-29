@@ -1,5 +1,6 @@
 #include "Game.hpp"
 
+#include <ASGE/Core/ECS/Hierarchy.hpp>
 #include <ASGE/Game/UI.hpp>
 
 namespace
@@ -10,7 +11,9 @@ using asge::game::components::Sprite;
 using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
+using asge::game::components::UILayoutItem;
 using asge::game::components::UIRect;
+using asge::game::components::SlotAlign;
 using asge::game::resources::UIHitList;
 using asge::game::ui::ButtonDesc;
 using asge::game::ui::CreateButton;
@@ -61,7 +64,8 @@ constexpr float kCheckboxLabelX = kCheckboxX + kCheckboxSize + 12.0f;
 
 // A panel framing the checkbox and slider rows.
 constexpr float kPanelX = 200.0f, kPanelY = 600.0f;
-constexpr float kPanelW = 260.0f, kPanelH = 110.0f;
+constexpr float kPanelW = 300.0f, kPanelH = 110.0f;
+constexpr float kPanelPadding = 10.0f;
 
 // Fifth row: a slider built through asge::game::ui::CreateSlider.
 constexpr float kRow5Y = 670.0f;
@@ -256,11 +260,15 @@ void UIDemoState::SpawnEntities()
     } );
     if ( !checkboxLabel ) checkboxLabel.LogError();
 
-    // A bordered panel behind rows 4-5 (its default layer is behind widgets').
+    // A bordered 2x2 grid panel behind rows 4-5 (its default layer is behind
+    // widgets'). Its children are attached below, once they all exist.
     auto panel = CreatePanel( m_Registry, PanelDesc{
         .m_Name = "Panel",
         .m_Position = { kPanelX, kPanelY },
         .m_Size = { kPanelW, kPanelH },
+        .m_Layout = asge::game::components::LayoutGrid{ .m_Rows = 2, .m_Cols = 2 },
+        .m_Padding = { kPanelPadding, kPanelPadding },
+        .m_Spacing = { kPanelPadding, kPanelPadding },
         .m_Border = true,
     } );
     if ( !panel ) panel.LogError();
@@ -275,6 +283,22 @@ void UIDemoState::SpawnEntities()
     } );
     if ( !slider ) slider.LogError();
     else m_Slider = slider.Value();
+
+    // Grid cells fill in sibling order: checkbox | its label / slider | (empty).
+    if ( panel && checkboxLabel && slider )
+    {
+        using asge::ecs::components::AttachChild;
+        AttachChild( m_Registry, panel.Value(), m_Checkbox );
+        AttachChild( m_Registry, panel.Value(), checkboxLabel.Value() );
+        AttachChild( m_Registry, panel.Value(), m_Slider );
+
+        // The checkbox keeps its square size, centered in its cell; the slider
+        // stretches across its cell's width but keeps its height, centered.
+        m_Registry.AddComponent<UILayoutItem>( m_Checkbox, UILayoutItem{
+            .m_FillX = false, .m_FillY = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::Center } );
+        m_Registry.AddComponent<UILayoutItem>( m_Slider, UILayoutItem{
+            .m_FillY = false, .m_AlignY = SlotAlign::Center } );
+    }
 }
 
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
@@ -329,6 +353,7 @@ void UIDemoState::Render(asge::video::IRenderer &inRenderer)
     // only set m_LocalCoordinates (+ m_Dirty) -- ordinary Transform usage,
     // meant to be flattened into m_WorldCoordinates by this system, which
     // RenderPipeline itself doesn't call.
+    asge::game::systems::UILayoutSystem( m_Registry );
     asge::game::systems::TransformPropagationSystem( m_Registry );
 
     asge::game::systems::RenderPipeline( m_Registry, inRenderer, 0.0f );
