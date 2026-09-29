@@ -19,7 +19,18 @@
     <a href="../index.html">Overview</a>
     <a href="../install.html">Install</a>
     <a href="../examples/index.html">Examples</a>
-    <a href="index.html" class="active">Editor</a>
+    <div class="nav-dropdown">
+    <a href="../editor/index.html" class="active" aria-haspopup="true">Editor<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
+    <div class="nav-menu" role="menu">
+      <a href="../editor/projects-and-scenes.html" role="menuitem">Projects &amp; Scenes</a>
+      <a href="../editor/entities-and-components.html" class="active" role="menuitem">Entities &amp; Components</a>
+      <a href="../editor/ui-and-layout.html" role="menuitem">UI &amp; Layout</a>
+      <a href="../editor/viewport-and-navigation.html" role="menuitem">Viewport &amp; Navigation</a>
+      <a href="../editor/assets-and-vfs.html" role="menuitem">Assets &amp; VFS</a>
+      <a href="../editor/advanced-editing.html" role="menuitem">Advanced Editing</a>
+      <a href="../editor/releases.html" role="menuitem">Editor Releases</a>
+    </div>
+    </div>
     <a href="../api/index.html">API Reference</a>
     <a href="../releases.html">Releases</a>
     <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
@@ -41,12 +52,15 @@
         <h1>Entities &amp; Components</h1>
         <p class="lede">Every entity in the active scene, listed on the right; click one (or the
         viewport) to edit it live in the Inspector below.</p>
-        <p>The Entities panel lists every entity in the active scene by name (or a stable
-        <code>Entity #N</code> fallback), with a <strong>Create Entity</strong> button. The Inspector
+        <p>The Entities panel shows the active scene as a tree, each entity by name (or a stable
+        <code>Entity #N</code> fallback), with <strong>Create Entity</strong> and
+        <strong>Create UI Element</strong> buttons. The Inspector
         below it shows one collapsible section per component the selected entity actually has, each
         editing the live component directly -- no intermediate copy, no Apply step. A trailing
-        <strong>x</strong> on each section removes that component; <strong>Duplicate</strong>/<strong>Delete</strong>
-        at the top act on the whole entity.</p>
+        <strong>x</strong> on each section removes that component. <strong>Duplicate</strong> at the top copies
+        the entity together with everything under it and puts the copy in the same parent (so a duplicate
+        inside a panel takes that panel's next layout slot); <strong>Delete</strong> removes just that entity,
+        and any children it had become roots.</p>
       </div>
       <div class="example-media"><img src="../assets/img/editor/add-component.png" alt="Add Component dropdown listing every addable component type"/></div>
     </div>
@@ -67,7 +81,39 @@
       <div class="card"><h3>Animation</h3><p>Clip path, frame duration, and a Play/Stop button -- starts stopped so nothing auto-plays the moment it's added.</p></div>
       <div class="card"><h3>PathFollow</h3><p>Waypoints authored on the viewport -- see <a href="advanced-editing.html">Advanced Editing</a>.</p></div>
       <div class="card"><h3>Velocity / Rigidbody</h3><p>Plain physics data -- linear velocity, mass/drag.</p></div>
+      <div class="card"><h3>RenderInfo</h3><p>Layer, Y-sort, screen space and sort inheritance. Added automatically, once, whenever a Sprite is.</p></div>
+      <div class="card"><h3>UI components</h3><p>UIRect, UIButton, UILabel, UICheckbox, UISlider, UIPanel and UILayoutItem -- see <a href="ui-and-layout.html">UI &amp; Layout</a>.</p></div>
     </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>Hierarchy</h2>
+    <p class="lede">Entities can be parented. The Entities panel is a tree: root entities at the top
+    level, each one's children nested underneath behind a collapsible arrow. A selected child shows a
+    read-only <strong>Parent</strong> line above the Duplicate/Delete buttons.</p>
+    <div class="grid">
+      <div class="card"><h3>New Child</h3><p>Right-click a row. Creates a new entity with just a Transform, attached under that row.</p></div>
+      <div class="card"><h3>Detach</h3><p>Right-click a child row to make it a root again (disabled on a row that is already a root).</p></div>
+      <div class="card"><h3>Remove</h3><p>Right-click a row to destroy the entity <em>and</em> its whole subtree.</p></div>
+      <div class="card"><h3>Reparent</h3><p>Drag one row onto another to make it that entity's child. Dropping an entity onto itself or its own descendant does nothing.</p></div>
+    </div>
+    <p class="lede" style="margin-top:20px;">A child's Transform is relative to its parent, so moving the
+    parent moves everything under it. Panels with a layout also place their children -- see
+    <a href="ui-and-layout.html">UI &amp; Layout</a>.</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2>Disabled entities</h2>
+    <p class="lede">The <strong>Disabled</strong> checkbox at the top of the Inspector turns an entity
+    off. Disabling a parent disables everything under it, and a child that is only disabled because of
+    its parent shows an <em>(inherited from parent)</em> hint. A small closed-eye icon marks a disabled
+    row in the tree, and every ancestor of a disabled entity too, so it stays visible even when its
+    branch is collapsed. A disabled entity's collider, camera and waypoint overlays stop drawing on
+    the viewport.</p>
   </div>
 </section>
 

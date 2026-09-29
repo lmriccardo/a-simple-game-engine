@@ -19,7 +19,18 @@
     <a href="../index.html">Overview</a>
     <a href="../install.html">Install</a>
     <a href="../examples/index.html">Examples</a>
-    <a href="index.html" class="active">Editor</a>
+    <div class="nav-dropdown">
+    <a href="../editor/index.html" class="active" aria-haspopup="true">Editor<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
+    <div class="nav-menu" role="menu">
+      <a href="../editor/projects-and-scenes.html" role="menuitem">Projects &amp; Scenes</a>
+      <a href="../editor/entities-and-components.html" role="menuitem">Entities &amp; Components</a>
+      <a href="../editor/ui-and-layout.html" role="menuitem">UI &amp; Layout</a>
+      <a href="../editor/viewport-and-navigation.html" role="menuitem">Viewport &amp; Navigation</a>
+      <a href="../editor/assets-and-vfs.html" role="menuitem">Assets &amp; VFS</a>
+      <a href="../editor/advanced-editing.html" role="menuitem">Advanced Editing</a>
+      <a href="../editor/releases.html" role="menuitem">Editor Releases</a>
+    </div>
+    </div>
     <a href="../api/index.html">API Reference</a>
     <a href="../releases.html">Releases</a>
     <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
@@ -40,6 +51,13 @@
     entities, wire up components, manage textures/animations/audio, and organize a project's scenes --
     without hand-writing TOML. It's a plain executable alongside the engine's other example binaries,
     built from the same CMake tree.</p>
+    <p class="lede">Native installers for Windows (<code>.exe</code>), Linux (<code>.deb</code>) and
+    macOS (<code>.dmg</code>) ship with every tagged release.</p>
+    <div class="btn-row">
+      <a class="btn btn-primary" href="releases.html">Editor releases</a>
+      <a class="btn btn-ghost" href="https://github.com/lmriccardo/a-simple-game-engine/releases" target="_blank" rel="noopener">All GitHub releases</a>
+      <a class="btn btn-ghost" href="#build">Build from source</a>
+    </div>
   </div>
 </section>
 
@@ -49,9 +67,9 @@
   </div>
 </section>
 
-<section class="alt">
+<section class="alt" id="build">
   <div class="container">
-    <h2>Build &amp; run</h2>
+    <h2>Build from source</h2>
     <div class="code-card">
   <div class="code-card-head"><span>build just the editor</span><button class="copy-btn" data-copy>Copy</button></div>
   <pre><code class="language-bash">cmake --preset windows-editor-debug
@@ -64,60 +82,12 @@ cmake --build --preset windows-editor-debug --target asge-editor
   </div>
 </section>
 
-<section style="padding-top:32px;">
+<section>
   <div class="container">
-    <h2>What it covers</h2>
-    <p class="lede" style="margin-bottom:24px;">Six areas, each with its own page below.</p>
-    <div class="grid">
-      <a class="example-card" href="projects-and-scenes.html">
-  <div class="thumb"><img src="../assets/img/editor/project-scene-hud.png" alt="Project and Scene HUD screenshot" loading="lazy"/></div>
-  <div class="body">
-    <h3>Projects &amp; Scenes</h3>
-    <p>Create/open a project, manage multiple scenes, autosaved sessions</p>
-    <div class="tags"><span class="tag">Projects</span><span class="tag">Scenes</span></div>
-  </div>
-</a>
-<a class="example-card" href="entities-and-components.html">
-  <div class="thumb"><img src="../assets/img/editor/add-component.png" alt="Add Component dropdown screenshot" loading="lazy"/></div>
-  <div class="body">
-    <h3>Entities &amp; Components</h3>
-    <p>The Inspector, every component type, add/remove, live editing</p>
-    <div class="tags"><span class="tag">ECS</span><span class="tag">Inspector</span></div>
-  </div>
-</a>
-<a class="example-card" href="viewport-and-navigation.html">
-  <div class="thumb"><img src="../assets/img/editor/viewport-grid.png" alt="Viewport grid overlay screenshot" loading="lazy"/></div>
-  <div class="body">
-    <h3>Viewport &amp; Navigation</h3>
-    <p>Pan/zoom, the world grid, translate gizmo, camera/game-window previews</p>
-    <div class="tags"><span class="tag">Viewport</span><span class="tag">Rendering</span></div>
-  </div>
-</a>
-<a class="example-card" href="assets-and-vfs.html">
-  <div class="thumb"><img src="../assets/img/editor/asset-inspector-texture.png" alt="Asset Inspector texture preview screenshot" loading="lazy"/></div>
-  <div class="body">
-    <h3>Assets &amp; VFS</h3>
-    <p>Mounts, the Asset Browser/Inspector, and the in-editor spritesheet slicer</p>
-    <div class="tags"><span class="tag">Assets</span><span class="tag">Filesystem</span></div>
-  </div>
-</a>
-<a class="example-card" href="advanced-editing.html">
-  <div class="thumb"><img src="../assets/img/editor/pathfollow-spline.png" alt="PathFollow spline preview screenshot" loading="lazy"/></div>
-  <div class="body">
-    <h3>Advanced Editing</h3>
-    <p>PathFollow waypoints and Collider shapes, authored on the viewport</p>
-    <div class="tags"><span class="tag">PathFollow</span><span class="tag">Collider</span></div>
-  </div>
-</a>
-<a class="example-card" href="releases.html">
-  <div class="thumb"><div class="noshot">Native installers<br/>per release</div></div>
-  <div class="body">
-    <h3>Editor Releases</h3>
-    <p>Download the .exe/.deb/.dmg installer for each tagged version</p>
-    <div class="tags"><span class="tag">Downloads</span><span class="tag">CPack</span></div>
-  </div>
-</a>
-    </div>
+    <h2>Explore the editor</h2>
+    <p class="lede">The guides for each part of the editor &mdash; projects and scenes, entities and
+    components, UI and layout, the viewport, assets, and advanced editing &mdash; are in the
+    <strong>Editor</strong> menu at the top of every page.</p>
   </div>
 </section>
 

@@ -19,7 +19,18 @@
     <a href="../index.html">Overview</a>
     <a href="../install.html">Install</a>
     <a href="../examples/index.html">Examples</a>
-    <a href="index.html" class="active">Editor</a>
+    <div class="nav-dropdown">
+    <a href="../editor/index.html" class="active" aria-haspopup="true">Editor<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
+    <div class="nav-menu" role="menu">
+      <a href="../editor/projects-and-scenes.html" class="active" role="menuitem">Projects &amp; Scenes</a>
+      <a href="../editor/entities-and-components.html" role="menuitem">Entities &amp; Components</a>
+      <a href="../editor/ui-and-layout.html" role="menuitem">UI &amp; Layout</a>
+      <a href="../editor/viewport-and-navigation.html" role="menuitem">Viewport &amp; Navigation</a>
+      <a href="../editor/assets-and-vfs.html" role="menuitem">Assets &amp; VFS</a>
+      <a href="../editor/advanced-editing.html" role="menuitem">Advanced Editing</a>
+      <a href="../editor/releases.html" role="menuitem">Editor Releases</a>
+    </div>
+    </div>
     <a href="../api/index.html">API Reference</a>
     <a href="../releases.html">Releases</a>
     <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
@@ -45,9 +56,11 @@
         paths, view settings (grid spacing, target game window size) and the list of the project's
         scene files. Each <strong>Scene</strong> (<code>.asgescene</code>) is a plain TOML file holding
         one level's entities -- the same format <code>SceneManager::SaveScene</code>/<code>LoadScene</code>
-        use anywhere else in the engine. A small <code>asge.session</code> file next to the executable
-        remembers which project and scene were active, auto-saved every 30 seconds and restored on
-        the next launch.</p>
+        use anywhere else in the engine. A small <code>asge.session</code> file remembers which project
+        and scene were active, auto-saved every 30 seconds and restored on the next launch. It lives in
+        your per-user data folder (<code>%APPDATA%\ASGE\Editor</code> on Windows), not next to the
+        executable, so it works even when the editor is installed somewhere read-only such as
+        <code>C:\Program Files</code>.</p>
       </div>
       <div class="example-media"><img src="../assets/img/editor/file-menu.png" alt="File menu with New > Create a Project.../Create a Scene... expanded"/></div>
     </div>
