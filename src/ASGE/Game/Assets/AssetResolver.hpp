@@ -18,6 +18,7 @@ enum class AssetKind
     Texture,
     AnimationClip,
     AudioClip,
+    Font,
 };
 
 /** @brief One virtual path a component references, and what kind of asset it is. */
@@ -174,6 +175,13 @@ template<>
 struct AssetRefs<components::AudioSource>
 {
     std::optional<AssetRef> operator()( components::AudioSource const& inAudioSource ) const noexcept;
+};
+
+/** @brief Reports UILabel::m_FontPath as an AssetKind::Font reference, if set. */
+template<>
+struct AssetRefs<components::UILabel>
+{
+    std::optional<AssetRef> operator()( components::UILabel const& inLabel ) const noexcept;
 };
 
 /**

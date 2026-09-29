@@ -47,6 +47,7 @@ struct UILabel
     media::Font const*  m_Font{nullptr};
     video::ITexture*    m_Texture{nullptr};
     str::String         m_ResolvedFontPath{};
+    int                 m_ResolvedFontPixelHeight{};
 };
 
 }
