@@ -2,6 +2,12 @@
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
+#include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <ASGE/Game/Components/UI/UILayoutItem.hpp>
+#include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Core/ECS/Hierarchy.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
@@ -23,6 +29,18 @@ using asge::game::components::Interactable;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
 using asge::game::components::UISlider;
+using asge::game::components::UIPanel;
+using asge::game::components::UILabel;
+using asge::game::components::UILayoutItem;
+using asge::game::components::SlotAlign;
+using asge::game::components::Sprite;
+using asge::game::components::UIRect;
+using asge::game::components::Transform;
+using asge::game::components::LayoutSpec;
+using asge::game::components::LayoutAbsolute;
+using asge::game::components::LayoutGrid;
+using asge::game::components::LayoutVStack;
+using asge::game::components::LayoutHStack;
 using asge::game::resources::HitEntry;
 using asge::game::resources::UIHitList;
 using asge::input::InputState;
@@ -446,6 +464,450 @@ TEST(UIInteractionSystemTest, ReleaseWhileHeldButNoLongerHovered_DoesNotToggleCh
     asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_FALSE( Checkbox(registry, entity).m_Checked );
+}
+
+// ─── UILayoutSystem ──────────────────────────────────────────────────────────
+
+/** @brief Creates a 200x100 panel at the origin with inLayout and inPadding. */
+Entity AddPanel( Registry& inRegistry, LayoutSpec inLayout, asge::math::Float2 inPadding = {} )
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), UIRect{ .m_Size = { 200.0f, 100.0f } }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), UIPanel{ .m_Layout = inLayout, .m_Padding = inPadding }).IsOk());
+    return entity.Value();
+}
+
+/** @brief Creates a Transform-carrying entity and attaches it as the next child of inParent. */
+Entity AddChildTo( Registry& inRegistry, Entity inParent )
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{}).IsOk());
+    asge::ecs::components::AttachChild( inRegistry, inParent, entity.Value() );
+    return entity.Value();
+}
+
+Transform& TransformOf( Registry& inRegistry, Entity inEntity )
+{
+    return inRegistry.GetComponent<Transform>( inEntity ).Value().get();
+}
+
+TEST(UILayoutSystemTest, Grid_PlacesChildrenRowMajorInEqualCells)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutGrid{ .m_Rows = 2, .m_Cols = 2 } ); // 100x50 cells
+    auto const a = AddChildTo( registry, panel );
+    auto const b = AddChildTo( registry, panel );
+    auto const c = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, a).m_LocalCoordinates.x(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, a).m_LocalCoordinates.y(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, b).m_LocalCoordinates.x(), 100.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, b).m_LocalCoordinates.y(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, c).m_LocalCoordinates.x(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, c).m_LocalCoordinates.y(), 50.0f );
+}
+
+TEST(UILayoutSystemTest, LastChild_IsLaidOutToo)
+{
+    // Regression: the sibling walk once stopped short of the last child.
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    AddChildTo( registry, panel );
+    auto const last = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, last).m_LocalCoordinates.x(), 100.0f );
+}
+
+TEST(UILayoutSystemTest, VStack_StacksChildrenIntoEqualRows)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutVStack{ .m_Rows = 4 } ); // 25px rows
+    AddChildTo( registry, panel );
+    auto const second = AddChildTo( registry, panel );
+    auto const third = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.x(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.y(), 25.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, third).m_LocalCoordinates.y(), 50.0f );
+}
+
+TEST(UILayoutSystemTest, HStack_LinesChildrenUpIntoEqualColumns)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 4 } ); // 50px columns
+    AddChildTo( registry, panel );
+    auto const second = AddChildTo( registry, panel );
+    auto const third = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.x(), 50.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.y(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, third).m_LocalCoordinates.x(), 100.0f );
+}
+
+TEST(UILayoutSystemTest, Padding_InsetsTheSlotsOnEverySide)
+{
+    Registry registry;
+    // 200x100 minus 10px padding on each side: a 180x80 content area, 90px columns.
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 }, { 10.0f, 10.0f } );
+    auto const first = AddChildTo( registry, panel );
+    auto const second = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, first).m_LocalCoordinates.x(), 10.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, first).m_LocalCoordinates.y(), 10.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.x(), 100.0f );
+}
+
+TEST(UILayoutSystemTest, ChildrenPastTheLastSlot_KeepTheirPosition)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } );
+    AddChildTo( registry, panel );
+    auto const extra = AddChildTo( registry, panel );
+    TransformOf(registry, extra).m_LocalCoordinates = { 7.0f, 9.0f };
+    TransformOf(registry, extra).m_Dirty = false;
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, extra).m_LocalCoordinates.x(), 7.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, extra).m_LocalCoordinates.y(), 9.0f );
+    EXPECT_FALSE( TransformOf(registry, extra).m_Dirty );
+}
+
+TEST(UILayoutSystemTest, AbsolutePanel_LeavesChildrenUntouched)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutAbsolute{} );
+    auto const child = AddChildTo( registry, panel );
+    TransformOf(registry, child).m_LocalCoordinates = { 7.0f, 9.0f };
+    TransformOf(registry, child).m_Dirty = false;
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.x(), 7.0f );
+    EXPECT_FALSE( TransformOf(registry, child).m_Dirty );
+}
+
+TEST(UILayoutSystemTest, ChildWithoutTransform_DoesNotTakeASlot)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+
+    auto bare = registry.CreateEntity();
+    ASSERT_TRUE( bare.IsOk() );
+    asge::ecs::components::AttachChild( registry, panel, bare.Value() ); // no Transform
+    auto const child = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.x(), 0.0f ); // first slot, not second
+}
+
+/** @brief Like AddChildTo, but the child also carries a 5x5 UIRect for the layout to resize. */
+Entity AddSizedChildTo( Registry& inRegistry, Entity inParent )
+{
+    auto const child = AddChildTo( inRegistry, inParent );
+    EXPECT_TRUE(inRegistry.AddComponent(child, UIRect{ .m_Size = { 5.0f, 5.0f } }).IsOk());
+    return child;
+}
+
+UIRect& RectOf( Registry& inRegistry, Entity inEntity )
+{
+    return inRegistry.GetComponent<UIRect>( inEntity ).Value().get();
+}
+
+TEST(UILayoutSystemTest, ChildRect_IsResizedToFillItsSlot)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutGrid{ .m_Rows = 2, .m_Cols = 2 } ); // 100x50 cells
+    auto const child = AddSizedChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.x(), 100.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.y(), 50.0f );
+}
+
+TEST(UILayoutSystemTest, VStackAndHStack_StretchChildrenAcrossTheOtherAxis)
+{
+    Registry registry;
+    auto const vpanel = AddPanel( registry, LayoutVStack{ .m_Rows = 2 } );
+    auto const hpanel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    auto const inV = AddSizedChildTo( registry, vpanel );
+    auto const inH = AddSizedChildTo( registry, hpanel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, inV).m_Size.x(), 200.0f ); // full width, half height
+    EXPECT_FLOAT_EQ( RectOf(registry, inV).m_Size.y(), 50.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, inH).m_Size.x(), 100.0f ); // half width, full height
+    EXPECT_FLOAT_EQ( RectOf(registry, inH).m_Size.y(), 100.0f );
+}
+
+TEST(UILayoutSystemTest, Spacing_LeavesAGapBetweenSlotsAndShrinksThem)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    registry.GetComponent<UIPanel>( panel ).Value().get().m_Spacing = { 20.0f, 0.0f }; // 200 - 20 = 90px slots
+    auto const first = AddSizedChildTo( registry, panel );
+    auto const second = AddSizedChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, first).m_Size.x(), 90.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, second).m_Size.x(), 90.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.x(), 110.0f );
+}
+
+TEST(UILayoutSystemTest, GridSpacing_AppliesOnBothAxes)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutGrid{ .m_Rows = 2, .m_Cols = 2 } );
+    registry.GetComponent<UIPanel>( panel ).Value().get().m_Spacing = { 20.0f, 10.0f }; // 90x45 cells
+    AddSizedChildTo( registry, panel );
+    AddSizedChildTo( registry, panel );
+    AddSizedChildTo( registry, panel );
+    auto const fourth = AddSizedChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, fourth).m_LocalCoordinates.x(), 110.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, fourth).m_LocalCoordinates.y(), 55.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, fourth).m_Size.x(), 90.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, fourth).m_Size.y(), 45.0f );
+}
+
+TEST(UILayoutSystemTest, ChildWithLocalScale_GetsPreScaleRectSoItStillFillsTheSlot)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } ); // 200x100 slot
+    auto const child = AddSizedChildTo( registry, panel );
+    TransformOf(registry, child).m_LocalScale = { 2.0f, 4.0f };
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.x(), 100.0f ); // 100 * 2 = 200
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.y(), 25.0f );  // 25 * 4 = 100
+}
+
+TEST(UILayoutSystemTest, SpriteChild_IsMovedButKeepsItsOwnRectSize)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    AddSizedChildTo( registry, panel );
+    auto const sprite = AddSizedChildTo( registry, panel );
+    ASSERT_TRUE( registry.AddComponent( sprite, Sprite{} ).IsOk() );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, sprite).m_LocalCoordinates.x(), 100.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, sprite).m_Size.x(), 5.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, sprite).m_Size.y(), 5.0f );
+}
+
+TEST(UILayoutSystemTest, AutoSizedLabel_KeepsItsSizeButAFixedSizeLabelIsResized)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    auto const autoSized = AddSizedChildTo( registry, panel );
+    auto const fixedSize = AddSizedChildTo( registry, panel );
+    ASSERT_TRUE( registry.AddComponent( autoSized, UILabel{ .m_AutoSize = true } ).IsOk() );
+    ASSERT_TRUE( registry.AddComponent( fixedSize, UILabel{ .m_AutoSize = false } ).IsOk() );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, autoSized).m_Size.x(), 5.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, fixedSize).m_Size.x(), 100.0f );
+}
+
+TEST(UILayoutSystemTest, NestedPanel_IsSizedByItsParentThenLaysOutItsOwnChildren)
+{
+    Registry registry;
+    auto const outer = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } ); // 100x100 columns
+    auto const inner = AddSizedChildTo( registry, outer );
+    ASSERT_TRUE( registry.AddComponent( inner, UIPanel{ .m_Layout = LayoutVStack{ .m_Rows = 2 } } ).IsOk() );
+    auto const grandchild = AddSizedChildTo( registry, inner );
+    auto const second = AddSizedChildTo( registry, inner );
+
+    asge::game::systems::UILayoutSystem( registry ); // a single call must settle both levels
+
+    EXPECT_FLOAT_EQ( RectOf(registry, inner).m_Size.x(), 100.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, grandchild).m_Size.x(), 100.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, grandchild).m_Size.y(), 50.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, second).m_LocalCoordinates.y(), 50.0f );
+}
+
+TEST(UILayoutSystemTest, AbsoluteParent_StillLaysOutANestedPanel)
+{
+    Registry registry;
+    auto const outer = AddPanel( registry, LayoutAbsolute{} );
+    auto const inner = AddSizedChildTo( registry, outer );
+    ASSERT_TRUE( registry.AddComponent( inner, UIPanel{ .m_Layout = LayoutHStack{ .m_Cols = 2 } } ).IsOk() );
+    auto const grandchild = AddSizedChildTo( registry, inner );
+    RectOf(registry, inner).m_Size = { 80.0f, 40.0f }; // the Absolute parent leaves this alone
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, inner).m_Size.x(), 80.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, grandchild).m_Size.x(), 40.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, grandchild).m_Size.y(), 40.0f );
+}
+
+/** @brief Adds a UILayoutItem to inChild. */
+void SetItem( Registry& inRegistry, Entity inChild, UILayoutItem inItem )
+{
+    ASSERT_TRUE( inRegistry.AddComponent( inChild, inItem ).IsOk() );
+}
+
+TEST(UILayoutItemLayoutTest, NoFill_KeepsTheChildsOwnSize)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } );
+    auto const child = AddSizedChildTo( registry, panel );
+    SetItem( registry, child, UILayoutItem{ .m_FillX = false, .m_FillY = false } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.x(), 5.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.y(), 5.0f );
+}
+
+TEST(UILayoutItemLayoutTest, FillIsPerAxis)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } ); // 200x100 slot
+    auto const child = AddSizedChildTo( registry, panel );
+    SetItem( registry, child, UILayoutItem{ .m_FillX = true, .m_FillY = false } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.x(), 200.0f );
+    EXPECT_FLOAT_EQ( RectOf(registry, child).m_Size.y(), 5.0f );
+}
+
+TEST(UILayoutItemLayoutTest, Center_PlacesAnUnfilledChildInTheMiddleOfItsSlot)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } ); // 200x100 slot, 5x5 child
+    auto const child = AddSizedChildTo( registry, panel );
+    SetItem( registry, child, UILayoutItem{
+        .m_FillX = false, .m_FillY = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::Center } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.x(), 97.5f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.y(), 47.5f );
+}
+
+TEST(UILayoutItemLayoutTest, End_PlacesAnUnfilledChildAgainstTheFarEdges)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } );
+    auto const child = AddSizedChildTo( registry, panel );
+    SetItem( registry, child, UILayoutItem{
+        .m_FillX = false, .m_FillY = false, .m_AlignX = SlotAlign::End, .m_AlignY = SlotAlign::End } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.x(), 195.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.y(), 95.0f );
+}
+
+TEST(UILayoutItemLayoutTest, AlignmentAccountsForLocalScale)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } );
+    auto const child = AddSizedChildTo( registry, panel ); // 5x5 pre-scale, drawn 20x20 at scale 4
+    TransformOf(registry, child).m_LocalScale = { 4.0f, 4.0f };
+    SetItem( registry, child, UILayoutItem{
+        .m_FillX = false, .m_FillY = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::Center } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.x(), 90.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.y(), 40.0f );
+}
+
+TEST(UILayoutItemLayoutTest, ChildLargerThanItsSlot_StartsAtTheSlotEdgeInsteadOfOverflowingBackwards)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } ); // 100x100 slots
+    AddSizedChildTo( registry, panel );
+    auto const wide = AddSizedChildTo( registry, panel );
+    RectOf(registry, wide).m_Size = { 300.0f, 5.0f };
+    SetItem( registry, wide, UILayoutItem{
+        .m_FillX = false, .m_FillY = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::Start } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, wide).m_LocalCoordinates.x(), 100.0f );
+}
+
+TEST(UILayoutItemLayoutTest, FillingAxisIgnoresItsAlignment)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } );
+    auto const child = AddSizedChildTo( registry, panel );
+    SetItem( registry, child, UILayoutItem{ .m_AlignX = SlotAlign::End, .m_AlignY = SlotAlign::End } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.x(), 0.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, child).m_LocalCoordinates.y(), 0.0f );
+}
+
+TEST(UILayoutItemLayoutTest, SpriteWithFillRequested_IsStillNeverStretchedButIsAligned)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 1 } );
+    auto const sprite = AddSizedChildTo( registry, panel );
+    ASSERT_TRUE( registry.AddComponent( sprite, Sprite{} ).IsOk() );
+    SetItem( registry, sprite, UILayoutItem{ .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::Center } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( RectOf(registry, sprite).m_Size.x(), 5.0f );
+    EXPECT_FLOAT_EQ( TransformOf(registry, sprite).m_LocalCoordinates.x(), 97.5f );
+}
+
+TEST(UILayoutItemLayoutTest, ChildWithoutARect_IsPlacedAtTheSlotStartRegardlessOfAlignment)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    AddChildTo( registry, panel );
+    auto const bare = AddChildTo( registry, panel ); // Transform only: no size to align by
+    SetItem( registry, bare, UILayoutItem{ .m_AlignX = SlotAlign::End } );
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FLOAT_EQ( TransformOf(registry, bare).m_LocalCoordinates.x(), 100.0f ); // slot start, not 200
+}
+
+TEST(UILayoutSystemTest, SettledLayout_DoesNotMarkChildrenDirtyAgain)
+{
+    Registry registry;
+    auto const panel = AddPanel( registry, LayoutHStack{ .m_Cols = 2 } );
+    AddChildTo( registry, panel );
+    auto const second = AddChildTo( registry, panel );
+
+    asge::game::systems::UILayoutSystem( registry );
+    ASSERT_TRUE( TransformOf(registry, second).m_Dirty );
+    TransformOf(registry, second).m_Dirty = false; // as TransformPropagationSystem would
+
+    asge::game::systems::UILayoutSystem( registry );
+
+    EXPECT_FALSE( TransformOf(registry, second).m_Dirty );
 }
 
 // ─── UISlider dragging ───────────────────────────────────────────────────────

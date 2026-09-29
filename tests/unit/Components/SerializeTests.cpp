@@ -21,7 +21,7 @@ using asge::config::toml::TOMLBuilder;
 
 TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 20);
+    static_assert(std::tuple_size_v<SerializableComponents> == 21);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -42,6 +42,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UICheckbox>);
     static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UISlider>);
     static_assert(std::is_same_v<std::tuple_element_t<19, SerializableComponents>, UIPanel>);
+    static_assert(std::is_same_v<std::tuple_element_t<20, SerializableComponents>, UILayoutItem>);
     SUCCEED();
 }
 
@@ -68,6 +69,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<UICheckbox>::kTableName, "UICheckbox");
     EXPECT_EQ(Serializer<UISlider>::kTableName, "UISlider");
     EXPECT_EQ(Serializer<UIPanel>::kTableName, "UIPanel");
+    EXPECT_EQ(Serializer<UILayoutItem>::kTableName, "UILayoutItem");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -1101,6 +1103,18 @@ TEST(UIPanelSerializerTest, RoundTrips_ColorsPaddingMarginAndBorder)
     EXPECT_FALSE(restored.m_Border);
 }
 
+TEST(UIPanelSerializerTest, RoundTrips_Spacing)
+{
+    TOMLBuilder builder;
+    UIPanel original{};
+    original.m_Spacing = { 6.0f, 7.5f };
+    Serializer<UIPanel>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIPanel const restored = Serializer<UIPanel>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Spacing.x(), 6.0f);
+    EXPECT_FLOAT_EQ(restored.m_Spacing.y(), 7.5f);
+}
+
 TEST(UIPanelSerializerTest, RoundTrips_AbsoluteLayout)
 {
     TOMLBuilder builder;
@@ -1165,6 +1179,59 @@ TEST(UIPanelSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_FLOAT_EQ(restored.m_Margin.x(), defaults.m_Margin.x());
     EXPECT_EQ(restored.m_Border, defaults.m_Border);
     EXPECT_TRUE(std::holds_alternative<LayoutAbsolute>(restored.m_Layout));
+}
+
+// ─── UILayoutItem ───────────────────────────────────────────────────────────
+
+TEST(UILayoutItemSerializerTest, ToToml_WritesFillAndAlignUnderUILayoutItemTable)
+{
+    TOMLBuilder builder;
+    UILayoutItem value{ .m_FillX = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::End };
+    Serializer<UILayoutItem>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UILayoutItem]"), std::string::npos);
+    EXPECT_NE(dump.find("m_FillX = false"), std::string::npos);
+    EXPECT_NE(dump.find("m_FillY = true"), std::string::npos);
+    EXPECT_NE(dump.find("m_AlignX = \"Center\""), std::string::npos);
+    EXPECT_NE(dump.find("m_AlignY = \"End\""), std::string::npos);
+}
+
+TEST(UILayoutItemSerializerTest, RoundTrips_EveryAlignmentAndFillFlag)
+{
+    for ( auto const alignX : { SlotAlign::Start, SlotAlign::Center, SlotAlign::End } )
+    {
+        TOMLBuilder builder;
+        UILayoutItem const original{ .m_FillX = false, .m_FillY = false, .m_AlignX = alignX, .m_AlignY = SlotAlign::End };
+        Serializer<UILayoutItem>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+        UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
+        EXPECT_FALSE(restored.m_FillX);
+        EXPECT_FALSE(restored.m_FillY);
+        EXPECT_EQ(restored.m_AlignX, alignX);
+        EXPECT_EQ(restored.m_AlignY, SlotAlign::End);
+    }
+}
+
+TEST(UILayoutItemSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UILayoutItem"); // present but empty
+
+    UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_TRUE(restored.m_FillX);
+    EXPECT_TRUE(restored.m_FillY);
+    EXPECT_EQ(restored.m_AlignX, SlotAlign::Start);
+    EXPECT_EQ(restored.m_AlignY, SlotAlign::Start);
+}
+
+TEST(UILayoutItemSerializerTest, FromToml_UnknownAlignName_FallsBackToStart)
+{
+    TOMLBuilder builder;
+    builder.Table("UILayoutItem").Set("m_AlignX", std::string("Sideways"));
+
+    UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_AlignX, SlotAlign::Start);
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────
