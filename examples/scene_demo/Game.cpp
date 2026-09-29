@@ -35,106 +35,11 @@ void SceneDemoState::RefreshPlayerReference()
     m_Player = active.empty() ? asge::ecs::Entity::Null() : active.back();
 }
 
-void SceneDemoState::ResolveSpriteTextures(asge::video::IRenderer &inRenderer)
-{
-    for ( auto entity : m_SceneManager.ActiveEntities() )
-    {
-        auto& registry = m_SceneManager.GetRegistry();
-        auto spriteResult = registry.GetComponent<Sprite>(entity);
-        if ( !spriteResult ) continue;
-
-        Sprite& s = spriteResult.Value().get();
-        if ( s.m_Texture || s.m_VirtualPath.empty() ) continue;
-
-        // Cached by virtual path so entities sharing one texture (every
-        // sprite in this demo, all pointing at assets/checker.bmp) only
-        // pay for CreateTexture once -- including across a scene swap,
-        // whose freshly-loaded sprites arrive with m_Texture null again
-        // but hit this same cache instead of recreating it.
-        auto cached = m_Textures.find(s.m_VirtualPath);
-        if ( cached == m_Textures.end() )
-        {
-            auto imageAsset = m_Assets.GetImage(s.m_VirtualPath);
-            if ( !imageAsset )
-            {
-                imageAsset.LogError();
-                continue;
-            }
-
-            auto texture = inRenderer.CreateTexture(imageAsset.Value()->Get());
-            if ( !texture ) continue;
-            cached = m_Textures.emplace(s.m_VirtualPath, std::move(texture)).first;
-        }
-
-        s.m_Texture = cached->second.get();
-    }
-}
-
-void SceneDemoState::MoveActiveEntities(float inDeltaTime)
-{
-    // Same logic as asge::game::systems::MovementSystem, just scoped to
-    // ActiveEntities() instead of View<Transform, Velocity>() over the
-    // whole (multi-scene) Registry -- see this class's doc comment.
-    auto& registry = m_SceneManager.GetRegistry();
-    for ( auto entity : m_SceneManager.ActiveEntities() )
-    {
-        auto transform = registry.GetComponent<Transform>(entity);
-        auto velocity  = registry.GetComponent<Velocity>(entity);
-        if ( !transform || !velocity ) continue;
-
-        transform.Value().get().m_WorldCoordinates.x() += velocity.Value().get().m_DX * inDeltaTime;
-        transform.Value().get().m_WorldCoordinates.y() += velocity.Value().get().m_DY * inDeltaTime;
-    }
-}
-
-void SceneDemoState::RenderActiveEntities(asge::video::IRenderer &inRenderer)
-{
-    // Same logic as asge::game::systems::RenderSystem, scoped the same way
-    // MoveActiveEntities() is -- see this class's doc comment.
-    auto& registry = m_SceneManager.GetRegistry();
-    for ( auto entity : m_SceneManager.ActiveEntities() )
-    {
-        auto transformResult = registry.GetComponent<Transform>(entity);
-        auto spriteResult    = registry.GetComponent<Sprite>(entity);
-        if ( !transformResult || !spriteResult ) continue;
-
-        asge::video::ITexture* texture = spriteResult.Value().get().m_Texture;
-        if ( !texture ) continue;
-
-        auto const& t = transformResult.Value().get();
-        auto const& src = spriteResult.Value().get().m_SourceRect;
-
-        float srcW{};
-        float srcH{};
-        if ( src.has_value() )
-        {
-            srcW = src->m_Width;
-            srcH = src->m_Height;
-        }
-        else
-        {
-            asge::math::Int2 const texSize = texture->Size();
-            srcW = static_cast<float>(texSize.x());
-            srcH = static_cast<float>(texSize.y());
-        }
-
-        asge::math::Rect const destRect{
-            t.m_WorldCoordinates.x(), t.m_WorldCoordinates.y(),
-            srcW * t.m_WorldScale.x(),
-            srcH * t.m_WorldScale.y()
-        };
-
-        if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, destRect );
-        else                   inRenderer.DrawTexture( *texture, destRect );
-    }
-}
-
 void SceneDemoState::WrapAroundScreen()
 {
     // Demo-specific dressing (not part of the shared Game/Systems library):
     // keeps drifting entities on screen by teleporting them across once
-    // they fully exit one edge. Same approach as ecs_demo, scoped to
-    // ActiveEntities() for the same reason MoveActiveEntities() is.
+    // they fully exit one edge. Same approach as ecs_demo.
     auto& registry = m_SceneManager.GetRegistry();
     for ( auto entity : m_SceneManager.ActiveEntities() )
     {
@@ -142,13 +47,13 @@ void SceneDemoState::WrapAroundScreen()
         if ( !transform ) continue;
 
         auto& t = transform.Value().get();
-        float const margin = 64.0f * std::max(t.m_WorldScale.x(), t.m_WorldScale.y());
+        float const margin = 64.0f * std::max(t.m_LocalScale.x(), t.m_LocalScale.y());
 
-        if ( t.m_WorldCoordinates.x() < -margin )                    t.m_WorldCoordinates.x() = kWindowWidth + margin;
-        else if ( t.m_WorldCoordinates.x() > kWindowWidth + margin )  t.m_WorldCoordinates.x() = -margin;
+        if ( t.m_LocalCoordinates.x() < -margin )                    { t.m_LocalCoordinates.x() = kWindowWidth + margin; t.m_Dirty = true; }
+        else if ( t.m_LocalCoordinates.x() > kWindowWidth + margin )  { t.m_LocalCoordinates.x() = -margin; t.m_Dirty = true; }
 
-        if ( t.m_WorldCoordinates.y() < -margin )                     t.m_WorldCoordinates.y() = kWindowHeight + margin;
-        else if ( t.m_WorldCoordinates.y() > kWindowHeight + margin )  t.m_WorldCoordinates.y() = -margin;
+        if ( t.m_LocalCoordinates.y() < -margin )                     { t.m_LocalCoordinates.y() = kWindowHeight + margin; t.m_Dirty = true; }
+        else if ( t.m_LocalCoordinates.y() > kWindowHeight + margin )  { t.m_LocalCoordinates.y() = -margin; t.m_Dirty = true; }
     }
 }
 
@@ -183,10 +88,9 @@ void SceneDemoState::SaveSceneSnapshot() const
 }
 
 std::optional<asge::game::state::Transition<int>>
-SceneDemoState::Update(float inDeltaTime, asge::input::InputState const& inInput)
+SceneDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState const& inInput)
 {
     UpdatePlayerVelocity(inInput);
-    MoveActiveEntities(inDeltaTime);
     WrapAroundScreen();
 
     // Edge-triggered -- IsKeyPressed, not IsKeyDown, so one tap saves once
@@ -196,8 +100,7 @@ SceneDemoState::Update(float inDeltaTime, asge::input::InputState const& inInput
     // L requests a swap to the second scene file, alternating back and
     // forth on repeated presses. RequestLoad() only *queues* it -- the
     // swap itself happens below, via ApplyPendingTransition(), now that
-    // MoveActiveEntities()/WrapAroundScreen are done iterating this
-    // frame's active entities. Doing the swap immediately from inside this
+    // WrapAroundScreen is done iterating this frame's active entities. Doing the swap immediately from inside this
     // Update() would risk mutating the very entity list those two just
     // iterated.
     if ( inInput.IsKeyPressed(asge::input::Keycode::L) )
@@ -217,11 +120,8 @@ SceneDemoState::Update(float inDeltaTime, asge::input::InputState const& inInput
     return std::nullopt;
 }
 
-void SceneDemoState::Render(asge::video::IRenderer &inRenderer)
+void SceneDemoState::Render([[maybe_unused]] asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 15, 15, 20, 255 });
-    ResolveSpriteTextures(inRenderer); // cheap no-op for sprites that already have a texture
-    RenderActiveEntities(inRenderer);
 }
 
 void SceneDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)
@@ -239,13 +139,6 @@ SceneDemoGame::SceneDemoGame(asge::video::IRenderer& inRenderer, asge::audio::Au
     auto mountResult = m_Vfs.Mount("assets", ASGE_SCENE_DEMO_ASSET_DIR);
     if ( !mountResult ) mountResult.LogError();
 
-    // m_SceneManager.LoadScene() directly, not the Game::LoadScene()
-    // convenience wrapper -- that wrapper also runs AssetManager::
-    // ResolveAssets, which would resolve sprites through a texture cache
-    // separate from this demo's own m_Textures (see SceneDemoState), and a
-    // later scene swap (see Update()'s L-key handling) goes through
-    // m_SceneManager directly too, so every load stays on one resolution
-    // path instead of two.
     auto loadResult = m_SceneManager.LoadScene("assets/scene.toml");
     if ( !loadResult ) loadResult.LogError();
 

@@ -331,33 +331,13 @@ void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer 
 }
 
 std::optional<asge::game::state::Transition<int>>
-UIDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState const &inInput)
+UIDemoState::Update([[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
 {
-    // Resolves against last frame's UIHitList (see RenderSystem.cpp's
-    // CollectHitList) -- both buttons are screen space, so the identity
-    // camera here is fine even though this demo never sets one of its own.
-    asge::game::systems::UIInteractionSystem( m_Registry, inInput, asge::video::Camera{} );
-
     return std::nullopt;
 }
 
 void UIDemoState::Render(asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 24, 26, 30, 255 });
-
-    // Deferred-loads the sprite button's Sprite::m_Texture on first use.
-    m_Assets.ResolveAssets( m_Registry, inRenderer );
-
-    // The four hand-wired buttons above set Transform::m_WorldCoordinates
-    // directly, but asge::game::ui::CreateLabel/CreateButton (the third row)
-    // only set m_LocalCoordinates (+ m_Dirty) -- ordinary Transform usage,
-    // meant to be flattened into m_WorldCoordinates by this system, which
-    // RenderPipeline itself doesn't call.
-    asge::game::systems::UILayoutSystem( m_Registry );
-    asge::game::systems::TransformPropagationSystem( m_Registry );
-
-    asge::game::systems::RenderPipeline( m_Registry, inRenderer, 0.0f );
-
     RenderSpriteButtonOutline( inRenderer );
 }
 

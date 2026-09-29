@@ -141,27 +141,11 @@ std::optional<asge::game::state::Transition<int>>
 RotationDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
 {
     UpdateRotation( inDeltaTime );
-    // AnimationSystem itself runs inside RenderPipeline (see Render()) --
-    // same reasoning as animation_demo's m_LastDeltaTime capture.
-    m_LastDeltaTime = inDeltaTime;
     return std::nullopt;
 }
 
 void RotationDemoState::Render(asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 15, 18, 22, 255 });
-
-    // Deferred-loads Sprite::m_Texture/Animation::m_Clip on first use, same
-    // as animation_demo -- no hand-rolled "is the texture attached yet"
-    // bookkeeping needed here.
-    m_Assets.ResolveAssets( m_Registry, inRenderer );
-
-    // The one call this whole demo exists to show off: RenderSystem now
-    // routes a non-zero Transform::m_Rotation through DrawTextureAffine
-    // (via components::SpriteGetDrawCorners) instead of always drawing
-    // axis-aligned.
-    asge::game::systems::RenderPipeline( m_Registry, inRenderer, m_LastDeltaTime );
-
     RenderHud( inRenderer );
 }
 

@@ -35,10 +35,9 @@ class PhysicsDemoState final : public asge::game::state::IGameState<int>
     asge::ecs::Registry&              m_Registry;
     std::vector<asge::ecs::Entity>    m_Boxes; // dynamic entities only -- static geometry is never touched by Reset()
     std::mt19937                      m_Rng{ std::random_device{}() };
-    asge::game::systems::PhysicsState m_PhysicsState; // enter/exit bookkeeping for trigger pairs -- see PhysicsUpdate
 
     asge::ecs::Entity m_TriggerZone{ asge::ecs::Entity::Null() };
-    std::vector<asge::ecs::Entity> m_ConsumedByTrigger; // boxes to destroy once PhysicsUpdate returns -- see HandleTriggerOverlap
+    std::vector<asge::ecs::Entity> m_ConsumedByTrigger; // boxes to destroy on the next Update() -- see HandleTriggerOverlap
     asge::signals::Connection<asge::ecs::Entity, asge::ecs::Entity> m_TriggerConnection;
 
     void SpawnStaticGeometry();
@@ -61,6 +60,7 @@ public:
     [[nodiscard]] std::optional<asge::game::state::Transition<int>>
     Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 18, 18, 24, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
 

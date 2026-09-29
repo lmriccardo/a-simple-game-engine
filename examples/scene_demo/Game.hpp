@@ -24,14 +24,9 @@
  * OnSystemEvent is left empty, same as input_demo, since polling covers
  * everything this demo needs.
  *
- * Notably absent: asge::game::systems::MovementSystem/RenderSystem. Both
- * take a bare Registry and have no notion of "active scene" — SceneManager
- * now keeps every resident scene's entities in the *same* Registry (see its
- * own doc comment), so calling those systems against GetRegistry() directly
- * would move/draw every resident scene at once, not just the active one.
- * MoveActiveEntities()/RenderActiveEntities() below are small local
- * stand-ins scoped to SceneManager::ActiveEntities() instead — teaching the
- * shared systems to be scene-aware for real is future work, not this demo's.
+ * Movement, layout, propagation and drawing of the active scene all happen in
+ * Game<TStateId>'s own per-frame pipeline (SceneManager's Registry holds only
+ * the active scene), so this state only reacts to input and scene swaps.
  */
 class SceneDemoState final : public asge::game::state::IGameState<int>
 {
@@ -40,16 +35,7 @@ class SceneDemoState final : public asge::game::state::IGameState<int>
 
     asge::ecs::Entity m_Player{ asge::ecs::Entity::Null() };
 
-    // Textures are cached by the virtual path each Sprite names, so several
-    // entities sharing one texture only create it once -- and so a scene
-    // swap's freshly-loaded sprites still resolve against the same cache
-    // instead of recreating a texture already loaded once.
-    std::unordered_map<std::string, std::unique_ptr<asge::video::ITexture>> m_Textures;
-
-    void ResolveSpriteTextures( asge::video::IRenderer& inRenderer );
     void UpdatePlayerVelocity( asge::input::InputState const& inInput );
-    void MoveActiveEntities( float inDeltaTime );   // MovementSystem, scoped to ActiveEntities()
-    void RenderActiveEntities( asge::video::IRenderer& inRenderer ); // RenderSystem, likewise
     void WrapAroundScreen();
     void SaveSceneSnapshot() const;
     void RefreshPlayerReference(); // re-finds "the player" after any (re)load
@@ -61,6 +47,7 @@ public:
     [[nodiscard]] std::optional<asge::game::state::Transition<int>>
     Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 15, 15, 20, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
 

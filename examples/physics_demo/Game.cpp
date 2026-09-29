@@ -227,13 +227,9 @@ void PhysicsDemoState::HandleInput(asge::input::InputState const &inInput)
 }
 
 std::optional<asge::game::state::Transition<int>>
-PhysicsDemoState::Update(float inDeltaTime, asge::input::InputState const &inInput)
+PhysicsDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState const &inInput)
 {
     HandleInput( inInput );
-
-    // May queue trigger-zone despawns via HandleTriggerOverlap (connected
-    // to events::OnCollisionTriggerEnter in the constructor).
-    asge::game::systems::PhysicsUpdate( m_Registry, m_PhysicsState, inDeltaTime );
 
     ProcessTriggerDespawns();
     DespawnFallenBoxes();
@@ -242,8 +238,6 @@ PhysicsDemoState::Update(float inDeltaTime, asge::input::InputState const &inInp
 
 void PhysicsDemoState::Render(asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 18, 18, 24, 255 });
-
     // No Sprite/RenderSystem here -- Colliders don't carry a texture, so
     // this demo draws each entity's world-space Collider bounds directly.
     // Every Collider this demo spawns is a Rect today, but drawing through
