@@ -6,6 +6,7 @@ same nav/footer/theme chrome; this module is the one place that chrome is
 defined so the two generators can't drift apart.
 """
 import html
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -17,22 +18,80 @@ NAV_ITEMS = [
     ("overview", "Overview", "index.html"),
     ("install", "Install", "install.html"),
     ("examples", "Examples", "examples/index.html"),
+    ("editor", "Editor", "editor/index.html"),
     ("api", "API Reference", "api/index.html"),
     ("releases", "Releases", "releases.html"),
 ]
+
+# The pages under the navbar's "Editor" dropdown (the "editor" NAV_ITEMS entry
+# above is its toggle and links to the overview). A page in this list is
+# active as "editor/<key>"; the editor overview itself is just "editor".
+EDITOR_PAGES = [
+    ("projects-and-scenes", "Projects & Scenes", "editor/projects-and-scenes.html"),
+    ("entities-and-components", "Entities & Components", "editor/entities-and-components.html"),
+    ("ui-and-layout", "UI & Layout", "editor/ui-and-layout.html"),
+    ("viewport-and-navigation", "Viewport & Navigation", "editor/viewport-and-navigation.html"),
+    ("assets-and-vfs", "Assets & VFS", "editor/assets-and-vfs.html"),
+    ("advanced-editing", "Advanced Editing", "editor/advanced-editing.html"),
+    ("releases", "Editor Releases", "editor/releases.html"),
+]
+
+CHEVRON_ICON = (
+    '<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="m6 9 6 6 6-6"/></svg>'
+)
 
 
 def rel(depth: int, path: str) -> str:
     return ("../" * depth) + path
 
 
+def render_editor_menu(active: str, depth: int) -> str:
+    items = []
+    for key, label, path in EDITOR_PAGES:
+        cls = ' class="active"' if active == f"editor/{key}" else ""
+        items.append(f'<a href="{rel(depth, path)}"{cls} role="menuitem">{html.escape(label)}</a>')
+    return "\n      ".join(items)
+
+
 def render_nav(active: str, depth: int) -> str:
     links = []
     for key, label, path in NAV_ITEMS:
+        if key == "editor":
+            cls = ' class="active"' if active == "editor" or active.startswith("editor/") else ""
+            links.append(
+                '<div class="nav-dropdown">\n'
+                f'    <a href="{rel(depth, path)}"{cls} aria-haspopup="true">{label}{CHEVRON_ICON}</a>\n'
+                f'    <div class="nav-menu" role="menu">\n      {render_editor_menu(active, depth)}\n    </div>\n'
+                '    </div>'
+            )
+            continue
         cls = ' class="active"' if key == active else ""
         links.append(f'<a href="{rel(depth, path)}"{cls}>{label}</a>')
     links.append(f'<a href="{GITHUB_URL}" target="_blank" rel="noopener">GitHub</a>')
     return "\n    ".join(links)
+
+
+_NAV_BLOCK = re.compile(r'<nav class="nav-links">.*?</nav>', re.S)
+
+
+def refresh_editor_nav():
+    """Re-render the navbar of the hand-written pages under site/editor/.
+
+    Those pages aren't produced by a generator, so without this their copy of
+    the nav (now including the Editor dropdown) would drift from render_nav()
+    the moment NAV_ITEMS/EDITOR_PAGES change. The rest of the page is left
+    exactly as written.
+    """
+    for path in sorted((SITE / "editor").glob("*.html")):
+        active = "editor" if path.stem == "index" else f"editor/{path.stem}"
+        text = path.read_text(encoding="utf-8")
+        block = f'<nav class="nav-links">\n    {render_nav(active, 1)}\n    </nav>'
+        updated, count = _NAV_BLOCK.subn(lambda _m: block, text, count=1)
+        if count and updated != text:
+            path.write_text(updated, encoding="utf-8", newline="\n")
+            print(f"refreshed nav in {path.relative_to(ROOT)}")
 
 
 THEME_ICON = (
