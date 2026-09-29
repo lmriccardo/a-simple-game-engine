@@ -456,10 +456,60 @@ its children are disabled as well recursively.
       subtree is disabled -- so a disabled entity stays visible from the
       tree even while its row is collapsed away.
 
-## Phase ... - UI
+## Phase 16 - UI Labels and Buttons
 
-- [ ]
+**Goals**: This phase will adds simple UI elements like `UIButton` and
+`UILabel` to the editor to build HUDs and generic UIs for a game.
 
+- [x] Entities panel gained `Create UI Element` (disabled without a project,
+      like `Create Entity`) opening a `Type Selection` modal (Button/Label),
+      then a `Creation` modal (name, position, screen space, size/auto-size,
+      text/font/align/color, plus a Button's enabled flag and state colors)
+      -- `Back`/`Discard`/`Create`, navigable both ways. Built exclusively
+      through `UI::CreateButton`/`CreateLabel` (`src/ASGE/Game/UI.hpp`),
+      never the generic Add/Remove Component control: `UIButton`/`UIRect`/
+      `Interactable`/`UILabel` are deliberately absent from
+      `kComponentEntries`, since a widget is a bundle those functions
+      assemble together, not something addable piecemeal.
+
+- [x] `GetEntityLabel`'s fallback is type-aware: `Button #N`/`Label #N` for
+      an unnamed `UIButton`/`UILabel` entity, `Entity #N` otherwise.
+
+- [x] Follow-up: `UIRect`/`Interactable`/`UIButton`/`UILabel` each got their
+      own Inspector section -- view/edit only, no "x" remove, since a
+      widget's components aren't removable piecemeal either.
+
+- [x] Follow-up: Font joined Texture/Animation/Audio as a tracked, loadable
+      asset -- a "Fonts" section in the Assets panel, `.ttf` recognized by
+      "Load Asset...", known paths persisted in `.asgeproject`, and both the
+      Creation modal's and Inspector's Font Path fields are the same
+      dropdown the other three already use.
+
+- [x] Follow-up: fixed two real bugs surfaced along the way -- Create UI
+      Element never called `ResolveAssets`, so a freshly-created label's font
+      never resolved; and `UILabel::m_AutoSize` was never actually wired up,
+      so an auto-sized label's `UIRect` stayed `{0,0}` forever (`RenderSystem`
+      now writes the measured text size into it every frame).
+
+- [x] Follow-up: screen-space content only drew/interacted correctly at the
+      editor camera's origin/1x default. Added `resources::ScreenSpaceCamera`,
+      an optional override `RenderSystem` uses for its screen-space camera
+      swap (absent by default -- a real game is unaffected); the editor sets
+      it to its own live pan/zoom camera every frame, so screen-space content
+      now draws, picks, drags, and gizmos consistently as that camera moves.
+
+- [x] Font asset preview shows a sample rendered string, laid out with the
+      same per-glyph advance/bearing math `SDLRenderer::DrawString` uses,
+      drawn via `ImGui::AddImage` against the font's own atlas texture (same
+      approach the texture/animation previews already use, since this panel
+      has no scene camera of its own to draw through).
+
+- [x] Font pixel size changes now actually re-resolve -- `AssetManager::GetFont`
+      caches by `(path, pixel height)`, but `Resolver<UILabel>` only compared
+      the resolved *path*, so a size-only edit left `m_Font`/`m_Texture`
+      pointing at the old-size atlas. Added `UILabel::m_ResolvedFontPixelHeight`,
+      checked alongside the path; the Inspector's Font Size field now reports
+      a change too, so `ResolveAssets` actually runs.
 
 ## Explicitly deferred — do not build until a concrete need forces it
 
