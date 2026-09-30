@@ -49,5 +49,12 @@ asge::Result<asge::game::project::ProjectData> asge::game::project::LoadProjectF
         data.m_MainScene = Resolve( base, main );
     }
 
+    if ( doc.HasTable( "View" ) )
+    {
+        auto const view = doc.GetTable( "View" ).Value();
+        data.m_TargetWidth = view.Get( "TargetWidth", 0 );
+        data.m_TargetHeight = view.Get( "TargetHeight", 0 );
+    }
+
     return Result<ProjectData>::Ok( std::move( data ) );
 }

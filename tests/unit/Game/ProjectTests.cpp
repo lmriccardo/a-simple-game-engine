@@ -96,6 +96,33 @@ TEST_F(ProjectTest, LoadProjectFile_MainScene_ResolvesAgainstTheProjectFolder)
     EXPECT_EQ(result.Value().m_MainScene, (m_Root / "b.asgescene").lexically_normal());
 }
 
+TEST_F(ProjectTest, LoadProjectFile_ViewTable_GivesTheGameWindowSize)
+{
+    asge::config::toml::TOMLBuilder builder;
+    builder.SetArray("Scenes", std::vector<std::string>{ "a.asgescene" });
+    auto view = builder.Table("View");
+    view.Set("TargetWidth", 1280);
+    view.Set("TargetHeight", 720);
+    ASSERT_TRUE(builder.SaveToFile(m_File).IsOk());
+
+    auto result = LoadProjectFile(m_File);
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().m_TargetWidth, 1280);
+    EXPECT_EQ(result.Value().m_TargetHeight, 720);
+}
+
+TEST_F(ProjectTest, LoadProjectFile_NoViewTable_LeavesTheWindowSizeUnset)
+{
+    Write("assets", { "a.asgescene" });
+
+    auto result = LoadProjectFile(m_File);
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().m_TargetWidth, 0);
+    EXPECT_EQ(result.Value().m_TargetHeight, 0);
+}
+
 TEST_F(ProjectTest, LoadProjectFile_NoMainScene_LeavesItEmpty)
 {
     Write("assets", { "a.asgescene" });

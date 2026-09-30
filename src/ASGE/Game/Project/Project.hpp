@@ -23,6 +23,8 @@ struct ProjectData
     std::vector<Mount>       m_Mounts;
     std::vector<filesystem::Path> m_Scenes;    // in file order
     filesystem::Path         m_MainScene;      // the scene a game starts on; empty when the file names none
+    int                      m_TargetWidth = 0;  // game window size from [View]; 0 when the file sets none
+    int                      m_TargetHeight = 0;
 };
 
 /**
