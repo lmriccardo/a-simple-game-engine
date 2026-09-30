@@ -27,6 +27,9 @@ struct CppProjectInput
 /** @brief True once `New C++ Project` has written `code/CMakeLists.txt` for inProjectFile. */
 [[nodiscard]] bool IsCppProjectLinked( std::filesystem::path const& inProjectFile ) noexcept;
 
+/** @brief The CMake target (and executable) name of inProjectFile's C++ project: its stem as an identifier. */
+[[nodiscard]] std::string CppTargetName( std::filesystem::path const& inProjectFile );
+
 /** @brief inSceneName as a C++ identifier ("Main Menu" -> "MainMenu", "2nd level" -> "Scene2ndLevel"). */
 [[nodiscard]] std::string CppStateName( std::string const& inSceneName );
 
@@ -52,3 +55,10 @@ asge::BoolResult UpdateCppProject( CppProjectInput const& inInput ) noexcept;
  *        (nothing happens) if `code` is not installed or the folder path cannot be quoted safely.
  */
 bool OpenInVSCode( std::filesystem::path const& inFolder ) noexcept;
+
+/**
+ * @brief Deletes the `<project folder>/code` folder, including every state file you wrote, and so
+ *        unlinks the C++ project. Touches nothing outside it (scenes, assets and the `.vscode`
+ *        folder stay). Fails if the project has no C++ project, or if a file is in use.
+ */
+asge::BoolResult DeleteCppProject( std::filesystem::path const& inProjectFile ) noexcept;

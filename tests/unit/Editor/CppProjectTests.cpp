@@ -186,6 +186,55 @@ TEST_F(CppProjectTest, Create_NoScenes_ReturnsInvalidArgument)
     EXPECT_FALSE(IsCppProjectLinked(m_ProjectFile));
 }
 
+// ─── DeleteCppProject ────────────────────────────────────────────────────────
+
+TEST_F(CppProjectTest, Delete_RemovesTheCodeFolderAndUnlinksTheProject)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+
+    ASSERT_TRUE(DeleteCppProject(m_ProjectFile).IsOk());
+
+    EXPECT_FALSE(fs::exists(Code()));
+    EXPECT_FALSE(IsCppProjectLinked(m_ProjectFile));
+}
+
+TEST_F(CppProjectTest, Delete_LeavesEverythingOutsideCodeAlone)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+    fs::create_directories(m_Root / "scenes");
+    std::ofstream(m_Root / "scenes" / "Main.asgescene") << "scene";
+    std::ofstream(m_ProjectFile) << "project";
+
+    ASSERT_TRUE(DeleteCppProject(m_ProjectFile).IsOk());
+
+    EXPECT_EQ(ReadAll(m_Root / "scenes" / "Main.asgescene"), "scene");
+    EXPECT_EQ(ReadAll(m_ProjectFile), "project");
+    EXPECT_TRUE(fs::exists(m_Root / ".vscode" / "settings.json"));
+}
+
+TEST_F(CppProjectTest, Delete_ProjectWithoutACppProject_ReturnsNoSuchFileAndTouchesNothing)
+{
+    fs::create_directories(Code() / "unrelated");
+    std::ofstream(Code() / "unrelated" / "keep.txt") << "keep"; // a code/ folder we did not generate: no CMakeLists.txt
+
+    auto result = DeleteCppProject(m_ProjectFile);
+
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), std::make_error_code(std::errc::no_such_file_or_directory));
+    EXPECT_EQ(ReadAll(Code() / "unrelated" / "keep.txt"), "keep");
+}
+
+TEST_F(CppProjectTest, Delete_ThenCreate_StartsFromScratch)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+    std::ofstream(Code() / "states" / "MainState.cpp", std::ios::trunc) << "// my gameplay";
+    ASSERT_TRUE(DeleteCppProject(m_ProjectFile).IsOk());
+
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+
+    EXPECT_EQ(ReadAll(Code() / "states" / "MainState.cpp").find("my gameplay"), std::string::npos);
+}
+
 // ─── UpdateCppProject ────────────────────────────────────────────────────────
 
 TEST_F(CppProjectTest, Update_NewScene_GetsAStateAndAStateIdEntry)

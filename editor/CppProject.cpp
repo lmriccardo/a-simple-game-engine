@@ -449,6 +449,11 @@ bool IsCppProjectLinked( fs::path const& inProjectFile ) noexcept
     return fs::exists( CppProjectDir( inProjectFile ) / "CMakeLists.txt", ec );
 }
 
+std::string CppTargetName( fs::path const& inProjectFile )
+{
+    return TargetName( inProjectFile.stem().string() );
+}
+
 std::string CppStateName( std::string const& inSceneName )
 {
     std::string name;
@@ -479,7 +484,7 @@ asge::BoolResult CreateCppProject( CppProjectInput const& inInput, fs::path cons
     if ( auto result = WriteGenerated( inInput ); !result ) return result;
     if ( auto result = WriteFile( dir / "main.cpp", MainText(), false ); !result ) return result;
     if ( auto result = WriteFile( inInput.m_ProjectFile.parent_path() / ".vscode" / "settings.json", VSCodeSettings(), false ); !result ) return result;
-    return WriteFile( dir / "CMakeLists.txt", CMakeListsText( TargetName( title ), inAsgeSourceDir ), false );
+    return WriteFile( dir / "CMakeLists.txt", CMakeListsText( CppTargetName( inInput.m_ProjectFile ), inAsgeSourceDir ), false );
 }
 
 asge::BoolResult UpdateCppProject( CppProjectInput const& inInput ) noexcept
@@ -498,4 +503,18 @@ bool OpenInVSCode( fs::path const& inFolder ) noexcept
     constexpr char const* kQuiet = " >/dev/null 2>&1";
 #endif
     return std::system( ( "code \"" + folder + "\"" + kQuiet ).c_str() ) == 0;
+}
+
+asge::BoolResult DeleteCppProject( fs::path const& inProjectFile ) noexcept
+{
+    auto const dir = CppProjectDir( inProjectFile );
+    if ( !IsCppProjectLinked( inProjectFile ) )
+    {
+        return asge::BoolResult::Err( std::make_error_code( std::errc::no_such_file_or_directory ), dir.string() );
+    }
+
+    std::error_code ec;
+    fs::remove_all( dir, ec );
+    if ( ec ) return asge::BoolResult::Err( ec, dir.string() );
+    return asge::BoolResult::Ok();
 }

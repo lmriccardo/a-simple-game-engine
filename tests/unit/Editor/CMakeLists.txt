@@ -1,6 +1,12 @@
 add_executable(ASGE_EditorTests
     CppProjectTests.cpp
+    CppBuildTests.cpp
+    ToolchainTests.cpp
+    BuildOutputTests.cpp
     ${CMAKE_SOURCE_DIR}/editor/CppProject.cpp
+    ${CMAKE_SOURCE_DIR}/editor/CppBuild.cpp
+    ${CMAKE_SOURCE_DIR}/editor/Toolchain.cpp
+    ${CMAKE_SOURCE_DIR}/editor/BuildOutput.cpp
 )
 
 target_include_directories(ASGE_EditorTests PRIVATE "${CMAKE_SOURCE_DIR}/editor")
