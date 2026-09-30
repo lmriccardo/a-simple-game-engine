@@ -16,12 +16,13 @@ struct Mount
     filesystem::Path m_RealDirectory; // absolute, or resolved against the project file's folder
 };
 
-/** @brief The parts of a `.asgeproject` a running game needs: its mounts and its scene list. */
+/** @brief The parts of a `.asgeproject` a running game needs: its mounts, scene list and main scene. */
 struct ProjectData
 {
     filesystem::Path         m_FilePath;
     std::vector<Mount>       m_Mounts;
-    std::vector<filesystem::Path> m_Scenes; // in file order; the first one is the start scene
+    std::vector<filesystem::Path> m_Scenes;    // in file order
+    filesystem::Path         m_MainScene;      // the scene a game starts on; empty when the file names none
 };
 
 /**

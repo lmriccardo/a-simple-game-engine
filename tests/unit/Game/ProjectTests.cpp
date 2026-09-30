@@ -31,13 +31,14 @@ protected:
         std::filesystem::remove_all(m_Root, ec);
     }
 
-    void Write(std::string const& inMountDir, std::vector<std::string> const& inScenes)
+    void Write(std::string const& inMountDir, std::vector<std::string> const& inScenes, std::string const& inMain = {})
     {
         asge::config::toml::TOMLBuilder builder;
         auto mount = builder.ArrayTable("Mount");
         mount.Set("Name", std::string("assets"));
         mount.Set("RealDirectory", inMountDir);
         builder.SetArray("Scenes", inScenes);
+        if (!inMain.empty()) builder.Set("MainScene", inMain);
         ASSERT_TRUE(builder.SaveToFile(m_File).IsOk());
     }
 };
@@ -83,6 +84,26 @@ TEST_F(ProjectTest, LoadProjectFile_NoScenesOrMounts_YieldsEmptyLists)
     ASSERT_TRUE(result.IsOk());
     EXPECT_TRUE(result.Value().m_Mounts.empty());
     EXPECT_TRUE(result.Value().m_Scenes.empty());
+}
+
+TEST_F(ProjectTest, LoadProjectFile_MainScene_ResolvesAgainstTheProjectFolder)
+{
+    Write("assets", { "a.asgescene", "b.asgescene" }, "b.asgescene");
+
+    auto result = LoadProjectFile(m_File);
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().m_MainScene, (m_Root / "b.asgescene").lexically_normal());
+}
+
+TEST_F(ProjectTest, LoadProjectFile_NoMainScene_LeavesItEmpty)
+{
+    Write("assets", { "a.asgescene" });
+
+    auto result = LoadProjectFile(m_File);
+
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value().m_MainScene.empty());
 }
 
 TEST_F(ProjectTest, LoadProjectFile_MissingFile_ReturnsError)

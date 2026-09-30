@@ -44,5 +44,10 @@ asge::Result<asge::game::project::ProjectData> asge::game::project::LoadProjectF
         data.m_Scenes.push_back( Resolve( base, scene ) );
     }
 
+    if ( auto const main = doc.Get<std::string>( "MainScene", {} ); !main.empty() )
+    {
+        data.m_MainScene = Resolve( base, main );
+    }
+
     return Result<ProjectData>::Ok( std::move( data ) );
 }

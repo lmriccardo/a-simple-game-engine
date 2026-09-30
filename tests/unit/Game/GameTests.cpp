@@ -332,13 +332,14 @@ protected:
         std::filesystem::remove_all(m_Root, ec);
     }
 
-    std::filesystem::path WriteProject(std::vector<std::string> const& inScenes)
+    std::filesystem::path WriteProject(std::vector<std::string> const& inScenes, std::string const& inMain = {})
     {
         asge::config::toml::TOMLBuilder builder;
         auto mount = builder.ArrayTable("Mount");
         mount.Set("Name", std::string("assets"));
         mount.Set("RealDirectory", std::string("assets"));
         builder.SetArray("Scenes", inScenes);
+        if (!inMain.empty()) builder.Set("MainScene", inMain);
         auto path = m_Root / "demo.asgeproject";
         EXPECT_TRUE(builder.SaveToFile(path).IsOk());
         return path;
@@ -369,6 +370,20 @@ TEST_F(GameProjectTest, LoadProject_MountsVfsAndLoadsTheFirstScene)
         .GetComponent<asge::game::components::Velocity>(active[0]).Value().get().m_DX, 3.0f);
     EXPECT_EQ(m_Game.GetProject().m_Scenes.size(), 2u);
     EXPECT_EQ(m_Game.m_Vfs.ListMounts().size(), 1u);
+}
+
+TEST_F(GameProjectTest, LoadProject_MainSceneSet_LoadsItInsteadOfTheFirst)
+{
+    WriteScene(m_Root / "first.asgescene", 3.0f);
+    WriteScene(m_Root / "second.asgescene", 9.0f);
+    auto const project = WriteProject({ "first.asgescene", "second.asgescene" }, "second.asgescene");
+
+    ASSERT_TRUE(m_Game.LoadProject(project).IsOk());
+
+    auto active = m_Game.m_SceneManager.ActiveEntities();
+    ASSERT_EQ(active.size(), 1u);
+    EXPECT_FLOAT_EQ(m_Game.m_SceneManager.GetRegistry()
+        .GetComponent<asge::game::components::Velocity>(active[0]).Value().get().m_DX, 9.0f);
 }
 
 TEST_F(GameProjectTest, LoadProject_MissingMountDirectory_IsSkippedNotFatal)

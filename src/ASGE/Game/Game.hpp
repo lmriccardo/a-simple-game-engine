@@ -144,8 +144,9 @@ public:
 
     /**
      * @brief Loads a `.asgeproject` written by the editor: mounts its VFS entries (skipping
-     *        missing directories with a warning) and loads its first scene as the active one.
-     *        Fails with SceneError::EmptyProject if the project lists no scenes.
+     *        missing directories with a warning) and loads its main scene (the first listed one
+     *        if none is set) as the active one. Fails with SceneError::EmptyProject if the
+     *        project lists no scenes.
      */
     BoolResult LoadProject( filesystem::Path const& inPath ) noexcept
     {
@@ -166,7 +167,8 @@ public:
         m_Project = project.Value();
         if ( m_Project.m_Scenes.empty() ) return BoolResult::Err( make_error_code( errors::SceneError::EmptyProject ) );
 
-        auto result = m_SceneManager.LoadSceneFromFile( m_Project.m_Scenes.front() );
+        auto const& startScene = m_Project.m_MainScene.empty() ? m_Project.m_Scenes.front() : m_Project.m_MainScene;
+        auto result = m_SceneManager.LoadSceneFromFile( startScene );
         if ( !result ) return result;
         m_Assets.ResolveAssets( m_SceneManager.GetRegistry(), m_Renderer );
         return result;
