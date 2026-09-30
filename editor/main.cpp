@@ -9,6 +9,7 @@
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Systems/TransformPropagationSystem.hpp>
 #include <ASGE/Game/Systems/UISystem.hpp>
+#include "CppProject.hpp"
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
@@ -427,6 +428,23 @@ void SwitchToScene(
  * @return False (logged) if the save failed; inOutProject is still updated
  *         either way, since the scene is real either way.
  */
+CppProjectInput CppInputFor( Project const& inProject, asge::filesystem::VirtualFileSystem const& inVfs )
+{
+    CppProjectInput input;
+    input.m_ProjectFile = inProject.m_FilePath;
+    for ( auto const& scene : inProject.m_Scenes ) input.m_Scenes.push_back( { scene.m_Name, scene.m_Path } );
+    for ( auto const& mount : inVfs.ListMounts() ) input.m_MountDirs.push_back( mount.m_RealDirectory );
+    return input;
+}
+
+/** @brief Runs UpdateCppProject for inProject if it has a C++ project linked, and logs the outcome. */
+void SyncCppProject( Project const& inProject, asge::filesystem::VirtualFileSystem const& inVfs ) noexcept
+{
+    if ( !IsCppProjectLinked( inProject.m_FilePath ) ) return;
+    if ( auto result = UpdateCppProject( CppInputFor( inProject, inVfs ) ); !result ) result.LogError();
+    else LOG_INFO( "C++ project updated: ", CppProjectDir( inProject.m_FilePath ).string() );
+}
+
 bool CreateSceneInProject(
     Project& inOutProject, std::string const& inName,
     asge::game::scene::SceneManager& inSceneManager ) noexcept
@@ -644,6 +662,8 @@ int main(int, char**)
     std::optional<Project> currentProject;
 
     FileDialogResult createProjectFolderDialogResult;
+    FileDialogResult cppAsgeFolderDialogResult;
+    char cppAsgeFolderBuf[512] = ASGE_EDITOR_SOURCE_DIR; // dev default: the tree this editor was built from
     FileDialogResult saveProjectAsDialogResult;
     FileDialogResult openProjectDialogResult;
     FileDialogResult openSceneDialogResult;
@@ -1123,6 +1143,13 @@ int main(int, char**)
             }
         }
         {
+            std::string chosenDir;
+            if (DrainFileDialogResult(cppAsgeFolderDialogResult, chosenDir) && !chosenDir.empty())
+            {
+                std::snprintf(cppAsgeFolderBuf, sizeof(cppAsgeFolderBuf), "%s", chosenDir.c_str());
+            }
+        }
+        {
             std::string chosenPath;
             if (DrainFileDialogResult(saveProjectAsDialogResult, chosenPath))
             {
@@ -1268,6 +1295,9 @@ int main(int, char**)
         bool openOpenSceneDialog = false;
         bool openGridModal = false;
         bool openGameWindowModal = false;
+        bool openCppProjectModal = false;
+        bool openCppAsgeFolderDialog = false;
+        bool const cppLinked = hasProject && IsCppProjectLinked(currentProject->m_FilePath);
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
@@ -1314,6 +1344,22 @@ int main(int, char**)
                 if (!hasProject) ImGui::EndDisabled();
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("C++ Project"))
+            {
+                if (!hasProject || cppLinked) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("New C++ Project...")) openCppProjectModal = true;
+                if (!hasProject || cppLinked) ImGui::EndDisabled();
+
+                if (!cppLinked) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("Update C++ Project")) SyncCppProject(*currentProject, vfs);
+                if (ImGui::MenuItem("Open in VSCode"))
+                {
+                    auto const folder = CppProjectDir(currentProject->m_FilePath);
+                    if (!OpenInVSCode(folder)) LOG_ERROR("Could not open VSCode (is `code` on the PATH?) for ", folder.string());
+                }
+                if (!cppLinked) ImGui::EndDisabled();
+                ImGui::EndMenu();
+            }
             ImGui::EndMainMenuBar();
         }
 
@@ -1333,6 +1379,7 @@ int main(int, char**)
             draftTargetHeight = targetGameHeight;
             ImGui::OpenPopup("Game Window Settings");
         }
+        if (openCppProjectModal) ImGui::OpenPopup("New C++ Project");
         if (openCreateProjectModal)
         {
             createProjectNameBuf[0] = '\0';
@@ -1452,6 +1499,27 @@ int main(int, char**)
             if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
+        if (ImGui::BeginPopupModal("New C++ Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted("Writes a CMake project into the project's code/ folder.");
+            ImGui::InputText("ASGE Folder", cppAsgeFolderBuf, sizeof(cppAsgeFolderBuf));
+            ImGui::SameLine();
+            if (ImGui::Button("Browse...")) openCppAsgeFolderDialog = true;
+
+            bool const canCreate = currentProject && cppAsgeFolderBuf[0] != '\0';
+            if (!canCreate) ImGui::BeginDisabled();
+            if (ImGui::Button("Create"))
+            {
+                auto const result = CreateCppProject(CppInputFor(*currentProject, vfs), fs::path(cppAsgeFolderBuf));
+                if (result) LOG_INFO("C++ project created: ", CppProjectDir(currentProject->m_FilePath).string());
+                else result.LogError();
+                ImGui::CloseCurrentPopup();
+            }
+            if (!canCreate) ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
         if (ImGui::BeginPopupModal("Create a Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (currentProject)
@@ -1463,6 +1531,7 @@ int main(int, char**)
                     std::string const name =
                         createSceneNameBuf[0] != '\0' ? std::string(createSceneNameBuf) : createScenePlaceholder;
                     CreateSceneInProject(*currentProject, name, sceneManager);
+                    SyncCppProject(*currentProject, vfs);
                     selectedEntity = asge::ecs::Entity::Null();
                     ResetEntityDisplayIds();
                     ImGui::CloseCurrentPopup();
@@ -1473,6 +1542,10 @@ int main(int, char**)
             ImGui::EndPopup();
         }
 
+        if (openCppAsgeFolderDialog)
+        {
+            SDL_ShowOpenFolderDialog(OnFileDialogResult, &cppAsgeFolderDialogResult, window, nullptr, false);
+        }
         if (openCreateProjectFolderDialog)
         {
             SDL_ShowOpenFolderDialog(OnFileDialogResult, &createProjectFolderDialogResult, window, nullptr, false);
