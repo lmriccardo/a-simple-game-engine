@@ -160,9 +160,10 @@ struct SceneContext
 
 /**
  * @brief Base of every scene's state. Loads its scene on entry, then calls OnSceneLoaded() -- the
- *        place to find widgets by name and connect their callbacks. Connections made with Connect()
- *        are dropped when the state exits, and Replace/Push/Pop/Quit request a state change that
- *        Update() hands to the game.
+ *        place to find widgets by name and connect their callbacks. Each frame Update() calls
+ *        OnUpdate() and then hands the game whatever Replace/Push/Pop/Quit requested, so a state
+ *        change asked for in OnUpdate() or a callback takes effect the same frame. Connections made
+ *        with Connect() are dropped when the state exits.
  */
 class SceneState : public asge::game::state::IGameState<StateId>
 {
@@ -175,10 +176,16 @@ protected:
     /** @brief Called once the scene is loaded, each time this state is entered. */
     virtual void OnSceneLoaded() {}
 
+    /** @brief Called every frame this state is updated, before a requested state change is handed to the game. */
+    virtual void OnUpdate( float, asge::input::InputState const& ) {}
+
+    /** @brief The registry holding this scene's entities. */
+    [[nodiscard]] asge::ecs::Registry& GetRegistry() const { return m_Context.m_Scenes.GetRegistry(); }
+
     /** @brief The entity named inName in the editor (its Name component), or Entity::Null(). */
     [[nodiscard]] asge::ecs::Entity FindByName( std::string_view inName ) const
     {
-        for ( auto [ entity, name ] : m_Context.m_Scenes.GetRegistry().View<asge::game::components::Name>() )
+        for ( auto [ entity, name ] : GetRegistry().View<asge::game::components::Name>() )
         {
             if ( name.get().m_Name == inName ) return entity;
         }
@@ -192,7 +199,7 @@ protected:
         auto const entity = FindByName( inName );
         if ( entity == asge::ecs::Entity::Null() ) return nullptr;
 
-        auto component = m_Context.m_Scenes.GetRegistry().GetComponent<T>( entity );
+        auto component = GetRegistry().GetComponent<T>( entity );
         return component ? &component.Value().get() : nullptr;
     }
 
@@ -232,7 +239,11 @@ public:
     }
 
     [[nodiscard]] std::optional<asge::game::state::Transition<StateId>>
-    Update( float, asge::input::InputState const& ) override { return std::exchange( m_Pending, std::nullopt ); }
+    Update( float inDeltaTime, asge::input::InputState const& inInput ) override
+    {
+        OnUpdate( inDeltaTime, inInput );
+        return std::exchange( m_Pending, std::nullopt );
+    }
 
     void Render( asge::video::IRenderer& ) override {}
     void OnSystemEvent( asge::event::SystemEvent const& ) override {}
@@ -372,14 +383,12 @@ std::string StateHeader( std::string const& inName )
 
 class @NAME@State final : public SceneState
 {
-protected:
-    void OnSceneLoaded() override;
-
 public:
     using SceneState::SceneState;
 
-    [[nodiscard]] std::optional<asge::game::state::Transition<StateId>>
-    Update( float inDeltaTime, asge::input::InputState const& inInput ) override;
+protected:
+    void OnSceneLoaded() override;
+    void OnUpdate( float inDeltaTime, asge::input::InputState const& inInput ) override;
 };
 )", { { "NAME", inName } } );
 }
@@ -399,10 +408,9 @@ void @NAME@State::OnSceneLoaded()
     // Replace / Push / Pop / Quit request a state change; Connect drops the callback when this state exits.
 }
 
-std::optional<asge::game::state::Transition<StateId>>
-@NAME@State::Update( float inDeltaTime, asge::input::InputState const& inInput )
+void @NAME@State::OnUpdate( [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput )
 {
-    return SceneState::Update( inDeltaTime, inInput );
+    // Called every frame, before a state change requested here or by a callback is handed to the game.
 }
 )", { { "NAME", inName } } );
 }

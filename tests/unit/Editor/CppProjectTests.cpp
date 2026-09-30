@@ -126,21 +126,36 @@ TEST_F(CppProjectTest, Create_SceneStateOffersLookupConnectAndTransitionHelpers)
     ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
 
     auto const base = ReadAll(Code() / "SceneState.hpp");
-    for (auto const* member : { "virtual void OnSceneLoaded()", "FindByName(", "T* Find(", "void Connect(",
+    for (auto const* member : { "virtual void OnSceneLoaded()", "virtual void OnUpdate(", "Registry& GetRegistry() const", "FindByName(", "T* Find(", "void Connect(",
                                 "void Replace(", "void Push(", "void Pop()", "void Quit()", "void OnExit() override" })
     {
         EXPECT_NE(base.find(member), std::string::npos) << member;
     }
 }
 
-TEST_F(CppProjectTest, Create_StateFilesOverrideOnSceneLoadedAndForwardUpdate)
+TEST_F(CppProjectTest, Create_StateFilesOverrideOnSceneLoadedAndOnUpdate)
 {
     ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
 
-    EXPECT_NE(ReadAll(Code() / "states" / "MainState.hpp").find("void OnSceneLoaded() override;"), std::string::npos);
+    auto const header = ReadAll(Code() / "states" / "MainState.hpp");
+    EXPECT_NE(header.find("void OnSceneLoaded() override;"), std::string::npos);
+    EXPECT_NE(header.find("void OnUpdate( float inDeltaTime, asge::input::InputState const& inInput ) override;"), std::string::npos);
     auto const source = ReadAll(Code() / "states" / "MainState.cpp");
     EXPECT_NE(source.find("void MainState::OnSceneLoaded()"), std::string::npos);
-    EXPECT_NE(source.find("return SceneState::Update( inDeltaTime, inInput );"), std::string::npos);
+    EXPECT_NE(source.find("void MainState::OnUpdate("), std::string::npos);
+    EXPECT_EQ(source.find("SceneState::Update"), std::string::npos); // the base Update() runs OnUpdate() itself
+}
+
+TEST_F(CppProjectTest, Create_SceneStateUpdateRunsOnUpdateBeforeHandingOverTheRequestedTransition)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+
+    auto const base = ReadAll(Code() / "SceneState.hpp");
+    auto const onUpdate = base.find("OnUpdate( inDeltaTime, inInput );");
+    auto const exchange = base.find("return std::exchange( m_Pending, std::nullopt );");
+    ASSERT_NE(onUpdate, std::string::npos);
+    ASSERT_NE(exchange, std::string::npos);
+    EXPECT_LT(onUpdate, exchange);
 }
 
 TEST_F(CppProjectTest, Create_DuplicateSanitizedNames_GetNumericSuffixes)
