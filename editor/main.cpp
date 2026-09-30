@@ -1594,6 +1594,16 @@ int main(int, char**)
                     }
                 }
             }
+
+            auto& activeScene = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+            ImGui::BeginDisabled( activeScene.m_IsMain );
+            if ( ImGui::Button( "Set Main Scene" ) )
+            {
+                for ( auto& scene : currentProject->m_Scenes ) scene.m_IsMain = false;
+                activeScene.m_IsMain = true;
+            }
+            ImGui::EndDisabled();
+            if ( activeScene.m_IsMain ) { ImGui::SameLine(); ImGui::TextUnformatted( "Main scene" ); }
         }
         ImGui::End();
 

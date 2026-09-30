@@ -50,6 +50,10 @@ asge::BoolResult SaveProject(
     scenePaths.reserve( inProject.m_Scenes.size() );
     for ( auto const& scene : inProject.m_Scenes ) scenePaths.push_back( PortablePath( scene.m_Path, projectDir ) );
     builder.SetArray( "Scenes", scenePaths );
+    for ( auto const& scene : inProject.m_Scenes )
+    {
+        if ( scene.m_IsMain ) builder.Set( "MainScene", PortablePath( scene.m_Path, projectDir ) );
+    }
 
     auto viewTable = builder.Table( "View" );
     viewTable.Set( "GridSpacing", inGridSpacing );
@@ -107,7 +111,7 @@ asge::BoolResult LoadProject(
     outProject.m_FilePath = inPath;
     for ( auto const& path : projectData.m_Scenes )
     {
-        outProject.m_Scenes.push_back( ProjectScene{ path.stem().string(), path, false } );
+        outProject.m_Scenes.push_back( ProjectScene{ path.stem().string(), path, false, path == projectData.m_MainScene } );
     }
 
     if ( doc.HasTable( "View" ) )
