@@ -11,6 +11,7 @@
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 
 #include "Assets/AssetManager.hpp"
+#include "Project/Project.hpp"
 #include "Scene/SceneManager.hpp"
 #include "States/GameStateStack.hpp"
 #include "Systems/AudioSystem.hpp"
@@ -70,6 +71,7 @@ protected:
     scene::SceneManager           m_SceneManager{ m_Vfs };
     video::IRenderer&             m_Renderer;
     audio::AudioDevice&           m_AudioDev;
+    project::ProjectData          m_Project;
 
 private:
     state::GameStateStack<TStateId>                           m_States;
@@ -139,6 +141,39 @@ public:
         m_Assets.ResolveAssets( m_SceneManager.GetRegistry(), m_Renderer );
         return result;
     }
+
+    /**
+     * @brief Loads a `.asgeproject` written by the editor: mounts its VFS entries (skipping
+     *        missing directories with a warning) and loads its first scene as the active one.
+     *        Fails with SceneError::EmptyProject if the project lists no scenes.
+     */
+    BoolResult LoadProject( filesystem::Path const& inPath ) noexcept
+    {
+        auto project = project::LoadProjectFile( inPath );
+        if ( !project ) return BoolResult::Err( project.Error() );
+
+        for ( auto const& mount : project.Value().m_Mounts )
+        {
+            if ( !std::filesystem::exists( mount.m_RealDirectory ) )
+            {
+                LOG_WARNING( "Project mount \"", mount.m_Name, "\" -> \"", mount.m_RealDirectory.string(), "\" does not exist, skipping" );
+                continue;
+            }
+
+            if ( auto result = m_Vfs.Mount( mount.m_Name, mount.m_RealDirectory.string() ); !result ) result.LogError();
+        }
+
+        m_Project = project.Value();
+        if ( m_Project.m_Scenes.empty() ) return BoolResult::Err( make_error_code( errors::SceneError::EmptyProject ) );
+
+        auto result = m_SceneManager.LoadSceneFromFile( m_Project.m_Scenes.front() );
+        if ( !result ) return result;
+        m_Assets.ResolveAssets( m_SceneManager.GetRegistry(), m_Renderer );
+        return result;
+    }
+
+    /** @brief The project last passed to LoadProject(); empty before that. */
+    [[nodiscard]] project::ProjectData const& GetProject() const noexcept { return m_Project; }
 
     /**
      * @brief Runs one frame over the active scene's registry in the only valid order:

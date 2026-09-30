@@ -2,6 +2,9 @@
 #include <ASGE/Audio/AudioDevice.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Velocity.hpp>
+#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Game/Scene/SceneSerializer.hpp>
+#include <filesystem>
 
 #include <gtest/gtest.h>
 
@@ -105,6 +108,7 @@ public:
     using Game::SetInitialState;
     using Game::InvalidateState;
     using Game::m_SceneManager;
+    using Game::m_Vfs;
 
     std::unordered_map<int, MockGameState*> m_Created;
     std::unordered_map<int, int>            m_CreateCount;
@@ -306,4 +310,86 @@ TEST_F(GameTest, Render_ClearsWithVisibleStatesColorThenDrawsBackgroundBeforeSta
 
     EXPECT_EQ(m_Renderer.m_LastClear.g, 2);
     EXPECT_EQ(order, (std::vector<int>{ -1, 0 }));
+}
+
+// ─── LoadProject ─────────────────────────────────────────────────────────────
+
+class GameProjectTest : public GameTest
+{
+protected:
+    std::filesystem::path m_Root;
+
+    void SetUp() override
+    {
+        m_Root = std::filesystem::temp_directory_path()
+            / ("asge_game_project_test_" + std::to_string(reinterpret_cast<std::uintptr_t>(this)));
+        std::filesystem::create_directories(m_Root / "assets");
+    }
+
+    void TearDown() override
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(m_Root, ec);
+    }
+
+    std::filesystem::path WriteProject(std::vector<std::string> const& inScenes)
+    {
+        asge::config::toml::TOMLBuilder builder;
+        auto mount = builder.ArrayTable("Mount");
+        mount.Set("Name", std::string("assets"));
+        mount.Set("RealDirectory", std::string("assets"));
+        builder.SetArray("Scenes", inScenes);
+        auto path = m_Root / "demo.asgeproject";
+        EXPECT_TRUE(builder.SaveToFile(path).IsOk());
+        return path;
+    }
+
+    void WriteScene(std::filesystem::path const& inPath, float inDX)
+    {
+        asge::ecs::Registry seed;
+        auto entity = seed.CreateEntity();
+        ASSERT_TRUE(entity.IsOk());
+        ASSERT_TRUE(seed.AddComponent(entity.Value(), asge::game::components::Velocity{ inDX, 0.0f }).IsOk());
+        asge::filesystem::VirtualFileSystem vfs;
+        ASSERT_TRUE(asge::game::scene::SceneSerializer{ vfs }.Save(seed, inPath).IsOk());
+    }
+};
+
+TEST_F(GameProjectTest, LoadProject_MountsVfsAndLoadsTheFirstScene)
+{
+    WriteScene(m_Root / "first.asgescene", 3.0f);
+    WriteScene(m_Root / "second.asgescene", 9.0f);
+    auto const project = WriteProject({ "first.asgescene", "second.asgescene" });
+
+    ASSERT_TRUE(m_Game.LoadProject(project).IsOk());
+
+    auto active = m_Game.m_SceneManager.ActiveEntities();
+    ASSERT_EQ(active.size(), 1u);
+    EXPECT_FLOAT_EQ(m_Game.m_SceneManager.GetRegistry()
+        .GetComponent<asge::game::components::Velocity>(active[0]).Value().get().m_DX, 3.0f);
+    EXPECT_EQ(m_Game.GetProject().m_Scenes.size(), 2u);
+    EXPECT_EQ(m_Game.m_Vfs.ListMounts().size(), 1u);
+}
+
+TEST_F(GameProjectTest, LoadProject_MissingMountDirectory_IsSkippedNotFatal)
+{
+    WriteScene(m_Root / "first.asgescene", 1.0f);
+    auto const project = WriteProject({ "first.asgescene" });
+    std::filesystem::remove_all(m_Root / "assets");
+
+    ASSERT_TRUE(m_Game.LoadProject(project).IsOk());
+    EXPECT_TRUE(m_Game.m_Vfs.ListMounts().empty());
+}
+
+TEST_F(GameProjectTest, LoadProject_NoScenes_ReturnsEmptyProjectError)
+{
+    auto result = m_Game.LoadProject(WriteProject({}));
+
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::SceneError::EmptyProject));
+}
+
+TEST_F(GameProjectTest, LoadProject_MissingProjectFile_ReturnsError)
+{
+    EXPECT_FALSE(m_Game.LoadProject(m_Root / "nope.asgeproject").IsOk());
 }
