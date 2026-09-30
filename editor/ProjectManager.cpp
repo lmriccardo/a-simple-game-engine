@@ -5,8 +5,22 @@
 #include <ASGE/Core/Configuration/TOML_Builder.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
+#include <ASGE/Game/Project/Project.hpp>
 
 #include "AssetBrowser.hpp"
+
+namespace
+{
+
+/** @brief inPath relative to inBase when it lives under it (so a project folder stays movable), else unchanged. */
+std::string PortablePath( std::filesystem::path const& inPath, std::filesystem::path const& inBase )
+{
+    auto const relative = inPath.lexically_relative( inBase );
+    if ( relative.empty() || *relative.begin() == ".." ) return inPath.string();
+    return relative.generic_string();
+}
+
+}
 
 asge::BoolResult SaveProject(
     asge::filesystem::VirtualFileSystem const& inVfs,
@@ -15,12 +29,13 @@ asge::BoolResult SaveProject(
     float inGridSpacing, int inTargetWidth, int inTargetHeight ) noexcept
 {
     asge::config::toml::TOMLBuilder builder;
+    auto const projectDir = inProject.m_FilePath.parent_path();
 
     for ( auto const& mount : inVfs.ListMounts() )
     {
         auto mountTable = builder.ArrayTable( "Mount" );
         mountTable.Set( "Name", std::string( mount.m_VirtualRoot ) );
-        mountTable.Set( "RealDirectory", mount.m_RealDirectory.string() );
+        mountTable.Set( "RealDirectory", PortablePath( mount.m_RealDirectory, projectDir ) );
     }
 
     // Flat lists (SetArray), not the array-of-tables .asges used for these
@@ -33,7 +48,7 @@ asge::BoolResult SaveProject(
 
     std::vector<std::string> scenePaths;
     scenePaths.reserve( inProject.m_Scenes.size() );
-    for ( auto const& scene : inProject.m_Scenes ) scenePaths.push_back( scene.m_Path.string() );
+    for ( auto const& scene : inProject.m_Scenes ) scenePaths.push_back( PortablePath( scene.m_Path, projectDir ) );
     builder.SetArray( "Scenes", scenePaths );
 
     auto viewTable = builder.Table( "View" );
@@ -53,6 +68,10 @@ asge::BoolResult LoadProject(
     // Parse first, before touching any live state -- a bad/missing
     // .asgeproject file must not unmount everything and leave the editor
     // half-clobbered.
+    auto projectResult = asge::game::project::LoadProjectFile( inPath );
+    if ( !projectResult ) return asge::BoolResult::Err( projectResult.Error() );
+    auto const& projectData = projectResult.Value();
+
     auto parseResult = asge::config::toml::Parse( inPath );
     if ( !parseResult ) return asge::BoolResult::Err( parseResult.Error() );
     asge::config::toml::TOMLTableView const doc( parseResult.Value() );
@@ -66,29 +85,15 @@ asge::BoolResult LoadProject(
         if ( auto r = inVfs.Unmount( mount.m_VirtualRoot, mount.m_RealDirectory.string() ); !r ) r.LogError();
     }
 
-    for ( int mountIndex = 0; ; ++mountIndex )
+    for ( auto const& mount : projectData.m_Mounts )
     {
-        auto getResult = doc.GetTable( "Mount", mountIndex );
-        if ( !getResult )
+        if ( !std::filesystem::exists( mount.m_RealDirectory ) )
         {
-            // Running out of [[Mount]] elements is the normal, expected way
-            // this loop ends -- same idiom SceneSerializer::Load uses for
-            // "entity[N]".
-            if ( getResult.Code() == make_error_code( asge::errors::ConfError::TomlNoSubtable ) ) break;
-            return asge::BoolResult::Err( getResult.Error() );
-        }
-
-        auto const mountTable = getResult.Value();
-        auto const name = mountTable.Get<std::string>( "Name", {} );
-        auto const dir = mountTable.Get<std::string>( "RealDirectory", {} );
-
-        if ( !std::filesystem::exists( dir ) )
-        {
-            LOG_WARNING( "Project mount \"", name, "\" -> \"", dir, "\" no longer exists, skipping" );
+            LOG_WARNING( "Project mount \"", mount.m_Name, "\" -> \"", mount.m_RealDirectory.string(), "\" no longer exists, skipping" );
             continue;
         }
 
-        if ( auto r = inVfs.Mount( name, dir ); !r ) r.LogError();
+        if ( auto r = inVfs.Mount( mount.m_Name, mount.m_RealDirectory.string() ); !r ) r.LogError();
     }
 
     ClearKnownAssets();
@@ -100,9 +105,8 @@ asge::BoolResult LoadProject(
 
     outProject = Project{};
     outProject.m_FilePath = inPath;
-    for ( auto const& scenePath : doc.GetArray<std::string>( "Scenes" ) )
+    for ( auto const& path : projectData.m_Scenes )
     {
-        std::filesystem::path const path = scenePath;
         outProject.m_Scenes.push_back( ProjectScene{ path.stem().string(), path, false } );
     }
 
