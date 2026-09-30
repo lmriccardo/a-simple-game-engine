@@ -139,8 +139,11 @@ std::string SceneStateHeader()
 {
     return std::string( "#pragma once\n\n" ) + kGeneratedNote + R"(
 #include <filesystem>
+#include <functional>
 #include <optional>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include <ASGE/ASGE.hpp>
 
@@ -155,11 +158,63 @@ struct SceneContext
     std::filesystem::path            m_ScenePath;
 };
 
-/** @brief Base of every scene's state: loads its scene on entry and otherwise does nothing. */
+/**
+ * @brief Base of every scene's state. Loads its scene on entry, then calls OnSceneLoaded() -- the
+ *        place to find widgets by name and connect their callbacks. Connections made with Connect()
+ *        are dropped when the state exits, and Replace/Push/Pop/Quit request a state change that
+ *        Update() hands to the game.
+ */
 class SceneState : public asge::game::state::IGameState<StateId>
 {
+    std::vector<std::function<void()>>                    m_Disconnectors;
+    std::optional<asge::game::state::Transition<StateId>> m_Pending;
+
 protected:
     SceneContext m_Context;
+
+    /** @brief Called once the scene is loaded, each time this state is entered. */
+    virtual void OnSceneLoaded() {}
+
+    /** @brief The entity named inName in the editor (its Name component), or Entity::Null(). */
+    [[nodiscard]] asge::ecs::Entity FindByName( std::string_view inName ) const
+    {
+        for ( auto [ entity, name ] : m_Context.m_Scenes.GetRegistry().View<asge::game::components::Name>() )
+        {
+            if ( name.get().m_Name == inName ) return entity;
+        }
+        return asge::ecs::Entity::Null();
+    }
+
+    /** @brief The T component of the entity named inName, or nullptr if there is none. */
+    template<typename T>
+    [[nodiscard]] T* Find( std::string_view inName ) const
+    {
+        auto const entity = FindByName( inName );
+        if ( entity == asge::ecs::Entity::Null() ) return nullptr;
+
+        auto component = m_Context.m_Scenes.GetRegistry().GetComponent<T>( entity );
+        return component ? &component.Value().get() : nullptr;
+    }
+
+    /** @brief Connects inCallback to inSignal until this state exits. */
+    template<typename... Args, typename Callback>
+    void Connect( asge::signals::Signal<Args...>& inSignal, Callback&& inCallback )
+    {
+        auto connection = inSignal.Connect( std::forward<Callback>( inCallback ) );
+        m_Disconnectors.push_back( [connection]() mutable { connection.Disconnect(); } );
+    }
+
+    /** @brief Asks the game to swap this state for inId's. */
+    void Replace( StateId inId ) { m_Pending = { inId, asge::game::state::TransitionKind::Replace }; }
+
+    /** @brief Asks the game to put inId's state on top of this one. */
+    void Push( StateId inId ) { m_Pending = { inId, asge::game::state::TransitionKind::Push }; }
+
+    /** @brief Asks the game to leave this state and return to the one below. */
+    void Pop() { m_Pending = { StateId{}, asge::game::state::TransitionKind::Pop }; }
+
+    /** @brief Asks the game to quit. */
+    void Quit() { m_Pending = { StateId{}, asge::game::state::TransitionKind::Quit }; }
 
 public:
     explicit SceneState( SceneContext inContext ) : m_Context( std::move( inContext ) ) {}
@@ -167,10 +222,17 @@ public:
     void OnEnter() override
     {
         if ( auto result = m_Context.m_Scenes.LoadSceneFromFile( m_Context.m_ScenePath ); !result ) result.LogError();
+        OnSceneLoaded();
+    }
+
+    void OnExit() override
+    {
+        for ( auto& disconnect : m_Disconnectors ) disconnect();
+        m_Disconnectors.clear();
     }
 
     [[nodiscard]] std::optional<asge::game::state::Transition<StateId>>
-    Update( float, asge::input::InputState const& ) override { return std::nullopt; }
+    Update( float, asge::input::InputState const& ) override { return std::exchange( m_Pending, std::nullopt ); }
 
     void Render( asge::video::IRenderer& ) override {}
     void OnSystemEvent( asge::event::SystemEvent const& ) override {}
@@ -310,6 +372,9 @@ std::string StateHeader( std::string const& inName )
 
 class @NAME@State final : public SceneState
 {
+protected:
+    void OnSceneLoaded() override;
+
 public:
     using SceneState::SceneState;
 
@@ -319,15 +384,25 @@ public:
 )", { { "NAME", inName } } );
 }
 
-/** @brief states/<Name>State.cpp: the empty Update where a scene's gameplay goes. */
+/** @brief states/<Name>State.cpp: where a scene's widgets are wired up and its gameplay goes. */
 std::string StateSource( std::string const& inName )
 {
     return Fill( R"(#include "@NAME@State.hpp"
 
-std::optional<asge::game::state::Transition<StateId>>
-@NAME@State::Update( [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput )
+void @NAME@State::OnSceneLoaded()
 {
-    return std::nullopt;
+    // The scene is loaded. Find widgets by the name set in the editor and connect their callbacks:
+    //
+    //   if ( auto* play = Find<asge::game::components::UIButton>( "Play" ) )
+    //       Connect( play->m_OnClick, [this] { Replace( StateId::/* another scene */ ); } );
+    //
+    // Replace / Push / Pop / Quit request a state change; Connect drops the callback when this state exits.
+}
+
+std::optional<asge::game::state::Transition<StateId>>
+@NAME@State::Update( float inDeltaTime, asge::input::InputState const& inInput )
+{
+    return SceneState::Update( inDeltaTime, inInput );
 }
 )", { { "NAME", inName } } );
 }

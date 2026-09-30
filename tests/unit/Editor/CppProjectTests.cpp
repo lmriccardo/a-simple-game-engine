@@ -121,6 +121,28 @@ TEST_F(CppProjectTest, Create_GameReadsTheWindowSizeFromTheProjectAndMainUsesIt)
     EXPECT_NE(ReadAll(Code() / "main.cpp").find("MakeApplicationConfig()"), std::string::npos);
 }
 
+TEST_F(CppProjectTest, Create_SceneStateOffersLookupConnectAndTransitionHelpers)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+
+    auto const base = ReadAll(Code() / "SceneState.hpp");
+    for (auto const* member : { "virtual void OnSceneLoaded()", "FindByName(", "T* Find(", "void Connect(",
+                                "void Replace(", "void Push(", "void Pop()", "void Quit()", "void OnExit() override" })
+    {
+        EXPECT_NE(base.find(member), std::string::npos) << member;
+    }
+}
+
+TEST_F(CppProjectTest, Create_StateFilesOverrideOnSceneLoadedAndForwardUpdate)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+
+    EXPECT_NE(ReadAll(Code() / "states" / "MainState.hpp").find("void OnSceneLoaded() override;"), std::string::npos);
+    auto const source = ReadAll(Code() / "states" / "MainState.cpp");
+    EXPECT_NE(source.find("void MainState::OnSceneLoaded()"), std::string::npos);
+    EXPECT_NE(source.find("return SceneState::Update( inDeltaTime, inInput );"), std::string::npos);
+}
+
 TEST_F(CppProjectTest, Create_DuplicateSanitizedNames_GetNumericSuffixes)
 {
     ASSERT_TRUE(CreateCppProject(Input({ "my scene", "My-Scene" }), "C:/dev/asge").IsOk());
