@@ -12,6 +12,7 @@
 
 #include "Assets/AssetManager.hpp"
 #include "Project/Project.hpp"
+#include "Resources/HitEntry.hpp"
 #include "Scene/SceneManager.hpp"
 #include "States/GameStateStack.hpp"
 #include "Systems/AudioSystem.hpp"
@@ -131,7 +132,9 @@ protected:
 public:
     explicit Game( video::IRenderer& inRenderer, audio::AudioDevice& inAudioDev ) noexcept
     : m_Renderer( inRenderer ), m_AudioDev( inAudioDev )
-    {}
+    {
+        m_SceneManager.GetRegistry().SetResource( resources::UIHitList{} ); // opts the scene into UI hover/click detection
+    }
 
     /** @brief Loads inPath as the active scene and resolves its Sprite/Animation assets through m_Renderer. */
     BoolResult LoadScene( str::String const& inPath ) noexcept

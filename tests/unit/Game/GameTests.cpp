@@ -277,6 +277,11 @@ TEST_F(GameTest, OnSystemEvent_ForwardsToTopmostState)
 
 }
 
+TEST_F(GameTest, Construction_EnablesUIHitTesting)
+{
+    EXPECT_TRUE(m_Game.m_SceneManager.GetRegistry().GetResource<asge::game::resources::UIHitList>());
+}
+
 // ─── Per-frame system pipeline ───────────────────────────────────────────────
 
 TEST_F(GameTest, Update_RunsMovementAndPropagationOverTheSceneRegistry)
