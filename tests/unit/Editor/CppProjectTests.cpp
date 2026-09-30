@@ -148,6 +148,23 @@ TEST_F(CppProjectTest, Create_MountOutsideTheProjectFolder_IsNotPortable)
     EXPECT_NE(ReadAll(Code() / "project_files.cmake").find("set(ASGE_PROJECT_PORTABLE OFF)"), std::string::npos);
 }
 
+TEST_F(CppProjectTest, Create_WritesVSCodeSettingsForTheProjectRoot_UnlessOneExists)
+{
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+    auto const settings = m_Root / ".vscode" / "settings.json";
+    EXPECT_NE(ReadAll(settings).find("\"cmake.sourceDirectory\": \"${workspaceFolder}/code\""), std::string::npos);
+}
+
+TEST_F(CppProjectTest, Create_KeepsAnExistingVSCodeSettingsFile)
+{
+    fs::create_directories(m_Root / ".vscode");
+    std::ofstream(m_Root / ".vscode" / "settings.json") << "{ \"mine\": true }";
+
+    ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
+
+    EXPECT_EQ(ReadAll(m_Root / ".vscode" / "settings.json"), "{ \"mine\": true }");
+}
+
 TEST_F(CppProjectTest, Create_AlreadyLinked_ReturnsFileExistsAndTouchesNothing)
 {
     ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());

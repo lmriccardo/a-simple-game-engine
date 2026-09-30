@@ -397,6 +397,16 @@ int main( int, char** )
 )";
 }
 
+/** @brief .vscode/settings.json: tells CMake Tools the CMake project lives in code/ when the project root is opened. */
+std::string VSCodeSettings()
+{
+    return R"({
+    "cmake.sourceDirectory": "${workspaceFolder}/code",
+    "cmake.buildDirectory": "${workspaceFolder}/code/build"
+}
+)";
+}
+
 /** @brief Writes every generated file, plus each scene's state files where they don't exist yet. */
 asge::BoolResult WriteGenerated( CppProjectInput const& inInput )
 {
@@ -468,6 +478,7 @@ asge::BoolResult CreateCppProject( CppProjectInput const& inInput, fs::path cons
 
     if ( auto result = WriteGenerated( inInput ); !result ) return result;
     if ( auto result = WriteFile( dir / "main.cpp", MainText(), false ); !result ) return result;
+    if ( auto result = WriteFile( inInput.m_ProjectFile.parent_path() / ".vscode" / "settings.json", VSCodeSettings(), false ); !result ) return result;
     return WriteFile( dir / "CMakeLists.txt", CMakeListsText( TargetName( title ), inAsgeSourceDir ), false );
 }
 

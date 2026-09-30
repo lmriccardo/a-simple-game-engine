@@ -1354,7 +1354,7 @@ int main(int, char**)
                 if (ImGui::MenuItem("Update C++ Project")) SyncCppProject(*currentProject, vfs);
                 if (ImGui::MenuItem("Open in VSCode"))
                 {
-                    auto const folder = CppProjectDir(currentProject->m_FilePath);
+                    auto const folder = currentProject->m_FilePath.parent_path();
                     if (!OpenInVSCode(folder)) LOG_ERROR("Could not open VSCode (is `code` on the PATH?) for ", folder.string());
                 }
                 if (!cppLinked) ImGui::EndDisabled();

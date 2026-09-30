@@ -33,7 +33,8 @@ struct CppProjectInput
 /**
  * @brief Writes a new CMake project into `<project folder>/code`: CMakeLists.txt and main.cpp
  *        (written once, yours to edit), the generated Game/StateId/SceneState files, and one
- *        state class per scene. inAsgeSourceDir is where ASGE's own CMake tree lives.
+ *        state class per scene, plus a `.vscode/settings.json` (only if missing) pointing CMake
+ *        Tools at code/. inAsgeSourceDir is where ASGE's own CMake tree lives.
  *        Fails if the project has no scenes or `code/CMakeLists.txt` already exists.
  */
 asge::BoolResult CreateCppProject(
