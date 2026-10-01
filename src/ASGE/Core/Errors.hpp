@@ -443,6 +443,7 @@ inline str::String ToErrorString(AudioError e) noexcept
 enum class SceneError : std::uint8_t
 {
     NoActiveScene = 1,
+    EmptyProject,
 };
 
 inline str::String ToErrorString(SceneError e) noexcept
@@ -450,6 +451,7 @@ inline str::String ToErrorString(SceneError e) noexcept
     switch (e)
     {
     case SceneError::NoActiveScene: return "no scene is currently active";
+    case SceneError::EmptyProject: return "project lists no scenes to load";
     }
     return "unknown scene error";
 }

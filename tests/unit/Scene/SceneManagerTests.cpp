@@ -1,6 +1,7 @@
 #include <ASGE/Game/Scene/SceneManager.hpp>
 #include <ASGE/Game/Scene/SceneSerializer.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
+#include <ASGE/Core/ECS/Hierarchy.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Game/Components.hpp>
 
@@ -15,6 +16,7 @@ namespace
 
 using namespace asge::game::scene;
 using asge::game::components::Velocity;
+using asge::ecs::components::Hierarchy;
 using asge::errors::EcsError;
 using asge::errors::SceneError;
 
@@ -53,6 +55,57 @@ protected:
 
         SceneSerializer serializer{ m_Vfs };
         ASSERT_TRUE(serializer.Save( seed, inPath ).IsOk());
+    }
+
+    // Entity in the active scene whose Velocity::m_DX is inMarker -- a stable
+    // identity across snapshot/restore, which hands out brand new Entity ids.
+    asge::ecs::Entity FindByMarker( SceneManager& inManager, float inMarker )
+    {
+        for ( auto entity : inManager.ActiveEntities() )
+        {
+            auto velocity = inManager.GetRegistry().GetComponent<Velocity>( entity );
+            if ( velocity && velocity.Value().get().m_DX == inMarker ) return entity;
+        }
+        return asge::ecs::Entity::Null();
+    }
+
+    // Marker 1 is the root, 2 and 3 its children in that order.
+    void BuildFamily( SceneManager& inManager )
+    {
+        auto& registry = inManager.GetRegistry();
+        auto const root = FindByMarker( inManager, 1.0f );
+        ASSERT_NE( root, asge::ecs::Entity::Null() );
+        for ( float marker : { 2.0f, 3.0f } )
+        {
+            auto child = inManager.CreateEntity();
+            ASSERT_TRUE( child.IsOk() );
+            ASSERT_TRUE( registry.AddComponent( child.Value(), Velocity{ marker, 0.0f } ).IsOk() );
+            asge::ecs::components::AttachChild( registry, root, child.Value() );
+        }
+    }
+
+    void ExpectFamilyIntact( SceneManager& inManager )
+    {
+        auto& registry = inManager.GetRegistry();
+        auto const root = FindByMarker( inManager, 1.0f );
+        auto const first = FindByMarker( inManager, 2.0f );
+        auto const second = FindByMarker( inManager, 3.0f );
+        ASSERT_NE( root, asge::ecs::Entity::Null() );
+        ASSERT_NE( first, asge::ecs::Entity::Null() );
+        ASSERT_NE( second, asge::ecs::Entity::Null() );
+
+        auto const& rootLinks = registry.GetComponent<Hierarchy>( root ).Value().get();
+        EXPECT_EQ( rootLinks.m_Parent, asge::ecs::Entity::Null() );
+        EXPECT_EQ( rootLinks.m_FirstChild, first );
+        EXPECT_EQ( rootLinks.m_LastChild, second );
+
+        auto const& firstLinks = registry.GetComponent<Hierarchy>( first ).Value().get();
+        EXPECT_EQ( firstLinks.m_Parent, root );
+        EXPECT_EQ( firstLinks.m_NextSibling, second );
+
+        auto const& secondLinks = registry.GetComponent<Hierarchy>( second ).Value().get();
+        EXPECT_EQ( secondLinks.m_Parent, root );
+        EXPECT_EQ( secondLinks.m_PrevSibling, first );
     }
 };
 
@@ -656,4 +709,74 @@ TEST_F(SceneManagerTest, DuplicateEntity_DeadEntityReturnsEntityIsNotAliveError)
     EXPECT_EQ(result.Code(), make_error_code(EcsError::EntityIsNotAlive));
 }
 
+}
+
+// ─── Hierarchy survives scene switching and saving ───────────────────────────
+
+TEST_F(SceneManagerTest, SwapAwayAndBack_PreservesEntityHierarchy)
+{
+    WriteValidScene(m_ScenePath, 1.0f);
+    auto const otherPath = m_Root / "other.toml";
+    WriteValidScene(otherPath, 7.0f);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    BuildFamily(manager);
+
+    ASSERT_TRUE(manager.LoadSceneFromFile(otherPath).IsOk());
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+
+    ExpectFamilyIntact(manager);
+}
+
+TEST_F(SceneManagerTest, SwapAwayAndBackTwice_PreservesEntityHierarchy)
+{
+    WriteValidScene(m_ScenePath, 1.0f);
+    auto const otherPath = m_Root / "other.toml";
+    WriteValidScene(otherPath, 7.0f);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    BuildFamily(manager);
+
+    for ( int round = 0; round < 2; ++round )
+    {
+        ASSERT_TRUE(manager.LoadSceneFromFile(otherPath).IsOk());
+        ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    }
+
+    ExpectFamilyIntact(manager);
+}
+
+TEST_F(SceneManagerTest, SaveScene_ThenLoad_PreservesEntityHierarchy)
+{
+    WriteValidScene(m_ScenePath, 1.0f);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    BuildFamily(manager);
+
+    auto const savedPath = m_Root / "saved.toml";
+    ASSERT_TRUE(manager.SaveScene(savedPath).IsOk());
+
+    SceneManager reloaded{ m_Vfs };
+    ASSERT_TRUE(reloaded.LoadSceneFromFile(savedPath).IsOk());
+    ExpectFamilyIntact(reloaded);
+}
+
+TEST_F(SceneManagerTest, DuplicateEntity_DoesNotShareTheSourcesHierarchyLinks)
+{
+    WriteValidScene(m_ScenePath, 1.0f);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    BuildFamily(manager);
+
+    auto const root = FindByMarker(manager, 1.0f);
+    auto copy = manager.DuplicateEntity(root);
+    ASSERT_TRUE(copy.IsOk());
+
+    auto const& links = manager.GetRegistry().GetComponent<Hierarchy>(copy.Value()).Value().get();
+    EXPECT_EQ(links.m_FirstChild, asge::ecs::Entity::Null());
+    EXPECT_EQ(links.m_LastChild, asge::ecs::Entity::Null());
 }

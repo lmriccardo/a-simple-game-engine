@@ -25,6 +25,7 @@
   },
   "enabledPlugins": {
     "ponytail@ponytail": true,
-    "agentmemory@agentmemory": true
+    "agentmemory@agentmemory": true,
+    "superpowers@claude-plugins-official": true
   }
 }

@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 
+#include <ASGE/Core/ECS/Hierarchy.hpp>
 #include <ASGE/Game/Components.hpp>
 
 void asge::game::scene::SceneManager::CopyEntityComponents(
@@ -23,15 +24,49 @@ void asge::game::scene::SceneManager::CopyEntityComponents(
         }, components::SerializableComponents{} );
 }
 
+asge::Result<std::unordered_map<asge::ecs::Entity, asge::ecs::Entity>>
+asge::game::scene::SceneManager::CopyEntities(
+    ecs::Registry const &inSrc, std::vector<ecs::Entity> const &inEntities, ecs::Registry &inDst) const noexcept
+{
+    std::unordered_map<ecs::Entity, ecs::Entity> copies;
+    for ( auto entity : inEntities )
+    {
+        auto newEntity = inDst.CreateEntity();
+        if ( !newEntity ) return Result<std::unordered_map<ecs::Entity, ecs::Entity>>::Err( newEntity.Error() );
+
+        CopyEntityComponents( inSrc, entity, inDst, newEntity.Value() );
+        copies.emplace( entity, newEntity.Value() );
+    }
+
+    for ( auto const& [ source, copy ] : copies )
+    {
+        auto links = inDst.GetComponent<ecs::components::Hierarchy>( copy );
+        if ( !links ) continue;
+
+        auto const remap = [&]( ecs::Entity& inLink )
+        {
+            auto const it = copies.find( inLink );
+            inLink = it == copies.end() ? ecs::Entity::Null() : it->second;
+        };
+        auto& hierarchy = links.Value().get();
+        remap( hierarchy.m_Parent );
+        remap( hierarchy.m_FirstChild );
+        remap( hierarchy.m_LastChild );
+        remap( hierarchy.m_NextSibling );
+        remap( hierarchy.m_PrevSibling );
+    }
+
+    return Result<std::unordered_map<ecs::Entity, ecs::Entity>>::Ok( std::move( copies ) );
+}
+
 void asge::game::scene::SceneManager::SuspendScene(str::String const &inSceneId) noexcept
 {
     ecs::Registry snapshot;
-    for ( auto entity : EntitiesInScene( inSceneId ) )
-    {
-        auto newEntity = snapshot.CreateEntity();
-        if ( !newEntity ) { newEntity.LogError(); continue; }
+    auto const entities = EntitiesInScene( inSceneId );
+    if ( auto copies = CopyEntities( m_Registry, entities, snapshot ); !copies ) copies.LogError();
 
-        CopyEntityComponents( m_Registry, entity, snapshot, newEntity.Value() );
+    for ( auto entity : entities )
+    {
         if ( auto result = m_Registry.DestroyEntity( entity ); !result ) result.LogError();
     }
 
@@ -41,13 +76,12 @@ void asge::game::scene::SceneManager::SuspendScene(str::String const &inSceneId)
 void asge::game::scene::SceneManager::RestoreScene(
     str::String const &inSceneId, ecs::Registry const &inSnapshot) noexcept
 {
-    for ( auto entity : inSnapshot.AllEntities() )
-    {
-        auto newEntity = m_Registry.CreateEntity();
-        if ( !newEntity ) { newEntity.LogError(); continue; }
+    auto copies = CopyEntities( inSnapshot, inSnapshot.AllEntities(), m_Registry );
+    if ( !copies ) { copies.LogError(); return; }
 
-        CopyEntityComponents( inSnapshot, entity, m_Registry, newEntity.Value() );
-        if ( auto tagResult = m_Registry.AddComponent<SceneId>( newEntity.Value(), SceneId{ inSceneId } ); !tagResult )
+    for ( auto const& [ source, copy ] : copies.Value() )
+    {
+        if ( auto tagResult = m_Registry.AddComponent<SceneId>( copy, SceneId{ inSceneId } ); !tagResult )
         {
             tagResult.LogError();
         }
@@ -152,11 +186,9 @@ asge::BoolResult asge::game::scene::SceneManager::SaveScene(filesystem::Path con
     // serializes a whole Registry -- so build a scratch one holding a copy
     // of just the active scene's entities and hand that to it instead.
     ecs::Registry snapshot;
-    for ( auto entity : ActiveEntities() )
+    if ( auto copies = CopyEntities( m_Registry, ActiveEntities(), snapshot ); !copies )
     {
-        auto newEntity = snapshot.CreateEntity();
-        if ( !newEntity ) return BoolResult::Err( newEntity.Error() );
-        CopyEntityComponents( m_Registry, entity, snapshot, newEntity.Value() );
+        return BoolResult::Err( copies.Error() );
     }
 
     return m_Serializer.Save( snapshot, inPath );
@@ -266,6 +298,10 @@ asge::Result<asge::ecs::Entity> asge::game::scene::SceneManager::DuplicateEntity
     if ( !entity ) return entity;
 
     CopyEntityComponents( m_Registry, inEntity, m_Registry, entity.Value() );
+    if ( auto links = m_Registry.GetComponent<ecs::components::Hierarchy>( entity.Value() ) )
+    {
+        links.Value().get() = ecs::components::Hierarchy{};
+    }
 
     if ( auto tagResult = m_Registry.AddComponent<SceneId>( entity.Value(), SceneId{ *m_CurrentScenePath } ); !tagResult )
         return Result<ecs::Entity>::Err( tagResult.Error() );

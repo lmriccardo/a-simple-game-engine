@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Input/InputState.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Events/Events.hpp>
@@ -47,6 +48,12 @@ public:
 
     /** @brief Draws this state's frame. */
     virtual void Render( video::IRenderer& inRenderer ) = 0;
+
+    /** @brief Draws under the scene: called after the clear, before Game draws the ECS scene. No-op by default. */
+    virtual void RenderBackground( video::IRenderer& ) {}
+
+    /** @brief Background color Game clears the frame with before drawing the scene; opaque black by default. */
+    [[nodiscard]] virtual graphics::RGBA_Color ClearColor() const noexcept { return { 0, 0, 0, 255 }; }
 
     /** @brief Called for every system event while this state is topmost. */
     virtual void OnSystemEvent( event::SystemEvent const& inSysEvent ) = 0;

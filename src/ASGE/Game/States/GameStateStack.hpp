@@ -24,6 +24,16 @@ public:
 private:
     std::vector<StateType*> m_States; // Non-owning, states are owned by the game itself
 
+    /** @brief Index of the lowest state Render() draws; the stack must be non-empty for it to be meaningful. */
+    [[nodiscard]] std::size_t VisibleStart() const noexcept
+    {
+        if ( m_States.empty() ) return 0;
+
+        std::size_t start = m_States.size() - 1;
+        while ( start > 0 && m_States[start]->RendersBelow() ) --start;
+        return start;
+    }
+
 public:
     /** @brief Calls inState->OnEnter() and pushes it as the new topmost state. */
     void PushRaw( StateType* inState ) noexcept
@@ -71,14 +81,18 @@ public:
      */
     void Render( video::IRenderer& inRenderer ) noexcept
     {
-        if ( m_States.empty() ) return;
-
-        std::size_t start = m_States.size() - 1;
-        while ( start > 0 && m_States[start]->RendersBelow() ) --start;
-
-        for ( std::size_t i = start; i < m_States.size(); ++i )
+        for ( std::size_t i = VisibleStart(); i < m_States.size(); ++i )
         {
             m_States[i]->Render( inRenderer );
+        }
+    }
+
+    /** @brief Same traversal as Render(), calling each visible state's RenderBackground() instead. */
+    void RenderBackground( video::IRenderer& inRenderer ) noexcept
+    {
+        for ( std::size_t i = VisibleStart(); i < m_States.size(); ++i )
+        {
+            m_States[i]->RenderBackground( inRenderer );
         }
     }
 
@@ -86,6 +100,13 @@ public:
     void OnSystemEvent( event::SystemEvent const& inSysEvent ) noexcept
     {
         if ( !m_States.empty() ) m_States.back()->OnSystemEvent( inSysEvent ); // top only
+    }
+
+    /** @brief The bottom-most visible state's ClearColor(); black on an empty stack. */
+    [[nodiscard]] graphics::RGBA_Color ClearColor() const noexcept
+    {
+        if ( m_States.empty() ) return { 0, 0, 0, 255 };
+        return m_States[VisibleStart()]->ClearColor();
     }
 
     /** @brief True if the stack has no states. */

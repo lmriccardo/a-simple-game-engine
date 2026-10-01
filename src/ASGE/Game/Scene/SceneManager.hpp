@@ -51,6 +51,13 @@ class SceneManager
         ecs::Registry const& inSrc, ecs::Entity inSrcEntity,
         ecs::Registry& inDst, ecs::Entity inDstEntity ) const noexcept;
 
+    // Creates one entity in inDst per inEntities element, copying its components and rewriting
+    // its Hierarchy links to the copies (a link to an entity not in inEntities becomes Null).
+    // Returns each source entity's copy.
+    Result<std::unordered_map<ecs::Entity, ecs::Entity>> CopyEntities(
+        ecs::Registry const& inSrc, std::vector<ecs::Entity> const& inEntities,
+        ecs::Registry& inDst ) const noexcept;
+
     // Moves inSceneId's live entities out of m_Registry into a new
     // m_Snapshots entry, via component-copy into a scratch Registry followed
     // by destroying the originals. inSceneId must currently be live (i.e. be

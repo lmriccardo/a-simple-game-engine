@@ -11,8 +11,15 @@
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 
 #include "Assets/AssetManager.hpp"
+#include "Project/Project.hpp"
+#include "Resources/HitEntry.hpp"
 #include "Scene/SceneManager.hpp"
 #include "States/GameStateStack.hpp"
+#include "Systems/AudioSystem.hpp"
+#include "Systems/PhysicsSystem.hpp"
+#include "Systems/RenderSystem.hpp"
+#include "Systems/TransformPropagationSystem.hpp"
+#include "Systems/UISystem.hpp"
 
 namespace asge::game
 {
@@ -65,11 +72,14 @@ protected:
     scene::SceneManager           m_SceneManager{ m_Vfs };
     video::IRenderer&             m_Renderer;
     audio::AudioDevice&           m_AudioDev;
+    project::ProjectData          m_Project;
 
 private:
     state::GameStateStack<TStateId>                           m_States;
     std::unordered_map<TStateId, std::unique_ptr<StateType>>  m_StateCache;
     bool                                                      m_QuitRequested{false};
+    systems::PhysicsState                                     m_PhysicsState;
+    float                                                     m_LastDeltaTime{0.0f};
 
     /** @brief Returns inId's cached state, creating it via CreateState() on first use. */
     StateType& GetOrCreateState( TStateId inId )
@@ -122,7 +132,9 @@ protected:
 public:
     explicit Game( video::IRenderer& inRenderer, audio::AudioDevice& inAudioDev ) noexcept
     : m_Renderer( inRenderer ), m_AudioDev( inAudioDev )
-    {}
+    {
+        m_SceneManager.GetRegistry().SetResource( resources::UIHitList{} ); // opts the scene into UI hover/click detection
+    }
 
     /** @brief Loads inPath as the active scene and resolves its Sprite/Animation assets through m_Renderer. */
     BoolResult LoadScene( str::String const& inPath ) noexcept
@@ -133,14 +145,80 @@ public:
         return result;
     }
 
-    void Update( float inDeltaTime, input::InputState const& inInput ) override
+    /**
+     * @brief Loads a `.asgeproject` written by the editor: mounts its VFS entries (skipping
+     *        missing directories with a warning) and loads its main scene (the first listed one
+     *        if none is set) as the active one. Fails with SceneError::EmptyProject if the
+     *        project lists no scenes.
+     */
+    BoolResult LoadProject( filesystem::Path const& inPath ) noexcept
     {
-        if ( auto transition = m_States.Update( inDeltaTime, inInput ) )
-            ApplyTransition( *transition );
+        auto project = project::LoadProjectFile( inPath );
+        if ( !project ) return BoolResult::Err( project.Error() );
+
+        for ( auto const& mount : project.Value().m_Mounts )
+        {
+            if ( !std::filesystem::exists( mount.m_RealDirectory ) )
+            {
+                LOG_WARNING( "Project mount \"", mount.m_Name, "\" -> \"", mount.m_RealDirectory.string(), "\" does not exist, skipping" );
+                continue;
+            }
+
+            if ( auto result = m_Vfs.Mount( mount.m_Name, mount.m_RealDirectory.string() ); !result ) result.LogError();
+        }
+
+        m_Project = project.Value();
+        if ( m_Project.m_Scenes.empty() ) return BoolResult::Err( make_error_code( errors::SceneError::EmptyProject ) );
+
+        auto const& startScene = m_Project.m_MainScene.empty() ? m_Project.m_Scenes.front() : m_Project.m_MainScene;
+        auto result = m_SceneManager.LoadSceneFromFile( startScene );
+        if ( !result ) return result;
+        m_Assets.ResolveAssets( m_SceneManager.GetRegistry(), m_Renderer );
+        return result;
     }
 
+    /** @brief The project last passed to LoadProject(); empty before that. */
+    [[nodiscard]] project::ProjectData const& GetProject() const noexcept { return m_Project; }
+
+    /**
+     * @brief Runs one frame over the active scene's registry in the only valid order:
+     *        UI interaction, the states' own Update() (game logic), gravity, movement,
+     *        path following, UI layout, one transform propagation, collisions, triggers,
+     *        audio. States never call these systems themselves.
+     */
+    void Update( float inDeltaTime, input::InputState const& inInput ) override
+    {
+        m_LastDeltaTime = inDeltaTime;
+        systems::UIInteractionSystem( m_SceneManager.GetRegistry(), inInput, video::Camera{} );
+
+        if ( auto transition = m_States.Update( inDeltaTime, inInput ) )
+            ApplyTransition( *transition );
+
+        auto& registry = m_SceneManager.GetRegistry();
+        systems::GravitySystem( registry, inDeltaTime );
+        systems::MovementSystem( registry, inDeltaTime );
+        systems::PathFollowingSystem( registry, inDeltaTime );
+        systems::UILayoutSystem( registry );
+        systems::TransformPropagationSystem( registry );
+
+        auto contacts = systems::DetectCollisions( registry );
+        systems::ResolveCollisions( registry, contacts );
+        systems::DispatchTriggerEvents( m_PhysicsState, contacts );
+
+        systems::AudioSystem( registry, m_AudioDev );
+    }
+
+    /**
+     * @brief Resolves pending assets, clears with the visible state's ClearColor(), lets states
+     *        draw RenderBackground(), draws the scene through RenderPipeline, then states' Render().
+     */
     void Render( video::IRenderer& inRenderer ) override
     {
+        auto& registry = m_SceneManager.GetRegistry();
+        m_Assets.ResolveAssets( registry, inRenderer );
+        inRenderer.Clear( m_States.ClearColor() );
+        m_States.RenderBackground( inRenderer );
+        systems::RenderPipeline( registry, inRenderer, m_LastDeltaTime );
         m_States.Render( inRenderer );
     }
 

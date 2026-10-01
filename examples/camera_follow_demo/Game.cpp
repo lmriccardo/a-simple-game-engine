@@ -201,26 +201,15 @@ void CameraFollowDemoState::RenderHud(asge::video::IRenderer &inRenderer) const
 }
 
 std::optional<asge::game::state::Transition<int>>
-CameraFollowDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
+CameraFollowDemoState::Update([[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
 {
     UpdatePlayerVelocity();
-    asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
-    asge::game::systems::TransformPropagationSystem( m_Registry );
-    // CameraSystem itself runs inside RenderPipeline (see Render()) -- same
-    // reasoning as animation_demo's m_LastDeltaTime capture.
-    m_LastDeltaTime = inDeltaTime;
     return std::nullopt;
 }
 
 void CameraFollowDemoState::Render(asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 15, 18, 22, 255 });
     EnsureSpritesAttached(inRenderer);
-
-    // The one call this whole demo exists to show off: CameraSystem (aims
-    // IRenderer's camera at ActiveCamera's entity) then RenderSystem (draws
-    // every Transform+Sprite whose destination rect is still in view).
-    asge::game::systems::RenderPipeline( m_Registry, inRenderer, m_LastDeltaTime );
 
     RenderHud( inRenderer );
 }

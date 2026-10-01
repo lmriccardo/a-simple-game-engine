@@ -39,7 +39,6 @@ class AnimationDemoState final : public asge::game::state::IGameState<int>
 
     std::mt19937 m_Rng{ std::random_device{}() };
     bool m_Playing{ true };
-    float m_LastDeltaTime{ 0.0f }; // Captured in Update(), consumed by Render()'s RenderPipeline call
 
     void SpawnInitialRow();
     void SpawnSprite( asge::math::Float2 inPosition, std::size_t inStartFrame );
@@ -52,6 +51,7 @@ public:
     [[nodiscard]] std::optional<asge::game::state::Transition<int>>
     Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 15, 15, 20, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
 

@@ -25,7 +25,6 @@ class RotationDemoState final : public asge::game::state::IGameState<int>
 
     float m_SpinnerSpeed{ 1.5f }; // radians/second; LEFT/RIGHT-adjustable, can go negative
     bool  m_Paused{ false };
-    float m_LastDeltaTime{ 0.0f }; // Captured in Update(), consumed by Render()'s RenderPipeline call
 
     void SpawnEntities();
     void UpdateRotation(float inDeltaTime);
@@ -39,6 +38,7 @@ public:
     [[nodiscard]] std::optional<asge::game::state::Transition<int>>
     Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 15, 18, 22, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
 

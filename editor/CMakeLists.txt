@@ -1,9 +1,10 @@
-add_executable(asge-editor main.cpp Inspector.cpp ViewportOverlay.cpp ConsolePanel.cpp FileDialog.cpp AssetBrowser.cpp AssetInspector.cpp VfsPanel.cpp ProjectManager.cpp)
+add_executable(asge-editor main.cpp Inspector.cpp ViewportOverlay.cpp ConsolePanel.cpp FileDialog.cpp AssetBrowser.cpp AssetInspector.cpp VfsPanel.cpp ProjectManager.cpp CppProject.cpp CppBuild.cpp Toolchain.cpp BuildOutput.cpp BuildOutputPanel.cpp)
 
 target_link_libraries(asge-editor PRIVATE ASGE imgui::imgui)
 
 target_compile_definitions(asge-editor PRIVATE
-    ASGE_EDITOR_ICON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png")
+    ASGE_EDITOR_ICON_PATH="${CMAKE_CURRENT_SOURCE_DIR}/assets/icon.png"
+    ASGE_EDITOR_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 target_compile_options(asge-editor
     PRIVATE

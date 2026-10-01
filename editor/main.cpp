@@ -9,6 +9,11 @@
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Systems/TransformPropagationSystem.hpp>
 #include <ASGE/Game/Systems/UISystem.hpp>
+#include "BuildOutput.hpp"
+#include "BuildOutputPanel.hpp"
+#include "CppBuild.hpp"
+#include "CppProject.hpp"
+#include "Toolchain.hpp"
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
@@ -31,7 +36,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <future>
 #include <mutex>
+#include <utility>
 #include <optional>
 #include <string>
 
@@ -427,6 +435,23 @@ void SwitchToScene(
  * @return False (logged) if the save failed; inOutProject is still updated
  *         either way, since the scene is real either way.
  */
+CppProjectInput CppInputFor( Project const& inProject, asge::filesystem::VirtualFileSystem const& inVfs )
+{
+    CppProjectInput input;
+    input.m_ProjectFile = inProject.m_FilePath;
+    for ( auto const& scene : inProject.m_Scenes ) input.m_Scenes.push_back( { scene.m_Name, scene.m_Path } );
+    for ( auto const& mount : inVfs.ListMounts() ) input.m_MountDirs.push_back( mount.m_RealDirectory );
+    return input;
+}
+
+/** @brief Runs UpdateCppProject for inProject if it has a C++ project linked, and logs the outcome. */
+void SyncCppProject( Project const& inProject, asge::filesystem::VirtualFileSystem const& inVfs ) noexcept
+{
+    if ( !IsCppProjectLinked( inProject.m_FilePath ) ) return;
+    if ( auto result = UpdateCppProject( CppInputFor( inProject, inVfs ) ); !result ) result.LogError();
+    else LOG_INFO( "C++ project updated: ", CppProjectDir( inProject.m_FilePath ).string() );
+}
+
 bool CreateSceneInProject(
     Project& inOutProject, std::string const& inName,
     asge::game::scene::SceneManager& inSceneManager ) noexcept
@@ -644,6 +669,12 @@ int main(int, char**)
     std::optional<Project> currentProject;
 
     FileDialogResult createProjectFolderDialogResult;
+    FileDialogResult cppAsgeFolderDialogResult;
+    CppBuild cppBuild;
+    bool showBuildOutput = false; // opens by itself when a compile or run starts
+    enum class CppAction { None, Compile, Run, CompileAndRun };
+    CppAction pendingCppAction = CppAction::None; // set by the menu or a shortcut, run once the menu state is known
+    char cppAsgeFolderBuf[512] = ASGE_EDITOR_SOURCE_DIR; // dev default: the tree this editor was built from
     FileDialogResult saveProjectAsDialogResult;
     FileDialogResult openProjectDialogResult;
     FileDialogResult openSceneDialogResult;
@@ -661,6 +692,35 @@ int main(int, char**)
         SDL_free( pref );
         return path;
     }();
+    // Which build toolchain C++ Project > Compile uses. Scanned once in the
+    // background (it runs vswhere/cmake/compilers), chosen per machine rather
+    // than per project, and remembered in a small file next to asge.session.
+    fs::path const toolchainPrefPath = sessionFilePath.parent_path() / "toolchain.txt";
+    std::future<std::vector<Toolchain>> toolchainScan = std::async( std::launch::async, ScanToolchains );
+    std::vector<Toolchain> toolchains;
+    std::string cppToolchainId = [&] {
+        std::string id;
+        std::ifstream in( toolchainPrefPath );
+        std::getline( in, id );
+        return id;
+    }();
+    std::optional<std::string> pendingToolchainId; // set while the "Switch Toolchain" modal asks to confirm
+    bool openToolchainModal = false;
+    std::string toolchainSwitchError; // shown in the modal when deleting code/build fails
+    std::string deleteCppError;       // shown in the Delete C++ Project modal when the delete fails
+    auto const chosenConfigureArgs = [&]() -> std::vector<std::string>
+    {
+        for ( auto const& toolchain : toolchains )
+        {
+            if ( toolchain.m_Usable && toolchain.m_Id == cppToolchainId ) return toolchain.m_ConfigureArgs;
+        }
+        return {};
+    };
+    auto const setToolchain = [&]( std::string const& inId )
+    {
+        cppToolchainId = inId;
+        std::ofstream( toolchainPrefPath, std::ios::trunc ) << inId << "\n";
+    };
     float sessionAutosaveTimer = 0.0f;
     constexpr float kSessionAutosaveInterval = 30.0f;
 
@@ -856,6 +916,14 @@ int main(int, char**)
                    && event.key.key == SDLK_P)
             {
                 saveProjectNow();
+            }
+            else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat && event.key.key == SDLK_F7)
+            {
+                pendingCppAction = CppAction::Compile;
+            }
+            else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat && event.key.key == SDLK_F5)
+            {
+                pendingCppAction = (event.key.mod & SDL_KMOD_CTRL) ? CppAction::Run : CppAction::CompileAndRun;
             }
             else if (event.type == SDL_EVENT_MOUSE_WHEEL && !ImGui::GetIO().WantCaptureMouse)
             {
@@ -1123,6 +1191,13 @@ int main(int, char**)
             }
         }
         {
+            std::string chosenDir;
+            if (DrainFileDialogResult(cppAsgeFolderDialogResult, chosenDir) && !chosenDir.empty())
+            {
+                std::snprintf(cppAsgeFolderBuf, sizeof(cppAsgeFolderBuf), "%s", chosenDir.c_str());
+            }
+        }
+        {
             std::string chosenPath;
             if (DrainFileDialogResult(saveProjectAsDialogResult, chosenPath))
             {
@@ -1267,7 +1342,15 @@ int main(int, char**)
         bool openOpenProjectDialog = false;
         bool openOpenSceneDialog = false;
         bool openGridModal = false;
+        if ( toolchainScan.valid() && toolchainScan.wait_for( std::chrono::seconds( 0 ) ) == std::future_status::ready )
+        {
+            toolchains = toolchainScan.get();
+        }
         bool openGameWindowModal = false;
+        bool openCppProjectModal = false;
+        bool openDeleteCppModal = false;
+        bool openCppAsgeFolderDialog = false;
+        bool const cppLinked = hasProject && IsCppProjectLinked(currentProject->m_FilePath);
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
@@ -1314,7 +1397,82 @@ int main(int, char**)
                 if (!hasProject) ImGui::EndDisabled();
                 ImGui::EndMenu();
             }
+            if (ImGui::BeginMenu("C++ Project"))
+            {
+                if (!hasProject || cppLinked) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("New C++ Project...")) openCppProjectModal = true;
+                if (!hasProject || cppLinked) ImGui::EndDisabled();
+
+                if (!cppLinked) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("Update C++ Project")) SyncCppProject(*currentProject, vfs);
+                if (ImGui::MenuItem("Delete C++ Project...") ) openDeleteCppModal = true;
+                if (ImGui::MenuItem("Open in VSCode"))
+                {
+                    auto const folder = currentProject->m_FilePath.parent_path();
+                    if (!OpenInVSCode(folder)) LOG_ERROR("Could not open VSCode (is `code` on the PATH?) for ", folder.string());
+                }
+                ImGui::Separator();
+                if (ImGui::BeginMenu("Toolchain"))
+                {
+                    auto const selectToolchain = [&](std::string const& inId)
+                    {
+                        if (inId == cppToolchainId) return;
+                        if (std::filesystem::exists(CppBuildDir(currentProject->m_FilePath)))
+                        {
+                            pendingToolchainId = inId;
+                            openToolchainModal = true;
+                        }
+                        else setToolchain(inId);
+                    };
+
+                    if (ImGui::MenuItem("Default (CMake decides)", nullptr, cppToolchainId.empty())) selectToolchain("");
+                    for (auto const& toolchain : toolchains)
+                    {
+                        if (!toolchain.m_Usable) ImGui::BeginDisabled();
+                        if (ImGui::MenuItem(toolchain.m_Name.c_str(), nullptr, toolchain.m_Id == cppToolchainId)) selectToolchain(toolchain.m_Id);
+                        if (!toolchain.m_Usable)
+                        {
+                            ImGui::EndDisabled();
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", toolchain.m_Reason.c_str());
+                        }
+                    }
+                    bool const scanning = toolchainScan.valid();
+                    if (scanning) ImGui::TextDisabled("Scanning...");
+                    ImGui::Separator();
+                    if (scanning) ImGui::BeginDisabled();
+                    if (ImGui::MenuItem("Rescan")) toolchainScan = std::async(std::launch::async, ScanToolchains);
+                    if (scanning) ImGui::EndDisabled();
+                    ImGui::EndMenu();
+                }
+                ImGui::Separator();
+                if (ImGui::MenuItem("Build Output", nullptr, showBuildOutput)) showBuildOutput = !showBuildOutput;
+                auto const cppState = cppBuild.GetState();
+                if (cppState != CppBuild::State::Idle) ImGui::BeginDisabled();
+                if (ImGui::MenuItem("Compile", "F7")) pendingCppAction = CppAction::Compile;
+                if (ImGui::MenuItem("Run", "Ctrl+F5")) pendingCppAction = CppAction::Run;
+                if (ImGui::MenuItem("Compile and Run", "F5")) pendingCppAction = CppAction::CompileAndRun;
+                if (cppState != CppBuild::State::Idle) ImGui::EndDisabled();
+                if (cppState != CppBuild::State::Idle)
+                {
+                    ImGui::TextDisabled(cppState == CppBuild::State::Building ? "Building..." : "Running...");
+                }
+                if (!cppLinked) ImGui::EndDisabled();
+                ImGui::EndMenu();
+            }
             ImGui::EndMainMenuBar();
+        }
+
+        if (pendingCppAction != CppAction::None)
+        {
+            auto const action = std::exchange(pendingCppAction, CppAction::None);
+            if (cppLinked && cppBuild.GetState() == CppBuild::State::Idle)
+            {
+                ClearBuildOutput();
+                showBuildOutput = true;
+                if (action == CppAction::Compile) cppBuild.Compile(currentProject->m_FilePath, chosenConfigureArgs());
+                else if (action == CppAction::Run) cppBuild.Run(currentProject->m_FilePath);
+                else if (action == CppAction::CompileAndRun) cppBuild.CompileAndRun(currentProject->m_FilePath, chosenConfigureArgs());
+            }
         }
 
         // OpenPopup deferred to here (same ID-stack depth BeginPopupModal
@@ -1332,6 +1490,18 @@ int main(int, char**)
             draftTargetWidth = targetGameWidth;
             draftTargetHeight = targetGameHeight;
             ImGui::OpenPopup("Game Window Settings");
+        }
+        if (openCppProjectModal) ImGui::OpenPopup("New C++ Project");
+        if (openDeleteCppModal && cppBuild.GetState() == CppBuild::State::Idle)
+        {
+            deleteCppError.clear();
+            ImGui::OpenPopup("Delete C++ Project");
+        }
+        if (openToolchainModal)
+        {
+            toolchainSwitchError.clear();
+            ImGui::OpenPopup("Switch Toolchain");
+            openToolchainModal = false;
         }
         if (openCreateProjectModal)
         {
@@ -1452,6 +1622,94 @@ int main(int, char**)
             if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
             ImGui::EndPopup();
         }
+        if (ImGui::BeginPopupModal("Delete C++ Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (currentProject)
+            {
+                ImGui::TextUnformatted("This permanently deletes the C++ project folder, including the state code you wrote:");
+                ImGui::TextUnformatted(CppProjectDir(currentProject->m_FilePath).string().c_str());
+                ImGui::TextUnformatted("Scenes, assets and the ASGE project are not touched. This cannot be undone.");
+            }
+            if (!deleteCppError.empty()) ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", deleteCppError.c_str());
+
+            bool const busy = cppBuild.GetState() != CppBuild::State::Idle;
+            if (busy) ImGui::BeginDisabled();
+            if (ImGui::Button("Delete") && currentProject)
+            {
+                auto const result = DeleteCppProject(currentProject->m_FilePath);
+                if (result)
+                {
+                    LOG_INFO("C++ project deleted: ", CppProjectDir(currentProject->m_FilePath).string());
+                    ImGui::CloseCurrentPopup();
+                }
+                else
+                {
+                    deleteCppError = "Could not delete it: " + result.Code().message() + ". Close VS Code or anything else using it and try again.";
+                    LOG_ERROR(deleteCppError);
+                }
+            }
+            if (busy) ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        if (ImGui::BeginPopupModal("Switch Toolchain", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted("CMake cannot reuse a build folder made with another toolchain.");
+            ImGui::TextUnformatted("Switching deletes code/build; the next Compile rebuilds it from scratch.");
+            if (!toolchainSwitchError.empty())
+            {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", toolchainSwitchError.c_str());
+            }
+            bool const busy = cppBuild.GetState() != CppBuild::State::Idle;
+            if (busy) ImGui::BeginDisabled();
+            if (ImGui::Button("Switch") && currentProject && pendingToolchainId)
+            {
+                std::error_code removeError;
+                std::filesystem::remove_all(CppBuildDir(currentProject->m_FilePath), removeError);
+                if (removeError)
+                {
+                    toolchainSwitchError = "Could not delete code/build: " + removeError.message()
+                        + ". Close VS Code or anything else using it and try again.";
+                    LOG_ERROR(toolchainSwitchError);
+                }
+                else
+                {
+                    setToolchain(*pendingToolchainId);
+                    pendingToolchainId.reset();
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            if (busy) ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
+            {
+                pendingToolchainId.reset();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+        if (ImGui::BeginPopupModal("New C++ Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::TextUnformatted("Writes a CMake project into the project's code/ folder.");
+            ImGui::InputText("ASGE Folder", cppAsgeFolderBuf, sizeof(cppAsgeFolderBuf));
+            ImGui::SameLine();
+            if (ImGui::Button("Browse...")) openCppAsgeFolderDialog = true;
+
+            bool const canCreate = currentProject && cppAsgeFolderBuf[0] != '\0';
+            if (!canCreate) ImGui::BeginDisabled();
+            if (ImGui::Button("Create"))
+            {
+                auto const result = CreateCppProject(CppInputFor(*currentProject, vfs), fs::path(cppAsgeFolderBuf));
+                if (result) LOG_INFO("C++ project created: ", CppProjectDir(currentProject->m_FilePath).string());
+                else result.LogError();
+                ImGui::CloseCurrentPopup();
+            }
+            if (!canCreate) ImGui::EndDisabled();
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
         if (ImGui::BeginPopupModal("Create a Scene", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (currentProject)
@@ -1463,6 +1721,7 @@ int main(int, char**)
                     std::string const name =
                         createSceneNameBuf[0] != '\0' ? std::string(createSceneNameBuf) : createScenePlaceholder;
                     CreateSceneInProject(*currentProject, name, sceneManager);
+                    SyncCppProject(*currentProject, vfs);
                     selectedEntity = asge::ecs::Entity::Null();
                     ResetEntityDisplayIds();
                     ImGui::CloseCurrentPopup();
@@ -1473,6 +1732,10 @@ int main(int, char**)
             ImGui::EndPopup();
         }
 
+        if (openCppAsgeFolderDialog)
+        {
+            SDL_ShowOpenFolderDialog(OnFileDialogResult, &cppAsgeFolderDialogResult, window, nullptr, false);
+        }
         if (openCreateProjectFolderDialog)
         {
             SDL_ShowOpenFolderDialog(OnFileDialogResult, &createProjectFolderDialogResult, window, nullptr, false);
@@ -1594,6 +1857,16 @@ int main(int, char**)
                     }
                 }
             }
+
+            auto& activeScene = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
+            ImGui::BeginDisabled( activeScene.m_IsMain );
+            if ( ImGui::Button( "Set Main Scene" ) )
+            {
+                for ( auto& scene : currentProject->m_Scenes ) scene.m_IsMain = false;
+                activeScene.m_IsMain = true;
+            }
+            ImGui::EndDisabled();
+            if ( activeScene.m_IsMain ) { ImGui::SameLine(); ImGui::TextUnformatted( "Main scene" ); }
         }
         ImGui::End();
 
@@ -2259,6 +2532,7 @@ int main(int, char**)
         DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window, freshHasProject);
 
         DrawConsolePanel(window);
+        if (showBuildOutput) DrawBuildOutputPanel(showBuildOutput);
 
         // Flushes this frame's gizmo-drag/inspector edits (and any Hierarchy
         // reparenting) from Transform's Local into its World fields -- every

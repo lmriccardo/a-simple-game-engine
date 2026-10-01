@@ -124,20 +124,16 @@ void EcsDemoState::UpdatePlayerVelocity()
 }
 
 std::optional<asge::game::state::Transition<int>>
-EcsDemoState::Update(float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
+EcsDemoState::Update([[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
     UpdatePlayerVelocity();
-    asge::game::systems::MovementSystem( m_Registry, inDeltaTime );
     WrapAroundScreen();
-    asge::game::systems::TransformPropagationSystem( m_Registry );
     return std::nullopt;
 }
 
 void EcsDemoState::Render(asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 15, 15, 20, 255 });
     EnsureSpritesAttached(inRenderer);
-    asge::game::systems::RenderSystem( m_Registry, inRenderer );
 }
 
 void EcsDemoState::OnSystemEvent(asge::event::SystemEvent const &inSysEvent)

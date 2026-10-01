@@ -105,6 +105,7 @@ add_library(ASGE STATIC
     Game/Assets/FrameTable.cpp
 
     # Scene management and component TOML (de)serialization
+    Game/Project/Project.cpp
     Game/Scene/Serialize.cpp
     Game/Scene/SceneSerializer.cpp
     Game/Scene/SceneManager.cpp

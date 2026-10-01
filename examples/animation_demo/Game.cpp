@@ -111,30 +111,14 @@ void AnimationDemoState::HandleInput(asge::input::InputState const &inInput)
 }
 
 std::optional<asge::game::state::Transition<int>>
-AnimationDemoState::Update(float inDeltaTime, asge::input::InputState const &inInput)
+AnimationDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState const &inInput)
 {
     HandleInput( inInput );
-    // AnimationSystem itself runs inside RenderPipeline (see Render()) --
-    // Application::Run() calls Update() then Render() back-to-back once per
-    // frame, so this frame's real inDeltaTime carries over unchanged.
-    m_LastDeltaTime = inDeltaTime;
     return std::nullopt;
 }
 
-void AnimationDemoState::Render(asge::video::IRenderer &inRenderer)
+void AnimationDemoState::Render([[maybe_unused]] asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 15, 15, 20, 255 });
-
-    // Deferred-loads every Sprite::m_Texture/Animation::m_Clip still unset --
-    // entities spawned this very frame (a fresh click) included, since it
-    // re-checks the whole Registry rather than tracking "already resolved"
-    // itself.
-    m_Assets.ResolveAssets( m_Registry, inRenderer );
-
-    // The one call this whole demo exists to show off: AnimationSystem
-    // (advances every entity's Animation/Sprite::m_SourceRect) then
-    // RenderSystem (draws), sequenced for the caller.
-    asge::game::systems::RenderPipeline( m_Registry, inRenderer, m_LastDeltaTime );
 }
 
 void AnimationDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &inSysEvent)

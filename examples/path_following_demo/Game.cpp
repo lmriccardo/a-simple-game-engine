@@ -65,6 +65,11 @@ void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
                             // m_Traveled), so closing the loop needs the
                             // start point stitched back on as the last one.
     };
+    for ( auto& waypoint : pathFollow.m_Waypoints )
+    {
+        waypoint.x() -= kCarHalfW;
+        waypoint.y() -= kCarHalfH;
+    }
     pathFollow.m_Loop = true;
     m_Registry.AddComponent<PathFollow>( m_Car, pathFollow );
 
@@ -76,46 +81,16 @@ void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
     Reset();
 }
 
-void PathFollowingDemoState::RecenterCarSprite()
-{
-    auto transformResult = m_Registry.GetComponent<Transform>( m_Car );
-    if ( !transformResult ) return;
-
-    // RenderSystem/PathFollowingSystem both treat Transform's position as
-    // the sprite's top-left corner, but PathFollowingSystem just wrote the
-    // spline point itself into it -- shift by the car's own half-extent so
-    // it's the sprite's center (and so its rotation pivot) that rides the
-    // road, not its corner. Adjusts Local, same as PathFollowingSystem --
-    // UpdateCar flushes to World via TransformPropagationSystem afterward.
-    auto& t = transformResult.Value().get();
-    t.m_LocalCoordinates.x() -= kCarHalfW;
-    t.m_LocalCoordinates.y() -= kCarHalfH;
-    t.m_Dirty = true;
-}
-
-void PathFollowingDemoState::UpdateCar(float inDeltaTime)
+void PathFollowingDemoState::UpdateCar()
 {
     auto pathResult = m_Registry.GetComponent<PathFollow>( m_Car );
     if ( !pathResult ) return;
-    pathResult.Value().get().m_Speed = m_Speed;
+    auto& path = pathResult.Value().get();
 
-    if ( m_Paused ) return;
+    if ( path.m_Traveled < m_PreviousTraveled ) ++m_Laps; // wrapped back past the finish line
+    m_PreviousTraveled = path.m_Traveled;
 
-    float const before = pathResult.Value().get().m_Traveled;
-    asge::game::systems::PathFollowingSystem( m_Registry, inDeltaTime );
-
-    // Re-fetched rather than reusing pathResult's reference across the call
-    // above -- PathFollowingSystem doesn't add/remove components, but this
-    // matches how the engine's own tests treat a Registry mutation as
-    // invalidating a previously-held reference.
-    auto afterResult = m_Registry.GetComponent<PathFollow>( m_Car );
-    if ( afterResult && afterResult.Value().get().m_Traveled < before )
-    {
-        ++m_Laps; // wrapped back past the finish line
-    }
-
-    RecenterCarSprite();
-    asge::game::systems::TransformPropagationSystem( m_Registry );
+    path.m_Speed = m_Paused ? 0.0f : m_Speed;
 }
 
 void PathFollowingDemoState::Reset()
@@ -130,6 +105,7 @@ void PathFollowingDemoState::Reset()
     path.m_Speed = m_Speed;
     path.m_Traveled = 0.0f;
     path.m_Finished = false;
+    m_PreviousTraveled = 0.0f;
 
     if ( path.m_Path.HasSegments() )
     {
@@ -141,8 +117,6 @@ void PathFollowingDemoState::Reset()
             t.m_LocalRotation = 0.0f; // the next PathFollowingSystem tick recomputes this properly
             t.m_Dirty = true;
         }
-        RecenterCarSprite();
-        asge::game::systems::TransformPropagationSystem( m_Registry );
     }
 }
 
@@ -162,7 +136,7 @@ void PathFollowingDemoState::RenderRoad(asge::video::IRenderer& inRenderer) cons
     {
         auto const p = path.PointAtDistance( d );
         inRenderer.DrawCircle(
-            Int2{ static_cast<int>(p.x()), static_cast<int>(p.y()) },
+            Int2{ static_cast<int>(p.x() + kCarHalfW), static_cast<int>(p.y() + kCarHalfH) },
             static_cast<int>(kRoadHalfWidth), kRoadColor, true );
     }
 
@@ -174,7 +148,7 @@ void PathFollowingDemoState::RenderRoad(asge::video::IRenderer& inRenderer) cons
         {
             auto const p = path.PointAtDistance( d );
             inRenderer.DrawCircle(
-                Int2{ static_cast<int>(p.x()), static_cast<int>(p.y()) }, 2, kDashColor, true );
+                Int2{ static_cast<int>(p.x() + kCarHalfW), static_cast<int>(p.y() + kCarHalfH) }, 2, kDashColor, true );
         }
     }
 }
@@ -227,23 +201,22 @@ PathFollowingDemoState::Update(float inDeltaTime, asge::input::InputState const&
     if ( inInput.IsKeyDown( Keycode::UP ) )   m_Speed = std::min( m_Speed + kAccel * inDeltaTime, kMaxSpeed );
     if ( inInput.IsKeyDown( Keycode::DOWN ) ) m_Speed = std::max( m_Speed - kAccel * inDeltaTime, kMinSpeed );
 
-    UpdateCar( inDeltaTime );
+    UpdateCar();
     return std::nullopt;
+}
+
+void PathFollowingDemoState::RenderBackground(asge::video::IRenderer& inRenderer)
+{
+    RenderRoad( inRenderer );
+}
+
+asge::graphics::RGBA_Color PathFollowingDemoState::ClearColor() const noexcept
+{
+    return kGrassColor;
 }
 
 void PathFollowingDemoState::Render(asge::video::IRenderer& inRenderer)
 {
-    inRenderer.Clear( kGrassColor );
-
-    RenderRoad( inRenderer );
-
-    // Car's Sprite::m_Texture/PathFollow::m_Path were both already resolved
-    // once at spawn time (see SpawnCar) -- this is just CameraSystem
-    // (a no-op, no ActiveCamera set here) followed by RenderSystem's draw;
-    // no Animation component exists in this demo, so the deltaTime AnimationSystem
-    // would consume is irrelevant.
-    asge::game::systems::RenderPipeline( m_Registry, inRenderer, 0.0f );
-
     RenderHud( inRenderer );
 }
 

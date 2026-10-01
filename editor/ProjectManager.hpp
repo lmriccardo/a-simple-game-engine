@@ -24,6 +24,7 @@ struct ProjectScene
     std::string           m_Name;
     std::filesystem::path m_Path;
     bool                  m_Dirty = false;
+    bool                  m_IsMain = false; // the scene a game starts on; at most one per project
 };
 
 /**

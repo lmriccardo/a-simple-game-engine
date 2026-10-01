@@ -6,6 +6,7 @@ add_executable(ASGE_GameTests
     UISystemTests.cpp
     GameStateStackTests.cpp
     GameTests.cpp
+    ProjectTests.cpp
 )
 
 target_link_libraries(ASGE_GameTests

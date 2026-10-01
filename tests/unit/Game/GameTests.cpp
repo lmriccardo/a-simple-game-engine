@@ -1,5 +1,10 @@
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Audio/AudioDevice.hpp>
+#include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Game/Components/Velocity.hpp>
+#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Game/Scene/SceneSerializer.hpp>
+#include <filesystem>
 
 #include <gtest/gtest.h>
 
@@ -38,6 +43,15 @@ public:
         if (m_RenderOrder) m_RenderOrder->push_back(m_Id);
     }
 
+    void RenderBackground(asge::video::IRenderer&) override
+    {
+        if (m_RenderOrder) m_RenderOrder->push_back(-1 - m_Id);
+    }
+
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return m_Clear; }
+
+    asge::graphics::RGBA_Color m_Clear{ 0, 0, 0, 255 };
+
     void OnSystemEvent(asge::event::SystemEvent const&) override { ++m_EventCount; }
     void OnEnter() override { ++m_EnterCount; }
     void OnExit()  override { ++m_ExitCount; }
@@ -48,7 +62,7 @@ public:
 class NullRenderer final : public asge::video::IRenderer
 {
 public:
-    void Clear(asge::graphics::RGBA_Color const&) const override {}
+    void Clear(asge::graphics::RGBA_Color const& inColor) const override { m_LastClear = inColor; }
     void DrawRect(asge::math::Rect const&, asge::graphics::RGBA_Color const&, bool) const override {}
     void DrawLine(asge::math::Float2 const&, asge::math::Float2 const&,
         asge::graphics::RGBA_Color const&) const override {}
@@ -77,6 +91,8 @@ public:
     void SetViewport(asge::video::Viewport const& inViewport) override { m_Viewport = inViewport; }
     [[nodiscard]] asge::video::Viewport const& GetViewport() const override { return m_Viewport; }
 
+    mutable asge::graphics::RGBA_Color m_LastClear{};
+
 private:
     asge::video::Camera   m_Camera{};
     asge::video::Viewport m_Viewport{};
@@ -91,6 +107,8 @@ public:
     using Game::Game;
     using Game::SetInitialState;
     using Game::InvalidateState;
+    using Game::m_SceneManager;
+    using Game::m_Vfs;
 
     std::unordered_map<int, MockGameState*> m_Created;
     std::unordered_map<int, int>            m_CreateCount;
@@ -257,4 +275,141 @@ TEST_F(GameTest, OnSystemEvent_ForwardsToTopmostState)
     EXPECT_EQ(m_Game.m_Created[0]->m_EventCount, 1);
 }
 
+}
+
+TEST_F(GameTest, Construction_EnablesUIHitTesting)
+{
+    EXPECT_TRUE(m_Game.m_SceneManager.GetRegistry().GetResource<asge::game::resources::UIHitList>());
+}
+
+// ─── Per-frame system pipeline ───────────────────────────────────────────────
+
+TEST_F(GameTest, Update_RunsMovementAndPropagationOverTheSceneRegistry)
+{
+    using asge::game::components::Transform;
+    using asge::game::components::Velocity;
+
+    m_Game.SetInitialState(0);
+    auto& registry = m_Game.m_SceneManager.GetRegistry();
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity);
+    ASSERT_TRUE(registry.AddComponent<Transform>(entity.Value(), Transform{}));
+    ASSERT_TRUE(registry.AddComponent<Velocity>(entity.Value(), Velocity{ .m_DX = 10.0f }));
+
+    m_Game.Update(2.0f, m_Input);
+
+    auto transform = registry.GetComponent<Transform>(entity.Value());
+    ASSERT_TRUE(transform);
+    EXPECT_FLOAT_EQ(transform.Value().get().m_LocalCoordinates.x(), 20.0f);
+    EXPECT_FLOAT_EQ(transform.Value().get().m_WorldCoordinates.x(), 20.0f);
+}
+
+TEST_F(GameTest, Render_ClearsWithVisibleStatesColorThenDrawsBackgroundBeforeState)
+{
+    std::vector<int> order;
+    m_Game.SetInitialState(0);
+    m_Game.m_Created[0]->m_Clear = { 1, 2, 3, 255 };
+    m_Game.m_Created[0]->m_RenderOrder = &order;
+
+    m_Game.Render(m_Renderer);
+
+    EXPECT_EQ(m_Renderer.m_LastClear.g, 2);
+    EXPECT_EQ(order, (std::vector<int>{ -1, 0 }));
+}
+
+// ─── LoadProject ─────────────────────────────────────────────────────────────
+
+class GameProjectTest : public GameTest
+{
+protected:
+    std::filesystem::path m_Root;
+
+    void SetUp() override
+    {
+        m_Root = std::filesystem::temp_directory_path()
+            / ("asge_game_project_test_" + std::to_string(reinterpret_cast<std::uintptr_t>(this)));
+        std::filesystem::create_directories(m_Root / "assets");
+    }
+
+    void TearDown() override
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(m_Root, ec);
+    }
+
+    std::filesystem::path WriteProject(std::vector<std::string> const& inScenes, std::string const& inMain = {})
+    {
+        asge::config::toml::TOMLBuilder builder;
+        auto mount = builder.ArrayTable("Mount");
+        mount.Set("Name", std::string("assets"));
+        mount.Set("RealDirectory", std::string("assets"));
+        builder.SetArray("Scenes", inScenes);
+        if (!inMain.empty()) builder.Set("MainScene", inMain);
+        auto path = m_Root / "demo.asgeproject";
+        EXPECT_TRUE(builder.SaveToFile(path).IsOk());
+        return path;
+    }
+
+    void WriteScene(std::filesystem::path const& inPath, float inDX)
+    {
+        asge::ecs::Registry seed;
+        auto entity = seed.CreateEntity();
+        ASSERT_TRUE(entity.IsOk());
+        ASSERT_TRUE(seed.AddComponent(entity.Value(), asge::game::components::Velocity{ inDX, 0.0f }).IsOk());
+        asge::filesystem::VirtualFileSystem vfs;
+        ASSERT_TRUE(asge::game::scene::SceneSerializer{ vfs }.Save(seed, inPath).IsOk());
+    }
+};
+
+TEST_F(GameProjectTest, LoadProject_MountsVfsAndLoadsTheFirstScene)
+{
+    WriteScene(m_Root / "first.asgescene", 3.0f);
+    WriteScene(m_Root / "second.asgescene", 9.0f);
+    auto const project = WriteProject({ "first.asgescene", "second.asgescene" });
+
+    ASSERT_TRUE(m_Game.LoadProject(project).IsOk());
+
+    auto active = m_Game.m_SceneManager.ActiveEntities();
+    ASSERT_EQ(active.size(), 1u);
+    EXPECT_FLOAT_EQ(m_Game.m_SceneManager.GetRegistry()
+        .GetComponent<asge::game::components::Velocity>(active[0]).Value().get().m_DX, 3.0f);
+    EXPECT_EQ(m_Game.GetProject().m_Scenes.size(), 2u);
+    EXPECT_EQ(m_Game.m_Vfs.ListMounts().size(), 1u);
+}
+
+TEST_F(GameProjectTest, LoadProject_MainSceneSet_LoadsItInsteadOfTheFirst)
+{
+    WriteScene(m_Root / "first.asgescene", 3.0f);
+    WriteScene(m_Root / "second.asgescene", 9.0f);
+    auto const project = WriteProject({ "first.asgescene", "second.asgescene" }, "second.asgescene");
+
+    ASSERT_TRUE(m_Game.LoadProject(project).IsOk());
+
+    auto active = m_Game.m_SceneManager.ActiveEntities();
+    ASSERT_EQ(active.size(), 1u);
+    EXPECT_FLOAT_EQ(m_Game.m_SceneManager.GetRegistry()
+        .GetComponent<asge::game::components::Velocity>(active[0]).Value().get().m_DX, 9.0f);
+}
+
+TEST_F(GameProjectTest, LoadProject_MissingMountDirectory_IsSkippedNotFatal)
+{
+    WriteScene(m_Root / "first.asgescene", 1.0f);
+    auto const project = WriteProject({ "first.asgescene" });
+    std::filesystem::remove_all(m_Root / "assets");
+
+    ASSERT_TRUE(m_Game.LoadProject(project).IsOk());
+    EXPECT_TRUE(m_Game.m_Vfs.ListMounts().empty());
+}
+
+TEST_F(GameProjectTest, LoadProject_NoScenes_ReturnsEmptyProjectError)
+{
+    auto result = m_Game.LoadProject(WriteProject({}));
+
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::SceneError::EmptyProject));
+}
+
+TEST_F(GameProjectTest, LoadProject_MissingProjectFile_ReturnsError)
+{
+    EXPECT_FALSE(m_Game.LoadProject(m_Root / "nope.asgeproject").IsOk());
 }

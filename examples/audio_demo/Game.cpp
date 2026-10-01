@@ -63,14 +63,11 @@ std::optional<asge::game::state::Transition<int>>
 AudioDemoState::Update(
     [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const& inInput)
 {
-    asge::game::systems::AudioSystem( m_Registry, m_AudioDev );
     return std::nullopt;
 }
 
 void AudioDemoState::Render(asge::video::IRenderer &inRenderer)
 {
-    inRenderer.Clear({ 18, 18, 24, 255 });
-
     bool ambientPlaying = false;
     if ( auto ambient = m_Registry.GetComponent<AudioSource>(m_Ambient) )
         ambientPlaying = ambient.Value().get().m_Playing;

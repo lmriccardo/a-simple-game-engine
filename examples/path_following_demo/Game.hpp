@@ -26,10 +26,10 @@ class PathFollowingDemoState final : public asge::game::state::IGameState<int>
     float    m_Speed{ 0.0f }; // current units/second, UP/DOWN-adjustable -- set to kBaseSpeed by Reset()
     unsigned m_Laps{ 0 };
     bool     m_Paused{ false };
+    float    m_PreviousTraveled{ 0.0f }; // last frame's PathFollow::m_Traveled, to spot a wrap past the finish line
 
     void SpawnCar(asge::video::IRenderer& inRenderer);
-    void UpdateCar(float inDeltaTime);
-    void RecenterCarSprite();
+    void UpdateCar();
     void Reset();
     void RenderRoad(asge::video::IRenderer& inRenderer) const;
     void RenderHud(asge::video::IRenderer& inRenderer) const;
@@ -41,6 +41,8 @@ public:
     [[nodiscard]] std::optional<asge::game::state::Transition<int>>
     Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
+    void RenderBackground(asge::video::IRenderer& inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override;
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
 
