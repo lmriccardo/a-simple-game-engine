@@ -182,10 +182,10 @@ protected:
     /** @brief The registry holding this scene's entities. */
     [[nodiscard]] asge::ecs::Registry& GetRegistry() const { return m_Context.m_Scenes.GetRegistry(); }
 
-    /** @brief The entity named inName in the editor (its Name component), or Entity::Null(). */
+    /** @brief The entity named inName in the editor (its Name component), disabled ones included, or Entity::Null(). */
     [[nodiscard]] asge::ecs::Entity FindByName( std::string_view inName ) const
     {
-        for ( auto [ entity, name ] : GetRegistry().View<asge::game::components::Name>() )
+        for ( auto [ entity, name ] : GetRegistry().View<asge::game::components::Name>().IncludeDisabled() )
         {
             if ( name.get().m_Name == inName ) return entity;
         }
