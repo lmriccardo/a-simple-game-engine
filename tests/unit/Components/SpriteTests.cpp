@@ -1,5 +1,4 @@
 #include <ASGE/Game/Components/Sprite.hpp>
-#include <ASGE/Video/Graphics/Texture.hpp>
 
 #include <gtest/gtest.h>
 
@@ -8,74 +7,10 @@
 namespace
 {
 
-using asge::game::components::Sprite;
 using asge::game::components::SpriteDrawCorners;
 using asge::game::components::SpriteGetDrawCorners;
-using asge::game::components::SpriteGetDstRect;
-using asge::game::components::Transform;
 
 constexpr float kPi = 3.14159265358979323846f;
-
-// Minimal ITexture stub reporting a fixed size -- no SDL/GPU resource
-// needed for SpriteGetDstRect's own math (mirrors RenderSystemTests.cpp's
-// FakeTexture).
-class FakeTexture final : public asge::video::ITexture
-{
-public:
-    explicit FakeTexture(asge::math::Int2 inSize) : m_Size(inSize) {}
-
-    [[nodiscard]] asge::math::Int2 Size() const noexcept override { return m_Size; }
-    [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
-    [[nodiscard]] bool IsValid() const noexcept override { return true; }
-
-    void SetColorMod(asge::graphics::RGBA_Color) noexcept override {}
-
-    [[nodiscard]] asge::Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
-    {
-        return asge::Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
-    }
-
-private:
-    asge::math::Int2 m_Size;
-};
-
-// ─── SpriteGetDstRect ────────────────────────────────────────────────────────
-
-TEST(SpriteGetDstRectTest, NullTexture_ReturnsNullopt)
-{
-    Sprite const sprite{ .m_Texture = nullptr };
-    Transform const transform{};
-
-    EXPECT_FALSE(SpriteGetDstRect(sprite, transform).has_value());
-}
-
-TEST(SpriteGetDstRectTest, NoSourceRect_SizedFromFullTextureScaledByTransform)
-{
-    FakeTexture texture(asge::math::Int2{ 32, 16 });
-    Sprite const sprite{ .m_Texture = &texture };
-    Transform const transform{ .m_WorldCoordinates = {10.0f, 20.0f}, .m_WorldScale = {2.0f, 3.0f} };
-
-    auto const dst = SpriteGetDstRect(sprite, transform);
-
-    ASSERT_TRUE(dst.has_value());
-    EXPECT_FLOAT_EQ(dst->m_X, 10.0f);
-    EXPECT_FLOAT_EQ(dst->m_Y, 20.0f);
-    EXPECT_FLOAT_EQ(dst->m_Width, 64.0f);  // 32 * 2
-    EXPECT_FLOAT_EQ(dst->m_Height, 48.0f); // 16 * 3
-}
-
-TEST(SpriteGetDstRectTest, SourceRectSet_SizedFromSourceRectNotFullTexture)
-{
-    FakeTexture texture(asge::math::Int2{ 256, 256 }); // a big spritesheet
-    Sprite const sprite{ .m_Texture = &texture, .m_SourceRect = asge::math::Rect{ 0.0f, 0.0f, 16.0f, 24.0f } };
-    Transform const transform{ .m_WorldCoordinates = {5.0f, 5.0f}, .m_WorldScale = {1.0f, 1.0f} };
-
-    auto const dst = SpriteGetDstRect(sprite, transform);
-
-    ASSERT_TRUE(dst.has_value());
-    EXPECT_FLOAT_EQ(dst->m_Width, 16.0f);  // cropped cell's own width, not the sheet's
-    EXPECT_FLOAT_EQ(dst->m_Height, 24.0f);
-}
 
 // ─── SpriteGetDrawCorners ────────────────────────────────────────────────────
 

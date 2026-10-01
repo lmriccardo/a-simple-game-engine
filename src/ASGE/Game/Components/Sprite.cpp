@@ -2,33 +2,6 @@
 
 #include <cmath>
 
-std::optional<asge::math::Rect> asge::game::components::SpriteGetDstRect(
-    Sprite const& inSprite, Transform const& inT ) noexcept
-{
-    if ( !inSprite.m_Texture ) return std::nullopt;
-
-    auto const& texture = *inSprite.m_Texture;
-    auto const& srcRect = inSprite.m_SourceRect;
-    float srcW{}, srcH{};
-
-    if ( srcRect.has_value() )
-    {
-        srcW = srcRect->m_Width;
-        srcH = srcRect->m_Height;
-    }
-    else
-    {
-        math::Int2 const texSize = texture.Size();
-        srcW = static_cast<float>(texSize.x());
-        srcH = static_cast<float>(texSize.y());
-    }
-
-    return math::Rect{
-        inT.m_WorldCoordinates.x(), inT.m_WorldCoordinates.y(),
-        srcW * inT.m_WorldScale.x(), srcH * inT.m_WorldScale.y()
-    };
-}
-
 asge::game::components::SpriteDrawCorners asge::game::components::SpriteGetDrawCorners(
     math::Rect const& inDstRect, float inRotationRadians ) noexcept
 {

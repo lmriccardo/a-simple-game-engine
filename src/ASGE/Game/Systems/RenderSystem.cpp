@@ -12,6 +12,7 @@
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Utils/SpriteGeometry.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
@@ -151,10 +152,10 @@ math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noex
         inSize.x() * inT.m_WorldScale.x(), inSize.y() * inT.m_WorldScale.y() };
 }
 
-/** @brief Sprite's destination rect, or nullopt if it has no texture (see SpriteGetDstRect). */
+/** @brief Sprite's destination rect, or nullopt if it has no texture (see utils::SpriteGetDstRect). */
 std::optional<math::Rect> ComputeDstRect( Sprite const& inS, Transform const& inT ) noexcept
 {
-    auto const r = SpriteGetDstRect( inS, inT );
+    auto const r = game::utils::SpriteGetDstRect( inS, inT );
     return r.has_value() ? std::optional<math::Rect>{ *r } : std::nullopt;
 }
 
@@ -564,7 +565,7 @@ void asge::game::systems::CameraSystem(
     float followY = transform.m_WorldCoordinates.y();
     if ( auto spriteResult = inRegistry.GetComponent<components::Sprite>( entity ) )
     {
-        if ( auto dst = components::SpriteGetDstRect( spriteResult.Value().get(), transform ) )
+        if ( auto dst = game::utils::SpriteGetDstRect( spriteResult.Value().get(), transform ) )
         {
             followX = dst->m_X + dst->m_Width  * 0.5f;
             followY = dst->m_Y + dst->m_Height * 0.5f;

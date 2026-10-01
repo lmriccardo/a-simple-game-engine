@@ -77,6 +77,7 @@ add_library(ASGE STATIC
     Game/Components/Rigidbody.cpp
     Game/Components/Collider.cpp
     Game/Components/Sprite.cpp
+    Game/Utils/SpriteGeometry.cpp
     Game/Components/Animation.cpp
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp
