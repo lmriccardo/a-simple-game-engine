@@ -36,9 +36,6 @@ struct Sprite
     std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
 
-/** @brief inSprite's on-screen destination rect at inT's position/scale, or nullopt if it has no texture yet. */
-std::optional<math::Rect> SpriteGetDstRect( Sprite const& inSprite, Transform const& inT ) noexcept;
-
 /** @brief The three corners IRenderer::DrawTextureAffine maps a texture's (0,0)/(w,0)/(0,h) onto. */
 struct SpriteDrawCorners
 {
@@ -48,7 +45,7 @@ struct SpriteDrawCorners
 };
 
 /**
- * @brief inDstRect's own corners (as SpriteGetDstRect returns), rotated
+ * @brief inDstRect's own corners (as utils::SpriteGetDstRect returns), rotated
  *        inRotationRadians around inDstRect's center.
  *
  * Positive inRotationRadians rotates clockwise on screen (screen-space Y

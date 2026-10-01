@@ -1,5 +1,6 @@
 add_executable(ASGE_GameTests
     RenderSystemTests.cpp
+    SpriteGeometryTests.cpp
     PhysicsSystemTests.cpp
     PhysicsDebugSystemTests.cpp
     TransformPropagationSystemTests.cpp

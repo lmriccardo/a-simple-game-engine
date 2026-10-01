@@ -2,6 +2,7 @@
 
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Utils/SpriteGeometry.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
@@ -16,6 +17,7 @@
 #include <variant>
 
 using namespace asge::game::components;
+using asge::game::utils::SpriteGetDstRect;
 
 asge::math::Rect GetEntityWorldBounds(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, Transform const& inTransform ) noexcept
