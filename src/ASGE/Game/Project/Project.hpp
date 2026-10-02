@@ -25,6 +25,7 @@ struct ProjectData
     filesystem::Path         m_MainScene;      // the scene a game starts on; empty when the file names none
     int                      m_TargetWidth = 0;  // game window size from [View]; 0 when the file sets none
     int                      m_TargetHeight = 0;
+    int                      m_TargetFps = 0;    // game frame-rate cap from [View]; 0 when the file sets none
 };
 
 /**
