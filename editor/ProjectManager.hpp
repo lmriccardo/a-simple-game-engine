@@ -43,7 +43,7 @@ struct Project
 /**
  * @brief Writes inProject's own fields -- every current VirtualFileSystem
  *        mount, every texture/animation/audio/font path the Assets panel
- *        currently knows about, inGridSpacing/inTargetWidth/inTargetHeight,
+ *        currently knows about, inGridSpacing/inTargetWidth/inTargetHeight/inTargetFps,
  *        and inProject.m_Scenes' paths -- to inProject.m_FilePath as
  *        `.asgeproject` TOML.
  *
@@ -56,7 +56,7 @@ asge::BoolResult SaveProject(
     asge::filesystem::VirtualFileSystem const& inVfs,
     asge::ecs::Registry& inRegistry,
     Project const& inProject,
-    float inGridSpacing, int inTargetWidth, int inTargetHeight ) noexcept;
+    float inGridSpacing, int inTargetWidth, int inTargetHeight, int inTargetFps ) noexcept;
 
 /**
  * @brief Parses inPath as a `.asgeproject`: replaces inVfs's entire mount
@@ -73,7 +73,7 @@ asge::BoolResult LoadProject(
     asge::filesystem::VirtualFileSystem& inVfs,
     std::filesystem::path const& inPath,
     Project& outProject,
-    float& outGridSpacing, int& outTargetWidth, int& outTargetHeight ) noexcept;
+    float& outGridSpacing, int& outTargetWidth, int& outTargetHeight, int& outTargetFps ) noexcept;
 
 /**
  * @brief Writes `asge.session` (ambient "what does the editor currently
