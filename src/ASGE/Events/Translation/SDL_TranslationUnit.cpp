@@ -28,6 +28,8 @@ asge::input::Keycode asge::event::_internal::ToKeycode(SDL_Keycode inSdlKeycode)
     {
     case SDLK_ESCAPE: return input::Keycode::ESCAPE;
     case SDLK_SPACE:  return input::Keycode::SPACE;
+    case SDLK_RETURN:
+    case SDLK_KP_ENTER: return input::Keycode::ENTER;
     case SDLK_A: return input::Keycode::A;
     case SDLK_B: return input::Keycode::B;
     case SDLK_C: return input::Keycode::C;
@@ -79,6 +81,7 @@ SDL_Keycode asge::event::_internal::ToSdlKeycode(input::Keycode inKeycode) noexc
     {
     case input::Keycode::ESCAPE: return SDLK_ESCAPE;
     case input::Keycode::SPACE:  return SDLK_SPACE;
+    case input::Keycode::ENTER:  return SDLK_RETURN;
     case input::Keycode::A: return SDLK_A;
     case input::Keycode::B: return SDLK_B;
     case input::Keycode::C: return SDLK_C;
