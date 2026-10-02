@@ -54,6 +54,7 @@ asge::Result<asge::game::project::ProjectData> asge::game::project::LoadProjectF
         auto const view = doc.GetTable( "View" ).Value();
         data.m_TargetWidth = view.Get( "TargetWidth", 0 );
         data.m_TargetHeight = view.Get( "TargetHeight", 0 );
+        data.m_TargetFps = view.Get( "TargetFPS", 0 );
     }
 
     return Result<ProjectData>::Ok( std::move( data ) );
