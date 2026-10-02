@@ -203,6 +203,18 @@ protected:
         return component ? &component.Value().get() : nullptr;
     }
 
+    /** @brief The game-wide T shared by every scene (it outlives scene changes), or nullptr if SetResource<T>() was never called. */
+    template<typename T>
+    [[nodiscard]] T* GetResource() const
+    {
+        auto resource = GetRegistry().GetResource<T>();
+        return resource ? &resource.Value().get() : nullptr;
+    }
+
+    /** @brief Stores inValue as the game-wide T, replacing any previous one; use it for data that must carry across scenes. */
+    template<typename T>
+    void SetResource( T inValue ) const { GetRegistry().SetResource( std::move( inValue ) ); }
+
     /** @brief Connects inCallback to inSignal until this state exits. */
     template<typename... Args, typename Callback>
     void Connect( asge::signals::Signal<Args...>& inSignal, Callback&& inCallback )
@@ -332,6 +344,7 @@ asge::ApplicationConfig MakeApplicationConfig()
     {
         if ( project.Value().m_TargetWidth > 0 ) config.s_Width = project.Value().m_TargetWidth;
         if ( project.Value().m_TargetHeight > 0 ) config.s_Height = project.Value().m_TargetHeight;
+        if ( project.Value().m_TargetFps > 0 ) config.s_TargetFps = static_cast<std::uint64_t>( project.Value().m_TargetFps );
     }
     return config;
 }

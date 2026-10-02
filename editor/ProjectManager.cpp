@@ -26,7 +26,7 @@ asge::BoolResult SaveProject(
     asge::filesystem::VirtualFileSystem const& inVfs,
     asge::ecs::Registry& inRegistry,
     Project const& inProject,
-    float inGridSpacing, int inTargetWidth, int inTargetHeight ) noexcept
+    float inGridSpacing, int inTargetWidth, int inTargetHeight, int inTargetFps ) noexcept
 {
     asge::config::toml::TOMLBuilder builder;
     auto const projectDir = inProject.m_FilePath.parent_path();
@@ -59,6 +59,7 @@ asge::BoolResult SaveProject(
     viewTable.Set( "GridSpacing", inGridSpacing );
     viewTable.Set( "TargetWidth", inTargetWidth );
     viewTable.Set( "TargetHeight", inTargetHeight );
+    viewTable.Set( "TargetFPS", inTargetFps );
 
     return builder.SaveToFile( inProject.m_FilePath );
 }
@@ -67,7 +68,7 @@ asge::BoolResult LoadProject(
     asge::filesystem::VirtualFileSystem& inVfs,
     std::filesystem::path const& inPath,
     Project& outProject,
-    float& outGridSpacing, int& outTargetWidth, int& outTargetHeight ) noexcept
+    float& outGridSpacing, int& outTargetWidth, int& outTargetHeight, int& outTargetFps ) noexcept
 {
     // Parse first, before touching any live state -- a bad/missing
     // .asgeproject file must not unmount everything and leave the editor
@@ -120,6 +121,7 @@ asge::BoolResult LoadProject(
         outGridSpacing = viewTable.Get( "GridSpacing", outGridSpacing );
         outTargetWidth = viewTable.Get( "TargetWidth", outTargetWidth );
         outTargetHeight = viewTable.Get( "TargetHeight", outTargetHeight );
+        outTargetFps = viewTable.Get( "TargetFPS", outTargetFps );
     }
 
     return asge::BoolResult::Ok();

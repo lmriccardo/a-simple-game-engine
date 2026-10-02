@@ -573,6 +573,7 @@ int main(int, char**)
     // target game's window size" for this to read instead.
     int targetGameWidth = 1280;
     int targetGameHeight = 720;
+    int targetGameFps = 60;
 
     // Draft copies the View menu's Grid/Game Window modals edit -- only
     // copied back into gridSpacing/targetGameWidth/targetGameHeight on
@@ -582,6 +583,7 @@ int main(int, char**)
     float draftGridSpacing = gridSpacing;
     int draftTargetWidth = targetGameWidth;
     int draftTargetHeight = targetGameHeight;
+    int draftTargetFps = targetGameFps;
 
     // Phase 11: Create a Project modal's own draft fields, seeded (name/
     // folder cleared, grid/window defaulted to the live values) the frame
@@ -591,6 +593,7 @@ int main(int, char**)
     float createProjectGrid = gridSpacing;
     int createProjectWidth = targetGameWidth;
     int createProjectHeight = targetGameHeight;
+    int createProjectFps = targetGameFps;
 
     // Create a Scene modal's own draft field, plus its placeholder text --
     // ImGui::InputTextWithHint needs the hint string alive every frame it's
@@ -776,7 +779,7 @@ int main(int, char**)
         {
             Project loaded;
             auto const projectResult = LoadProject(
-                vfs, *sessionProjectPath, loaded, gridSpacing, targetGameWidth, targetGameHeight );
+                vfs, *sessionProjectPath, loaded, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps );
             if ( !projectResult )
             {
                 projectResult.LogError();
@@ -818,7 +821,7 @@ int main(int, char**)
     {
         if (!currentProject) return;
         auto const saveResult = SaveProject(
-            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
         if (!saveResult) saveResult.LogError();
         else LOG_INFO("Project saved to ", currentProject->m_FilePath.string());
     };
@@ -1241,7 +1244,7 @@ int main(int, char**)
 
                     currentProject->m_FilePath = path;
                     auto const saveResult = SaveProject(
-                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                     if (!saveResult) saveResult.LogError();
                     else LOG_INFO("Project saved to ", path.string());
                     UpdateWindowTitle(window, &*currentProject);
@@ -1274,14 +1277,14 @@ int main(int, char**)
                             }
                         }
                         auto const r = SaveProject(
-                            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                         if (!r) r.LogError();
                     }
                     sceneManager.UnloadScene();
                     sceneManager.ClearCache();
 
                     Project loaded;
-                    auto const loadResult = LoadProject(vfs, path, loaded, gridSpacing, targetGameWidth, targetGameHeight);
+                    auto const loadResult = LoadProject(vfs, path, loaded, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                     if (!loadResult)
                     {
                         loadResult.LogError();
@@ -1489,6 +1492,7 @@ int main(int, char**)
         {
             draftTargetWidth = targetGameWidth;
             draftTargetHeight = targetGameHeight;
+            draftTargetFps = targetGameFps;
             ImGui::OpenPopup("Game Window Settings");
         }
         if (openCppProjectModal) ImGui::OpenPopup("New C++ Project");
@@ -1510,6 +1514,7 @@ int main(int, char**)
             createProjectGrid = gridSpacing;
             createProjectWidth = targetGameWidth;
             createProjectHeight = targetGameHeight;
+            createProjectFps = targetGameFps;
             ImGui::OpenPopup("Create a Project");
         }
         if (openCreateSceneModal && currentProject)
@@ -1535,12 +1540,14 @@ int main(int, char**)
         {
             ImGui::DragInt("Target Width", &draftTargetWidth, 1.0f, 64, 7680);
             ImGui::DragInt("Target Height", &draftTargetHeight, 1.0f, 64, 4320);
+            ImGui::DragInt("Target FPS", &draftTargetFps, 1.0f, 1, 1000);
             if (ImGui::Button("Close")) ImGui::CloseCurrentPopup(); // discards the draft
             ImGui::SameLine();
             if (ImGui::Button("Apply"))
             {
                 targetGameWidth = draftTargetWidth;
                 targetGameHeight = draftTargetHeight;
+                targetGameFps = draftTargetFps;
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
@@ -1556,6 +1563,7 @@ int main(int, char**)
             ImGui::DragFloat("Grid Size", &createProjectGrid, 1.0f, 5.0f, 500.0f);
             ImGui::DragInt("Game Window Width", &createProjectWidth, 1.0f, 64, 7680);
             ImGui::DragInt("Game Window Height", &createProjectHeight, 1.0f, 64, 4320);
+            ImGui::DragInt("Target FPS", &createProjectFps, 1.0f, 1, 1000);
 
             bool const canCreate = !createProjectFolder.empty();
             if (!canCreate) ImGui::BeginDisabled();
@@ -1579,7 +1587,7 @@ int main(int, char**)
                         }
                     }
                     auto const r = SaveProject(
-                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                     if (!r) r.LogError();
                 }
 
@@ -1599,6 +1607,7 @@ int main(int, char**)
                 gridSpacing = createProjectGrid;
                 targetGameWidth = createProjectWidth;
                 targetGameHeight = createProjectHeight;
+                targetGameFps = createProjectFps;
 
                 Project newProject;
                 newProject.m_FilePath = createProjectFolder / (name + ".asgeproject");
@@ -1610,7 +1619,7 @@ int main(int, char**)
                 ResetEntityDisplayIds();
 
                 auto const saveResult = SaveProject(
-                    vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                    vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                 if (!saveResult) saveResult.LogError();
                 else LOG_INFO("Project created at ", currentProject->m_FilePath.string());
                 UpdateWindowTitle(window, &*currentProject);
@@ -1985,7 +1994,7 @@ int main(int, char**)
 
             ImGui::Text( "Grid: %.0f", gridSpacing );
             ImGui::SameLine();
-            ImGui::Text( "Game Window: %dx%d", targetGameWidth, targetGameHeight );
+            ImGui::Text( "Game Window: %dx%d @ %d FPS", targetGameWidth, targetGameHeight, targetGameFps );
 
             viewHudPos = ImGui::GetWindowPos();
             viewHudSize = ImGui::GetWindowSize();
