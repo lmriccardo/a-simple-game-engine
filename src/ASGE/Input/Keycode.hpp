@@ -56,6 +56,8 @@ enum class Keycode : std::uint32_t
     LEFT,
     RIGHT,
 
+    ENTER, // Return and keypad Enter
+
     COUNT // Sentinel - the number of known keycodes, not a real key
 };
 
