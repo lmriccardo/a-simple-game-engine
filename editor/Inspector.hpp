@@ -65,9 +65,10 @@ struct EntityListResult
  *        ecs::components::ForEachChild. Clicking a row selects it;
  *        right-clicking opens New Child/Detach/Remove; dragging one row onto
  *        another reparents it there (see HierarchyAction's own doc comment).
- * @param ioGroups The scene's groups: named folders of root entities shown above the
- *        ungrouped ones, edited from the entity context menu, by dragging a row onto a
- *        folder, or from the folder's own menu. Display only -- no engine state.
+ * @param ioGroups The scene's groups: named folders shown above the ungrouped entities of
+ *        their scope -- the top level, or one entity's children -- edited from the entity
+ *        context menu, by dragging a row onto a folder, or from the folder's own menu.
+ *        An entity only joins a group of its own parent. Display only -- no engine state.
  * @param inHasProject "Create Entity" is disabled while false -- a created
  *        entity gets no SceneId to tag it into anything without an active
  *        project/scene, so it'd just be an orphan Save can never reach.

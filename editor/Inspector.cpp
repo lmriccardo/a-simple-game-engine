@@ -134,6 +134,7 @@ bool DrawInspector( Transform& inT ) noexcept
         inT.m_Dirty = true;
         changed = true;
     }
+    ImGui::EndDisabled();
 
     if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_LocalRotation, 0.01f ) ) { inT.m_Dirty = true; changed = true; }
 
@@ -832,7 +833,7 @@ struct GroupOp
 
 struct GroupContext
 {
-    EntityGroupList const& m_Groups;
+    EntityGroupList&       m_Groups;
     GroupOp                m_Op;
     bool                   m_PromptForName = false; // m_Op needs a name from the Group Name modal first
 };
@@ -853,6 +854,19 @@ void RemoveFromAllGroups( EntityGroupList& ioGroups, asge::ecs::Entity inEntity 
 {
     for ( auto& group : ioGroups ) std::erase( group.m_Members, inEntity );
 }
+
+// inEntity's parent, or Null() for a top-level entity -- the scope a group it joins must have.
+asge::ecs::Entity ParentOf( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
+    return hierarchy ? hierarchy.Value().get().m_Parent : asge::ecs::Entity::Null();
+}
+
+// Draws the groups whose parent is inScope (Null() for the top level), then inChildren that no
+// group holds. Defined after DrawGroupNode, which draws a group's members through DrawEntityTreeNode.
+void DrawScope(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inScope, std::vector<asge::ecs::Entity> const& inChildren,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept;
 
 // Phase 13: one row of DrawEntityListPanel's tree, recursing into
 // inEntity's own children (if any) via ecs::components::ForEachChild.
@@ -922,16 +936,21 @@ void DrawEntityTreeNode(
 
     if ( ImGui::BeginPopupContextItem() )
     {
-        if ( isRoot )
         {
+            // An entity can only join a group of its own scope: a top-level entity a
+            // top-level group, a child a group under that same parent.
+            auto const parent = hierarchy ? hierarchy.Value().get().m_Parent : asge::ecs::Entity::Null();
             if ( ImGui::BeginMenu( "Move to Group" ) )
             {
+                bool listed = false;
                 for ( std::size_t i = 0; i < ioGroups.m_Groups.size(); ++i )
                 {
+                    if ( ioGroups.m_Groups[i].m_Parent != parent ) continue;
+                    listed = true;
                     std::string const item = ioGroups.m_Groups[i].m_Name + "##move" + std::to_string( i );
                     if ( ImGui::MenuItem( item.c_str() ) ) ioGroups.m_Op = { GroupOpKind::MoveTo, i, inEntity };
                 }
-                if ( !ioGroups.m_Groups.empty() ) ImGui::Separator();
+                if ( listed ) ImGui::Separator();
                 if ( ImGui::MenuItem( "New Group..." ) )
                 {
                     ioGroups.m_Op = { GroupOpKind::NewWith, 0, inEntity };
@@ -942,6 +961,11 @@ void DrawEntityTreeNode(
             bool const grouped = FindGroupOf( ioGroups.m_Groups, inEntity ) != kNoGroup;
             if ( ImGui::MenuItem( "Remove from Group", nullptr, false, grouped ) )
                 ioGroups.m_Op = { GroupOpKind::RemoveFrom, 0, inEntity };
+            if ( hasChildren && ImGui::MenuItem( "New Child Group..." ) )
+            {
+                ioGroups.m_Op = { GroupOpKind::NewEmpty, 0, inEntity }; // scoped to this entity's children
+                ioGroups.m_PromptForName = true;
+            }
             ImGui::Separator();
         }
         if ( ImGui::MenuItem( "New Child" ) )
@@ -973,7 +997,7 @@ void DrawEntityTreeNode(
         std::vector<asge::ecs::Entity> children;
         asge::ecs::components::ForEachChild(
             inRegistry, inEntity, [&]( asge::ecs::Entity inChild ) { children.push_back( inChild ); } );
-        for ( auto child : children ) DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult, ioGroups );
+        DrawScope( inRegistry, inEntity, children, ioSelected, ioResult, ioGroups );
     }
     if ( open && hasChildren ) ImGui::TreePop();
 }
@@ -1018,6 +1042,22 @@ void DrawGroupNode(
     auto const members = ioGroup.m_Members; // copied: drawing a row may queue, never apply, a change
     for ( auto member : members ) DrawEntityTreeNode( inRegistry, member, ioSelected, ioResult, ioGroups );
     ImGui::TreePop();
+}
+
+void DrawScope(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inScope, std::vector<asge::ecs::Entity> const& inChildren,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept
+{
+    for ( std::size_t i = 0; i < ioGroups.m_Groups.size(); ++i )
+    {
+        if ( ioGroups.m_Groups[i].m_Parent == inScope )
+            DrawGroupNode( inRegistry, ioGroups.m_Groups[i], i, ioSelected, ioResult, ioGroups );
+    }
+    for ( auto child : inChildren )
+    {
+        if ( FindGroupOf( ioGroups.m_Groups, child ) == kNoGroup )
+            DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult, ioGroups );
+    }
 }
 
 }
@@ -1126,10 +1166,20 @@ EntityListResult DrawEntityListPanel(
         return GetOrAssignDisplayId( inA ) < GetOrAssignDisplayId( inB );
     } );
 
-    // A member that was deleted, or that became someone's child, is no longer a
-    // top-level entity -- drop it rather than show a stale row.
-    std::unordered_set<asge::ecs::Entity> const rootSet( roots.begin(), roots.end() );
-    for ( auto& group : ioGroups ) std::erase_if( group.m_Members, [&]( asge::ecs::Entity inE ) { return !rootSet.contains( inE ); } );
+    // A group whose parent is gone, or a member that was deleted or moved under another
+    // parent, no longer belongs -- drop it rather than show a stale row.
+    std::unordered_set<asge::ecs::Entity> const alive( entities.begin(), entities.end() );
+    std::erase_if( ioGroups, [&]( EntityGroup const& inGroup )
+    {
+        return inGroup.m_Parent != asge::ecs::Entity::Null() && !alive.contains( inGroup.m_Parent );
+    } );
+    for ( auto& group : ioGroups )
+    {
+        std::erase_if( group.m_Members, [&]( asge::ecs::Entity inE )
+        {
+            return !alive.contains( inE ) || ParentOf( inRegistry, inE ) != group.m_Parent;
+        } );
+    }
 
     GroupContext groupCtx{ ioGroups, {}, false };
     if ( createGroupClicked )
@@ -1138,18 +1188,15 @@ EntityListResult DrawEntityListPanel(
         groupCtx.m_PromptForName = true;
     }
 
-    for ( std::size_t i = 0; i < ioGroups.size(); ++i ) DrawGroupNode( inRegistry, ioGroups[i], i, ioSelected, result, groupCtx );
-    for ( auto root : roots )
-    {
-        if ( FindGroupOf( ioGroups, root ) == kNoGroup ) DrawEntityTreeNode( inRegistry, root, ioSelected, result, groupCtx );
-    }
+    DrawScope( inRegistry, asge::ecs::Entity::Null(), roots, ioSelected, result, groupCtx );
 
     // Applied only now that nothing is iterating the groups any more.
     auto const& op = groupCtx.m_Op;
     switch ( op.m_Kind )
     {
     case GroupOpKind::MoveTo:
-        if ( op.m_Group < ioGroups.size() && rootSet.contains( op.m_Entity ) )
+        if ( op.m_Group < ioGroups.size() && alive.contains( op.m_Entity )
+          && ParentOf( inRegistry, op.m_Entity ) == ioGroups[op.m_Group].m_Parent )
         {
             RemoveFromAllGroups( ioGroups, op.m_Entity );
             ioGroups[op.m_Group].m_Members.push_back( op.m_Entity );
@@ -1199,14 +1246,16 @@ EntityListResult DrawEntityListPanel(
         {
             switch ( s_NameOp.m_Kind )
             {
-            case GroupOpKind::NewEmpty:
-                ioGroups.push_back( EntityGroup{ s_NameBuffer, {}, true } );
+            case GroupOpKind::NewEmpty: // m_Entity is the parent whose children it holds, Null() for the top level
+                if ( s_NameOp.m_Entity == asge::ecs::Entity::Null() || alive.contains( s_NameOp.m_Entity ) )
+                    ioGroups.push_back( EntityGroup{ s_NameBuffer, {}, true, s_NameOp.m_Entity } );
                 break;
             case GroupOpKind::NewWith:
-                if ( rootSet.contains( s_NameOp.m_Entity ) )
+                if ( alive.contains( s_NameOp.m_Entity ) )
                 {
+                    auto const parent = ParentOf( inRegistry, s_NameOp.m_Entity );
                     RemoveFromAllGroups( ioGroups, s_NameOp.m_Entity );
-                    ioGroups.push_back( EntityGroup{ s_NameBuffer, { s_NameOp.m_Entity }, true } );
+                    ioGroups.push_back( EntityGroup{ s_NameBuffer, { s_NameOp.m_Entity }, true, parent } );
                 }
                 break;
             case GroupOpKind::Rename:
