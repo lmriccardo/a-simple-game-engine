@@ -1,4 +1,5 @@
 #include "SceneSerializer.hpp"
+#include <utility>
 #include <vector>
 #include <ASGE/Core/Configuration/TOML_Builder.hpp>
 #include <ASGE/Game/Components.hpp>
@@ -7,7 +8,7 @@
 #include "IdContext.hpp"
 
 asge::BoolResult asge::game::scene::SceneSerializer::Save(
-    ecs::Registry const &inRegistry, filesystem::Path const &inPath) const noexcept
+    ecs::Registry const &inRegistry, filesystem::Path const &inPath, SaveContext* outCtx) const noexcept
 {
     config::toml::TOMLBuilder builder;
     
@@ -43,26 +44,29 @@ asge::BoolResult asge::game::scene::SceneSerializer::Save(
         }, components::SerializableComponents{} );
     } );
 
-    return builder.SaveToFile( inPath );
+    if ( auto result = builder.SaveToFile( inPath ); !result ) return result;
+
+    if ( outCtx ) *outCtx = std::move( ctx );
+    return BoolResult::Ok();
 }
 
 asge::BoolResult asge::game::scene::SceneSerializer::Load(
-    ecs::Registry &dstRegistry, str::String const &inVirtualPath) const noexcept
+    ecs::Registry &dstRegistry, str::String const &inVirtualPath, LoadContext* outCtx) const noexcept
 {
     // Resolve the input virtual path
     auto resolveResult = m_Vfs.Resolve( inVirtualPath );
     if ( !resolveResult ) return BoolResult::Err( resolveResult.Error() );
-    return LoadResolved( dstRegistry, resolveResult.Value() );
+    return LoadResolved( dstRegistry, resolveResult.Value(), outCtx );
 }
 
 asge::BoolResult asge::game::scene::SceneSerializer::LoadFromFile(
-    ecs::Registry &dstRegistry, filesystem::Path const &inPath) const noexcept
+    ecs::Registry &dstRegistry, filesystem::Path const &inPath, LoadContext* outCtx) const noexcept
 {
-    return LoadResolved( dstRegistry, inPath );
+    return LoadResolved( dstRegistry, inPath, outCtx );
 }
 
 asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
-    ecs::Registry &dstRegistry, filesystem::Path const &scenePath) const noexcept
+    ecs::Registry &dstRegistry, filesystem::Path const &scenePath, LoadContext* outCtx) const noexcept
 {
     // Read the content of the file
     auto readResult = filesystem::ReadText( scenePath );
@@ -174,5 +178,6 @@ asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
     // so rebuild them from the parent pointers before anything walks them.
     ecs::components::SanitizeHierarchy( dstRegistry, createdThisCall );
 
+    if ( outCtx ) *outCtx = std::move( ctx );
     return BoolResult::Ok();
 }
