@@ -4,6 +4,7 @@ add_executable(ASGE_MathTests
     CircleTests.cpp
     RectTests.cpp
     CatmullRomSplineTests.cpp
+    TweenTests.cpp
 )
 
 target_link_libraries(ASGE_MathTests
