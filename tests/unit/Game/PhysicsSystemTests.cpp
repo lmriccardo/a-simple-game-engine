@@ -1,6 +1,6 @@
 #include <ASGE/Game/Systems/PhysicsSystem.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
-#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Velocity.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
