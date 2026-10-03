@@ -780,3 +780,67 @@ TEST_F(SceneManagerTest, DuplicateEntity_DoesNotShareTheSourcesHierarchyLinks)
     EXPECT_EQ(links.m_FirstChild, asge::ecs::Entity::Null());
     EXPECT_EQ(links.m_LastChild, asge::ecs::Entity::Null());
 }
+
+// ─── Entity id maps: SaveScene / LoadScene contexts, TakeRestoredEntities ───
+
+TEST_F(SceneManagerTest, SaveScene_ContextMapsEachLiveEntityToItsIndexInTheFile)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    BuildFamily(manager);
+
+    SaveContext ctx;
+    ASSERT_TRUE(manager.SaveScene(m_Root / "saved.toml", &ctx).IsOk());
+
+    auto const active = manager.ActiveEntities();
+    ASSERT_EQ(ctx.m_Ids.size(), active.size());
+    for ( auto entity : active ) EXPECT_TRUE(ctx.m_Ids.contains(entity));
+
+    // Loading that file again, each index leads back to an entity with the same marker.
+    SceneManager reloaded{ m_Vfs };
+    LoadContext loaded;
+    ASSERT_TRUE(reloaded.LoadSceneFromFile(m_Root / "saved.toml", &loaded).IsOk());
+    for ( auto entity : active )
+    {
+        auto const before = manager.GetRegistry().GetComponent<Velocity>(entity).Value().get().m_DX;
+        auto const again = loaded.Resolve(static_cast<int>(ctx.m_Ids.at(entity)));
+        ASSERT_NE(again, asge::ecs::Entity::Null());
+        EXPECT_FLOAT_EQ(reloaded.GetRegistry().GetComponent<Velocity>(again).Value().get().m_DX, before);
+    }
+}
+
+TEST_F(SceneManagerTest, LoadSceneFromFile_ContextIsFilledOnlyWhenTheFileWasActuallyRead)
+{
+    WriteValidScene(m_ScenePath);
+    SceneManager manager{ m_Vfs };
+
+    LoadContext first;
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath, &first).IsOk());
+    EXPECT_EQ(first.m_Entities.size(), 1u);
+
+    LoadContext again;
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath, &again).IsOk()); // already active
+    EXPECT_TRUE(again.m_Entities.empty());
+}
+
+TEST_F(SceneManagerTest, TakeRestoredEntities_MapsEntitiesFromBeforeASuspendToTheirRestoredCopies)
+{
+    WriteValidScene(m_ScenePath, 5.0f);
+    auto const otherPath = m_Root / "other.toml";
+    WriteValidScene(otherPath, 1.0f);
+
+    SceneManager manager{ m_Vfs };
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk());
+    auto const before = manager.ActiveEntities().at(0);
+
+    ASSERT_TRUE(manager.LoadSceneFromFile(otherPath).IsOk());
+    EXPECT_TRUE(manager.TakeRestoredEntities().empty()); // a disk load restores nothing
+
+    ASSERT_TRUE(manager.LoadSceneFromFile(m_ScenePath).IsOk()); // restored from its snapshot
+    auto const restored = manager.TakeRestoredEntities();
+
+    ASSERT_TRUE(restored.contains(before));
+    EXPECT_EQ(restored.at(before), manager.ActiveEntities().at(0));
+    EXPECT_TRUE(manager.TakeRestoredEntities().empty()); // taking clears it
+}

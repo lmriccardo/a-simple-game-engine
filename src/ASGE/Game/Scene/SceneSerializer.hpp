@@ -3,6 +3,7 @@
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
+#include "IdContext.hpp"
 
 namespace asge::game::scene
 {
@@ -30,30 +31,36 @@ public:
      * @brief Writes every currently-alive entity in inRegistry to inPath as
      *        TOML: one `[[entity]]` array-of-tables entry per entity, with
      *        a subtable for each serializable component it currently has.
+     * @param outCtx If non-null, receives each entity's index in the file (m_Ids).
      * @return Ok on success, or the underlying filesystem::WriteText error.
      */
-    BoolResult Save( ecs::Registry const& inRegistry, filesystem::Path const& inPath ) const noexcept;
+    BoolResult Save(
+        ecs::Registry const& inRegistry, filesystem::Path const& inPath, SaveContext* outCtx = nullptr ) const noexcept;
 
     /**
      * @brief Populates dstRegistry from a scene file previously written by
      *        Save(): one fresh CreateEntity() per `[[entity]]` block, with
      *        every serializable component present re-added via its Serializer.
+     * @param outCtx If non-null, receives each file index's new entity (m_Entities) on success.
      * @return Ok on success. On any failure, only the entities this call
      *         itself created are rolled back — anything already in
      *         dstRegistry before the call is never touched, win or lose.
      */
-    BoolResult Load( ecs::Registry& dstRegistry, str::String const& inVirtualPath ) const noexcept;
+    BoolResult Load(
+        ecs::Registry& dstRegistry, str::String const& inVirtualPath, LoadContext* outCtx = nullptr ) const noexcept;
 
     /**
      * @brief Same as Load(), but for a scene file addressed by a real
      *        filesystem path instead of one resolved through the VFS.
      * @return Ok on success, with the same partial-load rollback guarantee as Load().
      */
-    BoolResult LoadFromFile( ecs::Registry& dstRegistry, filesystem::Path const& inPath ) const noexcept;
+    BoolResult LoadFromFile(
+        ecs::Registry& dstRegistry, filesystem::Path const& inPath, LoadContext* outCtx = nullptr ) const noexcept;
 
 private:
     // Shared body of Load()/LoadFromFile() once inPath has been resolved to a real path.
-    BoolResult LoadResolved( ecs::Registry& dstRegistry, filesystem::Path const& inPath ) const noexcept;
+    BoolResult LoadResolved(
+        ecs::Registry& dstRegistry, filesystem::Path const& inPath, LoadContext* outCtx ) const noexcept;
 };
 
 }
