@@ -33,6 +33,7 @@ add_library(ASGE STATIC
     Core/Math/Geometry/Collision.cpp
     Core/Math/Interpolation/CatmullRomSpline.cpp
     Core/Math/Geometry/Rect.cpp
+    Core/Math/Interpolation/Easing.cpp
 
     # Core graphics value types (backend-agnostic; PixelFormat is header-only)
     Core/Graphics/Color.cpp
