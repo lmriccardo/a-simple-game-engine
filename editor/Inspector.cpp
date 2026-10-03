@@ -29,6 +29,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace asge::game::components;
 
@@ -812,6 +813,42 @@ void DrawClosedEyeIcon( ImDrawList* inDrawList, ImVec2 inCenter, float inRadius,
     inDrawList->AddLine( right, ImVec2{ right.x + inRadius * 0.35f, right.y + inRadius * 0.5f }, inColor, 1.5f );
 }
 
+// What a click in the Entities panel asked of the groups this frame. Applied
+// after the whole tree is drawn, never mid-walk, since drawing iterates the
+// very lists an operation would change.
+enum class GroupOpKind { None, NewEmpty, NewWith, MoveTo, RemoveFrom, Delete, Rename };
+
+struct GroupOp
+{
+    GroupOpKind       m_Kind   = GroupOpKind::None;
+    std::size_t       m_Group  = 0;
+    asge::ecs::Entity m_Entity = asge::ecs::Entity::Null();
+};
+
+struct GroupContext
+{
+    EntityGroupList const& m_Groups;
+    GroupOp                m_Op;
+    bool                   m_PromptForName = false; // m_Op needs a name from the Group Name modal first
+};
+
+constexpr std::size_t kNoGroup = static_cast<std::size_t>( -1 );
+
+std::size_t FindGroupOf( EntityGroupList const& inGroups, asge::ecs::Entity inEntity ) noexcept
+{
+    for ( std::size_t i = 0; i < inGroups.size(); ++i )
+    {
+        auto const& members = inGroups[i].m_Members;
+        if ( std::find( members.begin(), members.end(), inEntity ) != members.end() ) return i;
+    }
+    return kNoGroup;
+}
+
+void RemoveFromAllGroups( EntityGroupList& ioGroups, asge::ecs::Entity inEntity ) noexcept
+{
+    for ( auto& group : ioGroups ) std::erase( group.m_Members, inEntity );
+}
+
 // Phase 13: one row of DrawEntityListPanel's tree, recursing into
 // inEntity's own children (if any) via ecs::components::ForEachChild.
 // Reports at most one HierarchyAction into ioResult per frame -- New Child/
@@ -824,7 +861,7 @@ void DrawClosedEyeIcon( ImDrawList* inDrawList, ImVec2 inCenter, float inRadius,
 // here would invalidate the child list this recursion is still iterating.
 void DrawEntityTreeNode(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity,
-    asge::ecs::Entity& ioSelected, EntityListResult& ioResult ) noexcept
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept
 {
     auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
     bool const isRoot = !hierarchy || hierarchy.Value().get().m_Parent == asge::ecs::Entity::Null();
@@ -880,6 +917,28 @@ void DrawEntityTreeNode(
 
     if ( ImGui::BeginPopupContextItem() )
     {
+        if ( isRoot )
+        {
+            if ( ImGui::BeginMenu( "Move to Group" ) )
+            {
+                for ( std::size_t i = 0; i < ioGroups.m_Groups.size(); ++i )
+                {
+                    std::string const item = ioGroups.m_Groups[i].m_Name + "##move" + std::to_string( i );
+                    if ( ImGui::MenuItem( item.c_str() ) ) ioGroups.m_Op = { GroupOpKind::MoveTo, i, inEntity };
+                }
+                if ( !ioGroups.m_Groups.empty() ) ImGui::Separator();
+                if ( ImGui::MenuItem( "New Group..." ) )
+                {
+                    ioGroups.m_Op = { GroupOpKind::NewWith, 0, inEntity };
+                    ioGroups.m_PromptForName = true;
+                }
+                ImGui::EndMenu();
+            }
+            bool const grouped = FindGroupOf( ioGroups.m_Groups, inEntity ) != kNoGroup;
+            if ( ImGui::MenuItem( "Remove from Group", nullptr, false, grouped ) )
+                ioGroups.m_Op = { GroupOpKind::RemoveFrom, 0, inEntity };
+            ImGui::Separator();
+        }
         if ( ImGui::MenuItem( "New Child" ) )
         {
             ioResult.m_Action = HierarchyAction::NewChild;
@@ -909,9 +968,51 @@ void DrawEntityTreeNode(
         std::vector<asge::ecs::Entity> children;
         asge::ecs::components::ForEachChild(
             inRegistry, inEntity, [&]( asge::ecs::Entity inChild ) { children.push_back( inChild ); } );
-        for ( auto child : children ) DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult );
+        for ( auto child : children ) DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult, ioGroups );
     }
     if ( open && hasChildren ) ImGui::TreePop();
+}
+
+// One group folder of DrawEntityListPanel: its members as ordinary tree rows
+// underneath, a drop target for rows dragged onto it, and its own menu.
+void DrawGroupNode(
+    asge::ecs::Registry& inRegistry, EntityGroup& ioGroup, std::size_t inIndex,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept
+{
+    // The folder's open state lives in the group; forcing it each frame and
+    // reading back what the click made of it keeps the two in step.
+    ImGui::SetNextItemOpen( ioGroup.m_Open, ImGuiCond_Always );
+    std::string const label =
+        ioGroup.m_Name + " (" + std::to_string( ioGroup.m_Members.size() ) + ")##group" + std::to_string( inIndex );
+    ioGroup.m_Open = ImGui::TreeNodeEx( label.c_str(), ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth );
+
+    if ( ImGui::BeginDragDropTarget() )
+    {
+        if ( auto const* payload = ImGui::AcceptDragDropPayload( "ASGE_ENTITY" ) )
+        {
+            asge::ecs::Entity dragged;
+            std::memcpy( &dragged, payload->Data, sizeof( dragged ) );
+            ioGroups.m_Op = { GroupOpKind::MoveTo, inIndex, dragged };
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    if ( ImGui::BeginPopupContextItem() )
+    {
+        if ( ImGui::MenuItem( "Rename..." ) )
+        {
+            ioGroups.m_Op = { GroupOpKind::Rename, inIndex, asge::ecs::Entity::Null() };
+            ioGroups.m_PromptForName = true;
+        }
+        if ( ImGui::MenuItem( "Delete Group" ) ) ioGroups.m_Op = { GroupOpKind::Delete, inIndex, asge::ecs::Entity::Null() };
+        ImGui::EndPopup();
+    }
+
+    if ( !ioGroup.m_Open ) return;
+
+    auto const members = ioGroup.m_Members; // copied: drawing a row may queue, never apply, a change
+    for ( auto member : members ) DrawEntityTreeNode( inRegistry, member, ioSelected, ioResult, ioGroups );
+    ImGui::TreePop();
 }
 
 }
@@ -971,8 +1072,14 @@ void ResetEntityDisplayIds() noexcept
     g_NextEntityDisplayId = 0;
 }
 
-EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
+EntityListResult DrawEntityListPanel(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject,
+    EntityGroupList& ioGroups ) noexcept
 {
+    // Which group operation the open Group Name modal will apply once it gets a name.
+    static GroupOp s_NameOp;
+    static char    s_NameBuffer[64] = "";
+
     // Anchored flush to the right edge, re-snapping only on an actual
     // resize -- see AnchorCondOnResize's own doc comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
@@ -990,6 +1097,7 @@ EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs
     // not here -- this panel only reports the click, same division of labor
     // as "Create Entity" itself.
     result.m_CreateUIElementClicked = ImGui::Button( "Create UI Element" );
+    bool const createGroupClicked = ImGui::Button( "Create Group" );
     if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
 
@@ -1013,7 +1121,104 @@ EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs
         return GetOrAssignDisplayId( inA ) < GetOrAssignDisplayId( inB );
     } );
 
-    for ( auto root : roots ) DrawEntityTreeNode( inRegistry, root, ioSelected, result );
+    // A member that was deleted, or that became someone's child, is no longer a
+    // top-level entity -- drop it rather than show a stale row.
+    std::unordered_set<asge::ecs::Entity> const rootSet( roots.begin(), roots.end() );
+    for ( auto& group : ioGroups ) std::erase_if( group.m_Members, [&]( asge::ecs::Entity inE ) { return !rootSet.contains( inE ); } );
+
+    GroupContext groupCtx{ ioGroups, {}, false };
+    if ( createGroupClicked )
+    {
+        groupCtx.m_Op = { GroupOpKind::NewEmpty, 0, asge::ecs::Entity::Null() };
+        groupCtx.m_PromptForName = true;
+    }
+
+    for ( std::size_t i = 0; i < ioGroups.size(); ++i ) DrawGroupNode( inRegistry, ioGroups[i], i, ioSelected, result, groupCtx );
+    for ( auto root : roots )
+    {
+        if ( FindGroupOf( ioGroups, root ) == kNoGroup ) DrawEntityTreeNode( inRegistry, root, ioSelected, result, groupCtx );
+    }
+
+    // Applied only now that nothing is iterating the groups any more.
+    auto const& op = groupCtx.m_Op;
+    switch ( op.m_Kind )
+    {
+    case GroupOpKind::MoveTo:
+        if ( op.m_Group < ioGroups.size() && rootSet.contains( op.m_Entity ) )
+        {
+            RemoveFromAllGroups( ioGroups, op.m_Entity );
+            ioGroups[op.m_Group].m_Members.push_back( op.m_Entity );
+            result.m_GroupsChanged = true;
+        }
+        break;
+    case GroupOpKind::RemoveFrom:
+        RemoveFromAllGroups( ioGroups, op.m_Entity );
+        result.m_GroupsChanged = true;
+        break;
+    case GroupOpKind::Delete:
+        if ( op.m_Group < ioGroups.size() )
+        {
+            ioGroups.erase( ioGroups.begin() + static_cast<std::ptrdiff_t>( op.m_Group ) );
+            result.m_GroupsChanged = true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    // The name prompt is opened here, at the window's own ID level -- opening it from
+    // inside a row's popup would hash to a different ID than BeginPopupModal below.
+    if ( groupCtx.m_PromptForName )
+    {
+        s_NameOp = groupCtx.m_Op;
+        if ( s_NameOp.m_Kind == GroupOpKind::Rename && s_NameOp.m_Group < ioGroups.size() )
+            std::snprintf( s_NameBuffer, sizeof( s_NameBuffer ), "%s", ioGroups[s_NameOp.m_Group].m_Name.c_str() );
+        else
+            std::snprintf( s_NameBuffer, sizeof( s_NameBuffer ), "%s", "New Group" );
+        ImGui::OpenPopup( "Group Name" );
+    }
+
+    if ( ImGui::BeginPopupModal( "Group Name", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        if ( ImGui::IsWindowAppearing() ) ImGui::SetKeyboardFocusHere();
+        bool const submitted = ImGui::InputText( "##GroupName", s_NameBuffer, sizeof( s_NameBuffer ), ImGuiInputTextFlags_EnterReturnsTrue );
+
+        bool const canApply = s_NameBuffer[0] != '\0';
+        if ( !canApply ) ImGui::BeginDisabled();
+        bool const okClicked = ImGui::Button( "OK" );
+        if ( !canApply ) ImGui::EndDisabled();
+        ImGui::SameLine();
+        bool const cancelled = ImGui::Button( "Cancel" );
+
+        if ( canApply && ( submitted || okClicked ) )
+        {
+            switch ( s_NameOp.m_Kind )
+            {
+            case GroupOpKind::NewEmpty:
+                ioGroups.push_back( EntityGroup{ s_NameBuffer, {}, true } );
+                break;
+            case GroupOpKind::NewWith:
+                if ( rootSet.contains( s_NameOp.m_Entity ) )
+                {
+                    RemoveFromAllGroups( ioGroups, s_NameOp.m_Entity );
+                    ioGroups.push_back( EntityGroup{ s_NameBuffer, { s_NameOp.m_Entity }, true } );
+                }
+                break;
+            case GroupOpKind::Rename:
+                if ( s_NameOp.m_Group < ioGroups.size() ) ioGroups[s_NameOp.m_Group].m_Name = s_NameBuffer;
+                break;
+            default:
+                break;
+            }
+            result.m_GroupsChanged = true;
+            ImGui::CloseCurrentPopup();
+        }
+        else if ( cancelled )
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 
     ImGui::End();
 
