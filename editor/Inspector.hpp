@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EntityGroups.hpp"
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
@@ -51,6 +52,7 @@ struct EntityListResult
 {
     bool              m_CreateClicked           = false;
     bool              m_CreateUIElementClicked  = false;
+    bool              m_GroupsChanged           = false; // a group was created, renamed, deleted or had members moved -- the scene should be saved again
     HierarchyAction   m_Action        = HierarchyAction::None;
     asge::ecs::Entity m_Target        = asge::ecs::Entity::Null(); // entity m_Action applies to (the dragged entity, for Reparent)
     asge::ecs::Entity m_NewParent     = asge::ecs::Entity::Null(); // Reparent only: the row it was dropped onto
@@ -63,6 +65,9 @@ struct EntityListResult
  *        ecs::components::ForEachChild. Clicking a row selects it;
  *        right-clicking opens New Child/Detach/Remove; dragging one row onto
  *        another reparents it there (see HierarchyAction's own doc comment).
+ * @param ioGroups The scene's groups: named folders of root entities shown above the
+ *        ungrouped ones, edited from the entity context menu, by dragging a row onto a
+ *        folder, or from the folder's own menu. Display only -- no engine state.
  * @param inHasProject "Create Entity" is disabled while false -- a created
  *        entity gets no SceneId to tag it into anything without an active
  *        project/scene, so it'd just be an orphan Save can never reach.
@@ -72,7 +77,8 @@ struct EntityListResult
  *         DestroyEntityGraph calls -- this file only reports what was asked.
  */
 EntityListResult DrawEntityListPanel(
-    asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept;
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject,
+    EntityGroupList& ioGroups ) noexcept;
 
 /**
  * @brief Which entity-lifecycle action (if any) DrawInspectorPanel's buttons
