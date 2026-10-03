@@ -5,6 +5,7 @@
 #include "../Components/Collider.hpp"
 #include "../Components/Rigidbody.hpp"
 #include "../Components/PathFollow.hpp"
+#include "../Components/Hierarchy.hpp"
 #include "../Events.hpp"
 
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
@@ -12,6 +13,7 @@
 #include "TransformPropagationSystem.hpp"
 
 #include <cmath>
+#include <unordered_map>
 
 namespace
 {
@@ -26,6 +28,8 @@ using namespace asge::math;
 // frame's rendering one step stale.
 void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& inDelta ) noexcept
 {
+    if ( inDelta.x() == 0.0f && inDelta.y() == 0.0f ) return;
+
     inT.m_LocalCoordinates.x() += inDelta.x();
     inT.m_LocalCoordinates.y() += inDelta.y();
     inT.m_WorldCoordinates.x() += inDelta.x();
@@ -36,6 +40,51 @@ void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& i
 
 constexpr float kGravity = 980.0f; // pixel/s^2
 
+// The entity that actually moves when inShape's collider is pushed: inShape
+// itself, or its nearest ancestor with a Rigidbody and a Velocity -- so a
+// compound body (a player with several child colliders) is pushed as a whole.
+// With no such ancestor it's inShape itself (static geometry, or a lone body).
+Entity BodyOf( Registry& inRegistry, Entity inShape ) noexcept
+{
+    for ( Entity current = inShape; current != Entity::Null(); )
+    {
+        if ( inRegistry.GetComponent<Rigidbody>( current ) && inRegistry.GetComponent<Velocity>( current ) )
+            return current;
+
+        auto hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( current );
+        if ( !hierarchy ) break;
+        current = hierarchy.Value().get().m_Parent;
+    }
+
+    return inShape;
+}
+
+// Moves every descendant's world position by inDelta, so a pushed body's child
+// colliders and sprites follow it now rather than at the next propagation.
+void ShiftDescendants( Registry& inRegistry, Entity inRoot, Float2 const& inDelta ) noexcept
+{
+    asge::ecs::components::ForEachChild( inRegistry, inRoot, [&]( Entity inChild )
+    {
+        if ( auto t = inRegistry.GetComponent<Transform>( inChild ) )
+        {
+            t.Value().get().m_WorldCoordinates.x() += inDelta.x();
+            t.Value().get().m_WorldCoordinates.y() += inDelta.y();
+        }
+        ShiftDescendants( inRegistry, inChild, inDelta );
+    } );
+}
+
+// The part of a correction inWanted along one axis not already applied
+// (inApplied) to the same body this pass: two shapes of one body touching the
+// same wall must push it out once, not twice.
+float RemainingCorrection( float inApplied, float inWanted ) noexcept
+{
+    if ( inWanted * inApplied <= 0.0f ) return inWanted; // nothing applied yet, or the other way
+    return std::abs( inWanted ) > std::abs( inApplied ) ? inWanted - inApplied : 0.0f;
+}
+
+using AppliedCorrections = std::unordered_map<Entity, Float2>;
+
 /**
  * @brief Pushes e1/e2 apart along mtv, splitting the correction by mass
  *        ratio when both are movable — the actual push-out logic for a
@@ -45,7 +94,7 @@ constexpr float kGravity = 980.0f; // pixel/s^2
  */
 void ResolveSolidCollision(
     Registry &inRegistry, Entity e1, Transform& t1, Entity e2, Transform& t2, 
-    Float2 const& mtv  ) noexcept
+    Float2 const& mtv, AppliedCorrections& ioApplied ) noexcept
 {
     auto vel1 = inRegistry.GetComponent<Velocity>( e1 );
     auto vel2 = inRegistry.GetComponent<Velocity>( e2 );
@@ -69,17 +118,21 @@ void ResolveSolidCollision(
         share2 = m1 / totalMass;
     }
     
-    if ( movable1 )
+    // Applies inWanted to inBody net of what this pass already moved it by,
+    // then drags its descendants along.
+    auto const push = [&]( Entity inBody, Transform& inT, Velocity& inV, Float2 const& inWanted )
     {
-        ApplyCorrection( 
-            t1, vel1.Value().get(), { mtv.x() * share1, mtv.y() * share1 } );
-    }
+        auto& applied = ioApplied[inBody];
+        Float2 const delta{ RemainingCorrection( applied.x(), inWanted.x() ),
+                            RemainingCorrection( applied.y(), inWanted.y() ) };
+        applied = Float2{ applied.x() + delta.x(), applied.y() + delta.y() };
 
-    if ( movable2 )
-    {
-        ApplyCorrection( 
-            t2, vel2.Value().get(), { -mtv.x() * share2, -mtv.y() * share2 } );
-    }
+        ApplyCorrection( inT, inV, delta );
+        ShiftDescendants( inRegistry, inBody, delta );
+    };
+
+    if ( movable1 ) push( e1, t1, vel1.Value().get(), { mtv.x() * share1, mtv.y() * share1 } );
+    if ( movable2 ) push( e2, t2, vel2.Value().get(), { -mtv.x() * share2, -mtv.y() * share2 } );
 }
 }
 
@@ -145,6 +198,9 @@ asge::game::systems::DetectCollisions(ecs::Registry &inRegistry) noexcept
 
             if ( !mtv ) continue;
 
+            // Two shapes of one compound body never collide with each other.
+            if ( BodyOf( inRegistry, e1 ) == BodyOf( inRegistry, e2 ) ) continue;
+
             // Unknown means "unrecognized/not configured" (only reachable
             // via a Collider set up outside the normal Solid/Trigger API,
             // e.g. hand-edited TOML) -- ignore the pair entirely rather
@@ -173,19 +229,22 @@ asge::game::systems::DetectCollisions(ecs::Registry &inRegistry) noexcept
 void asge::game::systems::ResolveCollisions(
     ecs::Registry &inRegistry, std::span<CollisionContact const> inContacts) noexcept
 {
+    AppliedCorrections applied;
+
     for ( auto& contact : inContacts )
     {
         if ( contact.m_IsTrigger ) continue;
 
-        auto const e1 = contact.m_Entity1;
-        auto const e2 = contact.m_Entity2;
+        // A shape is pushed through its body (see BodyOf), not on its own.
+        auto const e1 = BodyOf( inRegistry, contact.m_Entity1 );
+        auto const e2 = BodyOf( inRegistry, contact.m_Entity2 );
+        if ( e1 == e2 ) continue;
 
-        auto& t1 = inRegistry.GetComponent<components::Transform>( e1 ).Value().get();
-        auto& t2 = inRegistry.GetComponent<components::Transform>( e2 ).Value().get();
+        auto t1 = inRegistry.GetComponent<components::Transform>( e1 );
+        auto t2 = inRegistry.GetComponent<components::Transform>( e2 );
+        if ( !t1 || !t2 ) continue;
 
-        auto const mtv = contact.m_Penetration;
-
-        ResolveSolidCollision( inRegistry, e1, t1, e2, t2, mtv );
+        ResolveSolidCollision( inRegistry, e1, t1.Value().get(), e2, t2.Value().get(), contact.m_Penetration, applied );
     }
 }
 

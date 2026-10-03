@@ -75,6 +75,11 @@ std::vector<CollisionContact> DetectCollisions( ecs::Registry& inRegistry ) noex
  * the heavier body yields less — rather than evenly. Zeroes velocity on
  * whichever axis was corrected, so a resolved entity doesn't immediately
  * re-penetrate next frame.
+ *
+ * A collider on a child is pushed through its body: the nearest ancestor with a
+ * Rigidbody and Velocity, which moves its descendants with it. Several shapes of
+ * one body overlapping the same obstacle push it out once, not once per shape,
+ * and shapes of the same body never collide with each other.
  */
 void ResolveCollisions( ecs::Registry& inRegistry, std::span<CollisionContact const> inContacts ) noexcept;
 
