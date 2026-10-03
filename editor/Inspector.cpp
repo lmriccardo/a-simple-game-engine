@@ -123,6 +123,10 @@ bool DrawInspector( Transform& inT ) noexcept
 {
     bool changed = false;
 
+    if ( ImGui::Checkbox( "Locked", &inT.m_Locked ) ) changed = true;
+
+    // A locked entity can't be moved from here either, same as in the viewport.
+    ImGui::BeginDisabled( inT.m_Locked );
     float pos[2]{ inT.m_LocalCoordinates.x(), inT.m_LocalCoordinates.y() };
     if ( ImGui::DragFloat2( "Position", pos ) )
     {

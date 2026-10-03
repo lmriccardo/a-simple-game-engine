@@ -1127,10 +1127,13 @@ int main(int, char**)
                     // needing two absolute ScreenToWorld calls to subtract.
                     float const zoom = videoSys.GetRenderer().GetCamera().m_Zoom;
                     auto& t = transformResult.Value().get();
-                    if (dragAxis != GizmoAxis::Y) t.m_LocalCoordinates.x() += event.motion.xrel / zoom;
-                    if (dragAxis != GizmoAxis::X) t.m_LocalCoordinates.y() += event.motion.yrel / zoom;
-                    t.m_Dirty = true;
-                    MarkActiveSceneDirty(currentProject);
+                    if (!t.m_Locked) // locked entities are selectable but never dragged
+                    {
+                        if (dragAxis != GizmoAxis::Y) t.m_LocalCoordinates.x() += event.motion.xrel / zoom;
+                        if (dragAxis != GizmoAxis::X) t.m_LocalCoordinates.y() += event.motion.yrel / zoom;
+                        t.m_Dirty = true;
+                        MarkActiveSceneDirty(currentProject);
+                    }
                 }
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION && draggingWaypointIndex >= 0)

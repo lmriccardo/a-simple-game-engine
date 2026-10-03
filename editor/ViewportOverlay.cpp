@@ -80,6 +80,7 @@ std::optional<GizmoHandlePoints> ComputeGizmoHandles(
 {
     auto transformResult = inRegistry.GetComponent<Transform>( inSelected );
     if ( !transformResult ) return std::nullopt;
+    if ( transformResult.Value().get().m_Locked ) return std::nullopt; // no arms on an entity that can't move
 
     auto const worldBounds = GetEntityWorldBounds( inRegistry, inSelected, transformResult.Value().get() );
 
