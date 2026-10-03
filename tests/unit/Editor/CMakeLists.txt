@@ -4,11 +4,13 @@ add_executable(ASGE_EditorTests
     ToolchainTests.cpp
     BuildOutputTests.cpp
     EntityGroupsTests.cpp
+    AssetTreeTests.cpp
     ${CMAKE_SOURCE_DIR}/editor/CppProject.cpp
     ${CMAKE_SOURCE_DIR}/editor/CppBuild.cpp
     ${CMAKE_SOURCE_DIR}/editor/Toolchain.cpp
     ${CMAKE_SOURCE_DIR}/editor/BuildOutput.cpp
     ${CMAKE_SOURCE_DIR}/editor/EntityGroups.cpp
+    ${CMAKE_SOURCE_DIR}/editor/AssetTree.cpp
 )
 
 target_include_directories(ASGE_EditorTests PRIVATE "${CMAKE_SOURCE_DIR}/editor")
