@@ -86,6 +86,49 @@ TEST_F(EntityGroupsTest, SaveThenLoad_RoundTripsNamesAndMembersThroughFileIndice
     EXPECT_TRUE(loaded[1].m_Members.empty());
 }
 
+TEST_F(EntityGroupsTest, RemapGroupMembers_RemapsTheParentAndDropsGroupsWhoseParentIsGone)
+{
+    Entity const parent{ 1, 0 }, orphanParent{ 2, 0 }, child{ 3, 0 }, newParent{ 8, 1 }, newChild{ 9, 1 };
+    EntityGroupList groups{ { "Kids", { child }, true, parent }, { "Lost", { child }, true, orphanParent } };
+
+    RemapGroupMembers(groups, { { parent, newParent }, { child, newChild } });
+
+    ASSERT_EQ(groups.size(), 1u);
+    EXPECT_EQ(groups[0].m_Parent, newParent);
+    ASSERT_EQ(groups[0].m_Members.size(), 1u);
+    EXPECT_EQ(groups[0].m_Members[0], newChild);
+}
+
+TEST_F(EntityGroupsTest, SaveThenLoad_KeepsAChildGroupUnderItsParent)
+{
+    Entity const parent{ 10, 0 }, child{ 11, 0 };
+    EntityGroupList groups{ { "Top", {}, true }, { "Kids", { child }, true, parent } };
+
+    SaveContext saveCtx;
+    saveCtx.m_Ids = { { parent, 0u }, { child, 1u } };
+    ASSERT_TRUE(SaveGroupsFile(m_Scene, groups, saveCtx).IsOk());
+
+    Entity const newParent{ 4, 2 }, newChild{ 5, 2 };
+    LoadContext loadCtx;
+    loadCtx.m_Entities = { { 0u, newParent }, { 1u, newChild } };
+    auto const loaded = LoadGroupsFile(m_Scene, loadCtx);
+
+    ASSERT_EQ(loaded.size(), 2u);
+    EXPECT_EQ(loaded[0].m_Parent, Entity::Null()); // the top-level group stays top level
+    EXPECT_EQ(loaded[1].m_Parent, newParent);
+    ASSERT_EQ(loaded[1].m_Members.size(), 1u);
+    EXPECT_EQ(loaded[1].m_Members[0], newChild);
+}
+
+TEST_F(EntityGroupsTest, SaveThenLoad_SkipsAGroupWhoseParentIsNotInTheScene)
+{
+    Entity const stranger{ 50, 0 };
+    SaveContext saveCtx; // knows nothing about the parent
+    ASSERT_TRUE(SaveGroupsFile(m_Scene, { { "Kids", {}, true, stranger } }, saveCtx).IsOk());
+
+    EXPECT_TRUE(LoadGroupsFile(m_Scene, LoadContext{}).empty());
+}
+
 TEST_F(EntityGroupsTest, SaveGroupsFile_WithNoGroups_RemovesTheFile)
 {
     SaveContext ctx;

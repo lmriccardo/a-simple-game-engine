@@ -10,14 +10,16 @@
 #include <ASGE/Game/Scene/IdContext.hpp>
 
 /**
- * @brief A named folder of top-level entities in the Entities panel. Purely a
- *        view over the scene: it changes nothing in the engine or in the scene file.
+ * @brief A named folder in the Entities panel, holding entities that share one parent: the
+ *        scene's top-level entities when m_Parent is Null(), else that entity's children.
+ *        Purely a view over the scene: it changes nothing in the engine or in the scene file.
  */
 struct EntityGroup
 {
     std::string                     m_Name;
     std::vector<asge::ecs::Entity>  m_Members;
-    bool                            m_Open = true; // folder expanded in the panel
+    bool                            m_Open = true;                          // folder expanded in the panel
+    asge::ecs::Entity               m_Parent = asge::ecs::Entity::Null();   // Null() = top level; else the entity whose children it holds
 };
 
 using EntityGroupList = std::vector<EntityGroup>;
@@ -31,15 +33,15 @@ void ClearAllGroups() noexcept;
 /** @brief Moves inOldScenePath's groups under inNewScenePath, for a scene saved under a new name. */
 void RenameGroupScene( std::string const& inOldScenePath, std::string const& inNewScenePath ) noexcept;
 
-/** @brief Replaces each member found in inRestored with its new handle and drops those not in it (see SceneManager::TakeRestoredEntities). */
+/** @brief Replaces each member and parent found in inRestored with its new handle and drops those not in it, and any group whose parent is gone (see SceneManager::TakeRestoredEntities). */
 void RemapGroupMembers( EntityGroupList& ioGroups, std::unordered_map<asge::ecs::Entity, asge::ecs::Entity> const& inRestored ) noexcept;
 
 /** @brief Where a scene's groups are stored: its own path plus ".groups", next to it. */
 std::filesystem::path GroupsFilePath( std::filesystem::path const& inScenePath ) noexcept;
 
 /**
- * @brief Writes inGroups next to inScenePath, each member as its index in the scene file
- *        (from inCtx, as SceneManager::SaveScene filled it). Removes the file if there is
+ * @brief Writes inGroups next to inScenePath, each member and parent as its index in the scene
+ *        file (from inCtx, as SceneManager::SaveScene filled it). Removes the file if there is
  *        nothing to store, so a scene without groups leaves no file behind.
  */
 asge::BoolResult SaveGroupsFile(
