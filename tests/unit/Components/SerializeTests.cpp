@@ -117,6 +117,21 @@ TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_FLOAT_EQ(restored.m_LocalScale.y(), 1.0f);
 }
 
+TEST(TransformSerializerTest, Locked_RoundTripsAndDefaultsToUnlocked)
+{
+    TOMLBuilder locked;
+    Serializer<Transform>::ToToml( Transform{ .m_Locked = true }, locked, asge::game::scene::SaveContext{} );
+    EXPECT_TRUE(Serializer<Transform>::FromToml( locked, asge::game::scene::LoadContext{} ).m_Locked);
+
+    TOMLBuilder unlocked;
+    Serializer<Transform>::ToToml( Transform{}, unlocked, asge::game::scene::SaveContext{} );
+    EXPECT_FALSE(Serializer<Transform>::FromToml( unlocked, asge::game::scene::LoadContext{} ).m_Locked);
+
+    TOMLBuilder oldFile; // a scene written before the field existed
+    oldFile.Table("Transform");
+    EXPECT_FALSE(Serializer<Transform>::FromToml( oldFile, asge::game::scene::LoadContext{} ).m_Locked);
+}
+
 // ─── Velocity ─────────────────────────────────────────────────────────────
 
 TEST(VelocitySerializerTest, ToToml_WritesFieldsUnderVelocityTable)

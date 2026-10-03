@@ -24,6 +24,7 @@ struct Transform
     math::Float2 m_LocalCoordinates{0.0f, 0.0f}; // Position relative to the parent (or absolute, if a root)
     math::Float2 m_LocalScale{ 1.0f, 1.0f };     // Scale relative to the parent (or absolute, if a root)
     float m_LocalRotation{0.0f}; // radians, relative to the parent (or absolute, if a root)
+    bool  m_Locked{false};       // The editor won't let this entity be moved (viewport drag, Position field); the engine does not enforce it
 
     // Runtime computed coordinates
     math::Float2 m_WorldCoordinates{0.0f, 0.0f}; // Absolute position -- what rendering/collision read
@@ -37,7 +38,7 @@ struct Transform
 namespace asge::game::scene
 {
 
-/** @brief Round-trips the three m_Local* fields only -- see the struct's own doc comment for why m_World* and m_Dirty are runtime-only. */
+/** @brief Round-trips the three m_Local* fields and m_Locked only -- see the struct's own doc comment for why m_World* and m_Dirty are runtime-only. */
 template<>
 struct Serializer<components::Transform>
 {
