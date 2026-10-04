@@ -41,6 +41,7 @@ struct RenderInfoResolved
     ecs::Entity   m_Owner;      // Entity whose sort key this item shares (self, unless inheriting)
     std::uint32_t m_Depth;      // Hops up the inheritance chain to m_Owner; 0 if this entity owns its own sort key
     int           m_LocalOrder; // This entity's own RenderInfo::m_LocalOrder, tie-break among entities sharing m_Owner
+    float         m_SortOffsetY;// This entity's own RenderInfo::m_SortOffsetY, added to its bottom edge when it owns its sort key
 };
 
 using Visual = std::variant<Sprite const*, UIRect const*>;
@@ -52,7 +53,7 @@ struct DrawItem
     game::components::Transform const* m_Transform;
     Visual                             m_Visual;
     RenderInfoResolved                 m_RenderInfo;
-    float                              m_SortY;     // Bottom edge (position.y + drawn height), for y-sort
+    float                              m_SortY;     // Bottom edge (position.y + drawn height + RenderInfo::m_SortOffsetY), for y-sort
     math::Rect                         m_DstRect;
 };
 
@@ -97,7 +98,7 @@ RenderInfoResolved ResolveRenderInfo( ecs::Registry const& inReg, ecs::Entity in
 
     RenderInfoResolved resolved{
         targetRi.m_Layer, targetRi.m_YSort, targetRi.m_ScreenSpace,
-        inTarget, 0, targetRi.m_LocalOrder
+        inTarget, 0, targetRi.m_LocalOrder, targetRi.m_SortOffsetY
     };
 
     auto hResult = inReg.GetComponent<asge::ecs::components::Hierarchy>( inTarget );
@@ -171,8 +172,8 @@ std::optional<math::Rect> GetAnyDstRect( ecs::Registry const& inReg, ecs::Entity
     return std::nullopt;
 }
 
-/** @brief inOwner's own bottom-edge Y (Transform + Sprite, if it has one), for an item inheriting inOwner's sort key 
- * -- or inFallback if inOwner has no Transform. */
+/** @brief inOwner's own sort Y -- bottom edge (Transform + Sprite, if it has one) plus its RenderInfo::m_SortOffsetY --
+ * for an item inheriting inOwner's sort key, or inFallback if inOwner has no Transform. */
 float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float inFallback ) noexcept
 {
     auto tResult = inReg.GetComponent<Transform>( inOwner );
@@ -180,7 +181,9 @@ float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float 
 
     auto const& transform = tResult.Value().get();
     auto const  dst = GetAnyDstRect( inReg, inOwner, transform );
-    return transform.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f );
+    auto const offset = inReg.GetComponent<RenderInfo>( inOwner );
+    return transform.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f )
+        + ( offset ? offset.Value().get().m_SortOffsetY : 0.0f );
 }
 
 // ---- Collection: identical for every visual type ------------------------------
@@ -200,7 +203,7 @@ void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<Dra
         RenderInfoResolved const render = ResolveRenderInfo( inReg, entity );
         if ( !render.m_ScreenSpace && !math::AabbOverlap( *dst, inVisible ) ) continue;
 
-        float const ownSortY = t.m_WorldCoordinates.y() + dst->m_Height;
+        float const ownSortY = t.m_WorldCoordinates.y() + dst->m_Height + render.m_SortOffsetY;
         float const sortY = ( render.m_Owner == entity )
             ? ownSortY
             : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
@@ -468,7 +471,7 @@ SortKey ComputeSortKey( ecs::Registry const& inReg, ecs::Entity inEntity ) noexc
     {
         auto const& t = tResult.Value().get();
         auto const dst = GetAnyDstRect( inReg, inEntity, t );
-        float const ownSortY = t.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f );
+        float const ownSortY = t.m_WorldCoordinates.y() + ( dst ? dst->m_Height : 0.0f ) + render.m_SortOffsetY;
         sortY = ( render.m_Owner == inEntity ) ? ownSortY : ComputeOwnerSortY( inReg, render.m_Owner, ownSortY );
     }
 

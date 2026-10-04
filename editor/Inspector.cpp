@@ -179,6 +179,7 @@ bool DrawInspector( RenderInfo& inRenderInfo ) noexcept
     if ( ImGui::Checkbox( "Screen Space", &inRenderInfo.m_ScreenSpace ) ) changed = true;
     if ( ImGui::Checkbox( "Inherit Sort From Parent", &inRenderInfo.m_InheritSortFromParent ) ) changed = true;
     if ( ImGui::DragInt( "Local Order", &inRenderInfo.m_LocalOrder ) ) changed = true;
+    if ( ImGui::DragFloat( "Sort Offset Y", &inRenderInfo.m_SortOffsetY ) ) changed = true;
     return changed;
 }
 

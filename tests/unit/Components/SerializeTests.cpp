@@ -1242,7 +1242,7 @@ TEST(RenderInfoSerializerTest, ToToml_WritesAllFieldsUnderRenderInfoTable)
     Serializer<RenderInfo>::ToToml(
         RenderInfo{
             .m_Layer = 3, .m_YSort = true, .m_ScreenSpace = true,
-            .m_InheritSortFromParent = true, .m_LocalOrder = -1
+            .m_InheritSortFromParent = true, .m_LocalOrder = -1, .m_SortOffsetY = -47.0f
         },
         builder, asge::game::scene::SaveContext{} );
 
@@ -1253,6 +1253,7 @@ TEST(RenderInfoSerializerTest, ToToml_WritesAllFieldsUnderRenderInfoTable)
     EXPECT_NE(dump.find("m_ScreenSpace = true"), std::string::npos);
     EXPECT_NE(dump.find("m_InheritSortFromParent = true"), std::string::npos);
     EXPECT_NE(dump.find("m_LocalOrder = -1"), std::string::npos);
+    EXPECT_NE(dump.find("m_SortOffsetY = -47"), std::string::npos);
 }
 
 TEST(RenderInfoSerializerTest, RoundTripsThroughToTomlAndFromToml)
@@ -1260,7 +1261,7 @@ TEST(RenderInfoSerializerTest, RoundTripsThroughToTomlAndFromToml)
     TOMLBuilder builder;
     RenderInfo const original{
         .m_Layer = 5, .m_YSort = true, .m_ScreenSpace = true,
-        .m_InheritSortFromParent = true, .m_LocalOrder = 2
+        .m_InheritSortFromParent = true, .m_LocalOrder = 2, .m_SortOffsetY = 12.5f
     };
     Serializer<RenderInfo>::ToToml( original, builder, asge::game::scene::SaveContext{} );
 
@@ -1270,6 +1271,7 @@ TEST(RenderInfoSerializerTest, RoundTripsThroughToTomlAndFromToml)
     EXPECT_EQ(restored.m_ScreenSpace, original.m_ScreenSpace);
     EXPECT_EQ(restored.m_InheritSortFromParent, original.m_InheritSortFromParent);
     EXPECT_EQ(restored.m_LocalOrder, original.m_LocalOrder);
+    EXPECT_FLOAT_EQ(restored.m_SortOffsetY, original.m_SortOffsetY);
 }
 
 TEST(RenderInfoSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
@@ -1283,6 +1285,7 @@ TEST(RenderInfoSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_FALSE(restored.m_ScreenSpace);
     EXPECT_FALSE(restored.m_InheritSortFromParent);
     EXPECT_EQ(restored.m_LocalOrder, 0);
+    EXPECT_FLOAT_EQ(restored.m_SortOffsetY, 0.0f); // scenes written before the field existed sort exactly as before
 }
 
 }
