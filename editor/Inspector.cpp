@@ -178,12 +178,24 @@ bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTex
 // Phase 14: every field round-trips through Serializer<RenderInfo> verbatim
 // (no asset path/entity reference to reconcile), so unlike Sprite's own
 // section every edit here can just report "changed" directly.
-bool DrawInspector( RenderInfo& inRenderInfo ) noexcept
+//
+// An entity that inherits its sort from a parent draws with that parent's
+// resolved layer and y-sort, so its own are ignored (RenderSystem's
+// ResolveRenderInfo) -- but only if it actually has a parent, which is what
+// inHasParent says. Both fields are greyed out then, rather than left
+// looking editable while doing nothing.
+bool DrawInspector( RenderInfo& inRenderInfo, bool inHasParent ) noexcept
 {
+    bool const inherits = inRenderInfo.m_InheritSortFromParent && inHasParent;
+
+    ImGui::BeginDisabled( inherits );
     bool changed = ImGui::DragInt( "Layer", &inRenderInfo.m_Layer );
     if ( ImGui::Checkbox( "Y-Sort", &inRenderInfo.m_YSort ) ) changed = true;
+    ImGui::EndDisabled();
+
     if ( ImGui::Checkbox( "Screen Space", &inRenderInfo.m_ScreenSpace ) ) changed = true;
     if ( ImGui::Checkbox( "Inherit Sort From Parent", &inRenderInfo.m_InheritSortFromParent ) ) changed = true;
+    if ( inherits ) ImGui::TextDisabled( "Layer and Y-Sort come from the parent." );
     if ( ImGui::DragInt( "Local Order", &inRenderInfo.m_LocalOrder ) ) changed = true;
     if ( ImGui::DragFloat( "Sort Offset Y", &inRenderInfo.m_SortOffsetY ) ) changed = true;
     return changed;
@@ -1365,7 +1377,8 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= rigidbodyChanged;
     bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
-    bool const renderInfoChanged = DrawSection<RenderInfo>( inRegistry, inSelected, "RenderInfo" );
+    bool const renderInfoChanged = DrawSection<RenderInfo>(
+        inRegistry, inSelected, "RenderInfo", ParentOf( inRegistry, inSelected ) != asge::ecs::Entity::Null() );
     fieldChanged |= renderInfoChanged;
     bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider", inSelected, ioColliderDraw );
     fieldChanged |= colliderChanged;
