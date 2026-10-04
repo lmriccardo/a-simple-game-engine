@@ -8,7 +8,8 @@ void asge::game::scene::Serializer<asge::game::components::RenderInfo>::ToToml(
            .Set( "m_YSort", inValue.m_YSort )
            .Set( "m_ScreenSpace", inValue.m_ScreenSpace )
            .Set( "m_InheritSortFromParent", inValue.m_InheritSortFromParent )
-           .Set( "m_LocalOrder", inValue.m_LocalOrder );
+           .Set( "m_LocalOrder", inValue.m_LocalOrder )
+           .Set( "m_SortOffsetY", inValue.m_SortOffsetY );
 }
 
 asge::game::components::RenderInfo
@@ -23,5 +24,6 @@ asge::game::scene::Serializer<asge::game::components::RenderInfo>::FromToml(
     result.m_ScreenSpace = table.Get( "m_ScreenSpace", false );
     result.m_InheritSortFromParent = table.Get( "m_InheritSortFromParent", false );
     result.m_LocalOrder = table.Get( "m_LocalOrder", int{0} );
+    result.m_SortOffsetY = table.Get( "m_SortOffsetY", 0.0f );
     return result;
 }

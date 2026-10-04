@@ -73,7 +73,7 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
  * default, or resources::ScreenSpaceCamera's own value if that resource is
  * set -- see its own doc comment for why) restored to the world camera once
  * the last one is drawn; within that, by RenderInfo::m_Layer, then
- * bottom-edge Y when either side opted into RenderInfo::m_YSort, then by
+ * bottom-edge Y (shifted by RenderInfo::m_SortOffsetY) when either side opted into RenderInfo::m_YSort, then by
  * sort owner and m_LocalOrder for entities under a components::Hierarchy
  * parent with m_InheritSortFromParent set, and finally by entity index for
  * a stable order.

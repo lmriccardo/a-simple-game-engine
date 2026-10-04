@@ -12,7 +12,10 @@ namespace asge::game::components
  * RenderInfo{} (layer 0, no y-sort, world space). m_InheritSortFromParent
  * lets a Hierarchy subtree share its nearest ancestor's m_Layer, m_YSort
  * and sort owner instead of sorting independently; m_ScreenSpace always
- * propagates to descendants regardless. See RenderSystem.cpp's
+ * propagates to descendants regardless. m_SortOffsetY shifts where the
+ * entity sorts relative to its bottom edge, for sprites whose ground
+ * contact is not at the bottom of the texture (e.g. transparent padding).
+ * See RenderSystem.cpp's
  * ResolveRenderInfo for exactly how ancestors are walked.
  */
 struct RenderInfo
@@ -22,6 +25,7 @@ struct RenderInfo
     bool m_ScreenSpace          {false}; // Draws in screen space, on top of every world-space entity; propagates to children regardless of m_InheritSortFromParent
     bool m_InheritSortFromParent{false}; // Adopt the nearest ancestor's resolved m_Layer/m_YSort/sort owner instead of this entity's own
     int  m_LocalOrder           {0};     // Tie-break among entities sharing the same sort owner; -1 means show behind the parent
+    float m_SortOffsetY         {0.0f};  // Added to the y-sort key (the bottom edge), in world units; negative moves the sort point up. Ignored while inheriting, like m_Layer/m_YSort
 };
 
 }

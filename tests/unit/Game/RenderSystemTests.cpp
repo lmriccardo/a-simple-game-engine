@@ -322,6 +322,92 @@ TEST(RenderSystemTest, YSort_SortsByBottomEdgeWithinSameLayer)
     EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 1.0f);
 }
 
+TEST(RenderSystemTest, YSort_SortOffsetY_ShiftsWhereTheSpriteSortsAgainstItsBottomEdge)
+{
+    Registry registry;
+    FakeTexture tall(asge::math::Int2{ 10, 170 });
+    FakeTexture playerTexture(asge::math::Int2{ 10, 62 });
+    RecordingRenderer renderer;
+
+    auto car = registry.CreateEntity(); // key 396 + 170 = 566 without the offset, 519 with it
+    ASSERT_TRUE(car.IsOk());
+    ASSERT_TRUE(registry.AddComponent(car.Value(), Transform{ .m_WorldCoordinates = {1.0f, 396.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(car.Value(), Sprite{ .m_Texture = &tall }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(car.Value(), RenderInfo{ .m_YSort = true, .m_SortOffsetY = -47.0f }).IsOk());
+
+    auto player = registry.CreateEntity(); // key 489 + 62 = 551: below the car's visible edge
+    ASSERT_TRUE(player.IsOk());
+    ASSERT_TRUE(registry.AddComponent(player.Value(), Transform{ .m_WorldCoordinates = {2.0f, 489.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(player.Value(), Sprite{ .m_Texture = &playerTexture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(player.Value(), RenderInfo{ .m_YSort = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 1.0f); // car first, so the player draws on top of it
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 2.0f);
+    EXPECT_TRUE(asge::game::systems::IsDrawnAbove(registry, player.Value(), car.Value()));
+}
+
+TEST(RenderSystemTest, YSort_SortOffsetY_DefaultsToTheBottomEdgeSoExistingScenesAreUnchanged)
+{
+    Registry registry;
+    FakeTexture tall(asge::math::Int2{ 10, 170 });
+    FakeTexture playerTexture(asge::math::Int2{ 10, 62 });
+    RecordingRenderer renderer;
+
+    auto car = registry.CreateEntity();
+    ASSERT_TRUE(car.IsOk());
+    ASSERT_TRUE(registry.AddComponent(car.Value(), Transform{ .m_WorldCoordinates = {1.0f, 396.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(car.Value(), Sprite{ .m_Texture = &tall }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(car.Value(), RenderInfo{ .m_YSort = true }).IsOk());
+
+    auto player = registry.CreateEntity();
+    ASSERT_TRUE(player.IsOk());
+    ASSERT_TRUE(registry.AddComponent(player.Value(), Transform{ .m_WorldCoordinates = {2.0f, 489.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(player.Value(), Sprite{ .m_Texture = &playerTexture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(player.Value(), RenderInfo{ .m_YSort = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 2.0f); // player's key 551 < car's 566: the old behaviour
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 1.0f);
+}
+
+TEST(RenderSystemTest, InheritSortFromParent_UsesTheOwnersSortOffsetNotTheChildsOwn)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 10, 10 });
+    RecordingRenderer renderer;
+
+    // The parent sorts at y 10 + 100 (its offset); the child's own offset must not matter.
+    auto parent = registry.CreateEntity();
+    ASSERT_TRUE(parent.IsOk());
+    ASSERT_TRUE(registry.AddComponent(parent.Value(), Transform{ .m_WorldCoordinates = {0.0f, 10.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(parent.Value(), RenderInfo{ .m_YSort = true, .m_SortOffsetY = 100.0f }).IsOk());
+
+    auto child = registry.CreateEntity();
+    ASSERT_TRUE(child.IsOk());
+    ASSERT_TRUE(registry.AddComponent(child.Value(), Transform{ .m_WorldCoordinates = {1.0f, 20.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(child.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(child.Value(),
+        RenderInfo{ .m_InheritSortFromParent = true, .m_SortOffsetY = -1000.0f }).IsOk());
+    AttachChild( registry, parent.Value(), child.Value() );
+
+    auto sibling = registry.CreateEntity(); // key 50 + 10 = 60: above the parent's 110, below nothing else
+    ASSERT_TRUE(sibling.IsOk());
+    ASSERT_TRUE(registry.AddComponent(sibling.Value(), Transform{ .m_WorldCoordinates = {2.0f, 50.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(sibling.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(sibling.Value(), RenderInfo{ .m_YSort = true }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_Calls.size(), 2u);
+    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_X, 2.0f); // sibling (60) before the child (parent's 110)
+    EXPECT_FLOAT_EQ(renderer.m_Calls[1].m_DestRect.m_X, 1.0f);
+}
+
 TEST(RenderSystemTest, YSort_TiedBottomEdge_FallsBackToEntityIndex)
 {
     Registry registry;
