@@ -1382,6 +1382,71 @@ TEST(RenderSystemTest, UILabel_LeftAlign_DrawnAtRectsLeftEdge)
     EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.x(), 100.0f); // rect's left edge, untouched
 }
 
+TEST(RenderSystemTest, UILabel_MultiLineText_EachLineDrawnOneLineHeightApart_AndAlignedOnItsOwn)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {0.0f, 0.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {200.0f, 100.0f} }).IsOk());
+
+    UILabel label;
+    label.m_AutoSize = false;
+    label.m_Text = "Hi\nWorld";
+    label.m_Align = asge::str::TextAlign::Right;
+    label.m_VerticalAlign = asge::game::components::VerticalAlign::Top;
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 2u);
+    EXPECT_EQ(renderer.m_StringCalls[0].m_Text, "Hi");
+    EXPECT_EQ(renderer.m_StringCalls[1].m_Text, "World");
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[0].m_Position.x(), 200.0f - 2 * 20.0f);
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[1].m_Position.x(), 200.0f - 5 * 20.0f);
+    EXPECT_FLOAT_EQ(renderer.m_StringCalls[1].m_Position.y() - renderer.m_StringCalls[0].m_Position.y(),
+                    static_cast<float>(font.GetLineHeight()));
+}
+
+TEST(RenderSystemTest, UILabel_WordWrap_BreaksTextToTheRectsWidth)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    auto fontResult = asge::media::Font::Load( AhemPath(), 20 );
+    ASSERT_TRUE(fontResult.IsOk());
+    asge::media::Font font = std::move(fontResult).Value();
+    FakeTexture atlasTexture( asge::math::Int2{ 8, 8 } );
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {0.0f, 0.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), UIRect{ .m_Size = {80.0f, 100.0f} }).IsOk());
+
+    UILabel label;
+    label.m_AutoSize = false;
+    label.m_WordWrap = true;
+    label.m_Text = "ab cd";
+    label.m_Font = &font;
+    label.m_Texture = &atlasTexture;
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), label).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    ASSERT_EQ(renderer.m_StringCalls.size(), 2u); // 80px fits 4 glyphs, "ab cd" needs 5
+    EXPECT_EQ(renderer.m_StringCalls[0].m_Text, "ab");
+    EXPECT_EQ(renderer.m_StringCalls[1].m_Text, "cd");
+}
+
 TEST(RenderSystemTest, UILabel_CenterAlign_DrawnHalfwayIntoTheRectsSlack)
 {
     // Regression test: RenderSystem.cpp previously ran inLabel.m_Text

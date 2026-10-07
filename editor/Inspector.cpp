@@ -481,6 +481,9 @@ bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFon
             "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y() );
     }
     ImGui::Checkbox( "Auto Size", &inLabel.m_AutoSize );
+    ImGui::BeginDisabled( inLabel.m_AutoSize );
+    ImGui::Checkbox( "Word Wrap", &inLabel.m_WordWrap );
+    ImGui::EndDisabled();
 
     return changed;
 }

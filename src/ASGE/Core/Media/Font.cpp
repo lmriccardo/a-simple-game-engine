@@ -200,3 +200,35 @@ asge::math::Float2 asge::media::Font::Measure(str::StringView inText) const noex
     
     return { maxWidth, height };
 }
+
+asge::str::String asge::media::Font::WrapText( str::StringView inText, float inMaxWidth ) const noexcept
+{
+    str::String out;
+    float const spaceWidth = Measure( " " ).x();
+    float lineWidth = 0.0f;
+
+    // ponytail: runs of spaces collapse to one, no mid-word breaking; add both if a use case needs them
+    for ( std::size_t pos = 0; pos < inText.size(); )
+    {
+        if ( inText[pos] == '\n' ) { out += '\n'; lineWidth = 0.0f; ++pos; continue; }
+        if ( inText[pos] == ' ' )   { ++pos; continue; }
+
+        std::size_t end = inText.find_first_of( " \n", pos );
+        if ( end == str::StringView::npos ) end = inText.size();
+
+        auto const word = inText.substr( pos, end - pos );
+        float const wordWidth = Measure( word ).x();
+
+        if ( lineWidth > 0.0f )
+        {
+            if ( lineWidth + spaceWidth + wordWidth > inMaxWidth ) { out += '\n'; lineWidth = 0.0f; }
+            else { out += ' '; lineWidth += spaceWidth; }
+        }
+
+        out += word;
+        lineWidth += wordWidth;
+        pos = end;
+    }
+
+    return out;
+}

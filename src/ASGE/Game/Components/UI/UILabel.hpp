@@ -42,6 +42,7 @@ struct UILabel
     graphics::RGBA_Color    m_Color             {graphics::colors::s_Black};
     int                     m_FontPixelHeight   {16};
     bool                    m_AutoSize          {true};
+    bool                    m_WordWrap          {false}; // wraps to the rect's width; needs m_AutoSize off
 
     // Revoled via Asset Resolution
     media::Font const*  m_Font{nullptr};

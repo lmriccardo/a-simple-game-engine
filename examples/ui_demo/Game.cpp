@@ -71,6 +71,12 @@ constexpr float kPanelPadding = 10.0f;
 constexpr float kRow5Y = 670.0f;
 constexpr float kSliderX = 220.0f;
 constexpr float kSliderW = 200.0f, kSliderH = 24.0f;
+
+// Top band: multi-line text, one label wrapped to its size and one with explicit breaks.
+constexpr float kTextRowY = 40.0f;
+constexpr float kWrappedLabelX = 60.0f;
+constexpr float kNewlineLabelX = 440.0f;
+constexpr float kTextLabelW = 300.0f, kTextLabelH = 120.0f;
 }
 
 UIDemoState::UIDemoState(
@@ -226,6 +232,36 @@ void UIDemoState::SpawnEntities()
         .m_OnClick = []{ LOG_INFO( "Cropped button clicked!" ); },
     } );
     if ( !croppedButton ) croppedButton.LogError();
+
+    // Fixed-size label with m_WordWrap: the long sentence breaks at spaces
+    // to fit kTextLabelW instead of running off as a single line.
+    auto wrappedLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = "WrappedLabel",
+        .m_Position = { kWrappedLabelX, kTextRowY },
+        .m_Size = asge::math::Float2{ kTextLabelW, kTextLabelH },
+        .m_Text = TextDesc{
+            .m_Content = "This label is word-wrapped: its text breaks at spaces to fit the width of the label.",
+            .m_FontPath = kFontPath,
+            .m_VerticalAlign = asge::game::components::VerticalAlign::Top,
+            .m_WordWrap = true,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !wrappedLabel ) wrappedLabel.LogError();
+
+    // Auto-sized label whose content carries explicit line breaks; each line
+    // is centered on its own.
+    auto newlineLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = "NewlineLabel",
+        .m_Position = { kNewlineLabelX, kTextRowY },
+        .m_Text = TextDesc{
+            .m_Content = "Line one\nA longer second line\nThree",
+            .m_FontPath = kFontPath,
+            .m_Align = asge::str::TextAlign::Center,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !newlineLabel ) newlineLabel.LogError();
 
     // Hand-wired like the first four buttons -- UICheckbox + Interactable +
     // UIRect, no asge::game::ui factory for it yet.

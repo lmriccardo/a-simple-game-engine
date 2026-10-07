@@ -284,14 +284,12 @@ void Draw(
 {
     if ( inLabel.m_Text.empty() || inLabel.m_Font == nullptr || inLabel.m_Texture == nullptr ) return;
 
-    math::Float2 const textSize = inLabel.m_Font->Measure( inLabel.m_Text );
+    // Wrapping only inserts '\n', so each line below is aligned on its own.
+    str::String const text = inLabel.m_WordWrap
+        ? inLabel.m_Font->WrapText( inLabel.m_Text, inItem.m_DstRect.m_Width )
+        : inLabel.m_Text;
 
-    float penX = inItem.m_DstRect.m_X;
-    if ( inLabel.m_Align == str::TextAlign::Center || inLabel.m_Align == str::TextAlign::Right )
-    {
-        float const slack = inItem.m_DstRect.m_Width - textSize.x();
-        penX += ( inLabel.m_Align == str::TextAlign::Center ) ? slack * 0.5f : slack;
-    }
+    math::Float2 const textSize = inLabel.m_Font->Measure( text );
 
     float penY = inItem.m_DstRect.m_Y;
     if ( inLabel.m_VerticalAlign == VerticalAlign::Center || inLabel.m_VerticalAlign == VerticalAlign::Bottom )
@@ -301,7 +299,23 @@ void Draw(
     }
     penY += static_cast<float>( inLabel.m_Font->GetAscent() );
 
-    inRenderer.DrawString( inLabel.m_Text, *inLabel.m_Font, *inLabel.m_Texture, { penX, penY }, inLabel.m_Color );
+    for ( std::size_t start = 0; start <= text.size(); )
+    {
+        std::size_t end = text.find( '\n', start );
+        if ( end == str::String::npos ) end = text.size();
+        auto const line = std::string_view( text ).substr( start, end - start );
+
+        float penX = inItem.m_DstRect.m_X;
+        if ( inLabel.m_Align == str::TextAlign::Center || inLabel.m_Align == str::TextAlign::Right )
+        {
+            float const slack = inItem.m_DstRect.m_Width - inLabel.m_Font->Measure( line ).x();
+            penX += ( inLabel.m_Align == str::TextAlign::Center ) ? slack * 0.5f : slack;
+        }
+
+        inRenderer.DrawString( line, *inLabel.m_Font, *inLabel.m_Texture, { penX, penY }, inLabel.m_Color );
+        penY += static_cast<float>( inLabel.m_Font->GetLineHeight() );
+        start = end + 1;
+    }
 }
 
 /**

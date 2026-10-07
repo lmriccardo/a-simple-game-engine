@@ -118,6 +118,12 @@ public:
     [[nodiscard]] int GetAscent() const noexcept;
     [[nodiscard]] int GetDescent() const noexcept;
     [[nodiscard]] math::Float2 Measure( str::StringView inText ) const noexcept;
+
+    /**
+     * @brief Greedy word-wraps inText to inMaxWidth pixels by inserting a newline at spaces.
+     * Existing newlines are kept; a word wider than inMaxWidth gets its own line, not split.
+     */
+    [[nodiscard]] str::String WrapText( str::StringView inText, float inMaxWidth ) const noexcept;
 };
 
 }

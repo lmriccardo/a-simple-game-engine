@@ -31,6 +31,10 @@
  * -- button labels never auto-size, and DrawString doesn't clip yet, so
  * that one's text just overflows past the button's edges.
  *
+ * A band along the top shows multi-line text: a fixed-size label with
+ * TextDesc::m_WordWrap, and an auto-sized one whose content has explicit
+ * newlines, each line centered on its own.
+ *
  * A fourth row adds a "Checkbox" -- UIRect (footprint) + UICheckbox (box/
  * check-mark fill colors + m_OnToggled signal) + Interactable, hand-wired
  * like the first four buttons since asge::game::ui has no CreateCheckbox

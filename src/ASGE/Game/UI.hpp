@@ -58,6 +58,7 @@ struct TextDesc
     int                  m_FontPixelHeight{ consts::kFontPixelHeight };
     str::TextAlign       m_Align{ str::TextAlign::Left };
     components::VerticalAlign m_VerticalAlign{ components::VerticalAlign::Center };
+    bool                 m_WordWrap{ false };   // wraps to the label's size; ignored when auto-sized
     graphics::RGBA_Color m_Color{ consts::kDefaultColor };
 };
 
