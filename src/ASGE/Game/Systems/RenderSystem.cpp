@@ -520,8 +520,10 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
             continue;
         }
 
-        animationRef.m_ElapsedTime += inDeltaTime;
         auto const nofFrames = frames.size();
+        if ( animationRef.m_CurrentFrame >= nofFrames ) animationRef.m_CurrentFrame = 0;
+
+        animationRef.m_ElapsedTime += inDeltaTime;
         while ( animationRef.m_ElapsedTime >= animationRef.m_FrameDuration )
         {
             animationRef.m_ElapsedTime -= animationRef.m_FrameDuration;

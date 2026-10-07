@@ -32,6 +32,8 @@ void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(
     {
         inAnimation.m_Clip = nullptr;
         inAnimation.m_ResolvedClipPath.clear();
+        inAnimation.m_CurrentFrame = 0;
+        inAnimation.m_ElapsedTime = 0.0f;
         return;
     }
 
@@ -39,6 +41,8 @@ void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(
     if ( !frameTable ) { frameTable.LogError(); return; }
     inAnimation.m_Clip = frameTable.Value();
     inAnimation.m_ResolvedClipPath = inAnimation.m_ClipPath;
+    inAnimation.m_CurrentFrame = 0;
+    inAnimation.m_ElapsedTime = 0.0f;
 }
 
 void asge::game::asset::Resolver<asge::game::components::AudioSource>::operator()(
