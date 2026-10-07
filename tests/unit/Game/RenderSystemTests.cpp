@@ -2098,6 +2098,32 @@ TEST(AnimationSystemTest, LargeDeltaTimeStepsThroughMultipleFramesInOneCall)
     EXPECT_NEAR(anim.m_ElapsedTime, 0.05f, 1e-5f);
 }
 
+TEST(AnimationSystemTest, OutOfRangeCurrentFrameFromLongerClipIsWrappedToZero)
+{
+    // Regression for #120: swapping an 8-frame clip at frame 6 for a 2-frame
+    // one must not index past the new clip.
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
+        .m_FrameDuration = 0.1f,
+        .m_CurrentFrame = 6
+    }).IsOk());
+
+    asge::game::systems::AnimationSystem(registry, 0.01f);
+
+    auto animResult = registry.GetComponent<Animation>(entity.Value());
+    EXPECT_EQ(animResult.Value().get().m_CurrentFrame, 0u);
+    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
+    ASSERT_TRUE(spriteResult.Value().get().m_SourceRect.has_value());
+    EXPECT_FLOAT_EQ(spriteResult.Value().get().m_SourceRect->m_X, 0.0f);
+}
+
 // ─── RenderPipeline ──────────────────────────────────────────────────────────────
 
 TEST(RenderPipelineTest, AdvancesAnimationThenDrawsTheUpdatedFrame)
