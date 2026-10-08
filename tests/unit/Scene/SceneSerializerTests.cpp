@@ -122,6 +122,30 @@ TEST_F(SceneSerializerTest, Save_EntityWithSubsetOfComponents_WritesOnlyThoseSub
     EXPECT_EQ(restoredSprite.m_VirtualPath, sprite.m_VirtualPath);
 }
 
+TEST_F(SceneSerializerTest, Save_SpriteTint_RoundTripsIncludingAlpha)
+{
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+
+    Sprite sprite{};
+    sprite.m_VirtualPath = "textures/checker.bmp";
+    sprite.m_Tint = { 10, 20, 30, 40 };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), Transform{} ).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), sprite ).IsOk());
+
+    SceneSerializer serializer{ m_Vfs };
+    ASSERT_TRUE(serializer.Save( m_Registry, m_ScenePath ).IsOk());
+
+    auto root = ParseSavedFile( m_ScenePath );
+    auto entityView = root.GetTable("entity[0]").Value();
+    Sprite const restored = Serializer<Sprite>::FromToml(entityView, asge::game::scene::LoadContext{});
+
+    EXPECT_EQ(restored.m_Tint.r, 10);
+    EXPECT_EQ(restored.m_Tint.g, 20);
+    EXPECT_EQ(restored.m_Tint.b, 30);
+    EXPECT_EQ(restored.m_Tint.a, 40);
+}
+
 TEST_F(SceneSerializerTest, Save_MultipleEntities_WritesOneArrayTableEachInCreationOrder)
 {
     auto first = m_Registry.CreateEntity();

@@ -54,12 +54,14 @@ public:
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
     [[nodiscard]] bool IsValid() const noexcept override { return true; }
 
-    void SetColorMod(asge::graphics::RGBA_Color) noexcept override {}
+    void SetColorMod(asge::graphics::RGBA_Color inColor) noexcept override { m_ColorMods.push_back(inColor); }
 
     [[nodiscard]] Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
     {
         return Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
     }
+
+    std::vector<asge::graphics::RGBA_Color> m_ColorMods; // every SetColorMod call, in order
 
 private:
     asge::math::Int2 m_Size;
@@ -739,6 +741,45 @@ TEST(RenderSystemTest, Culling_SpriteWithinTheDefaultViewport_IsDrawn)
     asge::game::systems::RenderSystem(registry, renderer);
 
     EXPECT_EQ(renderer.m_Calls.size(), 1u);
+}
+
+TEST(RenderSystemTest, Sprite_DefaultTint_NeverTouchesTheTextureColorMod)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);
+    EXPECT_TRUE(texture.m_ColorMods.empty());
+}
+
+TEST(RenderSystemTest, Sprite_Tint_IsAppliedForTheDrawThenResetToWhite)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Sprite{ .m_Texture = &texture, .m_Tint = { 255, 128, 64, 100 } }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);
+    ASSERT_EQ(texture.m_ColorMods.size(), 2u);
+    EXPECT_EQ(texture.m_ColorMods[0].a, 100);
+    EXPECT_EQ(texture.m_ColorMods[0].g, 128);
+    EXPECT_EQ(texture.m_ColorMods[1].a, 255); // reset, so other users of the shared texture aren't faded
+    EXPECT_EQ(texture.m_ColorMods[1].g, 255);
 }
 
 TEST(RenderSystemTest, Culling_SpriteFarOutsideTheViewport_IsSkipped)

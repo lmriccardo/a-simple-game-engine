@@ -179,9 +179,13 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // DrawInspector doc comment above for why that trigger has to stay this
 // narrow). Draw order (layer/y-sort/screen-space) moved out to its own
 // components::RenderInfo section, below.
+bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept;
+
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
-    return DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+    bool const changed = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+    DrawColorField( "Tint", inSprite.m_Tint ); // not an asset change, so not part of the return
+    return changed;
 }
 
 // Phase 14: every field round-trips through Serializer<RenderInfo> verbatim

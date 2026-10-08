@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <ASGE/Core/Strings.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Texture.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 #include "Transform.hpp"
@@ -33,6 +34,7 @@ struct Sprite
     video::ITexture*            m_Texture{nullptr}; // Not serialized -- non-owning; nullptr means "not drawn"
     std::optional<math::Rect>   m_SourceRect{};     // Serialized. Sub-region to draw; nullopt = whole texture
     std::string                 m_VirtualPath{};    // Serialized. VFS path m_Texture was (or will be) loaded from
+    graphics::RGBA_Color        m_Tint{};           // Serialized. Color modulation; the alpha channel fades the sprite (white = untouched)
     std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
 

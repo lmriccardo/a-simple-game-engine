@@ -243,18 +243,27 @@ void Draw(
     video::ITexture* texture = inSprite.m_Texture;
     auto const& src = inSprite.m_SourceRect;
 
+    // Textures are shared through the AssetManager cache, so the tint is only
+    // applied around this one draw and reset right after.
+    auto const& tint = inSprite.m_Tint;
+    bool const tinted = tint.r != 255 || tint.g != 255 || tint.b != 255 || tint.a != 255;
+    if ( tinted ) texture->SetColorMod( tint );
+
     if ( inItem.m_Transform->m_WorldRotation == 0.0f )
     {
         if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, inItem.m_DstRect );
         else inRenderer.DrawTexture( *texture, inItem.m_DstRect );
-        return;
+    }
+    else
+    {
+        auto const corners = SpriteGetDrawCorners( inItem.m_DstRect, inItem.m_Transform->m_WorldRotation );
+        if ( src.has_value() )
+            inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
+        else
+            inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
     }
 
-    auto const corners = SpriteGetDrawCorners( inItem.m_DstRect, inItem.m_Transform->m_WorldRotation );
-    if ( src.has_value() )
-        inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
-    else
-        inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
+    if ( tinted ) texture->SetColorMod( graphics::colors::s_White );
 }
 
 void Draw(
