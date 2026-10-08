@@ -110,13 +110,15 @@ if(ASGE_BUILD_EDITOR)
         third-party/imgui/imgui_tables.cpp
         third-party/imgui/imgui_widgets.cpp
         third-party/imgui/imgui_demo.cpp
+        third-party/imgui/misc/cpp/imgui_stdlib.cpp
         third-party/imgui/backends/imgui_impl_sdl3.cpp
         third-party/imgui/backends/imgui_impl_sdlrenderer3.cpp
     )
     add_library(imgui::imgui ALIAS imgui)
     target_include_directories(imgui PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui>"
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui/backends>")
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui/backends>"
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third-party/imgui/misc/cpp>")
     target_link_libraries(imgui PUBLIC SDL3::SDL3)
 
     add_subdirectory(editor)

@@ -21,6 +21,7 @@
 #include <ASGE/Core/ECS/Markers.hpp>
 
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -101,6 +102,14 @@ bool DrawTextField( char const* inLabel, std::string& ioValue ) noexcept
         return true;
     }
     return false;
+}
+
+// Multi-line counterpart to DrawTextField: edits the std::string in place
+// through imgui_stdlib's resizing callback, so there is no length cap and
+// Enter inserts a newline.
+bool DrawMultilineTextField( char const* inLabel, std::string& ioValue ) noexcept
+{
+    return ImGui::InputTextMultiline( inLabel, &ioValue, ImVec2( -FLT_MIN, ImGui::GetTextLineHeight() * 4.0f ) );
 }
 
 // Phase 11: every DrawInspector now returns bool (true if it changed
@@ -451,7 +460,7 @@ bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFon
 {
     bool changed = DrawAssetPathCombo( "Font Path", inLabel.m_FontPath, inKnownFonts );
 
-    DrawTextField( "Text", inLabel.m_Text );
+    DrawMultilineTextField( "Text", inLabel.m_Text );
 
     static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
     int align = static_cast<int>( inLabel.m_Align );
