@@ -375,6 +375,51 @@ TEST(TOMLParserTest, Parse_InlineCommentStripped)
 
 // ─── Parse — strings ─────────────────────────────────────────────────────────
 
+TEST(TOMLParserTest, Parse_EmptyBasicString)
+{
+    auto result = Parse(std::string(R"(a = "")"));
+    ASSERT_TRUE(result.IsOk());
+    auto value = result.Value()->Get<std::string>("a");
+    ASSERT_TRUE(value.IsOk());
+    EXPECT_TRUE(value.Value()->empty());
+}
+
+TEST(TOMLParserTest, Parse_EmptyLiteralString)
+{
+    auto result = Parse(std::string("a = ''"));
+    ASSERT_TRUE(result.IsOk());
+    auto value = result.Value()->Get<std::string>("a");
+    ASSERT_TRUE(value.IsOk());
+    EXPECT_TRUE(value.Value()->empty());
+}
+
+TEST(TOMLParserTest, Parse_EmptyStringRoundTrip)
+{
+    auto root = ParseOk("[sprite]\nname = 'hero'\nvirtual_path = \"placeholder\"\n");
+    ASSERT_NE(root, nullptr);
+    ASSERT_TRUE(root->Set<std::string>("sprite.virtual_path", "").IsOk());
+
+    auto result = Parse(DumpTable(root));
+    ASSERT_TRUE(result.IsOk());
+    auto path = result.Value()->Get<std::string>("sprite.virtual_path");
+    ASSERT_TRUE(path.IsOk());
+    EXPECT_TRUE(path.Value()->empty());
+    auto name = result.Value()->Get<std::string>("sprite.name");
+    ASSERT_TRUE(name.IsOk());
+    EXPECT_EQ(*name.Value(), "hero");
+}
+
+TEST(TOMLParserTest, Parse_InvalidStringStillReturnsError)
+{
+    for ( auto const* input : { "a = \"", "a = '", R"(a = "\q")" } )
+    {
+        SCOPED_TRACE(input);
+        auto result = Parse(std::string(input));
+        ASSERT_FALSE(result.IsOk());
+        EXPECT_EQ(result.Code(), make_error_code(ConfError::TomlInvalidString));
+    }
+}
+
 TEST(TOMLParserTest, Parse_BasicStringEscape)
 {
     auto root = ParseOk(R"(msg = "hello\nworld")" "\n");

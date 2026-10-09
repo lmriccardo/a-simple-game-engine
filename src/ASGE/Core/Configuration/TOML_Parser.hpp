@@ -195,6 +195,7 @@ ValueType BuildArray( std::vector<std::string_view>& inElements )
 
 // ----------------------- PARSING STRINGS -----------------------
 
+/** @brief Parses a TOML string value, including empty basic and literal strings. */
 Result<str::String> ParseString( std::istringstream* inStream, std::string_view inLine );
 StringType DetectStringType( std::string_view inSv ) noexcept;
 std::string ProcessEscape( std::string_view inSv, bool isMultiline=false ) noexcept;

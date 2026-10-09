@@ -401,10 +401,7 @@ asge::Result<asge::str::String> asge::config::toml::_internal::ParseString(
     default: break;
     }
 
-    // If the resulting string is empty either it is an invalid
-    // string format, or there is an empty string in the
-    // configuration which is invalid by construction
-    if ( result.empty() )
+    if ( result.empty() && inLine != R"("")" && inLine != "''" )
     {
         auto const ec = make_error_code( errors::ConfError::TomlInvalidString );
         return Result<str::String>::Err(ec);
