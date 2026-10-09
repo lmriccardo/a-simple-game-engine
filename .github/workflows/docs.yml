@@ -64,9 +64,14 @@ jobs:
     name: Assemble and deploy Pages
     needs: [api-docs]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -80,9 +85,36 @@ jobs:
           name: api-docs
           path: _site/api
 
+      # Re-running only this job (e.g. after the transient artifact-metadata
+      # propagation failures deploy-pages is prone to) re-uploads a fresh
+      # "github-pages" artifact without removing the previous attempt's.
+      # deploy-pages looks artifacts up by name across the whole run, so a
+      # leftover duplicate makes it fail with "Multiple artifacts... found".
+      - name: Remove stale github-pages artifacts from earlier attempts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --paginate --jq '.artifacts[] | select(.name == "github-pages") | .id' |
+          xargs -r -n1 -I{} gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/{}"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      # GitHub's artifact store is occasionally slow to make a just-uploaded
+      # artifact visible to deploy-pages' own lookup, which fails with
+      # "Fetching artifact metadata failed... re-run the deployment at a
+      # later time" rather than retrying itself. One retry after a short
+      # pause absorbs that read-after-write lag without re-running the job.
+      - name: Wait before retrying deployment
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
