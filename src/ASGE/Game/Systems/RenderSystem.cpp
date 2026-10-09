@@ -12,6 +12,7 @@
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Utils/SpriteGeometry.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
@@ -151,10 +152,10 @@ math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noex
         inSize.x() * inT.m_WorldScale.x(), inSize.y() * inT.m_WorldScale.y() };
 }
 
-/** @brief Sprite's destination rect, or nullopt if it has no texture (see SpriteGetDstRect). */
+/** @brief Sprite's destination rect, or nullopt if it has no texture (see utils::SpriteGetDstRect). */
 std::optional<math::Rect> ComputeDstRect( Sprite const& inS, Transform const& inT ) noexcept
 {
-    auto const r = SpriteGetDstRect( inS, inT );
+    auto const r = game::utils::SpriteGetDstRect( inS, inT );
     return r.has_value() ? std::optional<math::Rect>{ *r } : std::nullopt;
 }
 
@@ -242,18 +243,27 @@ void Draw(
     video::ITexture* texture = inSprite.m_Texture;
     auto const& src = inSprite.m_SourceRect;
 
+    // Textures are shared through the AssetManager cache, so the tint is only
+    // applied around this one draw and reset right after.
+    auto const& tint = inSprite.m_Tint;
+    bool const tinted = tint.r != 255 || tint.g != 255 || tint.b != 255 || tint.a != 255;
+    if ( tinted ) texture->SetColorMod( tint );
+
     if ( inItem.m_Transform->m_WorldRotation == 0.0f )
     {
         if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, inItem.m_DstRect );
         else inRenderer.DrawTexture( *texture, inItem.m_DstRect );
-        return;
+    }
+    else
+    {
+        auto const corners = SpriteGetDrawCorners( inItem.m_DstRect, inItem.m_Transform->m_WorldRotation );
+        if ( src.has_value() )
+            inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
+        else
+            inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
     }
 
-    auto const corners = SpriteGetDrawCorners( inItem.m_DstRect, inItem.m_Transform->m_WorldRotation );
-    if ( src.has_value() )
-        inRenderer.DrawTextureAffine( *texture, *src, corners.m_Origin, corners.m_Right, corners.m_Down );
-    else
-        inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
+    if ( tinted ) texture->SetColorMod( graphics::colors::s_White );
 }
 
 void Draw(
@@ -283,14 +293,12 @@ void Draw(
 {
     if ( inLabel.m_Text.empty() || inLabel.m_Font == nullptr || inLabel.m_Texture == nullptr ) return;
 
-    math::Float2 const textSize = inLabel.m_Font->Measure( inLabel.m_Text );
+    // Wrapping only inserts '\n', so each line below is aligned on its own.
+    str::String const text = inLabel.m_WordWrap
+        ? inLabel.m_Font->WrapText( inLabel.m_Text, inItem.m_DstRect.m_Width )
+        : inLabel.m_Text;
 
-    float penX = inItem.m_DstRect.m_X;
-    if ( inLabel.m_Align == str::TextAlign::Center || inLabel.m_Align == str::TextAlign::Right )
-    {
-        float const slack = inItem.m_DstRect.m_Width - textSize.x();
-        penX += ( inLabel.m_Align == str::TextAlign::Center ) ? slack * 0.5f : slack;
-    }
+    math::Float2 const textSize = inLabel.m_Font->Measure( text );
 
     float penY = inItem.m_DstRect.m_Y;
     if ( inLabel.m_VerticalAlign == VerticalAlign::Center || inLabel.m_VerticalAlign == VerticalAlign::Bottom )
@@ -300,7 +308,23 @@ void Draw(
     }
     penY += static_cast<float>( inLabel.m_Font->GetAscent() );
 
-    inRenderer.DrawString( inLabel.m_Text, *inLabel.m_Font, *inLabel.m_Texture, { penX, penY }, inLabel.m_Color );
+    for ( std::size_t start = 0; start <= text.size(); )
+    {
+        std::size_t end = text.find( '\n', start );
+        if ( end == str::String::npos ) end = text.size();
+        auto const line = std::string_view( text ).substr( start, end - start );
+
+        float penX = inItem.m_DstRect.m_X;
+        if ( inLabel.m_Align == str::TextAlign::Center || inLabel.m_Align == str::TextAlign::Right )
+        {
+            float const slack = inItem.m_DstRect.m_Width - inLabel.m_Font->Measure( line ).x();
+            penX += ( inLabel.m_Align == str::TextAlign::Center ) ? slack * 0.5f : slack;
+        }
+
+        inRenderer.DrawString( line, *inLabel.m_Font, *inLabel.m_Texture, { penX, penY }, inLabel.m_Color );
+        penY += static_cast<float>( inLabel.m_Font->GetLineHeight() );
+        start = end + 1;
+    }
 }
 
 /**
@@ -564,7 +588,7 @@ void asge::game::systems::CameraSystem(
     float followY = transform.m_WorldCoordinates.y();
     if ( auto spriteResult = inRegistry.GetComponent<components::Sprite>( entity ) )
     {
-        if ( auto dst = components::SpriteGetDstRect( spriteResult.Value().get(), transform ) )
+        if ( auto dst = game::utils::SpriteGetDstRect( spriteResult.Value().get(), transform ) )
         {
             followX = dst->m_X + dst->m_Width  * 0.5f;
             followY = dst->m_Y + dst->m_Height * 0.5f;

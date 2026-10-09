@@ -125,6 +125,23 @@ public:
     }
 
     /**
+     * @brief Reads an int64-valued key, falling back to an int-typed value
+     *        before giving up to inDefault: the parser stores any integer
+     *        that fits in 32 bits as `int` (e.g. a packed color with alpha 0),
+     *        so a strict int64 lookup would silently return inDefault.
+     */
+    std::int64_t Get( std::string const& inKey, std::int64_t inDefault ) const
+    {
+        if ( auto asInt64 = m_Table->template Get<std::int64_t>( inKey ) )
+            return *asInt64.Value();
+
+        if ( auto asInt = m_Table->template Get<int>( inKey ) )
+            return static_cast<std::int64_t>( *asInt.Value() );
+
+        return inDefault;
+    }
+
+    /**
      * @brief Reads a float-valued key — the read-side counterpart to the
      *        float overload of Set(). Stored/looked up as `double`
      *        underneath; see that overload's doc comment for why. Falls

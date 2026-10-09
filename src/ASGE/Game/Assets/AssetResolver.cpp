@@ -1,6 +1,6 @@
 #include "AssetResolver.hpp"
 
-#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 #include <ASGE/Core/Functools.hpp>
 
 void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(

@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <ASGE/Core/Strings.hpp>
+#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Video/Graphics/Texture.hpp>
 #include <ASGE/Core/Math/Math.hpp>
 #include "Transform.hpp"
@@ -33,11 +34,9 @@ struct Sprite
     video::ITexture*            m_Texture{nullptr}; // Not serialized -- non-owning; nullptr means "not drawn"
     std::optional<math::Rect>   m_SourceRect{};     // Serialized. Sub-region to draw; nullopt = whole texture
     std::string                 m_VirtualPath{};    // Serialized. VFS path m_Texture was (or will be) loaded from
+    graphics::RGBA_Color        m_Tint{};           // Serialized. Color modulation; the alpha channel fades the sprite (white = untouched)
     std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
-
-/** @brief inSprite's on-screen destination rect at inT's position/scale, or nullopt if it has no texture yet. */
-std::optional<math::Rect> SpriteGetDstRect( Sprite const& inSprite, Transform const& inT ) noexcept;
 
 /** @brief The three corners IRenderer::DrawTextureAffine maps a texture's (0,0)/(w,0)/(0,h) onto. */
 struct SpriteDrawCorners
@@ -48,7 +47,7 @@ struct SpriteDrawCorners
 };
 
 /**
- * @brief inDstRect's own corners (as SpriteGetDstRect returns), rotated
+ * @brief inDstRect's own corners (as utils::SpriteGetDstRect returns), rotated
  *        inRotationRadians around inDstRect's center.
  *
  * Positive inRotationRadians rotates clockwise on screen (screen-space Y

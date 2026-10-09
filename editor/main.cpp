@@ -44,6 +44,7 @@
 #include <string>
 
 #include "Inspector.hpp"
+#include "EntityGroups.hpp"
 #include "ViewportOverlay.hpp"
 #include "ConsolePanel.hpp"
 #include "FileDialog.hpp"
@@ -336,6 +337,30 @@ void MarkActiveSceneDirty( std::optional<Project>& inProject ) noexcept
 }
 
 /**
+ * @brief SceneManager::SaveScene plus the scene's entity groups, stored beside the scene
+ *        file (see EntityGroups.hpp) -- every scene save goes through here so the two stay in step.
+ */
+asge::BoolResult SaveSceneWithGroups(
+    asge::game::scene::SceneManager& inSceneManager, std::filesystem::path const& inPath ) noexcept
+{
+    asge::game::scene::SaveContext ctx;
+    auto result = inSceneManager.SaveScene( inPath, &ctx );
+    if ( !result ) return result;
+
+    auto const key = inSceneManager.CurrentScenePath().value_or( inPath.string() );
+    if ( auto groups = SaveGroupsFile( inPath, GroupsFor( key ), ctx ); !groups ) groups.LogError();
+    return result;
+}
+
+/** @brief SceneManager::RenameActiveScene, carrying the scene's groups over to its new identity. */
+void RenameActiveSceneWithGroups(
+    asge::game::scene::SceneManager& inSceneManager, std::string const& inNewPath ) noexcept
+{
+    if ( auto const& current = inSceneManager.CurrentScenePath() ) RenameGroupScene( *current, inNewPath );
+    inSceneManager.RenameActiveScene( inNewPath );
+}
+
+/**
  * @brief Makes inProject.m_Scenes[inNewIndex] the active scene: saves the
  *        currently active one first if it's dirty (so switching, or
  *        creating a new scene, never silently loses edits), then
@@ -365,13 +390,14 @@ void SwitchToScene(
         auto& current = inOutProject.m_Scenes[inOutProject.m_ActiveSceneIndex];
         if ( current.m_Dirty )
         {
-            auto const saveResult = inSceneManager.SaveScene( current.m_Path );
+            auto const saveResult = SaveSceneWithGroups( inSceneManager, current.m_Path );
             if ( saveResult ) current.m_Dirty = false; else saveResult.LogError();
         }
     }
 
     auto const& target = inOutProject.m_Scenes[inNewIndex];
-    auto const loadResult = inSceneManager.LoadSceneFromFile( target.m_Path );
+    asge::game::scene::LoadContext loadCtx;
+    auto const loadResult = inSceneManager.LoadSceneFromFile( target.m_Path, &loadCtx );
     if ( !loadResult )
     {
         loadResult.LogError();
@@ -381,6 +407,16 @@ void SwitchToScene(
     inOutProject.m_ActiveSceneIndex = inNewIndex;
     ioSelected = asge::ecs::Entity::Null();
     ResetEntityDisplayIds();
+
+    // Restored from an in-memory snapshot: its entities got new handles, so the
+    // groups follow them. Read from disk for the first time: the groups come from
+    // the file stored beside it. (Anything else -- already active -- keeps its groups.)
+    auto& sceneGroups = GroupsFor( target.m_Path.string() );
+    if ( auto const restored = inSceneManager.TakeRestoredEntities(); !restored.empty() )
+        RemapGroupMembers( sceneGroups, restored );
+    else if ( sceneGroups.empty() )
+        sceneGroups = LoadGroupsFile( target.m_Path, loadCtx );
+
     inAssets.ResolveAssets( inSceneManager.GetRegistry(), inRenderer );
     RegisterSceneAssets( inSceneManager.GetRegistry() );
 
@@ -416,7 +452,7 @@ void SwitchToScene(
     }
     if ( migratedRenderInfo )
     {
-        auto const saveResult = inSceneManager.SaveScene( target.m_Path );
+        auto const saveResult = SaveSceneWithGroups( inSceneManager, target.m_Path );
         if ( !saveResult ) saveResult.LogError();
     }
 }
@@ -462,7 +498,7 @@ bool CreateSceneInProject(
         auto& active = inOutProject.m_Scenes[inOutProject.m_ActiveSceneIndex];
         if ( active.m_Dirty )
         {
-            auto const saveResult = inSceneManager.SaveScene( active.m_Path );
+            auto const saveResult = SaveSceneWithGroups( inSceneManager, active.m_Path );
             if ( saveResult ) active.m_Dirty = false; else saveResult.LogError();
         }
     }
@@ -473,7 +509,8 @@ bool CreateSceneInProject(
 
     inSceneManager.UnloadScene();
     inSceneManager.RenameActiveScene( newPath.string() );
-    auto const saveResult = inSceneManager.SaveScene( newPath );
+    GroupsFor( newPath.string() ).clear();
+    auto const saveResult = SaveSceneWithGroups( inSceneManager, newPath );
     if ( !saveResult )
     {
         saveResult.LogError();
@@ -573,6 +610,7 @@ int main(int, char**)
     // target game's window size" for this to read instead.
     int targetGameWidth = 1280;
     int targetGameHeight = 720;
+    int targetGameFps = 60;
 
     // Draft copies the View menu's Grid/Game Window modals edit -- only
     // copied back into gridSpacing/targetGameWidth/targetGameHeight on
@@ -582,6 +620,7 @@ int main(int, char**)
     float draftGridSpacing = gridSpacing;
     int draftTargetWidth = targetGameWidth;
     int draftTargetHeight = targetGameHeight;
+    int draftTargetFps = targetGameFps;
 
     // Phase 11: Create a Project modal's own draft fields, seeded (name/
     // folder cleared, grid/window defaulted to the live values) the frame
@@ -591,6 +630,7 @@ int main(int, char**)
     float createProjectGrid = gridSpacing;
     int createProjectWidth = targetGameWidth;
     int createProjectHeight = targetGameHeight;
+    int createProjectFps = targetGameFps;
 
     // Create a Scene modal's own draft field, plus its placeholder text --
     // ImGui::InputTextWithHint needs the hint string alive every frame it's
@@ -776,7 +816,7 @@ int main(int, char**)
         {
             Project loaded;
             auto const projectResult = LoadProject(
-                vfs, *sessionProjectPath, loaded, gridSpacing, targetGameWidth, targetGameHeight );
+                vfs, *sessionProjectPath, loaded, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps );
             if ( !projectResult )
             {
                 projectResult.LogError();
@@ -818,7 +858,7 @@ int main(int, char**)
     {
         if (!currentProject) return;
         auto const saveResult = SaveProject(
-            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
         if (!saveResult) saveResult.LogError();
         else LOG_INFO("Project saved to ", currentProject->m_FilePath.string());
     };
@@ -828,7 +868,7 @@ int main(int, char**)
          || currentProject->m_ActiveSceneIndex < 0
          || currentProject->m_ActiveSceneIndex >= static_cast<int>(currentProject->m_Scenes.size())) return;
         auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
-        auto const saveResult = sceneManager.SaveScene(active.m_Path);
+        auto const saveResult = SaveSceneWithGroups( sceneManager, active.m_Path );
         if (!saveResult) saveResult.LogError();
         else
         {
@@ -1087,10 +1127,13 @@ int main(int, char**)
                     // needing two absolute ScreenToWorld calls to subtract.
                     float const zoom = videoSys.GetRenderer().GetCamera().m_Zoom;
                     auto& t = transformResult.Value().get();
-                    if (dragAxis != GizmoAxis::Y) t.m_LocalCoordinates.x() += event.motion.xrel / zoom;
-                    if (dragAxis != GizmoAxis::X) t.m_LocalCoordinates.y() += event.motion.yrel / zoom;
-                    t.m_Dirty = true;
-                    MarkActiveSceneDirty(currentProject);
+                    if (!t.m_Locked) // locked entities are selectable but never dragged
+                    {
+                        if (dragAxis != GizmoAxis::Y) t.m_LocalCoordinates.x() += event.motion.xrel / zoom;
+                        if (dragAxis != GizmoAxis::X) t.m_LocalCoordinates.y() += event.motion.yrel / zoom;
+                        t.m_Dirty = true;
+                        MarkActiveSceneDirty(currentProject);
+                    }
                 }
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION && draggingWaypointIndex >= 0)
@@ -1223,25 +1266,30 @@ int main(int, char**)
                         bool ok = true;
                         if (static_cast<int>(i) == currentProject->m_ActiveSceneIndex)
                         {
-                            auto const r = sceneManager.SaveScene(newScenePath);
+                            auto const r = SaveSceneWithGroups( sceneManager, newScenePath );
                             if (!r) { r.LogError(); ok = false; }
                             else
                             {
                                 scene.m_Dirty = false;
-                                sceneManager.RenameActiveScene(newScenePath.string());
+                                RenameActiveSceneWithGroups(sceneManager, newScenePath.string());
                             }
                         }
                         else
                         {
                             auto const r = asge::filesystem::Copy(scene.m_Path, newScenePath);
                             if (!r) { r.LogError(); ok = false; }
+                            else if (std::error_code groupsEc; fs::exists(GroupsFilePath(scene.m_Path), groupsEc))
+                            {
+                                fs::copy_file(GroupsFilePath(scene.m_Path), GroupsFilePath(newScenePath),
+                                              fs::copy_options::overwrite_existing, groupsEc);
+                            }
                         }
                         if (ok) scene.m_Path = newScenePath;
                     }
 
                     currentProject->m_FilePath = path;
                     auto const saveResult = SaveProject(
-                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                     if (!saveResult) saveResult.LogError();
                     else LOG_INFO("Project saved to ", path.string());
                     UpdateWindowTitle(window, &*currentProject);
@@ -1269,19 +1317,20 @@ int main(int, char**)
                             auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
                             if (active.m_Dirty)
                             {
-                                auto const r = sceneManager.SaveScene(active.m_Path);
+                                auto const r = SaveSceneWithGroups( sceneManager, active.m_Path );
                                 if (r) active.m_Dirty = false; else r.LogError();
                             }
                         }
                         auto const r = SaveProject(
-                            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                         if (!r) r.LogError();
                     }
                     sceneManager.UnloadScene();
                     sceneManager.ClearCache();
+                    ClearAllGroups();
 
                     Project loaded;
-                    auto const loadResult = LoadProject(vfs, path, loaded, gridSpacing, targetGameWidth, targetGameHeight);
+                    auto const loadResult = LoadProject(vfs, path, loaded, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                     if (!loadResult)
                     {
                         loadResult.LogError();
@@ -1489,6 +1538,7 @@ int main(int, char**)
         {
             draftTargetWidth = targetGameWidth;
             draftTargetHeight = targetGameHeight;
+            draftTargetFps = targetGameFps;
             ImGui::OpenPopup("Game Window Settings");
         }
         if (openCppProjectModal) ImGui::OpenPopup("New C++ Project");
@@ -1510,6 +1560,7 @@ int main(int, char**)
             createProjectGrid = gridSpacing;
             createProjectWidth = targetGameWidth;
             createProjectHeight = targetGameHeight;
+            createProjectFps = targetGameFps;
             ImGui::OpenPopup("Create a Project");
         }
         if (openCreateSceneModal && currentProject)
@@ -1535,12 +1586,14 @@ int main(int, char**)
         {
             ImGui::DragInt("Target Width", &draftTargetWidth, 1.0f, 64, 7680);
             ImGui::DragInt("Target Height", &draftTargetHeight, 1.0f, 64, 4320);
+            ImGui::DragInt("Target FPS", &draftTargetFps, 1.0f, 1, 1000);
             if (ImGui::Button("Close")) ImGui::CloseCurrentPopup(); // discards the draft
             ImGui::SameLine();
             if (ImGui::Button("Apply"))
             {
                 targetGameWidth = draftTargetWidth;
                 targetGameHeight = draftTargetHeight;
+                targetGameFps = draftTargetFps;
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
@@ -1556,6 +1609,7 @@ int main(int, char**)
             ImGui::DragFloat("Grid Size", &createProjectGrid, 1.0f, 5.0f, 500.0f);
             ImGui::DragInt("Game Window Width", &createProjectWidth, 1.0f, 64, 7680);
             ImGui::DragInt("Game Window Height", &createProjectHeight, 1.0f, 64, 4320);
+            ImGui::DragInt("Target FPS", &createProjectFps, 1.0f, 1, 1000);
 
             bool const canCreate = !createProjectFolder.empty();
             if (!canCreate) ImGui::BeginDisabled();
@@ -1574,18 +1628,19 @@ int main(int, char**)
                         auto& active = currentProject->m_Scenes[currentProject->m_ActiveSceneIndex];
                         if (active.m_Dirty)
                         {
-                            auto const r = sceneManager.SaveScene(active.m_Path);
+                            auto const r = SaveSceneWithGroups( sceneManager, active.m_Path );
                             if (r) active.m_Dirty = false; else r.LogError();
                         }
                     }
                     auto const r = SaveProject(
-                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                        vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                     if (!r) r.LogError();
                 }
 
                 // Clear out the entire editor.
                 sceneManager.UnloadScene();
                 sceneManager.ClearCache();
+                    ClearAllGroups();
                 auto const mountsCopy = vfs.ListMounts();
                 for (auto const& mount : mountsCopy)
                 {
@@ -1599,6 +1654,7 @@ int main(int, char**)
                 gridSpacing = createProjectGrid;
                 targetGameWidth = createProjectWidth;
                 targetGameHeight = createProjectHeight;
+                targetGameFps = createProjectFps;
 
                 Project newProject;
                 newProject.m_FilePath = createProjectFolder / (name + ".asgeproject");
@@ -1610,7 +1666,7 @@ int main(int, char**)
                 ResetEntityDisplayIds();
 
                 auto const saveResult = SaveProject(
-                    vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight);
+                    vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps);
                 if (!saveResult) saveResult.LogError();
                 else LOG_INFO("Project created at ", currentProject->m_FilePath.string());
                 UpdateWindowTitle(window, &*currentProject);
@@ -1850,9 +1906,11 @@ int main(int, char**)
                     }
                     else
                     {
+                        std::error_code groupsEc;
+                        fs::rename( GroupsFilePath( active.m_Path ), GroupsFilePath( newPath ), groupsEc ); // none yet is fine
                         active.m_Name = newName;
                         active.m_Path = newPath;
-                        sceneManager.RenameActiveScene( newPath.string() ); // keep SceneManager's own identity in sync
+                        RenameActiveSceneWithGroups( sceneManager, newPath.string() ); // keep SceneManager's own identity in sync
                         LOG_INFO( "Scene renamed to ", newPath.string() );
                     }
                 }
@@ -1985,7 +2043,7 @@ int main(int, char**)
 
             ImGui::Text( "Grid: %.0f", gridSpacing );
             ImGui::SameLine();
-            ImGui::Text( "Game Window: %dx%d", targetGameWidth, targetGameHeight );
+            ImGui::Text( "Game Window: %dx%d @ %d FPS", targetGameWidth, targetGameHeight, targetGameFps );
 
             viewHudPos = ImGui::GetWindowPos();
             viewHudSize = ImGui::GetWindowSize();
@@ -2027,7 +2085,10 @@ int main(int, char**)
 
         // Phase 3: entity list panel drives the same selection state as
         // viewport picking (Phase 2) -- one selection state, two input paths.
-        auto const entityListResult = DrawEntityListPanel(sceneManager.GetRegistry(), selectedEntity, freshHasProject);
+        auto const entityListResult = DrawEntityListPanel(
+            sceneManager.GetRegistry(), selectedEntity, freshHasProject,
+            GroupsFor(sceneManager.CurrentScenePath().value_or(std::string{})));
+        if (entityListResult.m_GroupsChanged) MarkActiveSceneDirty(currentProject);
         if (entityListResult.m_CreateClicked)
         {
             // Phase 5: "Create entity" goes through the same Registry::

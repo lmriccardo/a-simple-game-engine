@@ -33,6 +33,7 @@
 // ASGE Game
 #include <ASGE/Game/Game.hpp>
 #include <ASGE/Game/Components.hpp>
+#include <ASGE/Game/Utils/SpriteGeometry.hpp>
 #include <ASGE/Game/Systems.hpp>
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Events.hpp>

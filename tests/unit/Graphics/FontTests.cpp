@@ -148,6 +148,29 @@ TEST(FontMeasureTest, MultiLineText_WidthIsTheLongestLine_HeightAddsALineHeightP
         static_cast<float>(font.GetLineHeight() + (font.GetAscent() - font.GetDescent())));
 }
 
+TEST(FontWrapTextTest, BreaksAtTheSpaceThatWouldOverflow)
+{
+    constexpr int px = 20;
+    auto result = Font::Load(AhemPath(), px);
+    ASSERT_TRUE(result.IsOk());
+    auto const& font = result.Value();
+
+    // Ahem: every glyph (space included) is px wide. "ab cd" is 5 glyphs = 100px.
+    EXPECT_EQ(font.WrapText("ab cd", 4.0f * px), "ab\ncd");
+    EXPECT_EQ(font.WrapText("ab cd", 5.0f * px), "ab cd");
+}
+
+TEST(FontWrapTextTest, KeepsExistingBreaksAndDoesNotSplitALongWord)
+{
+    constexpr int px = 20;
+    auto result = Font::Load(AhemPath(), px);
+    ASSERT_TRUE(result.IsOk());
+    auto const& font = result.Value();
+
+    EXPECT_EQ(font.WrapText("a\nb", 1000.0f), "a\nb");
+    EXPECT_EQ(font.WrapText("abcdef", px), "abcdef"); // wider than the limit, left whole
+}
+
 TEST(FontMoveTest, MoveConstructionPreservesGlyphLookupAndAtlas)
 {
     auto result = Font::Load(AhemPath(), 32);

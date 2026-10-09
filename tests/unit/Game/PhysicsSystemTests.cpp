@@ -1,11 +1,12 @@
 #include <ASGE/Game/Systems/PhysicsSystem.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
-#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Velocity.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Rigidbody.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Events.hpp>
 
 #include <gtest/gtest.h>
@@ -139,6 +140,69 @@ TEST(PhysicsSystemTest, MovableOverlappingStaticEntity_OnlyMovableGetsTheFullCor
     EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(immovable).Value().get().m_WorldCoordinates.x(), 6.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(movable).Value().get().m_DX, 0.0f);
     EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(movable).Value().get().m_DY, 3.0f);
+}
+
+// ─── Compound bodies (a movable entity whose colliders are its children) ────
+
+// A movable parent with no collider of its own, at the origin.
+Entity MakeBody(Registry& inRegistry)
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Transform{}).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Velocity{ .m_DX = 5.0f, .m_DY = 3.0f }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Rigidbody{}).IsOk());
+    return entity.Value();
+}
+
+TEST(PhysicsSystemTest, ChildColliderHittingStaticWall_PushesTheParentBodyAndDragsItsChildren)
+{
+    Registry registry;
+    auto const body = MakeBody(registry);
+    auto const shape = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f);
+    auto const wall = MakeCollider(registry, 8.0f, 0.0f, 10.0f, 10.0f);
+    asge::game::components::AttachChild(registry, body, shape);
+
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
+
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(body).Value().get().m_WorldCoordinates.x(), -2.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(shape).Value().get().m_WorldCoordinates.x(), -2.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(wall).Value().get().m_WorldCoordinates.x(), 8.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(body).Value().get().m_DX, 0.0f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Velocity>(body).Value().get().m_DY, 3.0f);
+}
+
+TEST(PhysicsSystemTest, TwoShapesOfOneBodyTouchingTheSameWall_PushItOutOnlyOnce)
+{
+    Registry registry;
+    auto const body = MakeBody(registry);
+    auto const upper = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f);
+    auto const lower = MakeCollider(registry, 0.0f, 10.0f, 10.0f, 10.0f);
+    MakeCollider(registry, 8.0f, 0.0f, 10.0f, 20.0f); // a tall wall both shapes overlap by 2
+    asge::game::components::AttachChild(registry, body, upper);
+    asge::game::components::AttachChild(registry, body, lower);
+
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
+
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(body).Value().get().m_WorldCoordinates.x(), -2.0f);
+}
+
+TEST(PhysicsSystemTest, OverlappingShapesOfTheSameBody_DoNotCollideWithEachOther)
+{
+    Registry registry;
+    auto const body = MakeBody(registry);
+    auto const first = MakeCollider(registry, 0.0f, 0.0f, 10.0f, 10.0f);
+    auto const second = MakeCollider(registry, 5.0f, 0.0f, 10.0f, 10.0f);
+    asge::game::components::AttachChild(registry, body, first);
+    asge::game::components::AttachChild(registry, body, second);
+
+    PhysicsState state;
+    RunCollisionResolution(registry, state);
+
+    EXPECT_TRUE(asge::game::systems::DetectCollisions(registry).empty());
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(body).Value().get().m_WorldCoordinates.x(), 0.0f);
 }
 
 // ─── CollisionResolution — no overlap / no movable entities ─────────────────

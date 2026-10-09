@@ -103,6 +103,7 @@ TEST_F(ProjectTest, LoadProjectFile_ViewTable_GivesTheGameWindowSize)
     auto view = builder.Table("View");
     view.Set("TargetWidth", 1280);
     view.Set("TargetHeight", 720);
+    view.Set("TargetFPS", 144);
     ASSERT_TRUE(builder.SaveToFile(m_File).IsOk());
 
     auto result = LoadProjectFile(m_File);
@@ -110,6 +111,7 @@ TEST_F(ProjectTest, LoadProjectFile_ViewTable_GivesTheGameWindowSize)
     ASSERT_TRUE(result.IsOk());
     EXPECT_EQ(result.Value().m_TargetWidth, 1280);
     EXPECT_EQ(result.Value().m_TargetHeight, 720);
+    EXPECT_EQ(result.Value().m_TargetFps, 144);
 }
 
 TEST_F(ProjectTest, LoadProjectFile_NoViewTable_LeavesTheWindowSizeUnset)
@@ -121,6 +123,7 @@ TEST_F(ProjectTest, LoadProjectFile_NoViewTable_LeavesTheWindowSizeUnset)
     ASSERT_TRUE(result.IsOk());
     EXPECT_EQ(result.Value().m_TargetWidth, 0);
     EXPECT_EQ(result.Value().m_TargetHeight, 0);
+    EXPECT_EQ(result.Value().m_TargetFps, 0);
 }
 
 TEST_F(ProjectTest, LoadProjectFile_NoMainScene_LeavesItEmpty)

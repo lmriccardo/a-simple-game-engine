@@ -31,8 +31,9 @@ add_library(ASGE STATIC
     Core/Math/LinearAlgebra/Vector2.cpp
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
-    Core/Math/Geometry/CatmullRomSpline.cpp
+    Core/Math/Interpolation/CatmullRomSpline.cpp
     Core/Math/Geometry/Rect.cpp
+    Core/Math/Interpolation/Easing.cpp
 
     # Core graphics value types (backend-agnostic; PixelFormat is header-only)
     Core/Graphics/Color.cpp
@@ -77,6 +78,7 @@ add_library(ASGE STATIC
     Game/Components/Rigidbody.cpp
     Game/Components/Collider.cpp
     Game/Components/Sprite.cpp
+    Game/Utils/SpriteGeometry.cpp
     Game/Components/Animation.cpp
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp

@@ -21,6 +21,7 @@
 #include <ASGE/Core/ECS/Markers.hpp>
 
 #include <imgui.h>
+#include <imgui_stdlib.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -29,6 +30,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace asge::game::components;
 
@@ -102,6 +104,14 @@ bool DrawTextField( char const* inLabel, std::string& ioValue ) noexcept
     return false;
 }
 
+// Multi-line counterpart to DrawTextField: edits the std::string in place
+// through imgui_stdlib's resizing callback, so there is no length cap and
+// Enter inserts a newline.
+bool DrawMultilineTextField( char const* inLabel, std::string& ioValue ) noexcept
+{
+    return ImGui::InputTextMultiline( inLabel, &ioValue, ImVec2( -FLT_MIN, ImGui::GetTextLineHeight() * 4.0f ) );
+}
+
 // Phase 11: every DrawInspector now returns bool (true if it changed
 // anything) -- not for the ResolveAssets trigger DrawSection<T>'s bool
 // detection originally existed for (that stays scoped to just Sprite/
@@ -122,6 +132,10 @@ bool DrawInspector( Transform& inT ) noexcept
 {
     bool changed = false;
 
+    if ( ImGui::Checkbox( "Locked", &inT.m_Locked ) ) changed = true;
+
+    // A locked entity can't be moved from here either, same as in the viewport.
+    ImGui::BeginDisabled( inT.m_Locked );
     float pos[2]{ inT.m_LocalCoordinates.x(), inT.m_LocalCoordinates.y() };
     if ( ImGui::DragFloat2( "Position", pos ) )
     {
@@ -129,6 +143,7 @@ bool DrawInspector( Transform& inT ) noexcept
         inT.m_Dirty = true;
         changed = true;
     }
+    ImGui::EndDisabled();
 
     if ( ImGui::DragFloat( "Rotation (rad)", &inT.m_LocalRotation, 0.01f ) ) { inT.m_Dirty = true; changed = true; }
 
@@ -164,20 +179,36 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // DrawInspector doc comment above for why that trigger has to stay this
 // narrow). Draw order (layer/y-sort/screen-space) moved out to its own
 // components::RenderInfo section, below.
+bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept;
+
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
 {
-    return DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+    bool const changed = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+    DrawColorField( "Tint", inSprite.m_Tint ); // not an asset change, so not part of the return
+    return changed;
 }
 
 // Phase 14: every field round-trips through Serializer<RenderInfo> verbatim
 // (no asset path/entity reference to reconcile), so unlike Sprite's own
 // section every edit here can just report "changed" directly.
-bool DrawInspector( RenderInfo& inRenderInfo ) noexcept
+//
+// An entity that inherits its sort from a parent draws with that parent's
+// resolved layer and y-sort, so its own are ignored (RenderSystem's
+// ResolveRenderInfo) -- but only if it actually has a parent, which is what
+// inHasParent says. Both fields are greyed out then, rather than left
+// looking editable while doing nothing.
+bool DrawInspector( RenderInfo& inRenderInfo, bool inHasParent ) noexcept
 {
+    bool const inherits = inRenderInfo.m_InheritSortFromParent && inHasParent;
+
+    ImGui::BeginDisabled( inherits );
     bool changed = ImGui::DragInt( "Layer", &inRenderInfo.m_Layer );
     if ( ImGui::Checkbox( "Y-Sort", &inRenderInfo.m_YSort ) ) changed = true;
+    ImGui::EndDisabled();
+
     if ( ImGui::Checkbox( "Screen Space", &inRenderInfo.m_ScreenSpace ) ) changed = true;
     if ( ImGui::Checkbox( "Inherit Sort From Parent", &inRenderInfo.m_InheritSortFromParent ) ) changed = true;
+    if ( inherits ) ImGui::TextDisabled( "Layer and Y-Sort come from the parent." );
     if ( ImGui::DragInt( "Local Order", &inRenderInfo.m_LocalOrder ) ) changed = true;
     if ( ImGui::DragFloat( "Sort Offset Y", &inRenderInfo.m_SortOffsetY ) ) changed = true;
     return changed;
@@ -433,7 +464,7 @@ bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFon
 {
     bool changed = DrawAssetPathCombo( "Font Path", inLabel.m_FontPath, inKnownFonts );
 
-    DrawTextField( "Text", inLabel.m_Text );
+    DrawMultilineTextField( "Text", inLabel.m_Text );
 
     static char const* const kAlignNames[]{ "None", "Left", "Center", "Right" };
     int align = static_cast<int>( inLabel.m_Align );
@@ -463,6 +494,9 @@ bool DrawInspector( UILabel& inLabel, std::vector<std::string> const& inKnownFon
             "given font's own glyphs to all fit fails to resolve.", atlasSize.x(), atlasSize.y() );
     }
     ImGui::Checkbox( "Auto Size", &inLabel.m_AutoSize );
+    ImGui::BeginDisabled( inLabel.m_AutoSize );
+    ImGui::Checkbox( "Word Wrap", &inLabel.m_WordWrap );
+    ImGui::EndDisabled();
 
     return changed;
 }
@@ -813,6 +847,55 @@ void DrawClosedEyeIcon( ImDrawList* inDrawList, ImVec2 inCenter, float inRadius,
     inDrawList->AddLine( right, ImVec2{ right.x + inRadius * 0.35f, right.y + inRadius * 0.5f }, inColor, 1.5f );
 }
 
+// What a click in the Entities panel asked of the groups this frame. Applied
+// after the whole tree is drawn, never mid-walk, since drawing iterates the
+// very lists an operation would change.
+enum class GroupOpKind { None, NewEmpty, NewWith, MoveTo, RemoveFrom, Delete, Rename };
+
+struct GroupOp
+{
+    GroupOpKind       m_Kind   = GroupOpKind::None;
+    std::size_t       m_Group  = 0;
+    asge::ecs::Entity m_Entity = asge::ecs::Entity::Null();
+};
+
+struct GroupContext
+{
+    EntityGroupList&       m_Groups;
+    GroupOp                m_Op;
+    bool                   m_PromptForName = false; // m_Op needs a name from the Group Name modal first
+};
+
+constexpr std::size_t kNoGroup = static_cast<std::size_t>( -1 );
+
+std::size_t FindGroupOf( EntityGroupList const& inGroups, asge::ecs::Entity inEntity ) noexcept
+{
+    for ( std::size_t i = 0; i < inGroups.size(); ++i )
+    {
+        auto const& members = inGroups[i].m_Members;
+        if ( std::find( members.begin(), members.end(), inEntity ) != members.end() ) return i;
+    }
+    return kNoGroup;
+}
+
+void RemoveFromAllGroups( EntityGroupList& ioGroups, asge::ecs::Entity inEntity ) noexcept
+{
+    for ( auto& group : ioGroups ) std::erase( group.m_Members, inEntity );
+}
+
+// inEntity's parent, or Null() for a top-level entity -- the scope a group it joins must have.
+asge::ecs::Entity ParentOf( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
+    return hierarchy ? hierarchy.Value().get().m_Parent : asge::ecs::Entity::Null();
+}
+
+// Draws the groups whose parent is inScope (Null() for the top level), then inChildren that no
+// group holds. Defined after DrawGroupNode, which draws a group's members through DrawEntityTreeNode.
+void DrawScope(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inScope, std::vector<asge::ecs::Entity> const& inChildren,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept;
+
 // Phase 13: one row of DrawEntityListPanel's tree, recursing into
 // inEntity's own children (if any) via ecs::components::ForEachChild.
 // Reports at most one HierarchyAction into ioResult per frame -- New Child/
@@ -825,7 +908,7 @@ void DrawClosedEyeIcon( ImDrawList* inDrawList, ImVec2 inCenter, float inRadius,
 // here would invalidate the child list this recursion is still iterating.
 void DrawEntityTreeNode(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity,
-    asge::ecs::Entity& ioSelected, EntityListResult& ioResult ) noexcept
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept
 {
     auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
     bool const isRoot = !hierarchy || hierarchy.Value().get().m_Parent == asge::ecs::Entity::Null();
@@ -881,6 +964,38 @@ void DrawEntityTreeNode(
 
     if ( ImGui::BeginPopupContextItem() )
     {
+        {
+            // An entity can only join a group of its own scope: a top-level entity a
+            // top-level group, a child a group under that same parent.
+            auto const parent = hierarchy ? hierarchy.Value().get().m_Parent : asge::ecs::Entity::Null();
+            if ( ImGui::BeginMenu( "Move to Group" ) )
+            {
+                bool listed = false;
+                for ( std::size_t i = 0; i < ioGroups.m_Groups.size(); ++i )
+                {
+                    if ( ioGroups.m_Groups[i].m_Parent != parent ) continue;
+                    listed = true;
+                    std::string const item = ioGroups.m_Groups[i].m_Name + "##move" + std::to_string( i );
+                    if ( ImGui::MenuItem( item.c_str() ) ) ioGroups.m_Op = { GroupOpKind::MoveTo, i, inEntity };
+                }
+                if ( listed ) ImGui::Separator();
+                if ( ImGui::MenuItem( "New Group..." ) )
+                {
+                    ioGroups.m_Op = { GroupOpKind::NewWith, 0, inEntity };
+                    ioGroups.m_PromptForName = true;
+                }
+                ImGui::EndMenu();
+            }
+            bool const grouped = FindGroupOf( ioGroups.m_Groups, inEntity ) != kNoGroup;
+            if ( ImGui::MenuItem( "Remove from Group", nullptr, false, grouped ) )
+                ioGroups.m_Op = { GroupOpKind::RemoveFrom, 0, inEntity };
+            if ( hasChildren && ImGui::MenuItem( "New Child Group..." ) )
+            {
+                ioGroups.m_Op = { GroupOpKind::NewEmpty, 0, inEntity }; // scoped to this entity's children
+                ioGroups.m_PromptForName = true;
+            }
+            ImGui::Separator();
+        }
         if ( ImGui::MenuItem( "New Child" ) )
         {
             ioResult.m_Action = HierarchyAction::NewChild;
@@ -910,9 +1025,67 @@ void DrawEntityTreeNode(
         std::vector<asge::ecs::Entity> children;
         asge::ecs::components::ForEachChild(
             inRegistry, inEntity, [&]( asge::ecs::Entity inChild ) { children.push_back( inChild ); } );
-        for ( auto child : children ) DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult );
+        DrawScope( inRegistry, inEntity, children, ioSelected, ioResult, ioGroups );
     }
     if ( open && hasChildren ) ImGui::TreePop();
+}
+
+// One group folder of DrawEntityListPanel: its members as ordinary tree rows
+// underneath, a drop target for rows dragged onto it, and its own menu.
+void DrawGroupNode(
+    asge::ecs::Registry& inRegistry, EntityGroup& ioGroup, std::size_t inIndex,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept
+{
+    // The folder's open state lives in the group; forcing it each frame and
+    // reading back what the click made of it keeps the two in step.
+    ImGui::SetNextItemOpen( ioGroup.m_Open, ImGuiCond_Always );
+    std::string const label =
+        ioGroup.m_Name + " (" + std::to_string( ioGroup.m_Members.size() ) + ")##group" + std::to_string( inIndex );
+    ioGroup.m_Open = ImGui::TreeNodeEx( label.c_str(), ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth );
+
+    if ( ImGui::BeginDragDropTarget() )
+    {
+        if ( auto const* payload = ImGui::AcceptDragDropPayload( "ASGE_ENTITY" ) )
+        {
+            asge::ecs::Entity dragged;
+            std::memcpy( &dragged, payload->Data, sizeof( dragged ) );
+            ioGroups.m_Op = { GroupOpKind::MoveTo, inIndex, dragged };
+        }
+        ImGui::EndDragDropTarget();
+    }
+
+    if ( ImGui::BeginPopupContextItem() )
+    {
+        if ( ImGui::MenuItem( "Rename..." ) )
+        {
+            ioGroups.m_Op = { GroupOpKind::Rename, inIndex, asge::ecs::Entity::Null() };
+            ioGroups.m_PromptForName = true;
+        }
+        if ( ImGui::MenuItem( "Delete Group" ) ) ioGroups.m_Op = { GroupOpKind::Delete, inIndex, asge::ecs::Entity::Null() };
+        ImGui::EndPopup();
+    }
+
+    if ( !ioGroup.m_Open ) return;
+
+    auto const members = ioGroup.m_Members; // copied: drawing a row may queue, never apply, a change
+    for ( auto member : members ) DrawEntityTreeNode( inRegistry, member, ioSelected, ioResult, ioGroups );
+    ImGui::TreePop();
+}
+
+void DrawScope(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inScope, std::vector<asge::ecs::Entity> const& inChildren,
+    asge::ecs::Entity& ioSelected, EntityListResult& ioResult, GroupContext& ioGroups ) noexcept
+{
+    for ( std::size_t i = 0; i < ioGroups.m_Groups.size(); ++i )
+    {
+        if ( ioGroups.m_Groups[i].m_Parent == inScope )
+            DrawGroupNode( inRegistry, ioGroups.m_Groups[i], i, ioSelected, ioResult, ioGroups );
+    }
+    for ( auto child : inChildren )
+    {
+        if ( FindGroupOf( ioGroups.m_Groups, child ) == kNoGroup )
+            DrawEntityTreeNode( inRegistry, child, ioSelected, ioResult, ioGroups );
+    }
 }
 
 }
@@ -972,8 +1145,14 @@ void ResetEntityDisplayIds() noexcept
     g_NextEntityDisplayId = 0;
 }
 
-EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject ) noexcept
+EntityListResult DrawEntityListPanel(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity& ioSelected, bool inHasProject,
+    EntityGroupList& ioGroups ) noexcept
 {
+    // Which group operation the open Group Name modal will apply once it gets a name.
+    static GroupOp s_NameOp;
+    static char    s_NameBuffer[64] = "";
+
     // Anchored flush to the right edge, re-snapping only on an actual
     // resize -- see AnchorCondOnResize's own doc comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
@@ -991,6 +1170,7 @@ EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs
     // not here -- this panel only reports the click, same division of labor
     // as "Create Entity" itself.
     result.m_CreateUIElementClicked = ImGui::Button( "Create UI Element" );
+    bool const createGroupClicked = ImGui::Button( "Create Group" );
     if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
 
@@ -1014,7 +1194,113 @@ EntityListResult DrawEntityListPanel( asge::ecs::Registry& inRegistry, asge::ecs
         return GetOrAssignDisplayId( inA ) < GetOrAssignDisplayId( inB );
     } );
 
-    for ( auto root : roots ) DrawEntityTreeNode( inRegistry, root, ioSelected, result );
+    // A group whose parent is gone, or a member that was deleted or moved under another
+    // parent, no longer belongs -- drop it rather than show a stale row.
+    std::unordered_set<asge::ecs::Entity> const alive( entities.begin(), entities.end() );
+    std::erase_if( ioGroups, [&]( EntityGroup const& inGroup )
+    {
+        return inGroup.m_Parent != asge::ecs::Entity::Null() && !alive.contains( inGroup.m_Parent );
+    } );
+    for ( auto& group : ioGroups )
+    {
+        std::erase_if( group.m_Members, [&]( asge::ecs::Entity inE )
+        {
+            return !alive.contains( inE ) || ParentOf( inRegistry, inE ) != group.m_Parent;
+        } );
+    }
+
+    GroupContext groupCtx{ ioGroups, {}, false };
+    if ( createGroupClicked )
+    {
+        groupCtx.m_Op = { GroupOpKind::NewEmpty, 0, asge::ecs::Entity::Null() };
+        groupCtx.m_PromptForName = true;
+    }
+
+    DrawScope( inRegistry, asge::ecs::Entity::Null(), roots, ioSelected, result, groupCtx );
+
+    // Applied only now that nothing is iterating the groups any more.
+    auto const& op = groupCtx.m_Op;
+    switch ( op.m_Kind )
+    {
+    case GroupOpKind::MoveTo:
+        if ( op.m_Group < ioGroups.size() && alive.contains( op.m_Entity )
+          && ParentOf( inRegistry, op.m_Entity ) == ioGroups[op.m_Group].m_Parent )
+        {
+            RemoveFromAllGroups( ioGroups, op.m_Entity );
+            ioGroups[op.m_Group].m_Members.push_back( op.m_Entity );
+            result.m_GroupsChanged = true;
+        }
+        break;
+    case GroupOpKind::RemoveFrom:
+        RemoveFromAllGroups( ioGroups, op.m_Entity );
+        result.m_GroupsChanged = true;
+        break;
+    case GroupOpKind::Delete:
+        if ( op.m_Group < ioGroups.size() )
+        {
+            ioGroups.erase( ioGroups.begin() + static_cast<std::ptrdiff_t>( op.m_Group ) );
+            result.m_GroupsChanged = true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    // The name prompt is opened here, at the window's own ID level -- opening it from
+    // inside a row's popup would hash to a different ID than BeginPopupModal below.
+    if ( groupCtx.m_PromptForName )
+    {
+        s_NameOp = groupCtx.m_Op;
+        if ( s_NameOp.m_Kind == GroupOpKind::Rename && s_NameOp.m_Group < ioGroups.size() )
+            std::snprintf( s_NameBuffer, sizeof( s_NameBuffer ), "%s", ioGroups[s_NameOp.m_Group].m_Name.c_str() );
+        else
+            std::snprintf( s_NameBuffer, sizeof( s_NameBuffer ), "%s", "New Group" );
+        ImGui::OpenPopup( "Group Name" );
+    }
+
+    if ( ImGui::BeginPopupModal( "Group Name", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+    {
+        if ( ImGui::IsWindowAppearing() ) ImGui::SetKeyboardFocusHere();
+        bool const submitted = ImGui::InputText( "##GroupName", s_NameBuffer, sizeof( s_NameBuffer ), ImGuiInputTextFlags_EnterReturnsTrue );
+
+        bool const canApply = s_NameBuffer[0] != '\0';
+        if ( !canApply ) ImGui::BeginDisabled();
+        bool const okClicked = ImGui::Button( "OK" );
+        if ( !canApply ) ImGui::EndDisabled();
+        ImGui::SameLine();
+        bool const cancelled = ImGui::Button( "Cancel" );
+
+        if ( canApply && ( submitted || okClicked ) )
+        {
+            switch ( s_NameOp.m_Kind )
+            {
+            case GroupOpKind::NewEmpty: // m_Entity is the parent whose children it holds, Null() for the top level
+                if ( s_NameOp.m_Entity == asge::ecs::Entity::Null() || alive.contains( s_NameOp.m_Entity ) )
+                    ioGroups.push_back( EntityGroup{ s_NameBuffer, {}, true, s_NameOp.m_Entity } );
+                break;
+            case GroupOpKind::NewWith:
+                if ( alive.contains( s_NameOp.m_Entity ) )
+                {
+                    auto const parent = ParentOf( inRegistry, s_NameOp.m_Entity );
+                    RemoveFromAllGroups( ioGroups, s_NameOp.m_Entity );
+                    ioGroups.push_back( EntityGroup{ s_NameBuffer, { s_NameOp.m_Entity }, true, parent } );
+                }
+                break;
+            case GroupOpKind::Rename:
+                if ( s_NameOp.m_Group < ioGroups.size() ) ioGroups[s_NameOp.m_Group].m_Name = s_NameBuffer;
+                break;
+            default:
+                break;
+            }
+            result.m_GroupsChanged = true;
+            ImGui::CloseCurrentPopup();
+        }
+        else if ( cancelled )
+        {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 
     ImGui::End();
 
@@ -1107,7 +1393,8 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= rigidbodyChanged;
     bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
-    bool const renderInfoChanged = DrawSection<RenderInfo>( inRegistry, inSelected, "RenderInfo" );
+    bool const renderInfoChanged = DrawSection<RenderInfo>(
+        inRegistry, inSelected, "RenderInfo", ParentOf( inRegistry, inSelected ) != asge::ecs::Entity::Null() );
     fieldChanged |= renderInfoChanged;
     bool const colliderChanged = DrawSection<Collider>( inRegistry, inSelected, "Collider", inSelected, ioColliderDraw );
     fieldChanged |= colliderChanged;

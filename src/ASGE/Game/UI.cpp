@@ -71,7 +71,8 @@ Result<ecs::Entity> AddText( ecs::Registry& inReg, ecs::Entity inE, TextDesc con
     if ( auto r = inReg.AddComponent<components::UILabel>( inE, components::UILabel{
              .m_FontPath = inText.m_FontPath, .m_Text = inText.m_Content, .m_Align = inText.m_Align,
              .m_VerticalAlign = inText.m_VerticalAlign, .m_Color = inText.m_Color,
-             .m_FontPixelHeight = inText.m_FontPixelHeight, .m_AutoSize = inAutoSize } ); !r )
+             .m_FontPixelHeight = inText.m_FontPixelHeight, .m_AutoSize = inAutoSize,
+             .m_WordWrap = inText.m_WordWrap } ); !r )
     {
         return Result<ecs::Entity>::Err( r.Error() );
     }

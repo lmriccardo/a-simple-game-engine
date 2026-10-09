@@ -38,6 +38,12 @@ class SceneManager
     // its own scratch Registry instead of live in m_Registry -- see
     // SuspendScene()/RestoreScene().
     std::unordered_map<str::String, ecs::Registry> m_Snapshots;
+    // For each snapshotted scene, which snapshot entity each of its formerly
+    // live entities became -- see TakeRestoredEntities().
+    std::unordered_map<str::String, std::unordered_map<ecs::Entity, ecs::Entity>> m_SuspendedHandles;
+    // The last LoadScene()'s snapshot restore: each entity's handle before the
+    // scene was suspended -> its handle now.
+    std::unordered_map<ecs::Entity, ecs::Entity> m_RestoredEntities;
 
     // A transition requested via RequestLoad()/RequestUnload(), applied on
     // the next ApplyPendingTransition() call. At most one is pending at a
@@ -86,9 +92,12 @@ public:
      * @brief Makes inVirtualPath the active scene — instantly if already
      *        resident, otherwise loaded from disk and tagged. No-op if
      *        already active.
+     * @param outCtx If non-null, is cleared, then filled (file index -> entity) when this
+     *        call actually read the scene from disk; stays empty for a scene that was
+     *        already active or restored from a snapshot.
      * @return Ok on success; a failed disk load disturbs nothing resident.
      */
-    BoolResult LoadScene( str::String const& inVirtualPath ) noexcept;
+    BoolResult LoadScene( str::String const& inVirtualPath, LoadContext* outCtx = nullptr ) noexcept;
 
     /**
      * @brief LoadScene()'s counterpart for a scene file addressed by a real
@@ -96,7 +105,7 @@ public:
      *        The SceneId its entities are tagged with defaults to inPath's string form.
      * @return Ok on success; a failed disk load disturbs nothing resident.
      */
-    BoolResult LoadSceneFromFile( filesystem::Path const& inPath ) noexcept;
+    BoolResult LoadSceneFromFile( filesystem::Path const& inPath, LoadContext* outCtx = nullptr ) noexcept;
 
     /** @brief Destroys every entity belonging to the active scene, leaving nothing active. */
     void UnloadScene() noexcept;
@@ -115,8 +124,18 @@ public:
      */
     void RenameActiveScene( str::String const& inNewVirtualPath ) noexcept;
 
-    /** @brief Saves only the active scene's entities to inPath, not every resident scene. */
-    BoolResult SaveScene( filesystem::Path const& inPath ) const noexcept;
+    /**
+     * @brief Saves only the active scene's entities to inPath, not every resident scene.
+     * @param outCtx If non-null, receives each live entity's index in the saved file.
+     */
+    BoolResult SaveScene( filesystem::Path const& inPath, SaveContext* outCtx = nullptr ) const noexcept;
+
+    /**
+     * @brief After a LoadScene() that restored a snapshot, each entity's handle before
+     *        that scene was suspended -> its handle now (suspending and restoring copy
+     *        entities, so handles change); empty otherwise. Returns it and clears it.
+     */
+    [[nodiscard]] std::unordered_map<ecs::Entity, ecs::Entity> TakeRestoredEntities() noexcept;
 
     /**
      * @brief Drops inVirtualPath's snapshot so the next LoadScene() for it

@@ -282,11 +282,19 @@ void asge::video::SDLRenderer::DrawString(
 {
     inTexture.SetColorMod( inColor );
     float penX = inPosition.x();
-    float const penY = inPosition.y();
+    float penY = inPosition.y();
 
-    for ( char c : inText )
+    for ( std::size_t pos = 0; pos < inText.size(); )
     {
-        auto glyphResult = inFont.GetGlyph( static_cast<char32_t>(c) );
+        char32_t const cp = static_cast<char32_t>( str::DecodeUtf8( inText, pos ) );
+        if ( cp == U'\n' )
+        {
+            penX = inPosition.x();
+            penY += static_cast<float>( inFont.GetLineHeight() );
+            continue;
+        }
+
+        auto glyphResult = inFont.GetGlyph( cp );
         if ( !glyphResult ) continue; // Codepoint not baked -- skip
 
         auto const& glyph = glyphResult.Value();

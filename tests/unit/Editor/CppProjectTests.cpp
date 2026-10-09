@@ -117,6 +117,7 @@ TEST_F(CppProjectTest, Create_GameReadsTheWindowSizeFromTheProjectAndMainUsesIt)
 
     auto const game = ReadAll(Code() / "Game.cpp");
     EXPECT_NE(game.find("config.s_Width = project.Value().m_TargetWidth"), std::string::npos);
+    EXPECT_NE(game.find("config.s_TargetFps = static_cast<std::uint64_t>( project.Value().m_TargetFps )"), std::string::npos);
     EXPECT_NE(game.find("asge::ApplicationConfig config{ .s_Title = \"demo\" }"), std::string::npos);
     EXPECT_NE(ReadAll(Code() / "main.cpp").find("MakeApplicationConfig()"), std::string::npos);
 }
@@ -126,7 +127,7 @@ TEST_F(CppProjectTest, Create_SceneStateOffersLookupConnectAndTransitionHelpers)
     ASSERT_TRUE(CreateCppProject(Input({ "Main" }), "C:/dev/asge").IsOk());
 
     auto const base = ReadAll(Code() / "SceneState.hpp");
-    for (auto const* member : { "virtual void OnSceneLoaded()", "virtual void OnUpdate(", "Registry& GetRegistry() const", "FindByName(", "T* Find(", "void Connect(",
+    for (auto const* member : { "virtual void OnSceneLoaded()", "virtual void OnUpdate(", "Registry& GetRegistry() const", "FindByName(", "T* Find(", "T* GetResource()", "void SetResource(", "void Connect(",
                                 "void Replace(", "void Push(", "void Pop()", "void Quit()", "void OnExit() override" })
     {
         EXPECT_NE(base.find(member), std::string::npos) << member;

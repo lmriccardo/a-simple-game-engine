@@ -1,33 +1,7 @@
 #include "Sprite.hpp"
 
 #include <cmath>
-
-std::optional<asge::math::Rect> asge::game::components::SpriteGetDstRect(
-    Sprite const& inSprite, Transform const& inT ) noexcept
-{
-    if ( !inSprite.m_Texture ) return std::nullopt;
-
-    auto const& texture = *inSprite.m_Texture;
-    auto const& srcRect = inSprite.m_SourceRect;
-    float srcW{}, srcH{};
-
-    if ( srcRect.has_value() )
-    {
-        srcW = srcRect->m_Width;
-        srcH = srcRect->m_Height;
-    }
-    else
-    {
-        math::Int2 const texSize = texture.Size();
-        srcW = static_cast<float>(texSize.x());
-        srcH = static_cast<float>(texSize.y());
-    }
-
-    return math::Rect{
-        inT.m_WorldCoordinates.x(), inT.m_WorldCoordinates.y(),
-        srcW * inT.m_WorldScale.x(), srcH * inT.m_WorldScale.y()
-    };
-}
+#include <cstdint>
 
 asge::game::components::SpriteDrawCorners asge::game::components::SpriteGetDrawCorners(
     math::Rect const& inDstRect, float inRotationRadians ) noexcept
@@ -62,6 +36,7 @@ void asge::game::scene::Serializer<asge::game::components::Sprite>::ToToml(
 {
     auto sprite = inTview.Table(std::string(kTableName));
     sprite.Set<std::string>("m_VirtualPath", inSprite.m_VirtualPath);
+    sprite.Set("m_Tint", static_cast<std::int64_t>(graphics::RGBATo32A( inSprite.m_Tint )));
 
     if ( inSprite.m_SourceRect )
     {
@@ -80,6 +55,9 @@ asge::game::components::Sprite asge::game::scene::Serializer<asge::game::compone
 
     components::Sprite result{};
     result.m_VirtualPath = sprite.Get<std::string>("m_VirtualPath", std::string{});
+
+    auto const dTint = static_cast<std::int64_t>( graphics::RGBATo32A( result.m_Tint ) );
+    result.m_Tint = graphics::C32AToRGBA( static_cast<graphics::Color32A>( sprite.Get("m_Tint", dTint) ) );
 
     if ( sprite.HasTable("SourceRect") )
     {

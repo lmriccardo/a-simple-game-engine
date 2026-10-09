@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components

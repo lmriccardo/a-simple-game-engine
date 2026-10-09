@@ -8,7 +8,8 @@ void asge::game::scene::Serializer<asge::game::components::Transform>::ToToml(
            .Set("m_Y", inTransform.m_LocalCoordinates.y())
            .Set("m_Rotation", inTransform.m_LocalRotation)
            .Set("m_ScaleX", inTransform.m_LocalScale.x())
-           .Set("m_ScaleY", inTransform.m_LocalScale.y());
+           .Set("m_ScaleY", inTransform.m_LocalScale.y())
+           .Set("m_Locked", inTransform.m_Locked);
 }
 
 asge::game::components::Transform asge::game::scene::Serializer<asge::game::components::Transform>::FromToml(
@@ -20,6 +21,7 @@ asge::game::components::Transform asge::game::scene::Serializer<asge::game::comp
     result.m_LocalCoordinates = math::Float2{table.Get( "m_X", 0.0f ), table.Get( "m_Y", 0.0f )};
     result.m_LocalScale = math::Float2{table.Get( "m_ScaleX", 1.0f ), table.Get( "m_ScaleY", 1.0f )};
     result.m_LocalRotation = table.Get("m_Rotation", result.m_LocalRotation);
+    result.m_Locked = table.Get("m_Locked", result.m_Locked);
     result.m_Dirty = true; // request a TransformPropagationSystem recompute of World before this is ever read
     return result;
 }

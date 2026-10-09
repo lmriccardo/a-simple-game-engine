@@ -117,6 +117,21 @@ TEST(TransformSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_FLOAT_EQ(restored.m_LocalScale.y(), 1.0f);
 }
 
+TEST(TransformSerializerTest, Locked_RoundTripsAndDefaultsToUnlocked)
+{
+    TOMLBuilder locked;
+    Serializer<Transform>::ToToml( Transform{ .m_Locked = true }, locked, asge::game::scene::SaveContext{} );
+    EXPECT_TRUE(Serializer<Transform>::FromToml( locked, asge::game::scene::LoadContext{} ).m_Locked);
+
+    TOMLBuilder unlocked;
+    Serializer<Transform>::ToToml( Transform{}, unlocked, asge::game::scene::SaveContext{} );
+    EXPECT_FALSE(Serializer<Transform>::FromToml( unlocked, asge::game::scene::LoadContext{} ).m_Locked);
+
+    TOMLBuilder oldFile; // a scene written before the field existed
+    oldFile.Table("Transform");
+    EXPECT_FALSE(Serializer<Transform>::FromToml( oldFile, asge::game::scene::LoadContext{} ).m_Locked);
+}
+
 // ─── Velocity ─────────────────────────────────────────────────────────────
 
 TEST(VelocitySerializerTest, ToToml_WritesFieldsUnderVelocityTable)
@@ -1101,6 +1116,18 @@ TEST(UIPanelSerializerTest, RoundTrips_ColorsPaddingMarginAndBorder)
     EXPECT_FLOAT_EQ(restored.m_Margin.x(), 3.5f);
     EXPECT_FLOAT_EQ(restored.m_Margin.y(), 4.5f);
     EXPECT_FALSE(restored.m_Border);
+}
+
+TEST(UIPanelSerializerTest, FromToml_ParsedTransparentBackgroundStaysTransparent)
+{
+    // A packed color with alpha 0 fits in 32 bits, so the parser stores it as
+    // `int` -- it must not fall back to the struct default (s_ShadowBlack).
+    auto parsed = asge::config::toml::Parse( std::string( "[UIPanel]\nm_Background = 0\n" ) );
+    ASSERT_TRUE( parsed.IsOk() );
+
+    asge::config::toml::TOMLTableView const root( parsed.Value() );
+    UIPanel const restored = Serializer<UIPanel>::FromToml( root, asge::game::scene::LoadContext{} );
+    EXPECT_EQ( restored.m_Background.a, 0 );
 }
 
 TEST(UIPanelSerializerTest, RoundTrips_Spacing)

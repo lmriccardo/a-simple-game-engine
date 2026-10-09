@@ -64,6 +64,7 @@ void asge::game::scene::SceneManager::SuspendScene(str::String const &inSceneId)
     ecs::Registry snapshot;
     auto const entities = EntitiesInScene( inSceneId );
     if ( auto copies = CopyEntities( m_Registry, entities, snapshot ); !copies ) copies.LogError();
+    else m_SuspendedHandles.insert_or_assign( inSceneId, std::move( copies.Value() ) );
 
     for ( auto entity : entities )
     {
@@ -86,27 +87,53 @@ void asge::game::scene::SceneManager::RestoreScene(
             tagResult.LogError();
         }
     }
+
+    // Compose "handle before suspending -> snapshot copy" with "snapshot copy
+    // -> handle now", so callers holding old handles can find their entities.
+    if ( auto suspended = m_SuspendedHandles.find( inSceneId ); suspended != m_SuspendedHandles.end() )
+    {
+        for ( auto const& [ before, snapshotCopy ] : suspended->second )
+        {
+            if ( auto now = copies.Value().find( snapshotCopy ); now != copies.Value().end() )
+            {
+                m_RestoredEntities[before] = now->second;
+            }
+        }
+        m_SuspendedHandles.erase( suspended );
+    }
 }
 
-asge::BoolResult asge::game::scene::SceneManager::LoadScene(str::String const &inVirtualPath) noexcept
+asge::BoolResult asge::game::scene::SceneManager::LoadScene(
+    str::String const &inVirtualPath, LoadContext* outCtx) noexcept
 {
+    if ( outCtx ) *outCtx = {};
     return LoadSceneCommon( inVirtualPath, [&]( ecs::Registry& inRegistry )
     {
-        return m_Serializer.Load( inRegistry, inVirtualPath );
+        return m_Serializer.Load( inRegistry, inVirtualPath, outCtx );
     } );
 }
 
-asge::BoolResult asge::game::scene::SceneManager::LoadSceneFromFile(filesystem::Path const &inPath) noexcept
+asge::BoolResult asge::game::scene::SceneManager::LoadSceneFromFile(
+    filesystem::Path const &inPath, LoadContext* outCtx) noexcept
 {
+    if ( outCtx ) *outCtx = {};
     return LoadSceneCommon( inPath.string(), [&]( ecs::Registry& inRegistry )
     {
-        return m_Serializer.LoadFromFile( inRegistry, inPath );
+        return m_Serializer.LoadFromFile( inRegistry, inPath, outCtx );
     } );
+}
+
+std::unordered_map<asge::ecs::Entity, asge::ecs::Entity>
+asge::game::scene::SceneManager::TakeRestoredEntities() noexcept
+{
+    return std::exchange( m_RestoredEntities, {} );
 }
 
 asge::BoolResult asge::game::scene::SceneManager::LoadSceneCommon(
     str::String const &inSceneId, std::function<BoolResult( ecs::Registry& )> const &inLoad) noexcept
 {
+    m_RestoredEntities.clear();
+
     if ( m_CurrentScenePath && *m_CurrentScenePath == inSceneId )
         return BoolResult::Ok(); // already active
 
@@ -180,29 +207,42 @@ void asge::game::scene::SceneManager::RenameActiveScene(str::String const &inNew
     m_CurrentScenePath = inNewVirtualPath;
 }
 
-asge::BoolResult asge::game::scene::SceneManager::SaveScene(filesystem::Path const &inPath) const noexcept
+asge::BoolResult asge::game::scene::SceneManager::SaveScene(
+    filesystem::Path const &inPath, SaveContext* outCtx) const noexcept
 {
     // SceneSerializer::Save has no notion of "just these entities" -- it
     // serializes a whole Registry -- so build a scratch one holding a copy
     // of just the active scene's entities and hand that to it instead.
     ecs::Registry snapshot;
-    if ( auto copies = CopyEntities( m_Registry, ActiveEntities(), snapshot ); !copies )
-    {
-        return BoolResult::Err( copies.Error() );
-    }
+    auto copies = CopyEntities( m_Registry, ActiveEntities(), snapshot );
+    if ( !copies ) return BoolResult::Err( copies.Error() );
 
-    return m_Serializer.Save( snapshot, inPath );
+    SaveContext snapshotCtx;
+    if ( auto result = m_Serializer.Save( snapshot, inPath, outCtx ? &snapshotCtx : nullptr ); !result ) return result;
+
+    // The serializer numbered the snapshot's copies; report the live entities instead.
+    if ( outCtx )
+    {
+        outCtx->m_Ids.clear();
+        for ( auto const& [ live, copy ] : copies.Value() )
+        {
+            if ( auto it = snapshotCtx.m_Ids.find( copy ); it != snapshotCtx.m_Ids.end() ) outCtx->m_Ids[live] = it->second;
+        }
+    }
+    return BoolResult::Ok();
 }
 
 void asge::game::scene::SceneManager::EvictCachedScene(str::String const &inVirtualPath) noexcept
 {
     if ( m_CurrentScenePath && *m_CurrentScenePath == inVirtualPath ) return; // active scene isn't "cached"
     m_Snapshots.erase( inVirtualPath );
+    m_SuspendedHandles.erase( inVirtualPath );
 }
 
 void asge::game::scene::SceneManager::ClearCache() noexcept
 {
     m_Snapshots.clear();
+    m_SuspendedHandles.clear();
 }
 
 std::size_t asge::game::scene::SceneManager::CachedSceneCount() const noexcept

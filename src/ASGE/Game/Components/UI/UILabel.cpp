@@ -30,7 +30,8 @@ void asge::game::scene::Serializer<asge::game::components::UILabel>::ToToml(
            .Set("m_VerticalAlign", components::ToString( inValue.m_VerticalAlign ))
            .Set("m_FontColor", static_cast<std::int64_t>(graphics::RGBATo32A( inValue.m_Color )))
            .Set("m_FontPixelHeight", inValue.m_FontPixelHeight)
-           .Set("m_AutoSize", inValue.m_AutoSize);
+           .Set("m_AutoSize", inValue.m_AutoSize)
+           .Set("m_WordWrap", inValue.m_WordWrap);
 }
 
 asge::game::components::UILabel
@@ -48,6 +49,7 @@ asge::game::scene::Serializer<asge::game::components::UILabel>::FromToml(
     result.m_Text = table.Get( "m_Text", result.m_Text );
     result.m_FontPixelHeight = table.Get( "m_FontPixelHeight", result.m_FontPixelHeight );
     result.m_AutoSize = table.Get( "m_AutoSize", result.m_AutoSize );
+    result.m_WordWrap = table.Get( "m_WordWrap", result.m_WordWrap );
 
     auto const dColor = static_cast<std::int64_t>( graphics::RGBATo32A( result.m_Color ) );
     result.m_Color = graphics::C32AToRGBA( static_cast<graphics::Color32A>( table.Get( "m_FontColor", dColor ) ) );

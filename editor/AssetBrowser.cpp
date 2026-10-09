@@ -1,5 +1,6 @@
 #include "AssetBrowser.hpp"
 #include "FileDialog.hpp"
+#include "AssetTree.hpp"
 #include "Inspector.hpp" // GetEntityLabel, for the "Attach To" submenu's entity list
 
 #include <ASGE/Core/Filesystem/FileIO.hpp>
@@ -159,6 +160,88 @@ void DrawAssetContextMenu(
     }
 
     ImGui::EndPopup();
+}
+
+// What drawing one section's asset rows needs besides the tree itself.
+struct AssetSectionContext
+{
+    asge::ecs::Registry&         m_Registry;
+    AssetPickKind                m_Kind;
+    bool                         m_ContextMenu;      // rows offer Create Entity / Attach To (not fonts)
+    bool                         m_AllowCreateClip;  // ...and Create Clip (textures only)
+    bool                         m_HasProject;
+    std::set<std::string>&       m_Loaded;           // manually "Load Asset..."-ed entries: the only ones an "x" can remove
+    std::set<std::string> const& m_Used;             // paths an entity references right now
+    AssetBrowserResult&          m_Result;
+};
+
+// Draws inNodes: a folder as a collapsible row (closed until opened) holding its children, a file as
+// the asset row -- click to pick, right-click menu, "x" to un-import -- labelled with just its name.
+void DrawAssetNodes( std::vector<AssetTreeNode> const& inNodes, AssetSectionContext& ioCtx ) noexcept
+{
+    for ( auto const& node : inNodes )
+    {
+        if ( node.m_IsFolder )
+        {
+            std::string const label = node.m_Name + "##folder:" + node.m_Path;
+            if ( ImGui::TreeNodeEx( label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth ) )
+            {
+                DrawAssetNodes( node.m_Children, ioCtx );
+                ImGui::TreePop();
+            }
+            continue;
+        }
+
+        auto const& path = node.m_Path;
+        ImGui::PushID( path.c_str() );
+        // AllowOverlap -- a plain Selectable's hit box otherwise spans
+        // the full row and silently eats clicks meant for the "x"
+        // button drawn on top of it further right (Selectable claims
+        // the click before the button ever sees it without this flag).
+        if ( ImGui::Selectable( node.m_Name.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
+        {
+            ioCtx.m_Result.m_Pick = { ioCtx.m_Kind, path };
+        }
+        if ( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", path.c_str() );
+        // Bound to the Selectable just above (BeginPopupContextItem with
+        // no explicit id ties to the last item) -- must come before the
+        // "x" button below, else right-clicking the row would test the
+        // button's own tiny rect instead of the whole row.
+        if ( ioCtx.m_ContextMenu )
+        {
+            DrawAssetContextMenu(
+                ioCtx.m_Registry, ioCtx.m_Kind, path, ioCtx.m_AllowCreateClip, ioCtx.m_HasProject, ioCtx.m_Result );
+        }
+        // Only a manually "Load Asset..."-ed entry can be un-loaded --
+        // one derived purely from scene usage has nothing here to
+        // remove; it'd just reappear next frame from the entity itself.
+        if ( ioCtx.m_Loaded.count( path ) )
+        {
+            ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
+            if ( ImGui::SmallButton( "x" ) )
+            {
+                if ( ioCtx.m_Used.count( path ) )
+                {
+                    LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
+                }
+                else
+                {
+                    ioCtx.m_Loaded.erase( path );
+                }
+            }
+        }
+        ImGui::PopID();
+    }
+}
+
+// One top-level section ("Textures", ...) of the Assets panel: its paths as a folder tree.
+void DrawAssetSection( char const* inTitle, std::set<std::string> const& inPaths, AssetSectionContext& ioCtx ) noexcept
+{
+    if ( !ImGui::TreeNodeEx( inTitle, ImGuiTreeNodeFlags_DefaultOpen ) ) return;
+
+    DrawAssetNodes( BuildAssetTree( inPaths ), ioCtx );
+    if ( inPaths.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
+    ImGui::TreePop();
 }
 }
 
@@ -338,143 +421,18 @@ AssetBrowserResult DrawAssetBrowserPanel(
 
     ImGui::Separator();
 
-    if ( ImGui::TreeNodeEx( "Textures", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        for ( auto const& path : textures )
-        {
-            ImGui::PushID( path.c_str() );
-            // AllowOverlap -- a plain Selectable's hit box otherwise spans
-            // the full row and silently eats clicks meant for the "x"
-            // button drawn on top of it further right (Selectable claims
-            // the click before the button ever sees it without this flag).
-            if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
-            {
-                result.m_Pick = { AssetPickKind::Texture, path };
-            }
-            // Bound to the Selectable just above (BeginPopupContextItem with
-            // no explicit id ties to the last item) -- must come before the
-            // "x" button below, else right-clicking the row would test the
-            // button's own tiny rect instead of the whole row.
-            DrawAssetContextMenu( inRegistry, AssetPickKind::Texture, path, /*inAllowCreateClip=*/true, inHasProject, result );
-            // Only a manually "Load Asset..."-ed entry can be un-loaded --
-            // one derived purely from scene usage has nothing here to
-            // remove; it'd just reappear next frame from the entity itself.
-            if ( g_LoadedTextures.count( path ) )
-            {
-                ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-                if ( ImGui::SmallButton( "x" ) )
-                {
-                    if ( usedTextures.count( path ) )
-                    {
-                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
-                    }
-                    else
-                    {
-                        g_LoadedTextures.erase( path );
-                    }
-                }
-            }
-            ImGui::PopID();
-        }
-        if ( textures.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
-        ImGui::TreePop();
-    }
+    // Fonts get no context menu -- unlike a texture/clip/audio path, a font path alone isn't a
+    // component gameplay code ever attaches by itself (see this file's own header doc comment);
+    // pick-to-inspect and un-import are all a font row offers.
+    AssetSectionContext textureCtx{ inRegistry, AssetPickKind::Texture, true, true, inHasProject, g_LoadedTextures, usedTextures, result };
+    AssetSectionContext animationCtx{ inRegistry, AssetPickKind::Animation, true, false, inHasProject, g_LoadedAnimations, usedAnimations, result };
+    AssetSectionContext audioCtx{ inRegistry, AssetPickKind::Audio, true, false, inHasProject, g_LoadedAudio, usedAudio, result };
+    AssetSectionContext fontCtx{ inRegistry, AssetPickKind::Font, false, false, inHasProject, g_LoadedFonts, usedFonts, result };
 
-    if ( ImGui::TreeNodeEx( "Animation Clips", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        for ( auto const& path : animations )
-        {
-            ImGui::PushID( path.c_str() );
-            if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
-            {
-                result.m_Pick = { AssetPickKind::Animation, path };
-            }
-            DrawAssetContextMenu( inRegistry, AssetPickKind::Animation, path, /*inAllowCreateClip=*/false, inHasProject, result );
-            if ( g_LoadedAnimations.count( path ) )
-            {
-                ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-                if ( ImGui::SmallButton( "x" ) )
-                {
-                    if ( usedAnimations.count( path ) )
-                    {
-                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
-                    }
-                    else
-                    {
-                        g_LoadedAnimations.erase( path );
-                    }
-                }
-            }
-            ImGui::PopID();
-        }
-        if ( animations.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
-        ImGui::TreePop();
-    }
-
-    if ( ImGui::TreeNodeEx( "Audio Clips", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        for ( auto const& path : audio )
-        {
-            ImGui::PushID( path.c_str() );
-            if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
-            {
-                result.m_Pick = { AssetPickKind::Audio, path };
-            }
-            DrawAssetContextMenu( inRegistry, AssetPickKind::Audio, path, /*inAllowCreateClip=*/false, inHasProject, result );
-            if ( g_LoadedAudio.count( path ) )
-            {
-                ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-                if ( ImGui::SmallButton( "x" ) )
-                {
-                    if ( usedAudio.count( path ) )
-                    {
-                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
-                    }
-                    else
-                    {
-                        g_LoadedAudio.erase( path );
-                    }
-                }
-            }
-            ImGui::PopID();
-        }
-        if ( audio.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
-        ImGui::TreePop();
-    }
-
-    if ( ImGui::TreeNodeEx( "Fonts", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-        // No DrawAssetContextMenu here -- unlike a texture/clip/audio path, a
-        // font path alone isn't a component gameplay code ever attaches by
-        // itself (see this file's own header doc comment); pick-to-inspect
-        // and un-import are all a font row offers.
-        for ( auto const& path : fonts )
-        {
-            ImGui::PushID( path.c_str() );
-            if ( ImGui::Selectable( path.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
-            {
-                result.m_Pick = { AssetPickKind::Font, path };
-            }
-            if ( g_LoadedFonts.count( path ) )
-            {
-                ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-                if ( ImGui::SmallButton( "x" ) )
-                {
-                    if ( usedFonts.count( path ) )
-                    {
-                        LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
-                    }
-                    else
-                    {
-                        g_LoadedFonts.erase( path );
-                    }
-                }
-            }
-            ImGui::PopID();
-        }
-        if ( fonts.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
-        ImGui::TreePop();
-    }
+    DrawAssetSection( "Textures", textures, textureCtx );
+    DrawAssetSection( "Animation Clips", animations, animationCtx );
+    DrawAssetSection( "Audio Clips", audio, audioCtx );
+    DrawAssetSection( "Fonts", fonts, fontCtx );
 
     ImGui::End();
     return result;

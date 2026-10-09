@@ -2,10 +2,11 @@
 
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
+#include <ASGE/Game/Utils/SpriteGeometry.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
-#include <ASGE/Core/Math/Geometry/CatmullRomSpline.hpp>
+#include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 
 #include <imgui.h>
 
@@ -16,6 +17,7 @@
 #include <variant>
 
 using namespace asge::game::components;
+using asge::game::utils::SpriteGetDstRect;
 
 asge::math::Rect GetEntityWorldBounds(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, Transform const& inTransform ) noexcept
@@ -78,6 +80,7 @@ std::optional<GizmoHandlePoints> ComputeGizmoHandles(
 {
     auto transformResult = inRegistry.GetComponent<Transform>( inSelected );
     if ( !transformResult ) return std::nullopt;
+    if ( transformResult.Value().get().m_Locked ) return std::nullopt; // no arms on an entity that can't move
 
     auto const worldBounds = GetEntityWorldBounds( inRegistry, inSelected, transformResult.Value().get() );
 

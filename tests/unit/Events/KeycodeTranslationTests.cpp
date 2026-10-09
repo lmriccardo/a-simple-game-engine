@@ -45,6 +45,7 @@ constexpr std::array kKnownMappings = {
     KeycodeMapping{ Keycode::NUM_8, SDLK_8 }, KeycodeMapping{ Keycode::NUM_9, SDLK_9 },
     KeycodeMapping{ Keycode::UP, SDLK_UP }, KeycodeMapping{ Keycode::DOWN, SDLK_DOWN },
     KeycodeMapping{ Keycode::LEFT, SDLK_LEFT }, KeycodeMapping{ Keycode::RIGHT, SDLK_RIGHT },
+    KeycodeMapping{ Keycode::ENTER, SDLK_RETURN },
 };
 
 // ─── Keycode is dense ───────────────────────────────────────────────────────
@@ -68,9 +69,9 @@ TEST(KeycodeTranslationTest, ToKeycode_KnownSdlKeycodesMapCorrectly)
 
 TEST(KeycodeTranslationTest, ToKeycode_UnmappedSdlKeycodeIsUnknown)
 {
-    // SDLK_RETURN isn't in the table yet -- must fall back to UNKNOWN
+    // SDLK_TAB isn't in the table yet -- must fall back to UNKNOWN
     // rather than aliasing some unrelated Keycode.
-    EXPECT_EQ(ToKeycode(SDLK_RETURN), Keycode::UNKNOWN);
+    EXPECT_EQ(ToKeycode(SDLK_TAB), Keycode::UNKNOWN);
     EXPECT_EQ(ToKeycode(SDLK_UNKNOWN), Keycode::UNKNOWN);
 }
 
@@ -99,6 +100,11 @@ TEST(KeycodeTranslationTest, RoundTrip_AsgeToSdlToAsgeIsLossless)
 {
     for (auto const& mapping : kKnownMappings)
         EXPECT_EQ(ToKeycode(ToSdlKeycode(mapping.asgeKeycode)), mapping.asgeKeycode);
+}
+
+TEST(KeycodeTranslationTest, KeypadEnter_TranslatesToEnter)
+{
+    EXPECT_EQ(ToKeycode(SDLK_KP_ENTER), Keycode::ENTER);
 }
 
 }
