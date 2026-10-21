@@ -242,7 +242,10 @@ asge::ecs::Entity DuplicateEntity(
 /**
  * @brief Phase 14: attaches inEntity the component "corresponding" to an
  *        asset of inKind, pointed at inPath -- Sprite::m_VirtualPath for a
- *        Texture, Animation::m_ClipPath for an Animation clip,
+ *        Texture, an Animation clip for an Animation clip (registered under
+ *        its file name in Animation::m_Clips, and made the active
+ *        m_ClipPath if the entity had none -- an entity that already has an
+ *        Animation keeps it and just gains the clip),
  *        AudioSource::m_VirtualClipPath for Audio. Backs both the Assets
  *        panel's "Create Entity" and "Attach To" context-menu actions, which
  *        differ only in whether inEntity is freshly created.
@@ -266,8 +269,25 @@ void AttachAssetComponent(
     }
     case AssetPickKind::Animation:
     {
+        auto const stem = std::filesystem::path( inPath ).stem().string();
+
+        if ( auto existing = inRegistry.GetComponent<Animation>( inEntity ) )
+        {
+            auto& animation = existing.Value().get();
+            // A stem already taken by a different clip gets a numeric suffix rather than overwriting it.
+            std::string name = stem;
+            for ( int n = 2; animation.m_Clips.contains( name ) && animation.m_Clips[name] != inPath; ++n )
+            {
+                name = stem + "_" + std::to_string( n );
+            }
+            animation.m_Clips[name] = inPath;
+            if ( animation.m_ClipPath.empty() ) animation.m_ClipPath = inPath;
+            break;
+        }
+
         Animation animation{};
         animation.m_ClipPath = inPath;
+        animation.m_Clips[stem] = inPath;
         StopAnimation( animation ); // same "don't auto-play in the editor" reasoning as Inspector's Add Component
         inRegistry.AddComponent<Animation>( inEntity, animation );
         break;

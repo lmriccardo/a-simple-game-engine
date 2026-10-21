@@ -315,6 +315,56 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
     return DrawAssetPathCombo( "Clip Path", inAudioSource.m_VirtualClipPath, inKnownAudio );
 }
 
+// Lists inAnimation.m_Clips (name, Play to switch to it, Remove, and a path
+// dropdown) plus a name field to register another clip, pointed at the current
+// m_ClipPath until its dropdown is changed. A name is fixed once added --
+// remove and re-add to rename, since it's the map key. Returns true when a
+// clip was added, removed, repointed or played, i.e. m_ClipPath may have
+// changed and AssetManager::ResolveAssets needs re-running.
+bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
+{
+    bool changed = false;
+    if ( !ImGui::TreeNode( "Named Clips" ) ) return false;
+
+    std::string toRemove;
+    int row = 0;
+    for ( auto& [name, path] : inAnimation.m_Clips )
+    {
+        ImGui::PushID( row++ );
+        // Name and buttons first, the dropdown on its own full-width line below: all on one
+        // line, Play and X ended up past the inspector's right edge, out of reach.
+        ImGui::TextUnformatted( name.c_str() );
+        ImGui::SameLine();
+        if ( ImGui::SmallButton( "Play" ) ) changed |= PlayClip( inAnimation, name );
+        ImGui::SameLine();
+        if ( ImGui::SmallButton( "Remove" ) ) toRemove = name;
+        ImGui::SetNextItemWidth( -FLT_MIN );
+        if ( DrawAssetPathCombo( "##path", path, inKnownAnimations ) ) changed = true;
+        ImGui::PopID();
+    }
+    if ( !toRemove.empty() )
+    {
+        inAnimation.m_Clips.erase( toRemove );
+        changed = true;
+    }
+
+    static std::string s_NewClipName;
+    ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x - 80.0f ); // leave room for Add Clip on the same line
+    ImGui::InputTextWithHint( "##newclip", "Clip name", &s_NewClipName );
+    ImGui::SameLine();
+    ImGui::BeginDisabled( s_NewClipName.empty() || inAnimation.m_Clips.contains( s_NewClipName ) );
+    if ( ImGui::Button( "Add Clip" ) )
+    {
+        inAnimation.m_Clips[s_NewClipName] = inAnimation.m_ClipPath;
+        s_NewClipName.clear();
+        changed = true;
+    }
+    ImGui::EndDisabled();
+
+    ImGui::TreePop();
+    return changed;
+}
+
 // m_ClipPath/m_FrameDuration/m_Loop/m_StartPlaying round-trip (see
 // Serializer<Animation>'s doc comment) -- playback progress is runtime-only. m_ClipPath is a
 // dropdown restricted to inKnownAnimations (Phase 10); the return reports
@@ -327,6 +377,7 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
 {
     bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
     ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
+    bool const clipsChanged = DrawNamedClips( inAnimation, inKnownAnimations );
     ImGui::Checkbox( "Loop", &inAnimation.m_Loop );
     ImGui::Checkbox( "Start Playing", &inAnimation.m_StartPlaying );
 
@@ -346,7 +397,7 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
         if ( ImGui::Button( "Play" ) ) PlayAnimation( inAnimation );
     }
 
-    return clipChanged;
+    return clipChanged || clipsChanged;
 }
 
 // Waypoints are authored by clicking the viewport (Phase 12's "Select
