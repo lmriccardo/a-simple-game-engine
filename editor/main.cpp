@@ -1925,6 +1925,56 @@ int main(int, char**)
             }
             ImGui::EndDisabled();
             if ( activeScene.m_IsMain ) { ImGui::SameLine(); ImGui::TextUnformatted( "Main scene" ); }
+
+            // OpenPopup and BeginPopupModal sit in this same window, so they hash to the same ID.
+            if ( ImGui::Button( "Delete Scene" ) ) ImGui::OpenPopup( "Delete Scene?" );
+            if ( ImGui::BeginPopupModal( "Delete Scene?", nullptr, ImGuiWindowFlags_AlwaysAutoResize ) )
+            {
+                ImGui::Text( "Delete \"%s\"?", activeScene.m_Name.c_str() );
+                ImGui::TextUnformatted( "Its .asgescene file (and entity groups) are removed from disk. This cannot be undone." );
+                if ( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
+                ImGui::SameLine();
+                if ( ImGui::Button( "Delete" ) )
+                {
+                    fs::path const deletedPath = activeScene.m_Path;
+                    std::error_code removeEc;
+                    fs::remove( deletedPath, removeEc );
+                    if ( removeEc )
+                    {
+                        // Keep the scene in the project rather than list a file we failed to remove.
+                        LOG_ERROR( "Failed to delete scene file \"", deletedPath.string(), "\": ", removeEc.message() );
+                    }
+                    else
+                    {
+                        fs::remove( GroupsFilePath( deletedPath ), removeEc ); // none yet is fine
+
+                        // The active scene is live in the Registry, not snapshotted, so UnloadScene is all it takes.
+                        sceneManager.UnloadScene();
+                        GroupsFor( deletedPath.string() ).clear();
+                        int const deletedIndex = currentProject->m_ActiveSceneIndex;
+                        currentProject->m_Scenes.erase( currentProject->m_Scenes.begin() + deletedIndex );
+                        currentProject->m_ActiveSceneIndex = -1; // SwitchToScene must not try to save the deleted scene
+                        sceneNameBufSyncedIndex = -2;            // the next active scene may reuse this index; resync the rename field
+                        selectedEntity = asge::ecs::Entity::Null();
+                        ResetEntityDisplayIds();
+
+                        if ( !currentProject->m_Scenes.empty() )
+                        {
+                            int const next = std::min( deletedIndex, static_cast<int>( currentProject->m_Scenes.size() ) - 1 );
+                            SwitchToScene(
+                                *currentProject, next, sceneManager, assets, videoSys.GetRenderer(), selectedEntity );
+                        }
+
+                        auto const saveResult = SaveProject(
+                            vfs, sceneManager.GetRegistry(), *currentProject, gridSpacing, targetGameWidth, targetGameHeight, targetGameFps );
+                        if ( !saveResult ) saveResult.LogError();
+                        SyncCppProject( *currentProject, vfs );
+                        LOG_INFO( "Scene deleted: ", deletedPath.string() );
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
         }
         ImGui::End();
 
