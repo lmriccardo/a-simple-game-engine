@@ -39,8 +39,9 @@ struct Animation
     float       m_FrameDuration{0.1f}; // Serialized. Seconds each frame is shown before advancing
     std::size_t m_CurrentFrame{0};     // Not serialized -- index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
     float       m_ElapsedTime{0.0f};   // Not serialized -- seconds accumulated toward the next frame advance
-    bool        m_Loop{true};          // Not serialized -- wrap to frame 0 at the end instead of stopping there
-    bool        m_Playing{true};       // Not serialized -- whether AnimationSystem advances this Animation at all
+    bool        m_Loop{true};          // Serialized. Wrap to frame 0 at the end instead of stopping there
+    bool        m_StartPlaying{true};  // Serialized. Initial m_Playing on load -- a scene can start this Animation paused
+    bool        m_Playing{true};       // Not serialized -- whether AnimationSystem advances this Animation at all (live state, seeded from m_StartPlaying on load)
 };
 
 /**
@@ -59,13 +60,15 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_ClipPath and m_FrameDuration only — which clip to
- *        play and how fast, not the live playback progress. FromToml leaves
- *        m_Clip null and m_ResolvedClipPath empty (both resolved later by
- *        AssetManager::ResolveAssets, same as Sprite::m_Texture) and
- *        m_CurrentFrame/m_ElapsedTime/m_Loop/m_Playing at Animation's
- *        in-code defaults; a scene file describes what an entity's
- *        animation is, not where a previous run happened to leave it.
+ * @brief Round-trips m_ClipPath, m_FrameDuration, m_Loop and m_StartPlaying —
+ *        which clip to play, how fast, whether it loops and whether it starts
+ *        playing, not the live playback progress. FromToml seeds m_Playing
+ *        from m_StartPlaying, leaves m_Clip null and m_ResolvedClipPath empty
+ *        (both resolved later by AssetManager::ResolveAssets, same as
+ *        Sprite::m_Texture) and m_CurrentFrame/m_ElapsedTime at zero; a
+ *        scene file describes what an entity's animation is, not where a
+ *        previous run happened to leave it. Missing m_Loop/m_StartPlaying
+ *        keys default to true, so older scene files load as before.
  */
 template<>
 struct Serializer<components::Animation>

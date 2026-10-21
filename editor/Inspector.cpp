@@ -315,8 +315,8 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
     return DrawAssetPathCombo( "Clip Path", inAudioSource.m_VirtualClipPath, inKnownAudio );
 }
 
-// Only m_ClipPath/m_FrameDuration round-trip (see Serializer<Animation>'s
-// doc comment) -- playback progress is runtime-only. m_ClipPath is a
+// m_ClipPath/m_FrameDuration/m_Loop/m_StartPlaying round-trip (see
+// Serializer<Animation>'s doc comment) -- playback progress is runtime-only. m_ClipPath is a
 // dropdown restricted to inKnownAnimations (Phase 10); the return reports
 // only whether that selection changed, not a m_FrameDuration edit, since
 // only a clip change needs AssetManager::ResolveAssets re-run (same
@@ -327,13 +327,15 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
 {
     bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
     ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
+    ImGui::Checkbox( "Loop", &inAnimation.m_Loop );
+    ImGui::Checkbox( "Start Playing", &inAnimation.m_StartPlaying );
 
     // Added components start stopped (see MakeComponentEntry's Add lambda
     // above), and every scene load/switch stops them too (see
     // SwitchToScene) -- this button is the only remaining way to turn one
     // on. Purely a live, runtime m_Playing flip for previewing, same as
-    // PlayAnimation/StopAnimation always were; nothing here round-trips
-    // through TOML. Label/action flips with the live state so a currently-
+    // PlayAnimation/StopAnimation always were; only m_StartPlaying (the
+    // checkbox above) round-trips through TOML. Label/action flips with the live state so a currently-
     // playing clip shows "Stop", not a stale "Play".
     if ( inAnimation.m_Playing )
     {

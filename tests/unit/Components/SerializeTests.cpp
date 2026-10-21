@@ -358,12 +358,10 @@ TEST(AnimationSerializerTest, RoundTrip_ClipPathAndDurationPreserved)
     EXPECT_FLOAT_EQ(restored.m_FrameDuration, original.m_FrameDuration);
 }
 
-TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStructDefaults)
+TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackProgressAlwaysResetToStructDefaults)
 {
-    // Serializer<Animation> only round-trips m_ClipPath and m_FrameDuration
-    // -- FromToml must never carry over m_Clip (a scene file can't describe
-    // a resolved asset) or playback progress, since neither is something a
-    // scene file describes at all.
+    // m_Clip (a resolved asset) and playback progress are never something a
+    // scene file describes, so FromToml must not carry them over.
     TOMLBuilder builder;
     Serializer<Animation>::ToToml(Animation{ .m_ClipPath = "clips/walk.toml" }, builder, asge::game::scene::SaveContext{});
 
@@ -372,6 +370,44 @@ TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackStateAlwaysResetToStructDe
     EXPECT_EQ(restored.m_CurrentFrame, 0u);
     EXPECT_FLOAT_EQ(restored.m_ElapsedTime, 0.0f);
     EXPECT_TRUE(restored.m_Loop);
+    EXPECT_TRUE(restored.m_Playing);
+}
+
+TEST(AnimationSerializerTest, RoundTrip_LoopAndStartPlayingPreserved)
+{
+    TOMLBuilder builder;
+    Animation const original{ .m_ClipPath = "clips/attack.toml", .m_Loop = false, .m_StartPlaying = false };
+    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_FALSE(restored.m_Loop);
+    EXPECT_FALSE(restored.m_StartPlaying);
+    EXPECT_FALSE(restored.m_Playing); // seeded from m_StartPlaying
+}
+
+TEST(AnimationSerializerTest, ToToml_SavesStartPlayingNotLiveMPlaying)
+{
+    // The editor stops animations on load; saving the live m_Playing would
+    // turn every editor-saved animation into a paused one.
+    TOMLBuilder builder;
+    Animation anim{ .m_ClipPath = "clips/walk.toml" };
+    StopAnimation(anim);
+    Serializer<Animation>::ToToml(anim, builder, asge::game::scene::SaveContext{});
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_TRUE(restored.m_StartPlaying);
+    EXPECT_TRUE(restored.m_Playing);
+}
+
+TEST(AnimationSerializerTest, FromToml_MissingLoopAndStartPlayingKeysDefaultToTrue)
+{
+    // Scene files written before these were serialized must load as before.
+    TOMLBuilder builder;
+    builder.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml").Set("m_FrameDuration", 0.1f);
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_TRUE(restored.m_Loop);
+    EXPECT_TRUE(restored.m_StartPlaying);
     EXPECT_TRUE(restored.m_Playing);
 }
 
