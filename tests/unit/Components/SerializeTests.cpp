@@ -411,6 +411,26 @@ TEST(AnimationSerializerTest, FromToml_MissingLoopAndStartPlayingKeysDefaultToTr
     EXPECT_TRUE(restored.m_Playing);
 }
 
+TEST(AnimationSerializerTest, RoundTrip_NamedClipsPreserved)
+{
+    TOMLBuilder builder;
+    Animation original{ .m_ClipPath = "clips/idle.toml" };
+    original.m_Clips = { { "idle", "clips/idle.toml" }, { "run", "clips/run.toml" } };
+    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_EQ(restored.m_Clips, original.m_Clips);
+}
+
+TEST(AnimationSerializerTest, FromToml_MissingClipNamesDefaultsToNoNamedClips)
+{
+    TOMLBuilder builder;
+    builder.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml");
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_TRUE(restored.m_Clips.empty());
+}
+
 TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
 {
     // A hand-written or pre-Animation scene file has no "m_ClipPath" key at

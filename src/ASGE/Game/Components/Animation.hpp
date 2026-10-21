@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+#include <map>
 #include <memory>
 #include <ASGE/Game/Assets/Asset.hpp>
 #include <ASGE/Game/Assets/FrameTable.hpp>
@@ -33,6 +35,7 @@ struct Animation
     using frame_table = std::shared_ptr<asset::Asset<asset::FrameTable>>;
 
     str::String m_ClipPath{}; // Virtual path of the clip's FrameTable TOML meta-file
+    std::map<str::String, str::String, std::less<>> m_Clips{}; // Serialized. Named clips (idle/run/...) -> clip path, switched to by PlayClip
     frame_table m_Clip{};     // Resolved FrameTable asset -- null until AssetManager::ResolveAssets runs
     str::String m_ResolvedClipPath{}; // Runtime-only: the path m_Clip was actually last resolved from
 
@@ -51,6 +54,13 @@ struct Animation
  */
 void PlayAnimation( Animation& inAnim, bool inLoop = true ) noexcept;
 
+/**
+ * @brief Switches to the clip registered as inName in inAnim.m_Clips: points m_ClipPath at it and
+ *        restarts playback from frame 0, looping or not per inLoop. Does nothing if that clip is
+ *        already playing, so calling it every frame is safe. Returns false for an unknown name.
+ */
+bool PlayClip( Animation& inAnim, str::StringView inName, bool inLoop = true ) noexcept;
+
 /** @brief Pauses playback in place; AnimationSystem stops advancing this Animation until PlayAnimation is called again. */
 void StopAnimation( Animation& inAnim ) noexcept;
 
@@ -60,9 +70,10 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_ClipPath, m_FrameDuration, m_Loop and m_StartPlaying —
- *        which clip to play, how fast, whether it loops and whether it starts
- *        playing, not the live playback progress. FromToml seeds m_Playing
+ * @brief Round-trips m_ClipPath, m_Clips, m_FrameDuration, m_Loop and
+ *        m_StartPlaying — which clip to play, the named clips it can switch
+ *        to, how fast, whether it loops and whether it starts playing, not
+ *        the live playback progress. FromToml seeds m_Playing
  *        from m_StartPlaying, leaves m_Clip null and m_ResolvedClipPath empty
  *        (both resolved later by AssetManager::ResolveAssets, same as
  *        Sprite::m_Texture) and m_CurrentFrame/m_ElapsedTime at zero; a
