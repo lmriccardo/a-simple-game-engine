@@ -315,8 +315,8 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
     return DrawAssetPathCombo( "Clip Path", inAudioSource.m_VirtualClipPath, inKnownAudio );
 }
 
-// Lists inAnimation.m_Clips (name, path dropdown, Play to switch to it, X to
-// remove) plus a name field to register another clip, pointed at the current
+// Lists inAnimation.m_Clips (name, Play to switch to it, Remove, and a path
+// dropdown) plus a name field to register another clip, pointed at the current
 // m_ClipPath until its dropdown is changed. A name is fixed once added --
 // remove and re-add to rename, since it's the map key. Returns true when a
 // clip was added, removed, repointed or played, i.e. m_ClipPath may have
@@ -331,14 +331,15 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
     for ( auto& [name, path] : inAnimation.m_Clips )
     {
         ImGui::PushID( row++ );
+        // Name and buttons first, the dropdown on its own full-width line below: all on one
+        // line, Play and X ended up past the inspector's right edge, out of reach.
         ImGui::TextUnformatted( name.c_str() );
         ImGui::SameLine();
-        ImGui::SetNextItemWidth( 180.0f );
+        if ( ImGui::SmallButton( "Play" ) ) changed |= PlayClip( inAnimation, name );
+        ImGui::SameLine();
+        if ( ImGui::SmallButton( "Remove" ) ) toRemove = name;
+        ImGui::SetNextItemWidth( -FLT_MIN );
         if ( DrawAssetPathCombo( "##path", path, inKnownAnimations ) ) changed = true;
-        ImGui::SameLine();
-        if ( ImGui::Button( "Play" ) ) changed |= PlayClip( inAnimation, name );
-        ImGui::SameLine();
-        if ( ImGui::Button( "X" ) ) toRemove = name;
         ImGui::PopID();
     }
     if ( !toRemove.empty() )
@@ -348,6 +349,7 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
     }
 
     static std::string s_NewClipName;
+    ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x - 80.0f ); // leave room for Add Clip on the same line
     ImGui::InputTextWithHint( "##newclip", "Clip name", &s_NewClipName );
     ImGui::SameLine();
     ImGui::BeginDisabled( s_NewClipName.empty() || inAnimation.m_Clips.contains( s_NewClipName ) );
