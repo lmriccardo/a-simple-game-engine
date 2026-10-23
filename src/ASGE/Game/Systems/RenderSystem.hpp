@@ -19,7 +19,8 @@ namespace asge::game::systems
  * inDeltaTime into Animation::m_ElapsedTime and steps m_CurrentFrame
  * forward once per whole m_FrameDuration elapsed (a large inDeltaTime can
  * step multiple frames in one call). At the last frame, either wraps to 0
- * (m_Loop true) or clamps there and clears m_Playing (m_Loop false). A
+ * (m_Loop true) or clamps there and clears m_Playing (m_Loop false), emitting
+ * events::OnAnimationFinished once for the entity. A
  * non-positive m_FrameDuration is treated as "not animating" rather than
  * risking an infinite advance loop.
  */

@@ -20,3 +20,10 @@ asge::game::events::OnCollisionTriggerStay() noexcept
     static signals::Signal<ecs::Entity, ecs::Entity> instance;
     return instance;
 }
+
+asge::signals::Signal<asge::ecs::Entity> &
+asge::game::events::OnAnimationFinished() noexcept
+{
+    static signals::Signal<ecs::Entity> instance;
+    return instance;
+}

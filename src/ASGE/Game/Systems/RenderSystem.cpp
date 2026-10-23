@@ -8,6 +8,7 @@
 #include <tuple>
 
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Events.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
@@ -544,6 +545,7 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
             continue;
         }
 
+        bool finished = false;
         auto const nofFrames = frames.size();
         if ( animationRef.m_CurrentFrame >= nofFrames ) animationRef.m_CurrentFrame = 0;
 
@@ -555,11 +557,17 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
             if ( animationRef.m_CurrentFrame >= nofFrames )
             {
                 animationRef.m_CurrentFrame = animationRef.m_Loop ? 0 : nofFrames - 1;
-                if ( !animationRef.m_Loop ) animationRef.m_Playing = false;
+                if ( !animationRef.m_Loop )
+                {
+                    animationRef.m_Playing = false;
+                    finished = true;
+                    break;
+                }
             }
         }
 
         spriteRef.m_SourceRect = frames[animationRef.m_CurrentFrame];
+        if ( finished ) events::OnAnimationFinished().Emit( entity );
     }
 }
 
