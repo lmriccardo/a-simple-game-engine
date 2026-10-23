@@ -2117,6 +2117,63 @@ TEST(AnimationSystemTest, LoopingAnimationNeverEmitsFinished)
     EXPECT_EQ(count, 0);
 }
 
+TEST(AnimationSystemTest, PerFrameDurationOverridesAnimationFrameDuration)
+{
+    using asge::game::asset::Asset;
+    using asge::game::asset::FrameTable;
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    FrameTable table{ { asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 }, asge::math::Rect{ 16, 0, 8, 8 } } };
+    table.m_FrameDurations = { 0.5f, 0.0f }; // frame 0 slow, frame 1 falls back, frame 2 falls back
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = Asset<FrameTable>::Create("test/clip.toml", std::move(table)),
+        .m_FrameDuration = 0.1f
+    }).IsOk());
+
+    asge::game::systems::AnimationSystem(registry, 0.3f); // < 0.5 -> still frame 0
+    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 0u);
+    asge::game::systems::AnimationSystem(registry, 0.25f); // 0.55 total -> frame 1 with 0.05 left
+    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 1u);
+    asge::game::systems::AnimationSystem(registry, 0.05f); // fallback 0.1 elapsed -> frame 2
+    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 2u);
+}
+
+TEST(AnimationSystemTest, PlaybackSpeedScalesAdvancement)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 }, asge::math::Rect{ 16, 0, 8, 8 } }),
+        .m_FrameDuration = 0.1f,
+        .m_PlaybackSpeed = 2.0f
+    }).IsOk());
+
+    asge::game::systems::AnimationSystem(registry, 0.1f); // 0.2 effective -> two frames
+    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 2u);
+}
+
+TEST(AnimationSystemTest, NonPositivePlaybackSpeedDoesNotAdvance)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 } }),
+        .m_PlaybackSpeed = 0.0f
+    }).IsOk());
+
+    asge::game::systems::AnimationSystem(registry, 10.0f);
+    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 0u);
+}
+
 TEST(AnimationSystemTest, NotPlayingAnimationIsNotAdvanced)
 {
     Registry registry;
