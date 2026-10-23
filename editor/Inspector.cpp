@@ -173,7 +173,9 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 }
 
 // m_SourceRect editing is out of scope here (asset-browsing/viewport gizmo
-// territory). m_VirtualPath is a dropdown restricted to inKnownTextures
+// territory); it's only shown, read-only, and greyed out with a hint while
+// inAnimationOwned -- the entity's Animation has a resolved clip and so
+// overwrites it every frame (see components::Animation). m_VirtualPath is a dropdown restricted to inKnownTextures
 // (Phase 10) -- its return reports only whether the path selection changed,
 // since only a path change needs AssetManager::ResolveAssets re-run (see the
 // DrawInspector doc comment above for why that trigger has to stay this
@@ -181,9 +183,24 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // components::RenderInfo section, below.
 bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept;
 
-bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures ) noexcept
+/** @brief True if inEntity has an Animation with a resolved clip, which then owns its Sprite's m_SourceRect. */
+bool SpriteCropOwnedByAnimation( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    auto anim = inRegistry.GetComponent<Animation>( inEntity );
+    return anim && anim.Value().get().m_Clip != nullptr;
+}
+
+bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures, bool inAnimationOwned ) noexcept
 {
     bool const changed = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+    if ( inSprite.m_SourceRect )
+    {
+        auto const& r = *inSprite.m_SourceRect;
+        ImGui::BeginDisabled( inAnimationOwned );
+        ImGui::Text( "Source Rect: %.0f, %.0f, %.0f x %.0f", r.m_X, r.m_Y, r.m_Width, r.m_Height );
+        ImGui::EndDisabled();
+    }
+    if ( inAnimationOwned ) ImGui::TextDisabled( "Source Rect is driven by the Animation." );
     DrawColorField( "Tint", inSprite.m_Tint ); // not an asset change, so not part of the return
     return changed;
 }
@@ -1445,7 +1462,7 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= velocityChanged;
     bool const rigidbodyChanged = DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
     fieldChanged |= rigidbodyChanged;
-    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures );
+    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures, SpriteCropOwnedByAnimation( inRegistry, inSelected ) );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
     bool const renderInfoChanged = DrawSection<RenderInfo>(
         inRegistry, inSelected, "RenderInfo", ParentOf( inRegistry, inSelected ) != asge::ecs::Entity::Null() );

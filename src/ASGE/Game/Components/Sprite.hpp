@@ -28,6 +28,10 @@ namespace asge::game::components
  * resolves m_VirtualPath back into a live texture for every Sprite that
  * still needs one. Draw order isn't a Sprite concern -- see
  * components::RenderInfo for layer/y-sort/screen-space.
+ *
+ * m_SourceRect is owned by components::Animation whenever the entity has one
+ * with a resolved clip: AnimationSystem overwrites it every frame, so a
+ * hand-set crop only holds on a Sprite with no (or an unresolved) Animation.
  */
 struct Sprite
 {
