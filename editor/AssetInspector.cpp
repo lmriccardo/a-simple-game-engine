@@ -1,4 +1,5 @@
 #include "AssetInspector.hpp"
+#include "Inspector.hpp"
 
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Core/Configuration/TOML_Parser.hpp>
@@ -7,10 +8,12 @@
 #include <ASGE/Game/Assets/FrameTable.hpp>
 
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 #include <SDL3/SDL_audio.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <iomanip>
@@ -35,6 +38,7 @@ struct CreateClipDraft
     float m_MarginY{0.0f};
     float m_Spacing{0.0f};
     int   m_Order{0}; // 0 = row-major, 1 = column-major (GridOrder)
+    std::string m_Name{};
 };
 CreateClipDraft g_CreateClip;
 
@@ -234,42 +238,37 @@ void DrawAssetInspectorPanel(
             // Recomputed fresh every frame -- see the header doc comment
             // for why this alone also handles reverting to "Create Clip"
             // once an associated clip is unloaded from the Assets panel.
-            std::string associatedClip;
+            std::vector<std::string> associatedClips;
             for ( auto const& animPath : KnownAnimationPaths( inRegistry ) )
             {
                 auto ft = inAssets.GetFrameTable( animPath );
                 if ( ft && std::string( ft.Value()->Get().m_OriginAsset ) == inSelectedAsset.m_VirtualPath )
                 {
-                    associatedClip = animPath;
-                    break;
+                    associatedClips.push_back( animPath );
                 }
             }
 
-            if ( !associatedClip.empty() )
+            // A texture can carry any number of named clips, so one button each.
+            for ( auto const& clip : associatedClips )
             {
-                if ( ImGui::Button( "Open Clip" ) )
+                ImGui::PushID( clip.c_str() );
+                if ( ImGui::Button( ( "Open Clip: " + ClipNameFromPath( clip ) ).c_str() ) )
                 {
-                    ioSelectedAsset = AssetPick{ AssetPickKind::Animation, associatedClip };
+                    ioSelectedAsset = AssetPick{ AssetPickKind::Animation, clip };
                 }
+                ImGui::PopID();
             }
 
             // Phase 14: "Create Clip" itself moved out to the Assets panel's
             // row context menu -- this just reacts to that request, one
             // frame after it's set (ioSelectedAsset already names this
             // texture by the time main.cpp gets here, same frame as the
-            // click). A texture that already has a clip opens it instead of
-            // re-slicing, same as the old inline button's own behavior.
+            // click). A texture can have any number of clips, so this always
+            // opens the modal.
             if ( inOpenCreateClip )
             {
-                if ( !associatedClip.empty() )
-                {
-                    ioSelectedAsset = AssetPick{ AssetPickKind::Animation, associatedClip };
-                }
-                else
-                {
-                    g_CreateClip = CreateClipDraft{};
-                    ImGui::OpenPopup( "Create Clip" );
-                }
+                g_CreateClip = CreateClipDraft{};
+                ImGui::OpenPopup( "Create Clip" );
             }
         }
         else
@@ -528,6 +527,7 @@ void DrawAssetInspectorPanel(
             ImGui::Image( texture->NativeHandle(), imageSize );
 
             auto& d = g_CreateClip;
+            ImGui::InputTextWithHint( "Name", "e.g. walk", &d.m_Name );
             auto const texW = static_cast<float>( size.x() );
             auto const texH = static_cast<float>( size.y() );
 
@@ -557,6 +557,10 @@ void DrawAssetInspectorPanel(
                                 / static_cast<float>( d.m_Columns );
             float const cellH = ( texH - 2.0f * d.m_MarginY - d.m_Spacing * static_cast<float>( d.m_Rows - 1 ) )
                                 / static_cast<float>( d.m_Rows );
+            // The name ends up in a file name, so keep it to a safe charset.
+            bool const nameValid = !d.m_Name.empty() && std::all_of( d.m_Name.begin(), d.m_Name.end(), []( unsigned char c ) {
+                return std::isalnum( c ) || c == '_' || c == '-';
+            } );
             bool const valid = cellW > 0.0f && cellH > 0.0f;
             ImGui::Text( "Cell size: %.1f x %.1f px", cellW, cellH );
             if ( !valid ) ImGui::TextColored( ImVec4( 1.0f, 0.4f, 0.4f, 1.0f ), "Margins/spacing leave no room for cells" );
@@ -610,19 +614,25 @@ void DrawAssetInspectorPanel(
 
             if ( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
             ImGui::SameLine();
-            if ( !valid ) ImGui::BeginDisabled();
+            std::string const clipSuffix = "_clip_" + d.m_Name + ".toml";
+            bool const nameTaken = nameValid && fs::exists( resolved.Value().parent_path() / ( resolved.Value().stem().string() + clipSuffix ) );
+            if ( !d.m_Name.empty() && !nameValid ) ImGui::TextColored( ImVec4( 1.0f, 0.4f, 0.4f, 1.0f ), "Name: letters, digits, '_' and '-' only" );
+            if ( nameTaken ) ImGui::TextColored( ImVec4( 1.0f, 0.4f, 0.4f, 1.0f ), "A clip with this name already exists" );
+
+            bool const canApply = valid && nameValid && !nameTaken;
+            if ( !canApply ) ImGui::BeginDisabled();
             bool const apply = ImGui::Button( "Apply" );
-            if ( !valid ) ImGui::EndDisabled();
+            if ( !canApply ) ImGui::EndDisabled();
             if ( apply )
             {
                 // Clip file sits next to the texture, same stem plus
-                // "_clip.toml" -- both as a real path (to write to) and as
+                // "_clip_<name>.toml" -- both as a real path (to write to) and as
                 // a virtual path (to register/select), derived the same way.
                 fs::path const clipRealPath =
-                    resolved.Value().parent_path() / ( resolved.Value().stem().string() + "_clip.toml" );
+                    resolved.Value().parent_path() / ( resolved.Value().stem().string() + clipSuffix );
                 fs::path const texVirtualPath( inSelectedAsset.m_VirtualPath );
                 std::string const clipVirtualPath =
-                    ( texVirtualPath.parent_path() / ( texVirtualPath.stem().string() + "_clip.toml" ) ).generic_string();
+                    ( texVirtualPath.parent_path() / ( texVirtualPath.stem().string() + clipSuffix ) ).generic_string();
                 std::string const originVirtualPath = inSelectedAsset.m_VirtualPath;
 
                 auto const saveResult = asge::game::asset::FrameTable::Save( clipRealPath, spec, originVirtualPath );

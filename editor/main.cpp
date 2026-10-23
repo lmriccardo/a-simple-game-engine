@@ -269,7 +269,7 @@ void AttachAssetComponent(
     }
     case AssetPickKind::Animation:
     {
-        auto const stem = std::filesystem::path( inPath ).stem().string();
+        auto const stem = ClipNameFromPath( inPath ); // the name given in the Create Clip modal
 
         if ( auto existing = inRegistry.GetComponent<Animation>( inEntity ) )
         {
