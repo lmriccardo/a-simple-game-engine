@@ -29,6 +29,11 @@ namespace asge::game::components
  * resolved from — Resolver<Animation> compares it against m_ClipPath to
  * notice a change (repointing to a new clip) or a clear (path emptied out,
  * m_Clip released back to null), rather than resolving once and never again.
+ *
+ * Ownership: while m_Clip is resolved, this Animation owns the Sprite's
+ * m_SourceRect -- AnimationSystem overwrites it every frame, so a manual crop
+ * on the same Sprite does not survive, and removing the Animation leaves the
+ * last frame's rect behind rather than restoring the earlier crop.
  */
 struct Animation
 {
