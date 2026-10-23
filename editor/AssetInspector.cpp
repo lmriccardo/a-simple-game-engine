@@ -11,21 +11,32 @@
 #include <SDL3/SDL_audio.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <iomanip>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace
 {
 namespace fs = std::filesystem;
 
-// Draft Rows/Columns for the "Create Clip" modal -- reset whenever it's
-// (re)opened, from whichever texture the button was clicked on.
-int g_CreateClipRows = 1;
-int g_CreateClipColumns = 1;
+/** @brief Draft grid for the "Create Clip" modal -- reset whenever it's (re)opened, from whichever texture the button was clicked on. */
+struct CreateClipDraft
+{
+    int   m_Rows{1};
+    int   m_Columns{1};
+    int   m_First{0};
+    int   m_Count{1};
+    float m_MarginX{0.0f};
+    float m_MarginY{0.0f};
+    float m_Spacing{0.0f};
+    int   m_Order{0}; // 0 = row-major, 1 = column-major (GridOrder)
+};
+CreateClipDraft g_CreateClip;
 
 /** @brief The audio preview's own playback state -- which clip's loaded and its stream, independent of any entity's AudioSource. */
 struct AudioPreviewState
@@ -256,8 +267,7 @@ void DrawAssetInspectorPanel(
                 }
                 else
                 {
-                    g_CreateClipRows = 1;
-                    g_CreateClipColumns = 1;
+                    g_CreateClip = CreateClipDraft{};
                     ImGui::OpenPopup( "Create Clip" );
                 }
             }
@@ -505,41 +515,105 @@ void DrawAssetInspectorPanel(
         if ( texture )
         {
             auto const size = texture->Size();
-            float const maxDim = 256.0f;
+            // Always a preview, never 1:1: scaled (up or down) so the sprite's
+            // largest side fills ~60% of the shorter viewport side, capped so
+            // the modal stays usable on small windows.
+            auto const viewportSize = ImGui::GetMainViewport()->Size;
+            float const maxDim = std::clamp( 0.6f * std::min( viewportSize.x, viewportSize.y ), 256.0f, 720.0f );
             float const largest = static_cast<float>( std::max( size.x(), size.y() ) );
-            float const scale = largest > maxDim ? maxDim / largest : 1.0f;
+            float const scale = maxDim / largest;
             ImVec2 const imageSize( static_cast<float>( size.x() ) * scale, static_cast<float>( size.y() ) * scale );
 
             ImVec2 const imagePos = ImGui::GetCursorScreenPos();
             ImGui::Image( texture->NativeHandle(), imageSize );
 
-            // Live grid preview over the thumbnail, redrawn every frame
-            // from whatever Rows/Columns is currently set below.
-            auto* drawList = ImGui::GetWindowDrawList();
-            constexpr ImU32 kGridColor = IM_COL32( 255, 255, 255, 200 );
-            for ( int c = 1; c < g_CreateClipColumns; ++c )
-            {
-                float const x = imagePos.x + imageSize.x * ( static_cast<float>( c ) / static_cast<float>( g_CreateClipColumns ) );
-                drawList->AddLine( ImVec2( x, imagePos.y ), ImVec2( x, imagePos.y + imageSize.y ), kGridColor );
-            }
-            for ( int r = 1; r < g_CreateClipRows; ++r )
-            {
-                float const y = imagePos.y + imageSize.y * ( static_cast<float>( r ) / static_cast<float>( g_CreateClipRows ) );
-                drawList->AddLine( ImVec2( imagePos.x, y ), ImVec2( imagePos.x + imageSize.x, y ), kGridColor );
-            }
+            auto& d = g_CreateClip;
+            auto const texW = static_cast<float>( size.x() );
+            auto const texH = static_cast<float>( size.y() );
 
             ImGui::Separator();
 
-            if ( ImGui::InputInt( "Rows", &g_CreateClipRows ) ) g_CreateClipRows = std::max( 1, g_CreateClipRows );
-            if ( ImGui::InputInt( "Columns", &g_CreateClipColumns ) ) g_CreateClipColumns = std::max( 1, g_CreateClipColumns );
+            if ( ImGui::InputInt( "Rows", &d.m_Rows ) ) d.m_Rows = std::max( 1, d.m_Rows );
+            if ( ImGui::InputInt( "Columns", &d.m_Columns ) ) d.m_Columns = std::max( 1, d.m_Columns );
+            ImGui::InputFloat( "Margin X", &d.m_MarginX, 1.0f, 8.0f, "%.1f" );
+            ImGui::InputFloat( "Margin Y", &d.m_MarginY, 1.0f, 8.0f, "%.1f" );
+            ImGui::InputFloat( "Spacing", &d.m_Spacing, 1.0f, 8.0f, "%.1f" );
+            d.m_MarginX = std::max( 0.0f, d.m_MarginX );
+            d.m_MarginY = std::max( 0.0f, d.m_MarginY );
+            d.m_Spacing = std::max( 0.0f, d.m_Spacing );
+            ImGui::RadioButton( "Row-major", &d.m_Order, 0 );
+            ImGui::SameLine();
+            ImGui::RadioButton( "Column-major", &d.m_Order, 1 );
 
-            float const cellW = static_cast<float>( size.x() ) / static_cast<float>( g_CreateClipColumns );
-            float const cellH = static_cast<float>( size.y() ) / static_cast<float>( g_CreateClipRows );
+            int const gridCells = d.m_Rows * d.m_Columns;
+            if ( ImGui::InputInt( "First frame", &d.m_First ) ) d.m_First = std::clamp( d.m_First, 0, gridCells - 1 );
+            if ( ImGui::InputInt( "Frame count", &d.m_Count ) ) d.m_Count = std::max( 1, d.m_Count );
+            d.m_First = std::clamp( d.m_First, 0, gridCells - 1 );
+            d.m_Count = std::clamp( d.m_Count, 1, gridCells - d.m_First );
+
+            // Margin is applied on every side of the sheet, so the cell size
+            // is whatever is left once margins and gaps are taken out.
+            float const cellW = ( texW - 2.0f * d.m_MarginX - d.m_Spacing * static_cast<float>( d.m_Columns - 1 ) )
+                                / static_cast<float>( d.m_Columns );
+            float const cellH = ( texH - 2.0f * d.m_MarginY - d.m_Spacing * static_cast<float>( d.m_Rows - 1 ) )
+                                / static_cast<float>( d.m_Rows );
+            bool const valid = cellW > 0.0f && cellH > 0.0f;
             ImGui::Text( "Cell size: %.1f x %.1f px", cellW, cellH );
+            if ( !valid ) ImGui::TextColored( ImVec4( 1.0f, 0.4f, 0.4f, 1.0f ), "Margins/spacing leave no room for cells" );
+
+            asge::game::asset::GridSpec const spec{
+                .m_Cell    = { d.m_MarginX, d.m_MarginY, cellW, cellH },
+                .m_Columns = static_cast<std::size_t>( d.m_Columns ),
+                .m_Rows    = static_cast<std::size_t>( d.m_Rows ),
+                .m_First   = static_cast<std::size_t>( d.m_First ),
+                .m_Count   = static_cast<std::size_t>( d.m_Count ),
+                .m_Spacing = d.m_Spacing,
+                .m_Order   = d.m_Order == 1 ? asge::game::asset::GridOrder::ColumnMajor
+                                            : asge::game::asset::GridOrder::RowMajor,
+            };
+
+            // Live preview over the thumbnail: every cell of the grid faintly
+            // (so the whole layout being defined is visible), then the exact
+            // rects the clip will contain -- same MakeGridFrames the saved
+            // file is loaded through -- highlighted and numbered in playback order.
+            if ( valid )
+            {
+                auto* drawList = ImGui::GetWindowDrawList();
+                constexpr ImU32 kGridColor = IM_COL32( 255, 255, 255, 70 );
+                constexpr ImU32 kClipColor = IM_COL32( 255, 220, 0, 255 );
+                float const sx = imageSize.x / texW;
+                float const sy = imageSize.y / texH;
+                auto const toScreen = [&]( asge::math::Rect const& f ) {
+                    ImVec2 const p0( imagePos.x + f.m_X * sx, imagePos.y + f.m_Y * sy );
+                    return std::pair( p0, ImVec2( p0.x + f.m_Width * sx, p0.y + f.m_Height * sy ) );
+                };
+
+                auto gridSpec = spec;
+                gridSpec.m_First = 0;
+                gridSpec.m_Count = static_cast<std::size_t>( gridCells );
+                for ( auto const& f : asge::game::asset::MakeGridFrames( gridSpec ) )
+                {
+                    auto const [p0, p1] = toScreen( f );
+                    drawList->AddRect( p0, p1, kGridColor );
+                }
+
+                int idx = 0;
+                for ( auto const& f : asge::game::asset::MakeGridFrames( spec ) )
+                {
+                    auto const [p0, p1] = toScreen( f );
+                    drawList->AddRect( p0, p1, kClipColor, 0.0f, 0, 2.0f );
+                    char label[16];
+                    std::snprintf( label, sizeof label, "%d", idx++ );
+                    drawList->AddText( ImVec2( p0.x + 2.0f, p0.y + 1.0f ), kClipColor, label );
+                }
+            }
 
             if ( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
             ImGui::SameLine();
-            if ( ImGui::Button( "Apply" ) )
+            if ( !valid ) ImGui::BeginDisabled();
+            bool const apply = ImGui::Button( "Apply" );
+            if ( !valid ) ImGui::EndDisabled();
+            if ( apply )
             {
                 // Clip file sits next to the texture, same stem plus
                 // "_clip.toml" -- both as a real path (to write to) and as
@@ -551,12 +625,6 @@ void DrawAssetInspectorPanel(
                     ( texVirtualPath.parent_path() / ( texVirtualPath.stem().string() + "_clip.toml" ) ).generic_string();
                 std::string const originVirtualPath = inSelectedAsset.m_VirtualPath;
 
-                asge::game::asset::GridSpec const spec{
-                    .m_Cell    = { 0.0f, 0.0f, cellW, cellH },
-                    .m_Columns = static_cast<std::size_t>( g_CreateClipColumns ),
-                    .m_Rows    = static_cast<std::size_t>( g_CreateClipRows ),
-                    .m_Count   = static_cast<std::size_t>( g_CreateClipRows * g_CreateClipColumns ),
-                };
                 auto const saveResult = asge::game::asset::FrameTable::Save( clipRealPath, spec, originVirtualPath );
 
                 if ( !saveResult )
