@@ -24,12 +24,13 @@ asge::Result<asge::game::asset::FrameTable> asge::game::asset::FrameTable::Load(
 
     FrameTable result{ MakeGridFrames( cell, columns, count ) };
     result.m_OriginAsset = table.Get( "m_OriginAsset", str::String{} );
+    result.m_FrameDurations = table.GetArray( "frame_durations", std::vector<float>{} );
     return Result<FrameTable>::Ok( std::move( result ) );
 }
 
 asge::BoolResult asge::game::asset::FrameTable::Save(
     filesystem::Path const& inPath, math::Rect const& inCell, std::size_t inColumns, std::size_t inCount,
-    str::StringView inOriginAsset ) noexcept
+    str::StringView inOriginAsset, std::vector<float> const& inFrameDurations ) noexcept
 {
     asge::config::toml::TOMLBuilder builder;
     auto table = builder.Table( str::String( kTableName ) );
@@ -40,6 +41,7 @@ asge::BoolResult asge::game::asset::FrameTable::Save(
     table.Set( "columns", static_cast<int>( inColumns ) );
     table.Set( "count", static_cast<int>( inCount ) );
     table.Set( "m_OriginAsset", std::string( inOriginAsset ) );
+    if ( !inFrameDurations.empty() ) table.SetArray( "frame_durations", inFrameDurations );
     return builder.SaveToFile( inPath );
 }
 

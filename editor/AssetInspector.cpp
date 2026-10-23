@@ -44,7 +44,8 @@ struct AnimationPreviewState
 
 // Fixed cadence for the clip preview, independent of any entity's own
 // Animation::m_FrameDuration -- this is previewing what frames the clip
-// has, not any particular entity's playback speed.
+// has, not any particular entity's playback speed. Used for any frame the
+// clip gives no duration of its own.
 constexpr float kAnimationPreviewFrameDuration = 0.15f;
 
 /** @brief A small transport-control button drawn as a play triangle or pause bars (no icon font in this project) -- returns true the frame it's clicked. */
@@ -329,9 +330,11 @@ void DrawAssetInspectorPanel(
                     auto const& frames = frameTableResult.Value()->Get().m_Frames;
 
                     preview.m_ElapsedTime += ImGui::GetIO().DeltaTime;
-                    while ( preview.m_ElapsedTime >= kAnimationPreviewFrameDuration )
+                    if ( preview.m_CurrentFrame >= frames.size() ) preview.m_CurrentFrame = 0;
+                    auto const& previewTable = frameTableResult.Value()->Get();
+                    while ( preview.m_ElapsedTime >= previewTable.FrameDuration( preview.m_CurrentFrame, kAnimationPreviewFrameDuration ) )
                     {
-                        preview.m_ElapsedTime -= kAnimationPreviewFrameDuration;
+                        preview.m_ElapsedTime -= previewTable.FrameDuration( preview.m_CurrentFrame, kAnimationPreviewFrameDuration );
                         preview.m_CurrentFrame = ( preview.m_CurrentFrame + 1 ) % frames.size();
                     }
 

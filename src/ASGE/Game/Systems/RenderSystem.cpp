@@ -540,7 +540,7 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
         std::vector<math::Rect> const& frames = animationRef.m_Clip->Get().m_Frames;
 
         if ( !animationRef.m_Playing || frames.empty() || !spriteRef.m_Texture
-             || animationRef.m_FrameDuration <= 0.0f )
+             || animationRef.m_PlaybackSpeed <= 0.0f )
         {
             continue;
         }
@@ -549,10 +549,14 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
         auto const nofFrames = frames.size();
         if ( animationRef.m_CurrentFrame >= nofFrames ) animationRef.m_CurrentFrame = 0;
 
-        animationRef.m_ElapsedTime += inDeltaTime;
-        while ( animationRef.m_ElapsedTime >= animationRef.m_FrameDuration )
+        auto const& table = animationRef.m_Clip->Get();
+        animationRef.m_ElapsedTime += inDeltaTime * animationRef.m_PlaybackSpeed;
+        while ( true )
         {
-            animationRef.m_ElapsedTime -= animationRef.m_FrameDuration;
+            float const duration = table.FrameDuration( animationRef.m_CurrentFrame, animationRef.m_FrameDuration );
+            if ( duration <= 0.0f || animationRef.m_ElapsedTime < duration ) break;
+
+            animationRef.m_ElapsedTime -= duration;
             ++animationRef.m_CurrentFrame;
             if ( animationRef.m_CurrentFrame >= nofFrames )
             {

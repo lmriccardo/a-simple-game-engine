@@ -358,6 +358,17 @@ TEST(AnimationSerializerTest, RoundTrip_ClipPathAndDurationPreserved)
     EXPECT_FLOAT_EQ(restored.m_FrameDuration, original.m_FrameDuration);
 }
 
+TEST(AnimationSerializerTest, RoundTrip_PlaybackSpeedPreservedAndDefaultsToOne)
+{
+    TOMLBuilder builder;
+    Serializer<Animation>::ToToml(Animation{ .m_PlaybackSpeed = 2.5f }, builder, asge::game::scene::SaveContext{});
+    EXPECT_FLOAT_EQ(Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{}).m_PlaybackSpeed, 2.5f);
+
+    TOMLBuilder legacy;
+    legacy.Table("Animation").Set("m_FrameDuration", 0.1f);
+    EXPECT_FLOAT_EQ(Serializer<Animation>::FromToml(legacy, asge::game::scene::LoadContext{}).m_PlaybackSpeed, 1.0f);
+}
+
 TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackProgressAlwaysResetToStructDefaults)
 {
     // m_Clip (a resolved asset) and playback progress are never something a

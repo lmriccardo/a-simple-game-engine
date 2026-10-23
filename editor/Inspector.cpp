@@ -365,7 +365,7 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
     return changed;
 }
 
-// m_ClipPath/m_FrameDuration/m_Loop/m_StartPlaying round-trip (see
+// m_ClipPath/m_FrameDuration/m_PlaybackSpeed/m_Loop/m_StartPlaying round-trip (see
 // Serializer<Animation>'s doc comment) -- playback progress is runtime-only. m_ClipPath is a
 // dropdown restricted to inKnownAnimations (Phase 10); the return reports
 // only whether that selection changed, not a m_FrameDuration edit, since
@@ -377,6 +377,7 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
 {
     bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
     ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
+    ImGui::DragFloat( "Playback Speed", &inAnimation.m_PlaybackSpeed, 0.05f, 0.0f, 10.0f );
     bool const clipsChanged = DrawNamedClips( inAnimation, inKnownAnimations );
     ImGui::Checkbox( "Loop", &inAnimation.m_Loop );
     ImGui::Checkbox( "Start Playing", &inAnimation.m_StartPlaying );

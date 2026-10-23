@@ -42,6 +42,7 @@ void asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(
     if ( !clipNames.empty() ) table.SetArray<std::string>("m_ClipNames", clipNames).SetArray<std::string>("m_ClipPaths", clipPaths);
     table.Set<std::string>("m_ClipPath", inValue.m_ClipPath)
            .Set("m_FrameDuration", inValue.m_FrameDuration)
+           .Set("m_PlaybackSpeed", inValue.m_PlaybackSpeed)
            .Set("m_Loop", inValue.m_Loop)
            .Set("m_StartPlaying", inValue.m_StartPlaying);
 }
@@ -62,6 +63,7 @@ asge::game::components::Animation asge::game::scene::Serializer<asge::game::comp
     }
 
     result.m_FrameDuration = table.Get("m_FrameDuration", result.m_FrameDuration);
+    result.m_PlaybackSpeed = table.Get("m_PlaybackSpeed", result.m_PlaybackSpeed);
     result.m_Loop          = table.Get("m_Loop", result.m_Loop);
     result.m_StartPlaying  = table.Get("m_StartPlaying", result.m_StartPlaying);
     result.m_Playing       = result.m_StartPlaying;
