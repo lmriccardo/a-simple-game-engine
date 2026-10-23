@@ -29,4 +29,13 @@ signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerExit() noexcept;
  */
 signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerStay() noexcept;
 
+/**
+ * @brief Fires when a non-looping Animation reaches its last frame and stops
+ *        (Animation::m_Playing cleared), with the owning entity.
+ *
+ * A process-wide signal fired synchronously from systems::AnimationSystem,
+ * once per playback; looping animations never emit it.
+ */
+signals::Signal<ecs::Entity>& OnAnimationFinished() noexcept;
+
 }
