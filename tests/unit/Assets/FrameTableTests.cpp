@@ -134,7 +134,7 @@ class FrameTableSaveTest : public FrameTableLoadTest {};
 
 TEST_F(FrameTableSaveTest, WritesASchemaLoadCanReadBack)
 {
-    auto const saveResult = FrameTable::Save(m_Path, asge::math::Rect{ 2.0f, 3.0f, 8.0f, 8.0f }, 2, 3, "sprites/hero.png");
+    auto const saveResult = FrameTable::Save(m_Path, GridSpec{ .m_Cell = { 2.0f, 3.0f, 8.0f, 8.0f }, .m_Columns = 2, .m_Count = 3 }, "sprites/hero.png");
     ASSERT_TRUE(saveResult.IsOk());
 
     auto loadResult = FrameTable::Load(m_Path);
@@ -150,7 +150,7 @@ TEST_F(FrameTableSaveTest, OverwritesAnExistingFileRatherThanFailing)
 {
     Write("title = \"stale content\"\n");
 
-    auto const saveResult = FrameTable::Save(m_Path, asge::math::Rect{ 0.0f, 0.0f, 4.0f, 4.0f }, 1, 1, "sheet.png");
+    auto const saveResult = FrameTable::Save(m_Path, GridSpec{ .m_Cell = { 0.0f, 0.0f, 4.0f, 4.0f }, .m_Columns = 1, .m_Count = 1 }, "sheet.png");
     ASSERT_TRUE(saveResult.IsOk());
 
     auto loadResult = FrameTable::Load(m_Path);
@@ -160,7 +160,7 @@ TEST_F(FrameTableSaveTest, OverwritesAnExistingFileRatherThanFailing)
 
 TEST_F(FrameTableSaveTest, WrittenFileIsRecognizedAsAFrameTable)
 {
-    auto const saveResult = FrameTable::Save(m_Path, asge::math::Rect{ 0.0f, 0.0f, 4.0f, 4.0f }, 2, 4, "sheet.png");
+    auto const saveResult = FrameTable::Save(m_Path, GridSpec{ .m_Cell = { 0.0f, 0.0f, 4.0f, 4.0f }, .m_Columns = 2, .m_Count = 4 }, "sheet.png");
     ASSERT_TRUE(saveResult.IsOk());
 
     EXPECT_TRUE(FrameTable::IsFrameTable(m_Path));
@@ -214,7 +214,7 @@ TEST_F(IsFrameTableTest, NonExistentPathReturnsFalse)
 
 TEST(MakeGridFramesTest, LaysOutFramesInRowMajorOrderAcrossColumns)
 {
-    auto const frames = MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, 3, 4 );
+    auto const frames = MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 3, .m_Count = 4 } );
 
     ASSERT_EQ(frames.size(), 4u);
     EXPECT_FLOAT_EQ(frames[0].m_X, 0.0f);  EXPECT_FLOAT_EQ(frames[0].m_Y, 0.0f); // col 0, row 0
@@ -230,7 +230,7 @@ TEST(MakeGridFramesTest, LaysOutFramesInRowMajorOrderAcrossColumns)
 
 TEST(MakeGridFramesTest, OffsetSheetCellShiftsEveryFrameByThatOffset)
 {
-    auto const frames = MakeGridFrames( asge::math::Rect{ 100.0f, 50.0f, 4.0f, 4.0f }, 2, 2 );
+    auto const frames = MakeGridFrames( GridSpec{ .m_Cell = { 100.0f, 50.0f, 4.0f, 4.0f }, .m_Columns = 2, .m_Count = 2 } );
 
     ASSERT_EQ(frames.size(), 2u);
     EXPECT_FLOAT_EQ(frames[0].m_X, 100.0f);
@@ -242,18 +242,63 @@ TEST(MakeGridFramesTest, OffsetSheetCellShiftsEveryFrameByThatOffset)
 TEST(MakeGridFramesTest, CountSmallerThanGridSizeOnlyProducesThatManyFrames)
 {
     // A 4-column, 2-row sheet (8 cells), but only 6 are actual animation frames.
-    auto const frames = MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 10.0f, 10.0f }, 4, 6 );
+    auto const frames = MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 10.0f, 10.0f }, .m_Columns = 4, .m_Count = 6 } );
     EXPECT_EQ(frames.size(), 6u);
 }
 
 TEST(MakeGridFramesTest, ZeroCountReturnsEmpty)
 {
-    EXPECT_TRUE(MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, 4, 0 ).empty());
+    EXPECT_TRUE(MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 4, .m_Count = 0 } ).empty());
 }
 
 TEST(MakeGridFramesTest, ZeroColumnsReturnsEmptyRatherThanDividingByZero)
 {
-    EXPECT_TRUE(MakeGridFrames( asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, 0, 4 ).empty());
+    EXPECT_TRUE(MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 0, .m_Count = 4 } ).empty());
 }
 
+}
+
+TEST(MakeGridFramesTest, ColumnMajorOrderWalksDownRowsBeforeAcrossColumns)
+{
+    auto const frames = MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 3, .m_Rows = 2,
+                                                  .m_Count = 3, .m_Order = GridOrder::ColumnMajor } );
+    ASSERT_EQ(frames.size(), 3u);
+    EXPECT_FLOAT_EQ(frames[1].m_X, 0.0f);  // index 1 -> col 0, row 1
+    EXPECT_FLOAT_EQ(frames[1].m_Y, 8.0f);
+    EXPECT_FLOAT_EQ(frames[2].m_X, 8.0f);  // index 2 -> col 1, row 0
+    EXPECT_FLOAT_EQ(frames[2].m_Y, 0.0f);
+}
+
+TEST(MakeGridFramesTest, FirstAndSpacingOffsetTheRange)
+{
+    auto const frames = MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 2,
+                                                  .m_First = 1, .m_Count = 2, .m_Spacing = 2.0f } );
+    ASSERT_EQ(frames.size(), 2u);
+    EXPECT_FLOAT_EQ(frames[0].m_X, 10.0f); // index 1 -> col 1, row 0
+    EXPECT_FLOAT_EQ(frames[1].m_X, 0.0f);  // index 2 -> col 0, row 1
+    EXPECT_FLOAT_EQ(frames[1].m_Y, 10.0f);
+}
+
+TEST(MakeGridFramesTest, ColumnMajorWithZeroRowsReturnsEmpty)
+{
+    EXPECT_TRUE(MakeGridFrames( GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 3, .m_Count = 3,
+                                          .m_Order = GridOrder::ColumnMajor } ).empty());
+}
+
+TEST_F(FrameTableSaveTest, RoundTripsFirstSpacingAndColumnOrder)
+{
+    ASSERT_TRUE(FrameTable::Save(m_Path, GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 3, .m_Rows = 2,
+                                                   .m_First = 1, .m_Count = 3, .m_Spacing = 1.0f,
+                                                   .m_Order = GridOrder::ColumnMajor }, "s.png").IsOk());
+    auto loadResult = FrameTable::Load(m_Path);
+    ASSERT_TRUE(loadResult.IsOk());
+    ASSERT_EQ(loadResult.Value().m_Frames.size(), 3u);
+    EXPECT_FLOAT_EQ(loadResult.Value().m_Frames[0].m_Y, 9.0f); // index 1 -> col 0, row 1
+}
+
+TEST_F(FrameTableSaveTest, LoadRejectsClipRunningPastKnownGrid)
+{
+    ASSERT_TRUE(FrameTable::Save(m_Path, GridSpec{ .m_Cell = { 0.0f, 0.0f, 8.0f, 8.0f }, .m_Columns = 2, .m_Rows = 2,
+                                                   .m_First = 3, .m_Count = 2 }, "s.png").IsOk());
+    EXPECT_FALSE(FrameTable::Load(m_Path).IsOk());
 }

@@ -10,6 +10,25 @@
 namespace asge::game::asset
 {
 
+/** @brief Direction in which frame indices walk a spritesheet grid. */
+enum class GridOrder { RowMajor, ColumnMajor };
+
+/**
+ * @brief Describes one clip as a contiguous range of cells over a regular
+ *        spritesheet grid — which cells, in which order, and how they are
+ *        spaced. Serialized field-for-field by FrameTable::Save/Load.
+ */
+struct GridSpec
+{
+    math::Rect  m_Cell{};        // First cell: x/y = sheet origin (margin), w/h = one cell, in texture pixels
+    std::size_t m_Columns{0};    // Sheet width in cells -- the wrap length in RowMajor order
+    std::size_t m_Rows{0};       // Sheet height in cells -- the wrap length in ColumnMajor order; 0 = unknown
+    std::size_t m_First{0};      // Index of the clip's first frame, counted in m_Order
+    std::size_t m_Count{0};      // Number of frames in the clip
+    float       m_Spacing{0.0f}; // Gap between adjacent cells, in pixels
+    GridOrder   m_Order{GridOrder::RowMajor};
+};
+
 /**
  * @brief A named sequence of source rects into a spritesheet — one entry
  *        per animation frame, shared by every components::Animation whose
@@ -17,10 +36,14 @@ namespace asge::game::asset
  *        asset::AssetManager::GetFrameTable/ResolveAssets).
  *
  * Load() reads a small TOML meta-file (its own `[FrameTable]` table, keyed
- * by kTableName) describing one regular grid: "x"/"y"/"w"/"h" for the first
- * cell, "columns" for the grid width, and "count" for how many cells (in
- * row-major order) are actually frames — see MakeGridFrames, which does the
- * actual grid math. Not the spritesheet's pixels themselves; the entity's
+ * by kTableName) describing a contiguous run of cells on one regular grid
+ * (see GridSpec): "x"/"y"/"w"/"h" for the first cell, "columns"/"rows" for
+ * the grid size, "first"/"count" for which cells (indexed in "order", either
+ * "row" (default) or "column") are frames, and "spacing" for the pixel gap
+ * between cells. Every key but x/y/w/h/columns/count is optional, so older
+ * files still load; "rows" = 0 means unknown. Load() fails on an unknown
+ * "order" or on a clip that runs past the end of a known-size grid. See
+ * MakeGridFrames, which does the actual grid math. Not the spritesheet's pixels themselves; the entity's
  * own Sprite::m_VirtualPath still points at the texture this FrameTable's
  * rects are meant to crop -- m_OriginAsset (also read from the same table,
  * key "m_OriginAsset") is that same texture's virtual path, recorded purely
@@ -37,11 +60,11 @@ struct FrameTable
     std::vector<math::Rect> m_Frames;
     str::String             m_OriginAsset{}; // Virtual path of the texture this clip slices -- editor bookkeeping only
 
-    /** @brief Parses inPath's `[FrameTable]` TOML table into m_Frames/m_OriginAsset — see the struct doc comment for its schema. */
+    /** @brief Parses inPath's `[FrameTable]` TOML table into m_Frames/m_OriginAsset */
     static Result<FrameTable> Load( filesystem::Path const& inPath );
 
     /**
-     * @brief Writes inCell/inColumns/inCount/inOriginAsset as inPath's
+     * @brief Writes inSpec/inOriginAsset as inPath's
      *        `[FrameTable]` table — the exact schema Load() reads back (see
      *        the struct doc comment). Creates inPath if it doesn't exist;
      *        overwrites it (as a fresh file containing just this table) if
@@ -49,9 +72,9 @@ struct FrameTable
      *        level editor's in-editor spritesheet slicer, say), not one
      *        with other hand-authored content to preserve.
      */
-    [[nodiscard]] static BoolResult Save(
-        filesystem::Path const& inPath, math::Rect const& inCell, std::size_t inColumns, std::size_t inCount,
-        str::StringView inOriginAsset ) noexcept;
+    [[nodiscard]] static BoolResult Save(filesystem::Path const& inPath, 
+                                         GridSpec const& inSpec, 
+                                         str::StringView inOriginAsset ) noexcept;
 
     /**
      * @brief Checks whether inPath is a FrameTable clip — a TOML file with
@@ -63,15 +86,15 @@ struct FrameTable
 };
 
 /**
- * @brief Builds inCount evenly-spaced sub-rects (in texture pixels) across a
- *        regular grid spritesheet, for use as FrameTable::m_Frames.
+ * @brief Builds inSpec.m_Count sub-rects (in texture pixels) across a regular
+ *        grid spritesheet, for use as FrameTable::m_Frames.
  *
- * inSheetCell's x/y is the top-left of frame 0 and its w/h is one cell's
- * size; frame i sits at column (i % inColumns), row (i / inColumns) of that
- * grid, so inCount need not fill the grid exactly (e.g. 6 frames out of an
- * 8-cell sheet). Returns an empty vector if inColumns or inCount is 0.
+ * Cell indices run from m_First to m_First + m_Count - 1. In RowMajor order
+ * index i sits at column (i % m_Columns), row (i / m_Columns); in ColumnMajor
+ * order at column (i / m_Rows), row (i % m_Rows). Adjacent cells are
+ * m_Spacing pixels apart. Returns an empty vector if m_Count is 0 or the
+ * wrap length for the order (m_Columns / m_Rows) is 0.
  */
-std::vector<math::Rect> MakeGridFrames(
-    math::Rect inSheetCell, std::size_t inColumns, std::size_t inCount ) noexcept;
+std::vector<math::Rect> MakeGridFrames( GridSpec const& inSpec ) noexcept;
     
 } // namespace asge::game::asset

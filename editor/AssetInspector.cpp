@@ -290,10 +290,14 @@ void DrawAssetInspectorPanel(
             ImGui::Text( "h: %.1f", table.Get( "h", 0.0f ) );
             int const columns = table.Get<int>( "columns", 0 );
             int const count = table.Get<int>( "count", 0 );
-            int const rows = columns > 0 ? ( count + columns - 1 ) / columns : 0; // ceil(count / columns) -- not its own stored field, just derived for display
+            int rows = table.Get<int>( "rows", 0 );
+            if ( rows == 0 && columns > 0 ) rows = ( count + columns - 1 ) / columns; // older clips don't store rows -- fall back to ceil(count / columns)
             ImGui::Text( "columns: %d", columns );
             ImGui::Text( "rows: %d", rows );
+            ImGui::Text( "first: %d", table.Get<int>( "first", 0 ) );
             ImGui::Text( "count: %d", count );
+            ImGui::Text( "spacing: %.1f", table.Get( "spacing", 0.0f ) );
+            ImGui::Text( "order: %s", table.Get( "order", std::string( "row" ) ).c_str() );
 
             ImGui::Separator();
 
@@ -547,11 +551,13 @@ void DrawAssetInspectorPanel(
                     ( texVirtualPath.parent_path() / ( texVirtualPath.stem().string() + "_clip.toml" ) ).generic_string();
                 std::string const originVirtualPath = inSelectedAsset.m_VirtualPath;
 
-                auto const saveResult = asge::game::asset::FrameTable::Save(
-                    clipRealPath, asge::math::Rect{ 0.0f, 0.0f, cellW, cellH },
-                    static_cast<std::size_t>( g_CreateClipColumns ),
-                    static_cast<std::size_t>( g_CreateClipRows * g_CreateClipColumns ),
-                    originVirtualPath );
+                asge::game::asset::GridSpec const spec{
+                    .m_Cell    = { 0.0f, 0.0f, cellW, cellH },
+                    .m_Columns = static_cast<std::size_t>( g_CreateClipColumns ),
+                    .m_Rows    = static_cast<std::size_t>( g_CreateClipRows ),
+                    .m_Count   = static_cast<std::size_t>( g_CreateClipRows * g_CreateClipColumns ),
+                };
+                auto const saveResult = asge::game::asset::FrameTable::Save( clipRealPath, spec, originVirtualPath );
 
                 if ( !saveResult )
                 {
