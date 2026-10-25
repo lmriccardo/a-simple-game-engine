@@ -535,8 +535,9 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
         auto& animationRef = animation.get();
         auto& spriteRef = sprite.get();
 
-        // Stopped: hand the Sprite its own crop back, so a non-playing Animation shows nothing of its own.
-        if ( !animationRef.m_Playing && animationRef.m_OwnsSourceRect )
+        // Stopped, or its clip cleared: hand the Sprite its own crop back, so an Animation that isn't playing a clip shows nothing of its own.
+        if ( animationRef.m_OwnsSourceRect
+             && ( !animationRef.m_Playing || animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) )
         {
             spriteRef.m_SourceRect = animationRef.m_RestRect;
             animationRef.m_OwnsSourceRect = false;

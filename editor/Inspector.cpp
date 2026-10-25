@@ -866,16 +866,17 @@ constexpr ComponentEntry MakeComponentEntry( char const* inName ) noexcept
         },
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
         {
-            // AnimationSystem writes each cropped frame straight into the
-            // Sprite's own m_SourceRect (RenderSystem.cpp) -- removing
-            // Animation doesn't touch that, so without this the Sprite is
-            // left showing whatever frame it was last cropped to instead of
-            // going back to the whole spritesheet (m_SourceRect == nullopt).
+            // A playing Animation has overwritten the Sprite's m_SourceRect
+            // with its current frame -- removing it doesn't undo that, so put
+            // back the crop it saved when playback started. A stopped one
+            // already handed the crop back, so there is nothing to restore.
             if constexpr ( std::is_same_v<T, Animation> )
             {
-                if ( auto sprite = inRegistry.GetComponent<Sprite>( inEntity ) )
+                auto anim = inRegistry.GetComponent<Animation>( inEntity );
+                auto sprite = inRegistry.GetComponent<Sprite>( inEntity );
+                if ( anim && sprite && anim.Value().get().m_OwnsSourceRect )
                 {
-                    sprite.Value().get().m_SourceRect = std::nullopt;
+                    sprite.Value().get().m_SourceRect = anim.Value().get().m_RestRect;
                 }
             }
             if ( auto const result = inRegistry.RemoveComponent<T>( inEntity ); !result ) result.LogError();
