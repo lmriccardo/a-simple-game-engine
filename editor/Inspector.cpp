@@ -183,11 +183,11 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // components::RenderInfo section, below.
 bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept;
 
-/** @brief True if inEntity has an Animation with a resolved clip, which then owns its Sprite's m_SourceRect. */
+/** @brief True while inEntity's Animation is playing and so owns its Sprite's m_SourceRect. */
 bool SpriteCropOwnedByAnimation( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
 {
     auto anim = inRegistry.GetComponent<Animation>( inEntity );
-    return anim && anim.Value().get().m_Clip != nullptr;
+    return anim && anim.Value().get().m_OwnsSourceRect;
 }
 
 bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures, bool inAnimationOwned ) noexcept
