@@ -2197,6 +2197,38 @@ TEST(AnimationSystemTest, NotPlayingAnimationIsNotAdvanced)
     EXPECT_FLOAT_EQ(anim.m_ElapsedTime, 0.0f);
 }
 
+TEST(AnimationSystemTest, StoppingRestoresTheSpritesOwnSourceRect)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture, .m_SourceRect = idle }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
+        .m_FrameDuration = 0.1f
+    }).IsOk());
+
+    auto& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
+    auto& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f); // Playing: the clip drives the crop.
+
+    asge::game::components::StopAnimation(anim);
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    ASSERT_TRUE(sprite.m_SourceRect.has_value());
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f); // Stopped: the Sprite's own crop is back...
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_Y, 16.0f);
+
+    sprite.m_SourceRect = asge::math::Rect{ 24.0f, 0.0f, 8.0f, 8.0f };
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 24.0f); // ...and stays editable: the Animation leaves it alone.
+}
+
 TEST(AnimationSystemTest, EmptyFramesListIsSkippedRatherThanCrashing)
 {
     Registry registry;

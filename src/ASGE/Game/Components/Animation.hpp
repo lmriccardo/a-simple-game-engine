@@ -3,6 +3,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <ASGE/Game/Assets/Asset.hpp>
 #include <ASGE/Game/Assets/FrameTable.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
@@ -30,10 +31,12 @@ namespace asge::game::components
  * notice a change (repointing to a new clip) or a clear (path emptied out,
  * m_Clip released back to null), rather than resolving once and never again.
  *
- * Ownership: while m_Clip is resolved, this Animation owns the Sprite's
- * m_SourceRect -- AnimationSystem overwrites it every frame, so a manual crop
- * on the same Sprite does not survive, and removing the Animation leaves the
- * last frame's rect behind rather than restoring the earlier crop.
+ * Ownership: this Animation owns the Sprite's m_SourceRect only while it is
+ * playing. AnimationSystem saves the Sprite's own crop into m_RestRect when
+ * playback starts, overwrites m_SourceRect every frame, and puts m_RestRect
+ * back once m_Playing goes false (one system run later, so a finished
+ * non-looping clip's last frame is shown for that run). Removing the Animation
+ * mid-playback leaves the last frame's rect behind.
  */
 struct Animation
 {
@@ -51,6 +54,8 @@ struct Animation
     bool        m_Loop{true};          // Serialized. Wrap to frame 0 at the end instead of stopping there
     bool        m_StartPlaying{true};  // Serialized. Initial m_Playing on load -- a scene can start this Animation paused
     bool        m_Playing{true};       // Not serialized -- whether AnimationSystem advances this Animation at all (live state, seeded from m_StartPlaying on load)
+    std::optional<math::Rect> m_RestRect{}; // Not serialized -- the Sprite's own m_SourceRect, saved while this Animation owns it
+    bool        m_OwnsSourceRect{false};    // Not serialized -- true between playback starting and the Sprite's crop being restored
 };
 
 /**

@@ -535,6 +535,14 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
         auto& animationRef = animation.get();
         auto& spriteRef = sprite.get();
 
+        // Stopped: hand the Sprite its own crop back, so a non-playing Animation shows nothing of its own.
+        if ( !animationRef.m_Playing && animationRef.m_OwnsSourceRect )
+        {
+            spriteRef.m_SourceRect = animationRef.m_RestRect;
+            animationRef.m_OwnsSourceRect = false;
+            continue;
+        }
+
         if ( animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) continue;
 
         std::vector<math::Rect> const& frames = animationRef.m_Clip->Get().m_Frames;
@@ -543,6 +551,12 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
              || animationRef.m_PlaybackSpeed <= 0.0f )
         {
             continue;
+        }
+
+        if ( !animationRef.m_OwnsSourceRect )
+        {
+            animationRef.m_RestRect = spriteRef.m_SourceRect;
+            animationRef.m_OwnsSourceRect = true;
         }
 
         bool finished = false;
