@@ -356,7 +356,7 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
         ImGui::SameLine();
         if ( ImGui::SmallButton( "Remove" ) ) toRemove = name;
         ImGui::SetNextItemWidth( -FLT_MIN );
-        if ( DrawAssetPathCombo( "##path", path, inKnownAnimations ) ) changed = true;
+        if ( DrawClipCombo( "##path", path, inKnownAnimations ) ) changed = true;
         ImGui::PopID();
     }
     if ( !toRemove.empty() )
@@ -392,7 +392,7 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
 // mark the scene dirty on its own.
 bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
 {
-    bool const clipChanged = DrawAssetPathCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
+    bool const clipChanged = DrawClipCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
     ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
     ImGui::DragFloat( "Playback Speed", &inAnimation.m_PlaybackSpeed, 0.05f, 0.0f, 10.0f );
     bool const clipsChanged = DrawNamedClips( inAnimation, inKnownAnimations );
@@ -1180,6 +1180,43 @@ bool DrawAssetPathCombo( char const* inLabel, std::string& ioPath, std::vector<s
     if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
 
     ioPath = current == 0 ? std::string{} : inKnownPaths[current - 1];
+    return true;
+}
+
+std::string ClipNameFromPath( std::string const& inPath ) noexcept
+{
+    constexpr std::string_view kMarker = "_clip_";
+    auto const stem = std::filesystem::path( inPath ).stem().string();
+    auto const pos = stem.find( kMarker );
+    return pos != std::string::npos && pos + kMarker.size() < stem.size() ? stem.substr( pos + kMarker.size() ) : stem;
+}
+
+bool DrawClipCombo( char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownClips ) noexcept
+{
+    std::vector<std::string> labels;
+    labels.reserve( inKnownClips.size() );
+    for ( auto const& path : inKnownClips )
+    {
+        auto name = ClipNameFromPath( path );
+        auto const taken = std::count_if( inKnownClips.begin(), inKnownClips.end(),
+            [&]( std::string const& other ) { return ClipNameFromPath( other ) == name; } );
+        labels.push_back( taken > 1 ? name + "  [" + path + "]" : name );
+    }
+
+    std::vector<char const*> items;
+    items.reserve( labels.size() + 1 );
+    items.push_back( "None" );
+    for ( auto const& label : labels ) items.push_back( label.c_str() );
+
+    int current = 0;
+    for ( std::size_t i = 0; i < inKnownClips.size(); ++i )
+    {
+        if ( inKnownClips[i] == ioPath ) { current = static_cast<int>( i ) + 1; break; }
+    }
+
+    if ( !ImGui::Combo( inLabel, &current, items.data(), static_cast<int>( items.size() ) ) ) return false;
+
+    ioPath = current == 0 ? std::string{} : inKnownClips[current - 1];
     return true;
 }
 

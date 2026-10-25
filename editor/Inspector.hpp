@@ -41,6 +41,22 @@ bool DrawAssetPathCombo(
     char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownPaths ) noexcept;
 
 /**
+ * @brief The user-given name of the clip at inPath: whatever follows
+ *        "_clip_" in its file name (`hero_clip_walk.toml` -> "walk"), the
+ *        convention the "Create Clip" modal saves under. A path not following
+ *        it just falls back to its whole stem.
+ */
+std::string ClipNameFromPath( std::string const& inPath ) noexcept;
+
+/**
+ * @brief Like DrawAssetPathCombo, but each entry shows its clip's
+ *        ClipNameFromPath name instead of the raw path (the path is appended
+ *        only to tell apart two clips sharing a name).
+ */
+bool DrawClipCombo(
+    char const* inLabel, std::string& ioPath, std::vector<std::string> const& inKnownClips ) noexcept;
+
+/**
  * @brief DrawEntityListPanel's full per-frame report. m_CreateClicked is
  *        the pre-Phase-13 "Create Entity" button signal, unchanged;
  *        m_CreateUIElementClicked (Phase 16) is its "Create UI Element"
