@@ -2229,6 +2229,31 @@ TEST(AnimationSystemTest, StoppingRestoresTheSpritesOwnSourceRect)
     EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 24.0f); // ...and stays editable: the Animation leaves it alone.
 }
 
+TEST(AnimationSystemTest, ClearingTheClipPathWhilePlayingRestoresTheSpritesOwnSourceRect)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk()); // whole texture: no rect
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
+        .m_FrameDuration = 0.1f
+    }).IsOk());
+
+    auto& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
+    auto& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
+
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    ASSERT_TRUE(sprite.m_SourceRect.has_value());
+
+    anim.m_ClipPath.clear(); // Still m_Playing, as the editor's "None" clip selection leaves it.
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    EXPECT_FALSE(sprite.m_SourceRect.has_value());
+}
+
 TEST(AnimationSystemTest, EmptyFramesListIsSkippedRatherThanCrashing)
 {
     Registry registry;

@@ -35,8 +35,10 @@ namespace asge::game::components
  * playing. AnimationSystem saves the Sprite's own crop into m_RestRect when
  * playback starts, overwrites m_SourceRect every frame, and puts m_RestRect
  * back once m_Playing goes false (one system run later, so a finished
- * non-looping clip's last frame is shown for that run). Removing the Animation
- * mid-playback leaves the last frame's rect behind.
+ * non-looping clip's last frame is shown for that run) or m_ClipPath is
+ * cleared. Removing the Animation mid-playback is the caller's job: the
+ * Sprite keeps the last frame's rect unless m_RestRect is written back first
+ * (the level editor's Remove handler does).
  */
 struct Animation
 {

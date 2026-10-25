@@ -24,6 +24,7 @@
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -190,16 +191,170 @@ bool SpriteCropOwnedByAnimation( asge::ecs::Registry& inRegistry, asge::ecs::Ent
     return anim && anim.Value().get().m_OwnsSourceRect;
 }
 
-bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures, bool inAnimationOwned ) noexcept
+/**
+ * @brief Draws a "Pick..." button that opens a modal showing inSprite's texture, where dragging selects its
+ *        source rect: snapped to a cell grid by default, or free-form. Returns true when Apply wrote a rect.
+ */
+bool DrawSourceRectPicker( Sprite& inSprite, bool inDisabled ) noexcept
+{
+    struct PickerState
+    {
+        int m_CellW{32};
+        int m_CellH{32};
+        bool m_Free{false};
+        bool m_HasRect{false};
+        ImVec2 m_Anchor{};
+        asge::math::Rect m_Rect{};
+    };
+    static PickerState s;
+    constexpr char const* kPopup = "Pick Source Rect";
+
+    ImGui::BeginDisabled( inDisabled || !inSprite.m_Texture );
+    if ( ImGui::Button( "Pick..." ) )
+    {
+        s.m_HasRect = inSprite.m_SourceRect.has_value();
+        if ( s.m_HasRect )
+        {
+            s.m_Rect = *inSprite.m_SourceRect;
+            s.m_CellW = std::max( 1, static_cast<int>( s.m_Rect.m_Width ) );
+            s.m_CellH = std::max( 1, static_cast<int>( s.m_Rect.m_Height ) );
+        }
+        ImGui::OpenPopup( kPopup );
+    }
+    ImGui::EndDisabled();
+
+    bool applied = false;
+    if ( !ImGui::BeginPopupModal( kPopup, nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) return false;
+
+    if ( !inSprite.m_Texture )
+    {
+        ImGui::TextDisabled( "(texture unavailable)" );
+        if ( ImGui::Button( "Close" ) ) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return false;
+    }
+
+    auto const size = inSprite.m_Texture->Size();
+    float const texW = static_cast<float>( size.x() );
+    float const texH = static_cast<float>( size.y() );
+    // Same preview sizing as the asset inspector's Create Clip dialog.
+    auto const viewportSize = ImGui::GetMainViewport()->Size;
+    float const maxDim = std::clamp( 0.6f * std::min( viewportSize.x, viewportSize.y ), 256.0f, 720.0f );
+    float const scale = maxDim / std::max( texW, texH );
+    ImVec2 const imageSize( texW * scale, texH * scale );
+
+    ImVec2 const imagePos = ImGui::GetCursorScreenPos();
+    ImGui::Image( inSprite.m_Texture->NativeHandle(), imageSize );
+    ImGui::SetCursorScreenPos( imagePos );
+    ImGui::InvisibleButton( "##pick", imageSize );
+    // Read now: IsItem*() refers to the last widget drawn, which the controls below would replace.
+    bool const pressed = ImGui::IsItemActivated();
+    bool const dragging = ImGui::IsItemActive();
+
+    ImGui::Checkbox( "Free drag (no grid snap)", &s.m_Free );
+    ImGui::BeginDisabled( s.m_Free );
+    if ( ImGui::InputInt( "Cell W", &s.m_CellW ) ) s.m_CellW = std::max( 1, s.m_CellW );
+    if ( ImGui::InputInt( "Cell H", &s.m_CellH ) ) s.m_CellH = std::max( 1, s.m_CellH );
+    ImGui::EndDisabled();
+
+    // Mouse position in texel coordinates, kept just inside the texture.
+    auto const mouseTexel = [&]() {
+        ImVec2 const m = ImGui::GetIO().MousePos;
+        return ImVec2( std::clamp( ( m.x - imagePos.x ) / scale, 0.0f, texW - 0.01f ),
+                       std::clamp( ( m.y - imagePos.y ) / scale, 0.0f, texH - 0.01f ) );
+    };
+    if ( pressed ) s.m_Anchor = mouseTexel();
+    if ( dragging )
+    {
+        ImVec2 const p = mouseTexel();
+        s.m_HasRect = true;
+        if ( s.m_Free )
+        {
+            float const x0 = std::floor( std::min( s.m_Anchor.x, p.x ) );
+            float const y0 = std::floor( std::min( s.m_Anchor.y, p.y ) );
+            s.m_Rect = { x0, y0, std::max( 1.0f, std::ceil( std::max( s.m_Anchor.x, p.x ) ) - x0 ),
+                                 std::max( 1.0f, std::ceil( std::max( s.m_Anchor.y, p.y ) ) - y0 ) };
+        }
+        else
+        {
+            // Every cell from the one pressed on to the one under the cursor.
+            auto const cw = static_cast<float>( s.m_CellW );
+            auto const ch = static_cast<float>( s.m_CellH );
+            float const c0 = std::min( std::floor( s.m_Anchor.x / cw ), std::floor( p.x / cw ) );
+            float const c1 = std::max( std::floor( s.m_Anchor.x / cw ), std::floor( p.x / cw ) );
+            float const r0 = std::min( std::floor( s.m_Anchor.y / ch ), std::floor( p.y / ch ) );
+            float const r1 = std::max( std::floor( s.m_Anchor.y / ch ), std::floor( p.y / ch ) );
+            s.m_Rect = { c0 * cw, r0 * ch, std::min( ( c1 - c0 + 1.0f ) * cw, texW - c0 * cw ),
+                                           std::min( ( r1 - r0 + 1.0f ) * ch, texH - r0 * ch ) };
+        }
+    }
+
+    auto* drawList = ImGui::GetWindowDrawList();
+    if ( !s.m_Free && s.m_CellW * scale >= 3.0f && s.m_CellH * scale >= 3.0f )
+    {
+        constexpr ImU32 kGridColor = IM_COL32( 255, 255, 255, 70 );
+        for ( float x = 0.0f; x <= texW; x += static_cast<float>( s.m_CellW ) )
+            drawList->AddLine( ImVec2( imagePos.x + x * scale, imagePos.y ), ImVec2( imagePos.x + x * scale, imagePos.y + imageSize.y ), kGridColor );
+        for ( float y = 0.0f; y <= texH; y += static_cast<float>( s.m_CellH ) )
+            drawList->AddLine( ImVec2( imagePos.x, imagePos.y + y * scale ), ImVec2( imagePos.x + imageSize.x, imagePos.y + y * scale ), kGridColor );
+    }
+    if ( s.m_HasRect )
+    {
+        ImVec2 const p0( imagePos.x + s.m_Rect.m_X * scale, imagePos.y + s.m_Rect.m_Y * scale );
+        drawList->AddRect( p0, ImVec2( p0.x + s.m_Rect.m_Width * scale, p0.y + s.m_Rect.m_Height * scale ), IM_COL32( 255, 220, 0, 255 ), 0.0f, 0, 2.0f );
+        ImGui::Text( "Rect: %.0f, %.0f, %.0f x %.0f", s.m_Rect.m_X, s.m_Rect.m_Y, s.m_Rect.m_Width, s.m_Rect.m_Height );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Drag on the image to select" );
+    }
+
+    if ( ImGui::Button( "Cancel" ) ) ImGui::CloseCurrentPopup();
+    ImGui::SameLine();
+    ImGui::BeginDisabled( !s.m_HasRect );
+    if ( ImGui::Button( "Apply" ) )
+    {
+        inSprite.m_SourceRect = s.m_Rect;
+        applied = true;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndDisabled();
+
+    ImGui::EndPopup();
+    return applied;
+}
+
+bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTextures, bool inAnimationOwned, bool& outRectChanged ) noexcept
 {
     bool const changed = DrawAssetPathCombo( "Virtual Path", inSprite.m_VirtualPath, inKnownTextures );
+
+    // "Crop" off = the whole texture (m_SourceRect == nullopt). Reported through outRectChanged, not the
+    // return value: a drag fires every frame it's held, which must mark the scene dirty but not re-run ResolveAssets.
+    ImGui::BeginDisabled( inAnimationOwned );
+    bool crop = inSprite.m_SourceRect.has_value();
+    if ( ImGui::Checkbox( "Crop", &crop ) )
+    {
+        if ( !crop )
+        {
+            inSprite.m_SourceRect = std::nullopt;
+        }
+        else
+        {
+            auto const size = inSprite.m_Texture ? inSprite.m_Texture->Size() : asge::math::Int2{ 0, 0 };
+            inSprite.m_SourceRect = asge::math::Rect{ 0.0f, 0.0f, static_cast<float>( size.x() ), static_cast<float>( size.y() ) };
+        }
+        outRectChanged = true;
+    }
     if ( inSprite.m_SourceRect )
     {
-        auto const& r = *inSprite.m_SourceRect;
-        ImGui::BeginDisabled( inAnimationOwned );
-        ImGui::Text( "Source Rect: %.0f, %.0f, %.0f x %.0f", r.m_X, r.m_Y, r.m_Width, r.m_Height );
-        ImGui::EndDisabled();
+        auto& r = *inSprite.m_SourceRect;
+        ImGui::SetNextItemWidth( -FLT_MIN );
+        outRectChanged |= ImGui::DragFloat2( "Source XY", &r.m_X, 1.0f, 0.0f, 0.0f, "%.0f" );
+        ImGui::SetNextItemWidth( -FLT_MIN );
+        outRectChanged |= ImGui::DragFloat2( "Source WH", &r.m_Width, 1.0f, 0.0f, 0.0f, "%.0f" );
     }
+    ImGui::EndDisabled();
+    outRectChanged |= DrawSourceRectPicker( inSprite, inAnimationOwned );
     if ( inAnimationOwned ) ImGui::TextDisabled( "Source Rect is driven by the Animation." );
     DrawColorField( "Tint", inSprite.m_Tint ); // not an asset change, so not part of the return
     return changed;
@@ -711,16 +866,17 @@ constexpr ComponentEntry MakeComponentEntry( char const* inName ) noexcept
         },
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
         {
-            // AnimationSystem writes each cropped frame straight into the
-            // Sprite's own m_SourceRect (RenderSystem.cpp) -- removing
-            // Animation doesn't touch that, so without this the Sprite is
-            // left showing whatever frame it was last cropped to instead of
-            // going back to the whole spritesheet (m_SourceRect == nullopt).
+            // A playing Animation has overwritten the Sprite's m_SourceRect
+            // with its current frame -- removing it doesn't undo that, so put
+            // back the crop it saved when playback started. A stopped one
+            // already handed the crop back, so there is nothing to restore.
             if constexpr ( std::is_same_v<T, Animation> )
             {
-                if ( auto sprite = inRegistry.GetComponent<Sprite>( inEntity ) )
+                auto anim = inRegistry.GetComponent<Animation>( inEntity );
+                auto sprite = inRegistry.GetComponent<Sprite>( inEntity );
+                if ( anim && sprite && anim.Value().get().m_OwnsSourceRect )
                 {
-                    sprite.Value().get().m_SourceRect = std::nullopt;
+                    sprite.Value().get().m_SourceRect = anim.Value().get().m_RestRect;
                 }
             }
             if ( auto const result = inRegistry.RemoveComponent<T>( inEntity ); !result ) result.LogError();
@@ -1499,8 +1655,9 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= velocityChanged;
     bool const rigidbodyChanged = DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
     fieldChanged |= rigidbodyChanged;
-    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures, SpriteCropOwnedByAnimation( inRegistry, inSelected ) );
-    componentsChanged |= spriteChanged; fieldChanged |= spriteChanged;
+    bool spriteRectChanged = false;
+    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures, SpriteCropOwnedByAnimation( inRegistry, inSelected ), spriteRectChanged );
+    componentsChanged |= spriteChanged; fieldChanged |= spriteChanged || spriteRectChanged;
     bool const renderInfoChanged = DrawSection<RenderInfo>(
         inRegistry, inSelected, "RenderInfo", ParentOf( inRegistry, inSelected ) != asge::ecs::Entity::Null() );
     fieldChanged |= renderInfoChanged;
