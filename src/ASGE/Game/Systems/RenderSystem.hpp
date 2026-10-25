@@ -17,10 +17,13 @@ namespace asge::game::systems
  * yet, or has no Sprite::m_Texture yet either, is left untouched rather
  * than animated against an empty frame list. Once resolved, accumulates
  * inDeltaTime into Animation::m_ElapsedTime and steps m_CurrentFrame
- * forward once per whole m_FrameDuration elapsed (a large inDeltaTime can
+ * forward once per whole frame duration elapsed (the FrameTable's
+ * per-frame duration if it has one, else m_FrameDuration), with elapsed time
+ * scaled by m_PlaybackSpeed (a large inDeltaTime can
  * step multiple frames in one call). At the last frame, either wraps to 0
- * (m_Loop true) or clamps there and clears m_Playing (m_Loop false). A
- * non-positive m_FrameDuration is treated as "not animating" rather than
+ * (m_Loop true) or clamps there and clears m_Playing (m_Loop false), emitting
+ * events::OnAnimationFinished once for the entity. A
+ * non-positive duration or m_PlaybackSpeed is treated as "not animating" rather than
  * risking an infinite advance loop.
  */
 void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;

@@ -29,6 +29,11 @@ namespace asge::game::components
  * resolved from — Resolver<Animation> compares it against m_ClipPath to
  * notice a change (repointing to a new clip) or a clear (path emptied out,
  * m_Clip released back to null), rather than resolving once and never again.
+ *
+ * Ownership: while m_Clip is resolved, this Animation owns the Sprite's
+ * m_SourceRect -- AnimationSystem overwrites it every frame, so a manual crop
+ * on the same Sprite does not survive, and removing the Animation leaves the
+ * last frame's rect behind rather than restoring the earlier crop.
  */
 struct Animation
 {
@@ -39,7 +44,8 @@ struct Animation
     frame_table m_Clip{};     // Resolved FrameTable asset -- null until AssetManager::ResolveAssets runs
     str::String m_ResolvedClipPath{}; // Runtime-only: the path m_Clip was actually last resolved from
 
-    float       m_FrameDuration{0.1f}; // Serialized. Seconds each frame is shown before advancing
+    float       m_FrameDuration{0.1f}; // Serialized. Seconds each frame is shown before advancing, unless the clip's FrameTable gives that frame its own duration
+    float       m_PlaybackSpeed{1.0f}; // Serialized. Multiplier on playback rate (2 = twice as fast); non-positive stops advancing
     std::size_t m_CurrentFrame{0};     // Not serialized -- index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
     float       m_ElapsedTime{0.0f};   // Not serialized -- seconds accumulated toward the next frame advance
     bool        m_Loop{true};          // Serialized. Wrap to frame 0 at the end instead of stopping there
@@ -70,7 +76,7 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_ClipPath, m_Clips, m_FrameDuration, m_Loop and
+ * @brief Round-trips m_ClipPath, m_Clips, m_FrameDuration, m_PlaybackSpeed, m_Loop and
  *        m_StartPlaying — which clip to play, the named clips it can switch
  *        to, how fast, whether it loops and whether it starts playing, not
  *        the live playback progress. FromToml seeds m_Playing
@@ -79,7 +85,7 @@ namespace asge::game::scene
  *        Sprite::m_Texture) and m_CurrentFrame/m_ElapsedTime at zero; a
  *        scene file describes what an entity's animation is, not where a
  *        previous run happened to leave it. Missing m_Loop/m_StartPlaying
- *        keys default to true, so older scene files load as before.
+ *        keys default to true, m_PlaybackSpeed to 1, so older scene files load as before.
  */
 template<>
 struct Serializer<components::Animation>

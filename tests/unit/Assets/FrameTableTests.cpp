@@ -114,6 +114,34 @@ TEST_F(FrameTableLoadTest, MissingOriginAssetDefaultsToEmptyRatherThanFailing)
     EXPECT_TRUE(result.Value().m_OriginAsset.empty());
 }
 
+TEST_F(FrameTableLoadTest, FrameDurationsAreReadAndFallBackWhereMissingOrNonPositive)
+{
+    Write(
+        "[FrameTable]\n"
+        "w = 8.0\n"
+        "h = 8.0\n"
+        "columns = 4\n"
+        "count = 4\n"
+        "frame_durations = [0.5, 0.0, 0.25]\n"
+    );
+
+    auto result = FrameTable::Load(m_Path);
+    ASSERT_TRUE(result.IsOk());
+    auto const& table = result.Value();
+    EXPECT_FLOAT_EQ(table.FrameDuration(0, 0.1f), 0.5f);
+    EXPECT_FLOAT_EQ(table.FrameDuration(1, 0.1f), 0.1f);  // non-positive entry
+    EXPECT_FLOAT_EQ(table.FrameDuration(2, 0.1f), 0.25f);
+    EXPECT_FLOAT_EQ(table.FrameDuration(3, 0.1f), 0.1f);  // past the end of the list
+}
+
+TEST_F(FrameTableLoadTest, NoFrameDurationsKeyLeavesListEmpty)
+{
+    Write("[FrameTable]\nw = 8.0\nh = 8.0\ncolumns = 1\ncount = 1\n");
+    auto result = FrameTable::Load(m_Path);
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value().m_FrameDurations.empty());
+}
+
 TEST_F(FrameTableLoadTest, NonExistentPathReturnsError)
 {
     auto result = FrameTable::Load(m_Path); // Never written by this test
@@ -144,6 +172,15 @@ TEST_F(FrameTableSaveTest, WritesASchemaLoadCanReadBack)
     EXPECT_FLOAT_EQ(loadResult.Value().m_Frames[0].m_Y, 3.0f);
     EXPECT_FLOAT_EQ(loadResult.Value().m_Frames[1].m_X, 10.0f); // col 1, row 0
     EXPECT_EQ(loadResult.Value().m_OriginAsset, "sprites/hero.png");
+}
+
+TEST_F(FrameTableSaveTest, FrameDurationsRoundTrip)
+{
+    ASSERT_TRUE(FrameTable::Save(m_Path, GridSpec{ .m_Cell = { 0.0f, 0.0f, 4.0f, 4.0f }, .m_Columns = 2, .m_Count = 2 }, "s.png", { 0.5f, 0.25f }).IsOk());
+    auto loadResult = FrameTable::Load(m_Path);
+    ASSERT_TRUE(loadResult.IsOk());
+    ASSERT_EQ(loadResult.Value().m_FrameDurations.size(), 2u);
+    EXPECT_FLOAT_EQ(loadResult.Value().m_FrameDurations[1], 0.25f);
 }
 
 TEST_F(FrameTableSaveTest, OverwritesAnExistingFileRatherThanFailing)

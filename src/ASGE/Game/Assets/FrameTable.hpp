@@ -53,12 +53,23 @@ struct GridSpec
  * defaults to an empty string, same as any other unset field — it's the
  * editor's explicit "Load Asset..." import that treats an empty
  * m_OriginAsset as reason to reject a file as not one of its own clips.
+ *
+ * An optional "frame_durations" float array gives each frame its own display
+ * time in seconds (m_FrameDurations); see FrameDuration for the fallback.
  */
 struct FrameTable
 {
     static constexpr str::StringView kTableName = "FrameTable";
     std::vector<math::Rect> m_Frames;
-    str::String             m_OriginAsset{}; // Virtual path of the texture this clip slices -- editor bookkeeping only
+    std::vector<float>      m_FrameDurations{}; // Optional per-frame seconds (key "frame_durations");
+    str::String             m_OriginAsset{}; // Virtual path of the texture this clip slices
+
+    /** @brief Seconds frame inIndex is shown: its m_FrameDurations entry if present and positive, else inFallback. */
+    [[nodiscard]] float FrameDuration( std::size_t inIndex, float inFallback ) const noexcept
+    {
+        return inIndex < m_FrameDurations.size() && m_FrameDurations[inIndex] > 0.0f
+            ? m_FrameDurations[inIndex] : inFallback;
+    }
 
     /** @brief Parses inPath's `[FrameTable]` TOML table into m_Frames/m_OriginAsset */
     static Result<FrameTable> Load( filesystem::Path const& inPath );
@@ -74,7 +85,8 @@ struct FrameTable
      */
     [[nodiscard]] static BoolResult Save(filesystem::Path const& inPath, 
                                          GridSpec const& inSpec, 
-                                         str::StringView inOriginAsset ) noexcept;
+                                         str::StringView inOriginAsset,
+                                         std::vector<float> const& inFrameDurations = {} ) noexcept;
 
     /**
      * @brief Checks whether inPath is a FrameTable clip — a TOML file with
