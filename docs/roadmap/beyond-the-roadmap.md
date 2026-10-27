@@ -110,7 +110,7 @@ order. Related to #7 above but distinct — that's filtering *within* one
 `Registry`, this is ordering *across* several. Reported as
 [#65](https://github.com/lmriccardo/a-simple-game-engine/issues/65).
 
-## 9. Broad-phase collision detection
+## 9. Broad-phase collision detection - 🚧 Work In Progress
 
 [07-Physics Phase 1](phase-1/07.1-physics-system.md) is the one item here
 that *is* named in a roadmap doc, but only to explicitly punt on it:
