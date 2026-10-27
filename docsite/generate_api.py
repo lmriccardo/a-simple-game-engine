@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Renders docsite/api/*.html from Doxygen's XML output (docsite/xml/).
+"""Renders docsite/site/engine/api/*.html from Doxygen's XML output (docsite/xml/).
 
 Doxygen's job is reduced to "parse C++ and emit structured data" — every
 page is rendered here with the exact same nav/CSS/card components as the
@@ -8,7 +8,7 @@ instead of Doxygen's own themed HTML.
 
 Pages land in site/engine/api/. Usage: run `doxygen Doxyfile` first (GENERATE_XML=YES in this repo's
 Doxyfile), then `python docsite/generate_api.py`. Both docsite/xml/ (input)
-and docsite/api/ (output) are gitignored build artifacts, produced by CI
+and docsite/site/engine/api/ (output) are gitignored build artifacts, produced by CI
 on every deploy — see .github/workflows/docs.yml.
 """
 import html
