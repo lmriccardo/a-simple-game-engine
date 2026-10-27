@@ -24,7 +24,16 @@
     });
   }
 
-  if (typeof module !== "undefined" && module.exports) module.exports = { classify: classify, visible: visible };
+  // #<tag> opens that release's own view; anything else is the list. Unknown tags and drafts are "missing".
+  function route(hash, releases) {
+    var tag = "";
+    try { tag = decodeURIComponent((hash || "").replace(/^#/, "")); } catch (e) { tag = ""; }
+    if (!tag) return { view: "list" };
+    var rel = releases.filter(function (r) { return !r.draft && r.tag_name === tag; })[0];
+    return rel ? { view: "detail", release: rel } : { view: "missing", tag: tag };
+  }
+
+  if (typeof module !== "undefined" && module.exports) module.exports = { classify: classify, visible: visible, route: route };
   if (typeof document === "undefined") return;
 
   var listEl = document.getElementById("releases-list");
@@ -70,8 +79,49 @@
     });
   }
 
-  function releaseCard(rel, filter) {
+  function badgesFor(rel) {
     var info = classify(rel);
+    var badges = document.createElement("div");
+    badges.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
+    if (info.engine) badges.appendChild(tag("Engine " + info.engine));
+    if (info.editor) badges.appendChild(tag(info.editor === "installer" ? "Editor" : "Editor " + info.editor));
+    if (rel.prerelease) badges.appendChild(tag("pre-release"));
+    return badges;
+  }
+
+  function assetButtons(rel, filter) {
+    var wrap = document.createElement("div");
+    wrap.className = "assets";
+    assetsFor(rel, filter).forEach(function (asset) {
+      var a = document.createElement("a");
+      a.href = asset.browser_download_url;
+      a.className = "btn btn-ghost";
+      a.style.cssText = "padding:6px 12px;font-size:0.82rem;";
+      a.textContent = asset.name + (asset.size ? " (" + humanSize(asset.size) + ")" : "");
+      wrap.appendChild(a);
+    });
+    return wrap;
+  }
+
+  // One compact line of the list; the full notes live in the detail view.
+  function releaseRow(rel, filter) {
+    var row = document.createElement("article");
+    row.className = "release-row";
+    var link = document.createElement("a");
+    link.className = "release-row-title";
+    link.href = "#" + encodeURIComponent(rel.tag_name);
+    link.textContent = rel.name || rel.tag_name;
+    row.appendChild(link);
+    row.appendChild(badgesFor(rel));
+    var time = document.createElement("time");
+    time.dateTime = rel.published_at || rel.created_at;
+    time.textContent = formatDate(rel.published_at || rel.created_at);
+    row.appendChild(time);
+    if (filter === "editor") row.appendChild(assetButtons(rel, "editor"));
+    return row;
+  }
+
+  function releaseCard(rel, filter) {
     var card = document.createElement("article");
     card.className = "release-card";
 
@@ -87,11 +137,8 @@
     h3.appendChild(link);
     titleWrap.appendChild(h3);
 
-    var badges = document.createElement("div");
-    badges.style.cssText = "margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;";
-    if (info.engine) badges.appendChild(tag("Engine " + info.engine));
-    if (info.editor) badges.appendChild(tag(info.editor === "installer" ? "Editor" : "Editor " + info.editor));
-    if (rel.prerelease) badges.appendChild(tag("pre-release"));
+    var badges = badgesFor(rel);
+    badges.style.marginTop = "6px";
     badges.appendChild(tag(rel.tag_name, "mono"));
     titleWrap.appendChild(badges);
     head.appendChild(titleWrap);
@@ -107,20 +154,7 @@
     body.innerHTML = renderBody(rel.body);
     card.appendChild(body);
 
-    var assets = assetsFor(rel, filter);
-    if (assets.length) {
-      var wrap = document.createElement("div");
-      wrap.className = "assets";
-      assets.forEach(function (asset) {
-        var a = document.createElement("a");
-        a.href = asset.browser_download_url;
-        a.className = "btn btn-ghost";
-        a.style.cssText = "padding:6px 12px;font-size:0.82rem;";
-        a.textContent = asset.name + (asset.size ? " (" + humanSize(asset.size) + ")" : "");
-        wrap.appendChild(a);
-      });
-      card.appendChild(wrap);
-    }
+    if (assetsFor(rel, filter).length) card.appendChild(assetButtons(rel, filter));
     return card;
   }
 
@@ -139,14 +173,35 @@
   function render() {
     if (!listEl) return;
     listEl.textContent = "";
+    var filters = document.getElementById("releases-filters");
+    var r = route(location.hash, releases);
+    if (filters) filters.hidden = r.view !== "list";
+    if (r.view !== "list") {
+      var back = document.createElement("a");
+      back.href = "#";
+      back.className = "back-link";
+      back.textContent = "← All releases";
+      listEl.appendChild(back);
+      if (r.view === "detail") listEl.appendChild(releaseCard(r.release, "all"));
+      else {
+        var p = document.createElement("p");
+        p.className = "lede";
+        p.textContent = "No release is tagged “" + r.tag + "”.";
+        listEl.appendChild(p);
+      }
+      window.scrollTo(0, 0);
+      return;
+    }
     var shown = visible(releases, filter);
     if (!shown.length) {
       listEl.innerHTML = '<p class="lede">No matching releases yet - see the <a href="https://github.com/' +
         REPO + '/tags" target="_blank" rel="noopener">tags page</a> on GitHub.</p>';
       return;
     }
-    shown.forEach(function (rel) { listEl.appendChild(releaseCard(rel, filter)); });
+    shown.forEach(function (rel) { listEl.appendChild(releaseRow(rel, filter)); });
   }
+
+  window.addEventListener("hashchange", render);
 
   document.querySelectorAll("[data-filter]").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -174,7 +229,7 @@
       render();
       if (latestEl) {
         var latest = published[0], a = document.createElement("a");
-        a.href = latest.html_url;
+        a.href = "releases.html#" + encodeURIComponent(latest.tag_name);
         a.textContent = latest.name || latest.tag_name;
         latestEl.textContent = "Latest release: ";
         latestEl.appendChild(a);

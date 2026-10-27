@@ -105,6 +105,7 @@ def test_releases_page_has_fallback_and_filters():
 
     out = releases.build()["releases.html"]
     assert "https://github.com/lmriccardo/a-simple-game-engine/releases" in out
+    assert 'id="releases-filters"' in out
     assert out.count("data-filter=") == 3 and 'id="releases-list"' in out, out[:300]
 
 
