@@ -61,6 +61,24 @@ def test_sidebar_group_order():
     assert html.index("Start") < html.index("Theory") < html.index("Examples"), html
 
 
+def test_api_fixture_renders_through_shared_layout():
+    import json
+    import tempfile
+    from pathlib import Path
+
+    import generate_api as g
+
+    with tempfile.TemporaryDirectory() as tmp:
+        g.XML_DIR = Path(__file__).resolve().parent / "tests" / "xml_fixture"
+        g.OUT = Path(tmp)
+        g.main()
+        page = (g.OUT / "classasge_1_1Foo.html").read_text(encoding="utf-8")
+        assert "asge::Foo" in page and 'class="sidebar"' in page, page[:500]
+        assert 'href="../../assets/css/style.css"' in page
+        index = json.loads((g.OUT / "search-index.json").read_text(encoding="utf-8"))
+        assert any(e["url"] == "engine/api/classasge_1_1Foo.html" and e["section"] == "API" for e in index), index
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

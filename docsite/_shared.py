@@ -230,7 +230,7 @@ def render_page(*, page: Page, body: str, sidebar: str | None = None, raw: bool 
 def write(path: Path, content: str):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8", newline="\n")
-    print(f"wrote {path.relative_to(ROOT)}")
+    print(f"wrote {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}")
 
 
 def code_card(label: str, lang: str, code: str) -> str:
