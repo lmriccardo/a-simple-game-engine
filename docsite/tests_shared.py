@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Plain-assert tests for the docsite generators. Run: python docsite/tests_shared.py"""
+import _shared as s
+
+
+def _reset(*pages):
+    s.SITE_MAP.clear()
+    for p in pages:
+        s.register(p)
+
+
+def test_add_heading_ids_dedupes():
+    out = s.add_heading_ids("<h2>Setup</h2><h2>Setup</h2><h3>A &amp; B</h3>")
+    assert 'id="setup"' in out and 'id="setup-2"' in out and 'id="a-b"' in out, out
+
+
+def test_toc_empty_without_headings():
+    assert s.build_toc("<p>x</p>") == ""
+
+
+def test_toc_lists_headings():
+    toc = s.build_toc(s.add_heading_ids("<h2>One</h2><h3>Two</h3>"))
+    assert 'href="#one"' in toc and 'href="#two"' in toc, toc
+
+
+def test_sidebar_marks_current_and_scopes_section():
+    a = s.Page("engine/theory/ecs.html", "ECS", "engine", "Theory", "x")
+    b = s.Page("engine/theory/loop.html", "Loop", "engine", "Theory", "x")
+    c = s.Page("editor/index.html", "Editor", "editor", "Guide", "x")
+    _reset(a, b, c)
+    html = s.render_sidebar(a)
+    assert html.count('aria-current="page"') == 1 and "Loop" in html and "Editor" not in html, html
+
+
+def test_render_page_depth_and_toc():
+    p = s.Page("engine/theory/ecs.html", "ECS", "engine", "Theory", "ECS page")
+    _reset(p)
+    out = s.render_page(page=p, body="<h1>ECS</h1><h2>Why</h2>")
+    assert 'href="../../assets/css/style.css"' in out and 'class="toc"' in out, out[:600]
+
+
+def test_render_page_no_toc_when_no_headings():
+    p = s.Page("releases.html", "Releases", "releases", "", "x")
+    _reset(p)
+    assert 'class="toc"' not in s.render_page(page=p, body="<h1>R</h1>")
+
+
+def test_drawer_has_section_links_for_raw_pages():
+    p = s.Page("index.html", "Home", "overview", "", "x")
+    _reset(p)
+    out = s.render_page(page=p, body="<h1>Home</h1>", raw=True)
+    assert 'id="drawer"' in out and 'href="engine/getting-started.html"' in out, out[:900]
+
+
+def test_sidebar_group_order():
+    ex = s.Page("engine/examples/a.html", "A", "engine", "Examples", "x")
+    st = s.Page("engine/getting-started.html", "GS", "engine", "Start", "x")
+    th = s.Page("engine/theory/ecs.html", "ECS", "engine", "Theory", "x")
+    _reset(ex, th, st)
+    html = s.render_sidebar(st)
+    assert html.index("Start") < html.index("Theory") < html.index("Examples"), html
+
+
+def test_api_fixture_renders_through_shared_layout():
+    import json
+    import tempfile
+    from pathlib import Path
+
+    import generate_api as g
+
+    with tempfile.TemporaryDirectory() as tmp:
+        g.XML_DIR = Path(__file__).resolve().parent / "tests" / "xml_fixture"
+        g.OUT = Path(tmp)
+        g.main()
+        page = (g.OUT / "classasge_1_1Foo.html").read_text(encoding="utf-8")
+        assert "asge::Foo" in page and 'class="sidebar"' in page, page[:500]
+        assert 'href="../../assets/css/style.css"' in page
+        index = json.loads((g.OUT / "search-index.json").read_text(encoding="utf-8"))
+        assert any(e["url"] == "engine/api/classasge_1_1Foo.html" and e["section"] == "API" for e in index), index
+
+
+def test_search_index_covers_pages_but_not_api():
+    a = s.Page("engine/theory/ecs.html", "ECS", "engine", "Theory", "x")
+    api = s.Page("engine/api/index.html", "API Reference", "engine", "Reference", "x")
+    _reset(a, api)
+    rendered = {
+        "engine/theory/ecs.html": s.render_page(page=a, body="<h1>ECS</h1><p>Sparse set pools</p>"),
+        "engine/api/index.html": "<html></html>",
+    }
+    index = s.build_search_index(rendered)
+    assert [e["url"] for e in index] == ["engine/theory/ecs.html"], index
+    assert index[0]["title"] == "ECS" and index[0]["section"] == "Theory", index
+    assert "Sparse set pools" in index[0]["text"] and "<" not in index[0]["text"], index
+
+
+def test_render_page_has_search_dialog_and_script():
+    p = s.Page("index.html", "Home", "overview", "", "x")
+    _reset(p)
+    out = s.render_page(page=p, body="<h1>Home</h1>", raw=True)
+    assert '<dialog class="search-modal"' in out and "assets/js/search.js" in out, out[-900:]
+
+
+def test_releases_page_has_fallback_and_filters():
+    from content import releases
+
+    out = releases.build()["releases.html"]
+    assert "https://github.com/lmriccardo/a-simple-game-engine/releases" in out
+    assert 'id="releases-filters"' in out
+    assert out.count("data-filter=") == 3 and 'id="releases-list"' in out, out[:300]
+
+
+def test_api_layout_collapses_on_phones():
+    from pathlib import Path
+
+    css = (Path(__file__).resolve().parent / "site" / "assets" / "css" / "style.css").read_text(encoding="utf-8")
+    block = css[css.index("@media (max-width: 960px)"):]
+    assert ".layout:has(.api-tree)" in block.split("}")[0] + block.split("}")[1], block[:300]
+
+
+def test_no_compiled_python_is_tracked():
+    import subprocess
+
+    tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True, cwd=__file__.rsplit("docsite", 1)[0]).stdout
+    assert "__pycache__" not in tracked, [l for l in tracked.splitlines() if "__pycache__" in l]
+
+
+def test_deploy_workflow_checks_the_assembled_site():
+    from pathlib import Path
+
+    wf = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
+    assert "check_site.py --site _site" in wf
+
+
+def test_time_page_does_not_claim_a_targetfps_getter():
+    from content import theory
+
+    assert "<code>TargetFPS()</code>" not in theory.LOOP
+
+
+def test_every_theory_page_is_a_full_page():
+    from content import theory
+
+    pages = theory.build()
+    assert len(pages) == 14, sorted(pages)
+    for path, doc in pages.items():
+        assert "In progress" not in doc and "still to come" not in doc, path
+        if not path.endswith("index.html"):
+            assert "The concept</h2>" in doc and "How ASGE does it" in doc, path
+
+
+if __name__ == "__main__":
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("ok", name)

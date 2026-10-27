@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Entity-Component-System · ASGE</title>
+<meta name="description" content="Entities, components, systems and views, and how ASGE&#x27;s Registry implements them."/>
+<meta property="og:title" content="Entity-Component-System · ASGE"/>
+<meta property="og:description" content="Entities, components, systems and views, and how ASGE&#x27;s Registry implements them."/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html" aria-current="page">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html" aria-current="page">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<h1>Entity-Component-System</h1>
+<p class="lede">An ECS splits a game object into <em>identity</em>, <em>data</em> and <em>behaviour</em>,
+so behaviour can be written once and applied to every object that has the right data.</p>
+
+<h2 id="the-concept">The concept</h2>
+<ul>
+  <li><strong>Entity</strong> - just an id. It carries no data and no code.</li>
+  <li><strong>Component</strong> - a plain bundle of data (a position, a sprite, a collider) attached to an entity.</li>
+  <li><strong>System</strong> - a function that walks every entity owning a given set of components and acts on them.</li>
+</ul>
+<p>Storing each component type in its own densely packed array keeps iteration cache-friendly, and
+composing objects from components avoids deep inheritance hierarchies.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="generational-entity-handles">Generational entity handles</h3>
+<p>An <code>asge::ecs::Entity</code> is an index plus a generation counter. When an entity is destroyed its
+slot is recycled and its generation is bumped, so any stale handle still held elsewhere fails
+<code>IsAlive()</code> instead of silently pointing at an unrelated new entity. A slot whose generation
+reaches its maximum is retired rather than reused. Indices come from a fixed-capacity
+<code>EntityAllocator</code> built on <code>mem::FreeList</code> (see
+<a href="memory-threading.html">Memory &amp; threading</a>).</p>
+
+<h3 id="sparse-set-component-pools">Sparse-set component pools</h3>
+<p>Each component type lives in its own <code>ComponentPool&lt;T&gt;</code>, a sparse set: a sparse array maps an
+entity index to a slot in a dense array of components. <code>Insert</code>, <code>Get</code>, <code>Remove</code>
+and <code>Contains</code> are O(1), and iteration only touches live components. Removal is swap-and-pop, so
+iteration order may change after a removal.</p>
+
+<h3 id="the-registry">The Registry</h3>
+<p><code>asge::ecs::Registry</code> is the single entry point. It owns the allocator and one pool per component
+type, created lazily on the first <code>AddComponent&lt;T&gt;</code>. <code>DestroyEntity()</code> strips the entity
+from every pool. The registry also holds per-registry <em>resources</em> (<code>SetResource&lt;T&gt;</code> /
+<code>GetResource&lt;T&gt;</code>): at most one value of a type that is not tied to any entity.</p>
+
+<h3 id="views">Views</h3>
+<p><code>Registry::View&lt;Ts...&gt;()</code> returns a lazy, non-owning <code>View</code> over every entity that has
+all of <code>Ts</code>. It iterates the smallest contributing pool and filters the rest. Entities carrying the
+<code>Disable</code> marker, or whose ancestor in the <code>Hierarchy</code> does, are skipped unless you call
+<code>IncludeDisabled()</code>. Use <code>View&lt;T const&gt;</code> for read-only access.</p>
+
+<div class="code-card">
+  <div class="code-card-head"><span>ecs.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">struct Health { int m_Hp{ 100 }; };
+
+asge::ecs::Registry registry;
+
+auto entity = registry.CreateEntity();          // Result&lt;Entity&gt;
+if ( !entity ) return;
+registry.AddComponent( entity.Value(), Health{ 50 } );
+
+// Every entity that has a Health; components arrive as std::reference_wrapper&lt;T&gt;.
+for ( auto [e, health] : registry.View&lt;Health&gt;() )
+{
+    health.get().m_Hp -= 1;
+}</code></pre>
+</div>
+
+<h3 id="systems-in-the-game-layer">Systems in the Game layer</h3>
+<p>Systems are plain functions over a <code>Registry</code>, such as <code>MovementSystem</code>,
+<code>PathFollowingSystem</code> and <code>TransformPropagationSystem</code>. <code>Game</code> runs them in one
+fixed order every frame - see <a href="game-loop.html">Game loop &amp; timing</a>.</p>
+
+<h2 id="things-to-know">Things to know</h2>
+<ul>
+  <li>A view built for a component type that has never been used is permanently empty, even if the type is added later.</li>
+  <li>Views hold raw pointers into the pools and must not outlive the <code>Registry</code>.</li>
+  <li>A pool is not told when an entity dies; <code>Registry::DestroyEntity</code> handles that, so destroy through the registry.</li>
+</ul>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/ECS/Registry.hpp" target="_blank" rel="noopener"><code>Core/ECS/Registry.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/ECS/View.hpp" target="_blank" rel="noopener"><code>Core/ECS/View.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/ECS/ComponentPool.hpp" target="_blank" rel="noopener"><code>Core/ECS/ComponentPool.hpp</code></a>.
+<a href="../examples/ecs_demo.html">ECS demo</a> &middot; <a href="../api/index.html">API reference</a></p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#generational-entity-handles">Generational entity handles</a></li><li class="l3"><a href="#sparse-set-component-pools">Sparse-set component pools</a></li><li class="l3"><a href="#the-registry">The Registry</a></li><li class="l3"><a href="#views">Views</a></li><li class="l3"><a href="#systems-in-the-game-layer">Systems in the Game layer</a></li><li class="l2"><a href="#things-to-know">Things to know</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

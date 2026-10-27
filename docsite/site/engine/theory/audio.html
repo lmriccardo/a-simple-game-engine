@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Audio · ASGE</title>
+<meta name="description" content="The audio device and its stream pool, AudioSource components and the AudioSystem."/>
+<meta property="og:title" content="Audio · ASGE"/>
+<meta property="og:description" content="The audio device and its stream pool, AudioSource components and the AudioSystem."/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html" aria-current="page">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html" aria-current="page">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<h1>Audio</h1>
+<p class="lede">Audio plays sound clips on the machine's output device, several at once, driven by components
+on entities.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>A game needs many sounds playing concurrently, each with its own volume and looping, without allocating while
+the game runs. Engines open one output device, keep a bounded pool of <em>streams</em> bound to it, and feed decoded
+clip data into those streams.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="audiodevice-and-audiostream">AudioDevice and AudioStream</h3>
+<p><code>asge::audio::AudioDevice</code> owns SDL's audio subsystem, one physical playback device and a fixed pool
+of <strong>32</strong> <code>AudioStream</code>s. <code>Initialize()</code> opens the default device;
+<code>CreateStream(AudioClip&amp;)</code> returns a <code>std::shared_ptr&lt;AudioStream&gt;</code> matching the clip's
+format, and <code>DetachStream()</code> gives the slot back. <code>SetGain()</code> sets the device volume. An
+<code>AudioStream</code> wraps one <code>SDL_AudioStream</code>: <code>PutData()</code> queues a clip,
+<code>ClearData()</code> empties it, <code>SetAudioGain()</code> sets its own volume. The shared pointer stays valid
+even if another detach relocates its slot.</p>
+<p><code>Application</code> initializes the device alongside the video system and passes it into your game.</p>
+
+<h3 id="audiosource-and-audiosystem">AudioSource and AudioSystem</h3>
+<p>Gameplay does not touch streams. An entity gets an <code>AudioSource</code> component (clip path, volume, loop),
+and you use <code>PlayAudioSource</code>, <code>StopAudioSource</code> and <code>DetachAudioSource</code> to change
+its state. <code>AudioSystem</code>, the last system in <code>Game::Update</code>'s fixed order (see
+<a href="game-loop.html">Game loop &amp; timing</a>), starts newly playing sources, restarts looping ones whose queued audio ran out, stops finished
+non-looping ones, and clears the data of stopped ones. A source keeps the same stream for its whole lifetime, so replaying
+it never creates a new one. Clips are loaded through the
+<a href="assets.html">asset manager</a> as <code>media::AudioClip</code>.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>audio.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">using namespace asge::game::components;
+
+auto source = registry.GetComponent&lt;AudioSource&gt;( entity );   // Result&lt;reference_wrapper&lt;AudioSource&gt;&gt;
+if ( source )
+{
+    PlayAudioSource( source.Value().get(), /* inLoop */ true );   // AudioSystem picks it up this frame
+    // StopAudioSource( ... ) stops it; DetachAudioSource( device, ... ) frees its pool slot
+}</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Audio/AudioDevice.hpp" target="_blank" rel="noopener"><code>Audio/AudioDevice.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Components/AudioSource.hpp" target="_blank" rel="noopener"><code>Game/Components/AudioSource.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Systems/AudioSystem.hpp" target="_blank" rel="noopener"><code>Game/Systems/AudioSystem.hpp</code></a>.
+<a href="../examples/audio_demo.html">Audio demo</a></p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#audiodevice-and-audiostream">AudioDevice and AudioStream</a></li><li class="l3"><a href="#audiosource-and-audiosystem">AudioSource and AudioSystem</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

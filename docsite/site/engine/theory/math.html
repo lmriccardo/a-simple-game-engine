@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Math · ASGE</title>
+<meta name="description" content="Vectors, shapes, collision tests, easing, tweens and splines."/>
+<meta property="og:title" content="Math · ASGE"/>
+<meta property="og:description" content="Vectors, shapes, collision tests, easing, tweens and splines."/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html" aria-current="page">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html" aria-current="page">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<h1>Math</h1>
+<p class="lede">The small maths toolbox the rest of the engine leans on: vectors, shapes, collision tests and
+interpolation.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>2D games are mostly vectors and rectangles. Keeping them in one dependency-free module, rather than reaching into SDL
+types, means gameplay, physics, rendering and the editor all speak the same small set of types.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="linear-algebra">Linear algebra</h3>
+<p><code>asge::math::Vec2&lt;T&gt;</code> (and <code>Vec3</code>), built on a shared <code>VecN</code>, with the common
+aliases <code>Float2</code>, <code>Double2</code>, <code>Int2</code> and <code>Int642</code>. Arithmetic operators are
+provided; positions, sizes and mouse deltas throughout the API are <code>Float2</code> or <code>Int2</code>.</p>
+
+<h3 id="geometry-and-collision">Geometry and collision</h3>
+<p><code>Rect</code> and <code>Circle</code> are the two collider shapes. <code>Collision.hpp</code> has the overlap tests
+(<code>AabbOverlap</code>, <code>CircleOverlap</code>) and <code>PenetrationVector</code> overloads for every
+rect/circle pairing, returning an <code>std::optional&lt;Float2&gt;</code> that says how to push the first shape out of the
+second. <a href="physics.html">Physics</a> is built on these.</p>
+
+<h3 id="interpolation">Interpolation</h3>
+<ul>
+  <li><code>Easing</code> and <code>Ease(easing, t)</code>: <code>Linear</code>, <code>InQuad</code>, <code>OutQuad</code>, <code>InOutQuad</code>, <code>OutCubic</code>; the input is clamped to [0, 1].</li>
+  <li><code>Tween&lt;T&gt;</code>: moves a float, <code>Float2</code> or similar from one value to another over a duration; call <code>Update(dt)</code> each frame and read <code>Value()</code>.</li>
+  <li><code>CatmullRomSpline</code>: a smooth curve through waypoints, with arc-length sampling so motion along it is at constant speed. <code>PathFollowingSystem</code> and the editor's path preview use it.</li>
+</ul>
+<div class="code-card">
+  <div class="code-card-head"><span>math.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">using asge::math::Easing;
+
+asge::math::Tween&lt;float&gt; slide( 0.0f, 100.0f, /* seconds */ 2.0f, Easing::OutQuad );
+
+// each frame:
+slide.Update( dt );
+float x = slide.Value();       // eased value; slide.IsFinished() once the duration has elapsed</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Math.hpp" target="_blank" rel="noopener"><code>Core/Math/Math.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Geometry/Collision.hpp" target="_blank" rel="noopener"><code>Core/Math/Geometry/Collision.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Interpolation/Tween.hpp" target="_blank" rel="noopener"><code>Core/Math/Interpolation/Tween.hpp</code></a>.
+<a href="../examples/rotation_demo.html">Rotation demo</a> &middot; <a href="../examples/path_following_demo.html">Path following demo</a></p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#linear-algebra">Linear algebra</a></li><li class="l3"><a href="#geometry-and-collision">Geometry and collision</a></li><li class="l3"><a href="#interpolation">Interpolation</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

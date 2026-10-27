@@ -4,9 +4,9 @@ bin/
 examples/file_watching/files
 docsite/xml/
 docsite/_site/
-docsite/site/api/
+docsite/site/engine/api/
 docsite/site/playable/
-docsite/__pycache__/
+__pycache__/
 editor/assets/imgui.ini
 imgui.ini
 

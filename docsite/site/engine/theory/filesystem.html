@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Filesystem &amp; VFS · ASGE</title>
+<meta name="description" content="Virtual paths mounted onto real directories, file IO and file watching."/>
+<meta property="og:title" content="Filesystem &amp; VFS · ASGE"/>
+<meta property="og:description" content="Virtual paths mounted onto real directories, file IO and file watching."/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html" aria-current="page">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html" aria-current="page">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<h1>Filesystem &amp; VFS</h1>
+<p class="lede">Assets are referred to by <em>virtual</em> paths, so a game's data does not depend on where it is
+installed.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>Hard-coding <code>C:\Users\me\game\hero.png</code> breaks the moment the game moves. A virtual file system maps
+short, stable names (<code>textures/hero.png</code>) onto real directories chosen at startup. The same game data then
+works from a dev checkout, an installed build or an archive, and tools can remap folders without touching scenes.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="virtualfilesystem">VirtualFileSystem</h3>
+<p><code>asge::filesystem::VirtualFileSystem</code> keeps a list of <em>mounts</em>, each binding a virtual root to a
+real directory:</p>
+<ul>
+  <li><code>Mount(root, realPath)</code> and <code>Unmount()</code> manage bindings; a root can be mounted more than once.</li>
+  <li><code>Resolve(virtualPath)</code> returns the real <code>Path</code>, trying each mount whose root prefixes the path in registration order.</li>
+  <li><code>Exists()</code>, <code>IsMounted()</code>, <code>ListMounts()</code> and <code>SplitRoot()</code> inspect state.</li>
+  <li><code>ToVirtualPath(realPath)</code> goes the other way, which the editor uses when you pick a file on disk.</li>
+</ul>
+<p>Paths are normalized before use, and fallible calls return <code>Result</code>/<code>BoolResult</code> instead of
+throwing.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>vfs.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">asge::filesystem::VirtualFileSystem vfs;
+vfs.Mount( &quot;textures&quot;, &quot;assets/textures&quot; );          // BoolResult
+
+auto real = vfs.Resolve( &quot;textures/hero.png&quot; );      // Result&lt;Path&gt;: assets/textures/hero.png
+bool ok   = vfs.Exists( &quot;textures/hero.png&quot; );</code></pre>
+</div>
+<h3 id="file-io-and-watching">File IO and watching</h3>
+<p>The <code>filesystem</code> namespace also provides <code>ReadText</code>, <code>WriteText</code>,
+<code>ReadBinary</code> and <code>Copy</code>, plus file metadata. <code>FileWatcher</code> runs on its own
+<code>concurrent::Thread</code> and reports <code>FileEvent</code>s (created, deleted, modified, moved) to an
+<code>IFileEventHandler</code>, with a native implementation per platform.</p>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/VirtualFileSystem.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/VirtualFileSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/FileWatcher.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/FileWatcher.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/FileIO.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/FileIO.hpp</code></a>.
+<a href="../examples/file_watching.html">File watching example</a> &middot; <a href="assets.html">Assets</a></p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#virtualfilesystem">VirtualFileSystem</a></li><li class="l3"><a href="#file-io-and-watching">File IO and watching</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

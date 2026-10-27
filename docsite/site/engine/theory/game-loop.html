@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Game loop &amp; timing · ASGE</title>
+<meta name="description" content="The main loop, the per-frame system order, game states, the clock and profiling."/>
+<meta property="og:title" content="Game loop &amp; timing · ASGE"/>
+<meta property="og:description" content="The main loop, the per-frame system order, game states, the clock and profiling."/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html" aria-current="page">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html" aria-current="page">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<h1>Game loop &amp; timing</h1>
+<p class="lede">The game loop is the heartbeat of a game: read input, advance the simulation by the time that
+passed, draw, repeat.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>Each iteration of the loop is a <em>frame</em>. Simulation code must be told how long the previous frame took
+(the <em>delta time</em>) so movement stays the same speed on a 30 Hz and a 144 Hz display. Engines differ on
+whether the simulation uses a variable step (one update per frame with the real delta) or a fixed step
+(update at a constant rate, possibly several times per frame); a variable step is simpler, a fixed step is
+more deterministic.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="application">Application</h3>
+<p><code>asge::Application&lt;TGame&gt;</code> owns the video, input and audio systems and constructs your
+<code>TGame</code> in place. <code>Run()</code> executes the loop below and stops on an OS quit event or when a game
+state requests <code>TransitionKind::Quit</code>.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>Application.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">// asge::Application&lt;TGame&gt;::Run(), abridged
+while ( m_Running )
+{
+    GET_TIMESYSTEM.Tick();                       // advance the clock
+    m_InputSys.NewFrame();
+    while ( SDL_PollEvent( &amp;event ) )            // drain OS events
+        processEvent( &amp;event );
+    m_Game-&gt;Update( time::DeltaTime(), m_InputSys.GetState() );
+    m_Game-&gt;Render( m_VideoSys.GetRenderer() );
+    m_VideoSys.GetRenderer().Present();
+}</code></pre>
+</div>
+<p>ASGE uses a <strong>variable timestep</strong>: one <code>Update</code> per frame, with the scaled delta time.
+The target frame rate comes from <code>ApplicationConfig::s_TargetFps</code>.</p>
+
+<h3 id="one-frame-inside-game">One frame inside Game</h3>
+<p><code>Game&lt;TStateId&gt;::Update</code> runs the systems in the only valid order:</p>
+<ol>
+  <li>UI interaction</li>
+  <li>the active state's own <code>Update()</code> (your game logic) - states never call systems themselves</li>
+  <li>gravity, movement, path following</li>
+  <li>UI layout, then one transform propagation</li>
+  <li>collision detection and resolution, then trigger events</li>
+  <li>audio</li>
+</ol>
+<p><code>Render</code> then resolves pending assets, clears with the visible state's colour, draws the scene through
+the render pipeline, and finally lets the states draw on top.</p>
+
+<h3 id="game-states">Game states</h3>
+<p>Screens are <code>IGameState</code> objects on a <code>GameStateStack</code>. A state's <code>Update</code>
+may return a <code>Transition</code> to <code>Push</code>, <code>Pop</code>, <code>Replace</code> or <code>Quit</code>.
+Your <code>Game</code> subclass implements <code>CreateState()</code> to build a state from its id.</p>
+
+<h3 id="time">Time</h3>
+<p>The <code>asge::time</code> namespace exposes the clock: <code>DeltaTime()</code> (scaled and pause-aware),
+<code>UnscaledDeltaTime()</code>, <code>ElapsedTime()</code>, <code>FrameIndex()</code>, <code>Scale()</code>,
+<code>Paused()</code>; <code>Scale(float)</code>, <code>Pause(bool)</code> and <code>TargetFPS(fps)</code> are the setters. Pausing makes the scaled delta zero while the unscaled one keeps running,
+which is what you want for a pause menu.</p>
+
+<h3 id="profiling">Profiling</h3>
+<p><code>PROFILE_SCOPE("name")</code> times the enclosing scope with a <code>ScopedTimer</code> and records it into
+a named <code>TimingBucket</code> held by the <code>TimingProfiler</code> singleton.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>timing.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">asge::time::Scale( 0.5f );            // slow motion
+asge::time::Paused();                    // true while paused
+float dt  = asge::time::DeltaTime();     // scaled, zero while paused
+float raw = asge::time::UnscaledDeltaTime();
+
+void Update()
+{
+    PROFILE_SCOPE( &quot;Update&quot; );           // times this scope into a named bucket
+    // ...
+}</code></pre>
+</div>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Application/Application.hpp" target="_blank" rel="noopener"><code>Application/Application.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Game.hpp" target="_blank" rel="noopener"><code>Game/Game.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Time/Time.hpp" target="_blank" rel="noopener"><code>Core/Time/Time.hpp</code></a>.
+<a href="../examples/scoped_profiler.html">Scoped profiler example</a> &middot; <a href="../examples/moving_box.html">Moving box</a></p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#application">Application</a></li><li class="l3"><a href="#one-frame-inside-game">One frame inside Game</a></li><li class="l3"><a href="#game-states">Game states</a></li><li class="l3"><a href="#time">Time</a></li><li class="l3"><a href="#profiling">Profiling</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

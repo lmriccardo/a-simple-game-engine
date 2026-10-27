@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Configure the game window · ASGE</title>
+<meta name="description" content="Set the target game window size and preview what each camera frames."/>
+<meta property="og:title" content="Configure the game window · ASGE"/>
+<meta property="og:description" content="Set the target game window size and preview what each camera frames."/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body data-root="../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../index.html">Overview</a>
+    <a href="../engine/getting-started.html">Engine</a>
+    <a href="../editor/index.html" aria-current="page">Editor</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../index.html">Overview</a>
+    <a href="../engine/getting-started.html">Engine</a>
+    <a href="../editor/index.html" aria-current="page">Editor</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Guide</h4><ul><li><a href="../editor/index.html">Editor overview</a></li><li><a href="../editor/create-a-project.html">Create a project</a></li><li><a href="../editor/work-with-scenes.html">Work with scenes</a></li><li><a href="../editor/navigate-the-viewport.html">Navigate the viewport</a></li><li><a href="../editor/configure-the-game-window.html" aria-current="page">Configure the game window</a></li><li><a href="../editor/add-entities-and-components.html">Add entities and components</a></li><li><a href="../editor/arrange-the-ui.html">Arrange the UI</a></li><li><a href="../editor/import-and-inspect-assets.html">Import and inspect assets</a></li><li><a href="../editor/add-a-collider.html">Add a collider</a></li><li><a href="../editor/animate-a-sprite.html">Animate a sprite</a></li><li><a href="../editor/follow-a-path.html">Make an entity follow a path</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Guide</h4><ul><li><a href="../editor/index.html">Editor overview</a></li><li><a href="../editor/create-a-project.html">Create a project</a></li><li><a href="../editor/work-with-scenes.html">Work with scenes</a></li><li><a href="../editor/navigate-the-viewport.html">Navigate the viewport</a></li><li><a href="../editor/configure-the-game-window.html" aria-current="page">Configure the game window</a></li><li><a href="../editor/add-entities-and-components.html">Add entities and components</a></li><li><a href="../editor/arrange-the-ui.html">Arrange the UI</a></li><li><a href="../editor/import-and-inspect-assets.html">Import and inspect assets</a></li><li><a href="../editor/add-a-collider.html">Add a collider</a></li><li><a href="../editor/animate-a-sprite.html">Animate a sprite</a></li><li><a href="../editor/follow-a-path.html">Make an entity follow a path</a></li></ul></div></aside>
+<article class="article">
+<h1>Configure the game window</h1>
+<p class="lede">Tell the editor what size a real build of the game runs at, so the previews match.</p>
+<img src="../assets/img/editor/game-window-settings.png" alt="The Game Window settings dialog" loading="lazy"/>
+<h2 id="steps">Steps</h2>
+<ol>
+  <li>Open <strong>View &rarr; Game Window</strong> (disabled without a project).</li>
+  <li>Set the target width and height. They are saved in the project's <code>[View]</code> settings.</li>
+</ol>
+<h2 id="previews">Previews</h2>
+<ul>
+  <li>Every entity with a <code>Camera</code> component gets a live preview box: a world-space rectangle showing exactly what that camera frames at the configured game window size, centred on the entity's visual midpoint (its sprite's bounds, not just its transform's corner) at that camera's zoom. It uses the same math as <code>systems::CameraSystem</code> at runtime but is never applied to the editor's own view.</li>
+  <li>A separate preview anchored at the world origin shows the letterboxed game window itself, regardless of any camera, dimming everything outside it like a real letterbox.</li>
+</ul>
+<p>Previous: <a href="navigate-the-viewport.html">Navigate the viewport</a> &middot; Next: <a href="add-entities-and-components.html">Add entities and components</a>.</p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#steps">Steps</a></li><li class="l2"><a href="#previews">Previews</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../assets/js/main.js"></script>
+<script src="../assets/js/search.js"></script>
+
+</body>
+</html>

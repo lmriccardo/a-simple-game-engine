@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Renders docsite/api/*.html from Doxygen's XML output (docsite/xml/).
+"""Renders docsite/site/engine/api/*.html from Doxygen's XML output (docsite/xml/).
 
 Doxygen's job is reduced to "parse C++ and emit structured data" — every
 page is rendered here with the exact same nav/CSS/card components as the
 rest of the site (see docsite/_shared.py and docsite/generate_site.py),
 instead of Doxygen's own themed HTML.
 
-Usage: run `doxygen Doxyfile` first (GENERATE_XML=YES in this repo's
+Pages land in site/engine/api/. Usage: run `doxygen Doxyfile` first (GENERATE_XML=YES in this repo's
 Doxyfile), then `python docsite/generate_api.py`. Both docsite/xml/ (input)
-and docsite/api/ (output) are gitignored build artifacts, produced by CI
+and docsite/site/engine/api/ (output) are gitignored build artifacts, produced by CI
 on every deploy — see .github/workflows/docs.yml.
 """
 import html
@@ -17,10 +17,10 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from _shared import GITHUB_URL, ROOT, SITE, rel, render_page, write
+from _shared import GITHUB_URL, ROOT, SITE, Page, render_page, write
 
 XML_DIR = ROOT / "xml"
-API_DEPTH = 1  # api/*.html sits one level below the site root, like examples/*.html
+OUT = SITE / "engine" / "api"  # output directory; site/engine/api/*.html sits two levels below the site root
 
 # ---------------------------------------------------------------------------
 # loading
@@ -604,9 +604,6 @@ def render_compound_page(refid: str) -> str:
     sections_html = render_sections(cdef)
 
     body = f"""
-<div class="api-layout">
-{SIDEBAR_HTML}
-  <div class="api-main">
     <a class="back-link" href="index.html">&larr; API Reference</a>
     <span class="kicker">{esc(kicker)}</span>
     <h1 class="api-title">{title} {badge_html}</h1>
@@ -618,14 +615,11 @@ def render_compound_page(refid: str) -> str:
     {f'<div class="api-detailed">{detailed_html}</div>' if detailed_html else ""}
     {sections_html}
     {f'<p class="api-location-line">Defined at {loc_html}</p>' if loc_html else ""}
-  </div>
-</div>
 """
     return render_page(
-        title=name,
-        description=strip_tags(brief_html) or f"{kicker} {name} — ASGE API reference.",
-        active="api", depth=API_DEPTH, body=body,
-        extra_scripts=API_SEARCH_SCRIPT + (MERMAID_SCRIPT if (inheritance_mermaid or collab_mermaid) else ""),
+        page=api_page(refid, name, strip_tags(brief_html) or f"{kicker} {name} — ASGE API reference."),
+        body=body, sidebar=SIDEBAR_HTML,
+        extra_scripts=MERMAID_SCRIPT if (inheritance_mermaid or collab_mermaid) else "",
     )
 
 
@@ -662,9 +656,6 @@ def render_namespace_page(refid: str) -> str:
     sections_html = render_sections(cdef)
 
     body = f"""
-<div class="api-layout">
-{SIDEBAR_HTML}
-  <div class="api-main">
     <a class="back-link" href="index.html">&larr; API Reference</a>
     <span class="kicker">Namespace</span>
     <h1 class="api-title">{esc(name)}</h1>
@@ -673,14 +664,10 @@ def render_namespace_page(refid: str) -> str:
     {inner_ns_html}
     {inner_classes_html}
     {sections_html}
-  </div>
-</div>
 """
     return render_page(
-        title=f"{name} (namespace)",
-        description=strip_tags(brief_html) or f"The {name} namespace — ASGE API reference.",
-        active="api", depth=API_DEPTH, body=body,
-        extra_scripts=API_SEARCH_SCRIPT,
+        page=api_page(refid, f"{name} (namespace)", strip_tags(brief_html) or f"The {name} namespace — ASGE API reference."),
+        body=body, sidebar=SIDEBAR_HTML,
     )
 
 
@@ -698,7 +685,9 @@ MERMAID_SCRIPT = (
     "</script>"
 )
 
-API_SEARCH_SCRIPT = f'<script src="{rel(API_DEPTH, "assets/js/api-search.js")}"></script>'
+def api_page(refid: str, title: str, summary: str) -> Page:
+    """The (unregistered) Page for one generated API file; its sidebar is the namespace tree."""
+    return Page(f"engine/api/{refid}.html", title, "api", "", summary)
 
 
 # ---------------------------------------------------------------------------
@@ -753,10 +742,9 @@ def render_sidebar_tree(refid: str, ns_cdefs, namespaces, depth: int = 0) -> str
 def build_sidebar(compounds) -> str:
     roots, ns_cdefs, namespaces = build_namespace_tree(compounds)
     tree_html = "".join(render_sidebar_tree(r, ns_cdefs, namespaces) for r in roots)
-    return f"""<nav class="api-sidebar" aria-label="API namespaces">
-  <div class="api-search"><input type="search" id="api-search-input" placeholder="Search the API..." autocomplete="off"/></div>
-  <div id="api-search-results" class="api-search-results" hidden></div>
-  <div id="api-tree">{tree_html}</div>
+    return f"""<nav class="api-tree" aria-label="API namespaces">
+  <h4>API reference</h4>
+  {tree_html}
 </nav>"""
 
 
@@ -777,19 +765,15 @@ def render_index_page(compounds) -> str:
         content_html = "<p>Browse the API by namespace using the sidebar.</p>"
 
     body = f"""
-<div class="api-layout">
-{SIDEBAR_HTML}
-  <div class="api-main">
     <h1 class="api-title">{esc(title)}</h1>
     <div class="api-detailed">{content_html}</div>
-  </div>
-</div>
 """
     return render_page(
-        title="API Reference",
-        description="ASGE API reference — generated from the doc comments on every class, struct, function and namespace under src/ASGE/.",
-        active="api", depth=API_DEPTH, body=body,
-        extra_scripts=API_SEARCH_SCRIPT,
+        page=Page(
+            "engine/api/index.html", "API Reference", "api", "",
+            "ASGE API reference — generated from the doc comments on every class, struct, function and namespace under src/ASGE/.",
+        ),
+        body=body, sidebar=SIDEBAR_HTML,
     )
 
 
@@ -805,8 +789,11 @@ def build_search_index(compounds) -> list[dict]:
             continue
         url = resolve_ref(refid)
         if url:
-            entries.append({"name": name, "kind": kind, "url": url})
-    entries.sort(key=lambda e: e["name"])
+            entries.append({
+                "title": name, "url": f"engine/api/{url}", "section": "API",
+                "text": KIND_TITLE.get(kind, kind.title()),
+            })
+    entries.sort(key=lambda e: e["title"])
     return entries
 
 
@@ -823,19 +810,19 @@ def main():
     REFID_KIND = {refid: KIND_TITLE.get(kind, kind.title()) for refid, kind, _ in compounds}
     SIDEBAR_HTML = build_sidebar(compounds)
 
-    write(SITE / "api" / "index.html", render_index_page(compounds))
+    write(OUT / "index.html", render_index_page(compounds))
 
     for refid, kind, _name in compounds:
         if kind == "namespace":
-            write(SITE / "api" / f"{refid}.html", render_namespace_page(refid))
+            write(OUT / f"{refid}.html", render_namespace_page(refid))
         elif kind in PAGE_KINDS:
-            write(SITE / "api" / f"{refid}.html", render_compound_page(refid))
+            write(OUT / f"{refid}.html", render_compound_page(refid))
 
     search_index = build_search_index(compounds)
-    (SITE / "api" / "search-index.json").write_text(
+    (OUT / "search-index.json").write_text(
         json.dumps(search_index), encoding="utf-8"
     )
-    print(f"wrote site/api/search-index.json ({len(search_index)} entries)")
+    print(f"wrote engine/api/search-index.json ({len(search_index)} entries)")
 
 
 if __name__ == "__main__":

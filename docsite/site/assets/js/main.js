@@ -44,10 +44,29 @@
 
   function initNavToggle() {
     var toggle = document.querySelector("[data-nav-toggle]");
-    var header = document.querySelector(".site-header");
-    if (!toggle || !header) return;
+    if (!toggle) return;
     toggle.addEventListener("click", function () {
-      header.classList.toggle("nav-open");
+      var open = document.body.classList.toggle("drawer-open");
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+
+  function initTocSpy() {
+    var links = document.querySelectorAll(".toc a[href^='#']");
+    if (!links.length || !("IntersectionObserver" in window)) return;
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove("active"); });
+        var a = byId[e.target.id];
+        if (a) a.classList.add("active");
+      });
+    }, { rootMargin: "-80px 0px -70% 0px" });
+    Object.keys(byId).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) observer.observe(el);
     });
   }
 
@@ -96,6 +115,7 @@
   document.addEventListener("DOMContentLoaded", function () {
     initThemeToggle();
     initNavToggle();
+    initTocSpy();
     initCopyButtons();
     initTabs();
     highlightCode();
