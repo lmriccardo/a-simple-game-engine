@@ -10,9 +10,9 @@ reference (site/engine/api/) is built separately by generate_api.py in CI.
 import json
 
 from _shared import SITE, build_search_index, write
-from content import editor, engine, overview, theory  # importing registers each module's pages
+from content import editor, engine, overview, releases, theory  # importing registers each module's pages
 
-MODULES = [overview, engine, theory, editor]
+MODULES = [overview, engine, theory, editor, releases]
 
 
 def main():

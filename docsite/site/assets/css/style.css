@@ -721,3 +721,5 @@ th { color: var(--text-muted); font-weight: 600; }
 .article section.alt { background: none; border: 0; }
 .article .example-hero { grid-template-columns: minmax(0, 1fr); }
 .article .example-media { margin-top: 16px; }
+
+.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }

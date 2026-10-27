@@ -84,6 +84,7 @@ def build_index():
       <a class="btn btn-ghost" href="engine/api/index.html">API reference</a>
       <a class="btn btn-ghost" href="{GITHUB_URL}" target="_blank" rel="noopener">View on GitHub</a>
     </div>
+    <p id="latest-release" class="lede" hidden></p>
     <div class="hero-stats">
       <div class="stat"><b>{len(EXAMPLES)}</b><span>runnable examples</span></div>
       <div class="stat"><b>C++23</b><span>modern, header-driven API</span></div>
@@ -157,7 +158,7 @@ def build_index():
   </div>
 </section>
 """
-    return render_page(page=PAGE, body=body, raw=True)
+    return render_page(page=PAGE, body=body, raw=True, extra_scripts='<script src="assets/js/releases.js"></script>')
 
 
 MINIMAL_GAME_SNIPPET = """#include <ASGE/ASGE.hpp>

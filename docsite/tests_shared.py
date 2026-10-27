@@ -100,6 +100,14 @@ def test_render_page_has_search_dialog_and_script():
     assert '<dialog class="search-modal"' in out and "assets/js/search.js" in out, out[-900:]
 
 
+def test_releases_page_has_fallback_and_filters():
+    from content import releases
+
+    out = releases.build()["releases.html"]
+    assert "https://github.com/lmriccardo/a-simple-game-engine/releases" in out
+    assert out.count("data-filter=") == 3 and 'id="releases-list"' in out, out[:300]
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
