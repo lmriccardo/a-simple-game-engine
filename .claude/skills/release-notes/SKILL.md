@@ -49,9 +49,11 @@ per-test-case detail beyond a count).
    closes and what the previous 1–2 releases contributed to it — this is the
    "overview" a milestone-completing release needs and a pure patch release
    doesn't.
-3. `## Highlights` — one bullet per shipped feature, **bold lead-in — sentence**.
-   Name the new types/methods in backticks. One clause on *why it matters*,
-   not *how it was built*.
+3. `## Engine Highlights` (`src/ASGE/`, examples, scripts) and
+   `## Editor Highlights` (`editor/`, asge-editor) — one bullet per shipped
+   feature, **bold lead-in**: sentence. Name the new types/methods in
+   backticks. One clause on *why it matters*, not *how it was built*. Omit a
+   section entirely if the release has nothing for it.
 4. `## Testing` — bullets by category (unit coverage added, integration/
    pixel-verified proofs, full-suite status). Counts are fine ("21 cases"),
    per-case narration is not.
