@@ -7,6 +7,7 @@ defined so the two generators can't drift apart.
 """
 import html
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -14,84 +15,106 @@ SITE = ROOT / "site"
 REPO = "lmriccardo/a-simple-game-engine"
 GITHUB_URL = f"https://github.com/{REPO}"
 
-NAV_ITEMS = [
+@dataclass(frozen=True)
+class Page:
+    """One page of the site. `path` is site-relative; `group` is the sidebar heading."""
+    path: str
+    title: str
+    section: str  # overview | engine | editor | releases | api
+    group: str
+    summary: str
+
+    @property
+    def depth(self) -> int:
+        return self.path.count("/")
+
+
+# Every non-API page registers itself here; nav, sidebars, search and the
+# link checker are all derived from it.
+SITE_MAP: list[Page] = []
+
+# (section key, label, landing page). API pages highlight "engine".
+SECTIONS = [
     ("overview", "Overview", "index.html"),
-    ("install", "Install", "install.html"),
-    ("examples", "Examples", "examples/index.html"),
+    ("engine", "Engine", "engine/getting-started.html"),
     ("editor", "Editor", "editor/index.html"),
-    ("api", "API Reference", "api/index.html"),
     ("releases", "Releases", "releases.html"),
 ]
 
-# The pages under the navbar's "Editor" dropdown (the "editor" NAV_ITEMS entry
-# above is its toggle and links to the overview). A page in this list is
-# active as "editor/<key>"; the editor overview itself is just "editor".
-EDITOR_PAGES = [
-    ("projects-and-scenes", "Projects & Scenes", "editor/projects-and-scenes.html"),
-    ("entities-and-components", "Entities & Components", "editor/entities-and-components.html"),
-    ("ui-and-layout", "UI & Layout", "editor/ui-and-layout.html"),
-    ("viewport-and-navigation", "Viewport & Navigation", "editor/viewport-and-navigation.html"),
-    ("assets-and-vfs", "Assets & VFS", "editor/assets-and-vfs.html"),
-    ("advanced-editing", "Advanced Editing", "editor/advanced-editing.html"),
-    ("releases", "Editor Releases", "editor/releases.html"),
-]
 
-CHEVRON_ICON = (
-    '<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-    'stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    '<path d="m6 9 6 6 6-6"/></svg>'
-)
+def register(page: Page) -> Page:
+    SITE_MAP[:] = [p for p in SITE_MAP if p.path != page.path] + [page]
+    return page
 
 
 def rel(depth: int, path: str) -> str:
     return ("../" * depth) + path
 
 
-def render_editor_menu(active: str, depth: int) -> str:
-    items = []
-    for key, label, path in EDITOR_PAGES:
-        cls = ' class="active"' if active == f"editor/{key}" else ""
-        items.append(f'<a href="{rel(depth, path)}"{cls} role="menuitem">{html.escape(label)}</a>')
-    return "\n      ".join(items)
-
-
-def render_nav(active: str, depth: int) -> str:
-    links = []
-    for key, label, path in NAV_ITEMS:
-        if key == "editor":
-            cls = ' class="active"' if active == "editor" or active.startswith("editor/") else ""
-            links.append(
-                '<div class="nav-dropdown">\n'
-                f'    <a href="{rel(depth, path)}"{cls} aria-haspopup="true">{label}{CHEVRON_ICON}</a>\n'
-                f'    <div class="nav-menu" role="menu">\n      {render_editor_menu(active, depth)}\n    </div>\n'
-                '    </div>'
-            )
-            continue
-        cls = ' class="active"' if key == active else ""
-        links.append(f'<a href="{rel(depth, path)}"{cls}>{label}</a>')
+def render_nav(page: Page) -> str:
+    active = "engine" if page.section == "api" else page.section
+    cur = ' aria-current="page"'
+    links = [
+        f'<a href="{rel(page.depth, path)}"{cur if key == active else ""}>{label}</a>'
+        for key, label, path in SECTIONS
+    ]
     links.append(f'<a href="{GITHUB_URL}" target="_blank" rel="noopener">GitHub</a>')
     return "\n    ".join(links)
 
 
-_NAV_BLOCK = re.compile(r'<nav class="nav-links">.*?</nav>', re.S)
+def render_sidebar(page: Page) -> str:
+    """Pages of the current section grouped by `group`; the current one is marked."""
+    groups: dict[str, list[Page]] = {}
+    for p in SITE_MAP:
+        if p.section == page.section and p.group:
+            groups.setdefault(p.group, []).append(p)
+    out = []
+    for name, pages in groups.items():
+        items = []
+        for p in pages:
+            cur = ' aria-current="page"' if p.path == page.path else ""
+            items.append(f'<li><a href="{rel(page.depth, p.path)}"{cur}>{html.escape(p.title)}</a></li>')
+        out.append(f'<div class="side-group"><h4>{html.escape(name)}</h4><ul>{"".join(items)}</ul></div>')
+    return "\n".join(out)
 
 
-def refresh_editor_nav():
-    """Re-render the navbar of the hand-written pages under site/editor/.
+def _slug(text: str) -> str:
+    text = html.unescape(re.sub(r"<[^>]+>", "", text)).lower()
+    return re.sub(r"[^a-z0-9]+", "-", text).strip("-") or "section"
 
-    Those pages aren't produced by a generator, so without this their copy of
-    the nav (now including the Editor dropdown) would drift from render_nav()
-    the moment NAV_ITEMS/EDITOR_PAGES change. The rest of the page is left
-    exactly as written.
-    """
-    for path in sorted((SITE / "editor").glob("*.html")):
-        active = "editor" if path.stem == "index" else f"editor/{path.stem}"
-        text = path.read_text(encoding="utf-8")
-        block = f'<nav class="nav-links">\n    {render_nav(active, 1)}\n    </nav>'
-        updated, count = _NAV_BLOCK.subn(lambda _m: block, text, count=1)
-        if count and updated != text:
-            path.write_text(updated, encoding="utf-8", newline="\n")
-            print(f"refreshed nav in {path.relative_to(ROOT)}")
+
+_HEADING = re.compile(r"<h([23])([^>]*)>(.*?)</h\1>", re.S)
+
+
+def add_heading_ids(body: str) -> str:
+    """Give every h2/h3 a unique slug id (existing ids are kept)."""
+    seen: set[str] = set(re.findall(r'<h[23][^>]*\sid="([^"]+)"', body))
+
+    def fix(m):
+        level, attrs, inner = m.groups()
+        if ' id="' in attrs:
+            return m.group(0)
+        base = slug = _slug(inner)
+        n = 2
+        while slug in seen:
+            slug, n = f"{base}-{n}", n + 1
+        seen.add(slug)
+        return f'<h{level}{attrs} id="{slug}">{inner}</h{level}>'
+
+    return _HEADING.sub(fix, body)
+
+
+def build_toc(body: str) -> str:
+    """On-page table of contents from h2/h3 that have ids; "" if there are none."""
+    items = []
+    for level, attrs, inner in _HEADING.findall(body):
+        m = re.search(r'id="([^"]+)"', attrs)
+        if m:
+            text = html.escape(html.unescape(re.sub(r"<[^>]+>", "", inner)))
+            items.append(f'<li class="l{level}"><a href="#{m.group(1)}">{text}</a></li>')
+    if not items:
+        return ""
+    return f'<nav class="toc" aria-label="On this page"><h4>On this page</h4><ul>{"".join(items)}</ul></nav>'
 
 
 THEME_ICON = (
@@ -115,43 +138,61 @@ SEARCH_ICON = (
 )
 
 
-def render_page(*, title, description, active, depth, body, extra_head="", extra_scripts=""):
-    nav = render_nav(active, depth)
+def render_page(*, page: Page, body: str, sidebar: str | None = None, raw: bool = False,
+                extra_head: str = "", extra_scripts: str = "") -> str:
+    """Wrap `body` in the site shell. `raw=True` skips sidebar/TOC (hero-style pages)."""
+    depth = page.depth
     css = rel(depth, "assets/css/style.css")
     logo = rel(depth, "assets/img/logo.svg")
     favicon = rel(depth, "assets/img/favicon.svg")
     main_js = rel(depth, "assets/js/main.js")
-    home = rel(depth, "index.html")
-    canonical_desc = html.escape(description)
+    desc = html.escape(page.summary)
+    title = html.escape(page.title)
+    if raw:
+        content = body
+    else:
+        body = add_heading_ids(body)
+        side = sidebar if sidebar is not None else render_sidebar(page)
+        toc = build_toc(body)
+        cls = "layout" + ("" if side else " no-sidebar")
+        parts = [f'<div class="container {cls}">']
+        if side:
+            parts.append(f'<aside class="sidebar" id="sidebar" aria-label="Section navigation">{side}</aside>')
+        parts.append(f'<article class="article">{body}</article>')
+        if toc:
+            parts.append(f'<aside class="toc-wrap">{toc}</aside>')
+        parts.append("</div>")
+        content = "\n".join(parts)
 
     return f"""<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>{html.escape(title)} · ASGE</title>
-<meta name="description" content="{canonical_desc}"/>
-<meta property="og:title" content="{html.escape(title)} · ASGE"/>
-<meta property="og:description" content="{canonical_desc}"/>
+<title>{title} · ASGE</title>
+<meta name="description" content="{desc}"/>
+<meta property="og:title" content="{title} · ASGE"/>
+<meta property="og:description" content="{desc}"/>
 <link rel="icon" type="image/svg+xml" href="{favicon}"/>
 <link rel="stylesheet" href="{css}"/>
 {extra_head}
 </head>
-<body>
+<body data-root="{rel(depth, '') or './'}">
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="{home}"><img src="{logo}" alt=""/> ASGE</a>
-    <nav class="nav-links">
-    {nav}
+    <a class="brand" href="{rel(depth, 'index.html')}"><img src="{logo}" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    {render_nav(page)}
     </nav>
     <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs">{SEARCH_ICON}<span>Search</span><kbd>Ctrl K</kbd></button>
       <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme">{THEME_ICON}</button>
-      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu">{MENU_ICON}</button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="sidebar">{MENU_ICON}</button>
     </div>
   </div>
 </header>
 <main>
-{body}
+{content}
 </main>
 <footer class="site-footer">
   <div class="container">
