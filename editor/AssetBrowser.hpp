@@ -29,9 +29,10 @@ struct AssetPick
  *        menu requested this frame -- CreateEntity makes a new entity with
  *        the asset's corresponding component (Sprite/Animation/AudioSource);
  *        AttachTo does the same to an existing entity, picked from the
- *        menu's own submenu, instead of creating one.
+ *        menu's own submenu, instead of creating one; ReloadTexture (texture
+ *        rows only) re-reads the file so entities show its updated pixels.
  */
-enum class AssetContextAction { None, CreateEntity, AttachTo };
+enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadTexture };
 
 /**
  * @brief DrawAssetBrowserPanel's full per-frame report. m_Pick is the

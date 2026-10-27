@@ -534,6 +534,34 @@ TEST_F(ResolveAssetsTest, SpriteWithVirtualPathGetsTextureAssigned)
     EXPECT_NE(sprite.m_Texture, nullptr);
 }
 
+// ReloadTexture: drops both cache layers and un-resolves the path's sprites
+
+TEST_F(ResolveAssetsTest, ReloadTextureReReadsTheImageAndReResolvesItsSprites)
+{
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Sprite>(
+        entity.Value(), { .m_VirtualPath = "images/hero.bmp" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    auto staleImage = mgr.GetImage("images/hero.bmp");
+    ASSERT_TRUE(staleImage.IsOk());
+    ASSERT_EQ(FakeTexture::s_LiveCount, 1);
+
+    mgr.ReloadTexture("images/hero.bmp", m_Registry);
+
+    auto& sprite = m_Registry.GetComponent<asge::game::components::Sprite>(entity.Value()).Value().get();
+    EXPECT_EQ(sprite.m_Texture, nullptr); // not left dangling into the freed texture
+    EXPECT_TRUE(sprite.m_ResolvedVirtualPath.empty());
+    EXPECT_EQ(FakeTexture::s_LiveCount, 0);
+
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+    EXPECT_NE(sprite.m_Texture, nullptr);
+    EXPECT_EQ(FakeTexture::s_LiveCount, 1);
+    auto freshImage = mgr.GetImage("images/hero.bmp");
+    ASSERT_TRUE(freshImage.IsOk());
+    EXPECT_NE(freshImage.Value(), staleImage.Value()); // decoded again, not the cached pixels
+}
+
 TEST_F(ResolveAssetsTest, SpriteAlreadyHavingATextureIsLeftUntouched)
 {
     AssetManager mgr(m_Vfs);

@@ -2651,6 +2651,10 @@ int main(int, char**)
             assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
             MarkActiveSceneDirty(currentProject);
             break;
+        case AssetContextAction::ReloadTexture:
+            assets.ReloadTexture(assetBrowserResult.m_ContextPath, sceneManager.GetRegistry());
+            assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+            break;
         case AssetContextAction::None:
             break;
         }
