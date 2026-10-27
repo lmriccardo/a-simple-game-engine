@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks the generated docsite: broken links, one <h1> per page, unique ids.
 
-Usage: python docsite/check_site.py [--allow-missing PREFIX ...] [--selftest]
+Usage: python docsite/check_site.py [--site DIR] [--allow-missing PREFIX ...] [--selftest]
 """
 import sys
 import tempfile
@@ -86,6 +86,7 @@ if __name__ == "__main__":
         sys.exit(0)
     argv = sys.argv[1:]
     allow = tuple(argv[i + 1] for i, a in enumerate(argv) if a == "--allow-missing")
-    found = check(ROOT / "site", allow)
+    site = Path(argv[argv.index("--site") + 1]) if "--site" in argv else ROOT / "site"
+    found = check(site, allow)
     print(chr(10).join(found) or "site ok")
     sys.exit(1 if found else 0)

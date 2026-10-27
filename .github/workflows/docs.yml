@@ -85,6 +85,13 @@ jobs:
           name: api-docs
           path: _site/engine/api
 
+      # Report broken links in the assembled site (including the freshly
+      # generated API pages). Non-blocking: real Doxygen output has only been
+      # checked here, never locally, so it warns instead of stopping a deploy.
+      - name: Check links in the assembled site
+        run: python3 docsite/check_site.py --site _site
+        continue-on-error: true
+
       # Re-running only this job (e.g. after the transient artifact-metadata
       # propagation failures deploy-pages is prone to) re-uploads a fresh
       # "github-pages" artifact without removing the previous attempt's.

@@ -695,7 +695,7 @@ th { color: var(--text-muted); font-weight: 600; }
   .toc-wrap { display: none; }
 }
 @media (max-width: 960px) {
-  .layout, .layout.no-sidebar { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .layout, .layout.no-sidebar, .layout:has(.api-tree) { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .sidebar { display: none; }
   .nav-links, .search-btn span, .search-btn kbd { display: none; }
   .nav-toggle { display: inline-flex; }

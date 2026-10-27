@@ -108,6 +108,34 @@ def test_releases_page_has_fallback_and_filters():
     assert out.count("data-filter=") == 3 and 'id="releases-list"' in out, out[:300]
 
 
+def test_api_layout_collapses_on_phones():
+    from pathlib import Path
+
+    css = (Path(__file__).resolve().parent / "site" / "assets" / "css" / "style.css").read_text(encoding="utf-8")
+    block = css[css.index("@media (max-width: 960px)"):]
+    assert ".layout:has(.api-tree)" in block.split("}")[0] + block.split("}")[1], block[:300]
+
+
+def test_no_compiled_python_is_tracked():
+    import subprocess
+
+    tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True, cwd=__file__.rsplit("docsite", 1)[0]).stdout
+    assert "__pycache__" not in tracked, [l for l in tracked.splitlines() if "__pycache__" in l]
+
+
+def test_deploy_workflow_checks_the_assembled_site():
+    from pathlib import Path
+
+    wf = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
+    assert "check_site.py --site _site" in wf
+
+
+def test_time_page_does_not_claim_a_targetfps_getter():
+    from content import theory
+
+    assert "<code>TargetFPS()</code>" not in theory.LOOP
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

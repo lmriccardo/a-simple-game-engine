@@ -156,7 +156,7 @@ Your <code>Game</code> subclass implements <code>CreateState()</code> to build a
 <h3>Time</h3>
 <p>The <code>asge::time</code> namespace exposes the clock: <code>DeltaTime()</code> (scaled and pause-aware),
 <code>UnscaledDeltaTime()</code>, <code>ElapsedTime()</code>, <code>FrameIndex()</code>, <code>Scale()</code>,
-<code>Paused()</code> and <code>TargetFPS()</code>. Pausing makes the scaled delta zero while the unscaled one keeps running,
+<code>Paused()</code>; <code>Scale(float)</code>, <code>Pause(bool)</code> and <code>TargetFPS(fps)</code> are the setters. Pausing makes the scaled delta zero while the unscaled one keeps running,
 which is what you want for a pause menu.</p>
 
 <h3>Profiling</h3>
