@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Physics · ASGE</title>
-<meta name="description" content="Rigidbody and Collider components with collision detection and resolution systems."/>
+<meta name="description" content="Colliders, layers and masks, and the movement, collision and trigger systems."/>
 <meta property="og:title" content="Physics · ASGE"/>
-<meta property="og:description" content="Rigidbody and Collider components with collision detection and resolution systems."/>
+<meta property="og:description" content="Colliders, layers and masks, and the movement, collision and trigger systems."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,47 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Physics</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">Rigidbody and Collider components with collision detection and resolution systems.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Systems/PhysicsSystem.hpp" target="_blank" rel="noopener"><code>Game/Systems/PhysicsSystem.hpp</code></a>, <a href="../examples/physics_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">2D physics here means three things: moving things, noticing when they overlap, and deciding what
+happens next.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>A simple engine splits collision into a <em>broad</em> step (which pairs might touch), a <em>narrow</em> step
+(do these two shapes overlap, and by how much) and <em>resolution</em> (push them apart, or just report it). Shapes carry
+a <em>layer</em> and a <em>mask</em> so, for example, bullets can ignore other bullets.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="components">Components</h3>
+<ul>
+  <li><code>Velocity</code> and <code>Transform</code>: position changes by velocity each frame.</li>
+  <li><code>Collider</code>: a <code>Rect</code> or <code>Circle</code> hitbox, independent of the sprite, with a <code>m_Resolution</code> of <code>Solid</code> (default, pushed out), <code>Trigger</code> (sensor, fires events, never pushed) or <code>Unknown</code> (ignored), plus <code>m_Layer</code> and <code>m_Mask</code> bitmasks. Two colliders only interact if each one's layer is in the other's mask.</li>
+  <li><code>Rigidbody</code>: marks an entity as physics-driven (gravity and push-out); an entity needs both <code>Velocity</code> and <code>Rigidbody</code> to be movable, otherwise it acts as static level geometry.</li>
+</ul>
+
+<h3 id="systems">Systems</h3>
+<p>These run inside <code>Game::Update</code> in this order (see <a href="game-loop.html">Game loop &amp; timing</a>):</p>
+<ol>
+  <li><code>GravitySystem</code> and <code>MovementSystem</code>: plain Euler integration, <code>position += velocity * dt</code>.</li>
+  <li><code>DetectCollisions</code>: a naive all-pairs check that skips pairs whose layer/mask do not match and dispatches on the actual shape pair, returning a list of <code>CollisionContact</code>.</li>
+  <li><code>ResolveCollisions</code>: pushes apart every non-trigger contact using the penetration vector from <code>math::PenetrationVector</code>.</li>
+  <li><code>DispatchTriggerEvents</code>: fires <code>OnCollisionTriggerEnter</code>, <code>Stay</code> and <code>Exit</code> for trigger contacts, using <code>PhysicsState</code> to remember last frame's pairs.</li>
+</ol>
+<div class="code-card">
+  <div class="code-card-head"><span>physics.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">using namespace asge::game::components;
+
+auto&amp; collider = registry.GetOrAddComponent&lt;Collider&gt;( entity ).get();
+collider.m_Resolution = ResolutionType::Trigger;   // sensor: reports overlaps, never pushes
+collider.m_Layer      = 0b01;                      // I live on layer 1...
+collider.m_Mask       = 0b10;                      // ...and only care about layer 2</code></pre>
+</div>
+<p>The all-pairs check is simple and fine for small scenes; a broad-phase structure is the natural upgrade if
+entity counts grow.</p>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Systems/PhysicsSystem.hpp" target="_blank" rel="noopener"><code>Game/Systems/PhysicsSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Components/Collider.hpp" target="_blank" rel="noopener"><code>Game/Components/Collider.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Geometry/Collision.hpp" target="_blank" rel="noopener"><code>Core/Math/Geometry/Collision.hpp</code></a>.
+<a href="../examples/physics_demo.html">Physics demo</a> &middot; <a href="math.html">Math</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#components">Components</a></li><li class="l3"><a href="#systems">Systems</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

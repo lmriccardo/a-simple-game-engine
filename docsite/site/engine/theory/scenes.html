@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Scenes · ASGE</title>
-<meta name="description" content="SceneManager and the scene serializer that loads and saves a Registry."/>
+<meta name="description" content="SceneSerializer and SceneManager: saving, loading and switching between levels."/>
 <meta property="og:title" content="Scenes · ASGE"/>
-<meta property="og:description" content="SceneManager and the scene serializer that loads and saves a Registry."/>
+<meta property="og:description" content="SceneSerializer and SceneManager: saving, loading and switching between levels."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,43 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Scenes</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">SceneManager and the scene serializer that loads and saves a Registry.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Scene/SceneManager.hpp" target="_blank" rel="noopener"><code>Game/Scene/SceneManager.hpp</code></a>, <a href="../examples/scene_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">A scene is one level's worth of entities, saved to a file and loaded back.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>Because an ECS world is just entities and plain-data components, a level can be serialized by writing out every
+entity's components and rebuilt by reading them back. That makes levels data rather than code, and lets tools such as
+the <a href="../../editor/index.html">level editor</a> author them. A scene manager decides which scene is active and how
+to switch between them.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="sceneserializer">SceneSerializer</h3>
+<p><code>SceneSerializer</code> writes every alive entity of a <code>Registry</code> to a TOML scene file
+(<code>.asgescene</code>) and populates a registry from one. Each component type has its own
+<code>Serializer&lt;T&gt;</code> specialization. Asset references are stored as virtual paths, which is why scenes survive
+being moved: see <a href="filesystem.html">Filesystem &amp; VFS</a>.</p>
+
+<h3 id="scenemanager">SceneManager</h3>
+<p><code>SceneManager</code> owns one <code>Registry</code> holding only the <em>active</em> scene's entities.
+<code>LoadScene(virtualPath)</code> makes a scene active, <code>SaveScene(path)</code> saves the active one,
+<code>UnloadScene()</code> clears it and <code>RenameActiveScene()</code> retags it for "Save As". Every other visited scene
+stays resident as an in-memory <em>snapshot</em>, so switching back is instant and does not re-read the file;
+<code>EvictCachedScene()</code> and <code>ClearCache()</code> drop snapshots. Entity handles change when a snapshot is
+restored, which <code>TakeRestoredEntities()</code> reports as an old-to-new map.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>scenes.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">asge::game::scene::SceneManager scenes( vfs );
+
+scenes.LoadScene( &quot;scenes/level1.asgescene&quot; );          // BoolResult
+asge::ecs::Registry&amp; registry = scenes.GetRegistry();   // the active scene&#x27;s entities</code></pre>
+</div>
+<p><code>Game</code> owns a scene manager and exposes loading through the project API, so a typical game loads a project
+and scene instead of building one by hand.</p>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Scene/SceneManager.hpp" target="_blank" rel="noopener"><code>Game/Scene/SceneManager.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Scene/SceneSerializer.hpp" target="_blank" rel="noopener"><code>Game/Scene/SceneSerializer.hpp</code></a>.
+<a href="../examples/scene_demo.html">Scene demo</a> &middot; <a href="ecs.html">ECS</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#sceneserializer">SceneSerializer</a></li><li class="l3"><a href="#scenemanager">SceneManager</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

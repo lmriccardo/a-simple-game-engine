@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Filesystem &amp; VFS · ASGE</title>
-<meta name="description" content="File IO, file watching and the virtual file system."/>
+<meta name="description" content="Virtual paths mounted onto real directories, file IO and file watching."/>
 <meta property="og:title" content="Filesystem &amp; VFS · ASGE"/>
-<meta property="og:description" content="File IO, file watching and the virtual file system."/>
+<meta property="og:description" content="Virtual paths mounted onto real directories, file IO and file watching."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,45 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Filesystem &amp; VFS</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">File IO, file watching and the virtual file system.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/VirtualFileSystem.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/VirtualFileSystem.hpp</code></a>, <a href="../examples/file_watching.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">Assets are referred to by <em>virtual</em> paths, so a game's data does not depend on where it is
+installed.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>Hard-coding <code>C:\Users\me\game\hero.png</code> breaks the moment the game moves. A virtual file system maps
+short, stable names (<code>textures/hero.png</code>) onto real directories chosen at startup. The same game data then
+works from a dev checkout, an installed build or an archive, and tools can remap folders without touching scenes.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="virtualfilesystem">VirtualFileSystem</h3>
+<p><code>asge::filesystem::VirtualFileSystem</code> keeps a list of <em>mounts</em>, each binding a virtual root to a
+real directory:</p>
+<ul>
+  <li><code>Mount(root, realPath)</code> and <code>Unmount()</code> manage bindings; a root can be mounted more than once.</li>
+  <li><code>Resolve(virtualPath)</code> returns the real <code>Path</code>, trying each mount whose root prefixes the path in registration order.</li>
+  <li><code>Exists()</code>, <code>IsMounted()</code>, <code>ListMounts()</code> and <code>SplitRoot()</code> inspect state.</li>
+  <li><code>ToVirtualPath(realPath)</code> goes the other way, which the editor uses when you pick a file on disk.</li>
+</ul>
+<p>Paths are normalized before use, and fallible calls return <code>Result</code>/<code>BoolResult</code> instead of
+throwing.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>vfs.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">asge::filesystem::VirtualFileSystem vfs;
+vfs.Mount( &quot;textures&quot;, &quot;assets/textures&quot; );          // BoolResult
+
+auto real = vfs.Resolve( &quot;textures/hero.png&quot; );      // Result&lt;Path&gt;: assets/textures/hero.png
+bool ok   = vfs.Exists( &quot;textures/hero.png&quot; );</code></pre>
+</div>
+<h3 id="file-io-and-watching">File IO and watching</h3>
+<p>The <code>filesystem</code> namespace also provides <code>ReadText</code>, <code>WriteText</code>,
+<code>ReadBinary</code> and <code>Copy</code>, plus file metadata. <code>FileWatcher</code> runs on its own
+<code>concurrent::Thread</code> and reports <code>FileEvent</code>s (created, deleted, modified, moved) to an
+<code>IFileEventHandler</code>, with a native implementation per platform.</p>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/VirtualFileSystem.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/VirtualFileSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/FileWatcher.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/FileWatcher.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/FileIO.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/FileIO.hpp</code></a>.
+<a href="../examples/file_watching.html">File watching example</a> &middot; <a href="assets.html">Assets</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#virtualfilesystem">VirtualFileSystem</a></li><li class="l3"><a href="#file-io-and-watching">File IO and watching</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

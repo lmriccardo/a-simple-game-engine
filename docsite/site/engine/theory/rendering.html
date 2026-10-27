@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Rendering · ASGE</title>
-<meta name="description" content="The thin video layer over SDL3: window, renderer, textures, cameras and primitives."/>
+<meta name="description" content="The thin video layer: VideoSystem, IRenderer, textures, cameras and the SDL3 backend."/>
 <meta property="og:title" content="Rendering · ASGE"/>
-<meta property="og:description" content="The thin video layer over SDL3: window, renderer, textures, cameras and primitives."/>
+<meta property="og:description" content="The thin video layer: VideoSystem, IRenderer, textures, cameras and the SDL3 backend."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,52 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Rendering</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">The thin video layer over SDL3: window, renderer, textures, cameras and primitives.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Video/VideoSystem.hpp" target="_blank" rel="noopener"><code>Video/VideoSystem.hpp</code></a>, <a href="../examples/shapes_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">Rendering gets pixels onto a window. ASGE keeps this layer thin: an abstract renderer, a window and
+a texture, with SDL3 as the only backend today.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>A 2D renderer exposes a small drawing vocabulary (clear, shapes, textures, text) and a way to <em>present</em>
+the finished frame. Hiding it behind an interface keeps game code independent of the graphics API, so a different
+backend could be added later without touching gameplay. Cameras convert <em>world space</em> (where things are
+in the level) into <em>screen space</em> (pixels in the window).</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="video-system-and-backends">Video system and backends</h3>
+<p><code>asge::video::VideoSystem</code> brings up a window and a renderer for a chosen <code>GraphicsBackend</code>
+through a factory and hands them out as <code>IWindow&amp;</code> and <code>IRenderer&amp;</code>. Only
+<code>GraphicsBackend::SDL</code> exists; OpenGL, Vulkan and DirectX are future possibilities, which is why
+everything above this layer talks to the interfaces.</p>
+
+<h3 id="irenderer">IRenderer</h3>
+<p>The drawing calls are all <code>const</code> methods on <code>IRenderer</code>:</p>
+<ul>
+  <li><code>Clear</code>, <code>DrawRect</code>, <code>DrawLine</code>, <code>DrawCircle</code> for primitives, then <code>Present()</code> to show the frame.</li>
+  <li><code>DrawTexture</code> in several forms: scaled into a rect, at native size, a source sub-rect, plus <code>DrawTexture9Grid</code> (nine-slice scaling), <code>DrawTextureTiled</code> and <code>DrawTextureAffine</code> for arbitrary transforms.</li>
+  <li><code>DrawString</code> renders text from a baked <code>media::Font</code> atlas (a fixed ASCII range).</li>
+  <li><code>CreateTexture(media::Image const&amp;)</code> uploads pixels and returns a <code>std::unique_ptr&lt;ITexture&gt;</code>.</li>
+</ul>
+<p>An <code>ITexture</code> reports its <code>Size()</code> and supports a colour modulation (<code>SetColorMod</code>).</p>
+
+<h3 id="camera">Camera</h3>
+<p><code>video::Camera</code> is a 2D world position plus a uniform <code>m_Zoom</code>. <code>IRenderer::SetCamera</code>
+makes every following draw call go through it, and helpers such as <code>TransformRect</code> and
+<code>VisibleWorldRect</code> convert between world and screen space. The ECS-side rendering (sprites, layers, Y-sort)
+is the render pipeline that <code>Game::Render</code> runs each frame.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>render.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">// image: an asge::media::Image decoded earlier; color: an asge::graphics::RGBA_Color
+auto texture = inRenderer.CreateTexture( image );          // std::unique_ptr&lt;ITexture&gt;
+
+inRenderer.Clear( color );
+inRenderer.DrawTexture( *texture, asge::math::Float2{ 32.0f, 32.0f } );   // native size at (32, 32)
+inRenderer.Present();</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Video/VideoSystem.hpp" target="_blank" rel="noopener"><code>Video/VideoSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Video/Graphics/Renderer.hpp" target="_blank" rel="noopener"><code>Video/Graphics/Renderer.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Video/Graphics/Camera.hpp" target="_blank" rel="noopener"><code>Video/Graphics/Camera.hpp</code></a>.
+<a href="../examples/shapes_demo.html">Shapes demo</a> &middot; <a href="../examples/texture_demo.html">Texture demo</a> &middot;
+<a href="../examples/camera_demo.html">Camera demo</a> &middot; <a href="math.html">Math</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#video-system-and-backends">Video system and backends</a></li><li class="l3"><a href="#irenderer">IRenderer</a></li><li class="l3"><a href="#camera">Camera</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

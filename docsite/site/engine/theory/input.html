@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Input · ASGE</title>
-<meta name="description" content="Keyboard and mouse state tracked every frame from the event stream."/>
+<meta name="description" content="Keyboard and mouse state, with down/pressed/released queries derived from the event stream."/>
 <meta property="og:title" content="Input · ASGE"/>
-<meta property="og:description" content="Keyboard and mouse state tracked every frame from the event stream."/>
+<meta property="og:description" content="Keyboard and mouse state, with down/pressed/released queries derived from the event stream."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,49 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Input</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">Keyboard and mouse state tracked every frame from the event stream.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Input/InputSystem.hpp" target="_blank" rel="noopener"><code>Input/InputSystem.hpp</code></a>, <a href="../examples/input_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">Input turns raw key and mouse events into answers to the questions gameplay code actually asks:
+is it held, did it just go down, how far did the mouse move.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>The OS reports <em>events</em> ("key down", "key up"); a game wants <em>state</em>. Engines keep two snapshots,
+the current and the previous frame, and derive three queries from them: <strong>down</strong> (held now),
+<strong>pressed</strong> (up last frame, down now) and <strong>released</strong> (down last frame, up now). Edge
+queries such as "pressed" are what make a jump fire once instead of every frame the key is held.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<p><code>asge::input::InputSystem</code> is owned by <code>Application</code> and mirrors <code>VideoSystem</code>'s shape.
+Every frame the loop calls <code>NewFrame()</code> to roll the current snapshot into the previous one, then feeds each
+polled <code>SystemEvent</code> through <code>ProcessEvent()</code> (see <a href="events-signals.html">Events &amp; signals</a>).
+It is not a second event source: <code>InputState</code> simply consumes the same stream that also reaches
+<code>Game::OnSystemEvent</code>.</p>
+<p>Games never touch the system. Each state's <code>Update</code> receives a read-only
+<code>InputState const&amp;</code>:</p>
+<ul>
+  <li><code>IsKeyDown</code> / <code>IsKeyPressed</code> / <code>IsKeyReleased</code> with a <code>Keycode</code></li>
+  <li><code>IsMouseButtonDown</code> / <code>IsMouseButtonPressed</code> / <code>IsMouseButtonReleased</code> with a <code>MouseButton</code> (<code>LEFT</code>, <code>MIDDLE</code>, <code>RIGHT</code>, <code>X1</code>, <code>X2</code>)</li>
+  <li><code>GetMousePosition()</code> (window-relative), <code>GetMouseDelta()</code> and <code>GetScrollDelta()</code>, all <code>Float2</code>; the deltas accumulate since the last <code>NewFrame()</code></li>
+</ul>
+<div class="code-card">
+  <div class="code-card-head"><span>state.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">void Update( float inDeltaTime, asge::input::InputState const&amp; inInput ) override
+{
+    using asge::input::Keycode;
+    using asge::input::MouseButton;
+
+    if ( inInput.IsKeyPressed( Keycode::A ) ) { /* fires on the frame A went down */ }
+    if ( inInput.IsKeyDown( Keycode::A ) )    { /* fires every frame A is held */ }
+
+    if ( inInput.IsMouseButtonPressed( MouseButton::LEFT ) )
+    {
+        auto where = inInput.GetMousePosition();   // asge::math::Float2
+    }
+}</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Input/InputSystem.hpp" target="_blank" rel="noopener"><code>Input/InputSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Input/InputState.hpp" target="_blank" rel="noopener"><code>Input/InputState.hpp</code></a>.
+<a href="../examples/input_demo.html">Input demo</a> &middot; <a href="game-loop.html">Game loop &amp; timing</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

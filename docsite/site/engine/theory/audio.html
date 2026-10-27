@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Audio · ASGE</title>
-<meta name="description" content="The audio device and streams, driven by AudioSource components."/>
+<meta name="description" content="The audio device and its stream pool, AudioSource components and the AudioSystem."/>
 <meta property="og:title" content="Audio · ASGE"/>
-<meta property="og:description" content="The audio device and streams, driven by AudioSource components."/>
+<meta property="og:description" content="The audio device and its stream pool, AudioSource components and the AudioSystem."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,49 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Audio</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">The audio device and streams, driven by AudioSource components.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Audio/AudioDevice.hpp" target="_blank" rel="noopener"><code>Audio/AudioDevice.hpp</code></a>, <a href="../examples/audio_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">Audio plays sound clips on the machine's output device, several at once, driven by components
+on entities.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>A game needs many sounds playing concurrently, each with its own volume and looping, without allocating while
+the game runs. Engines open one output device, keep a bounded pool of <em>streams</em> bound to it, and feed decoded
+clip data into those streams.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="audiodevice-and-audiostream">AudioDevice and AudioStream</h3>
+<p><code>asge::audio::AudioDevice</code> owns SDL's audio subsystem, one physical playback device and a fixed pool
+of <strong>32</strong> <code>AudioStream</code>s. <code>Initialize()</code> opens the default device;
+<code>CreateStream(AudioClip&amp;)</code> returns a <code>std::shared_ptr&lt;AudioStream&gt;</code> matching the clip's
+format, and <code>DetachStream()</code> gives the slot back. <code>SetGain()</code> sets the device volume. An
+<code>AudioStream</code> wraps one <code>SDL_AudioStream</code>: <code>PutData()</code> queues a clip,
+<code>ClearData()</code> empties it, <code>SetAudioGain()</code> sets its own volume. The shared pointer stays valid
+even if another detach relocates its slot.</p>
+<p><code>Application</code> initializes the device alongside the video system and passes it into your game.</p>
+
+<h3 id="audiosource-and-audiosystem">AudioSource and AudioSystem</h3>
+<p>Gameplay does not touch streams. An entity gets an <code>AudioSource</code> component (clip path, volume, loop),
+and you use <code>PlayAudioSource</code>, <code>StopAudioSource</code> and <code>DetachAudioSource</code> to change
+its state. <code>AudioSystem</code>, the last system in <code>Game::Update</code>'s fixed order (see
+<a href="game-loop.html">Game loop &amp; timing</a>), starts newly playing sources, restarts looping ones whose queued audio ran out, stops finished
+non-looping ones, and clears the data of stopped ones. A source keeps the same stream for its whole lifetime, so replaying
+it never creates a new one. Clips are loaded through the
+<a href="assets.html">asset manager</a> as <code>media::AudioClip</code>.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>audio.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">using namespace asge::game::components;
+
+auto source = registry.GetComponent&lt;AudioSource&gt;( entity );   // Result&lt;reference_wrapper&lt;AudioSource&gt;&gt;
+if ( source )
+{
+    PlayAudioSource( source.Value().get(), /* inLoop */ true );   // AudioSystem picks it up this frame
+    // StopAudioSource( ... ) stops it; DetachAudioSource( device, ... ) frees its pool slot
+}</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Audio/AudioDevice.hpp" target="_blank" rel="noopener"><code>Audio/AudioDevice.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Components/AudioSource.hpp" target="_blank" rel="noopener"><code>Game/Components/AudioSource.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Systems/AudioSystem.hpp" target="_blank" rel="noopener"><code>Game/Systems/AudioSystem.hpp</code></a>.
+<a href="../examples/audio_demo.html">Audio demo</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#audiodevice-and-audiostream">AudioDevice and AudioStream</a></li><li class="l3"><a href="#audiosource-and-audiosystem">AudioSource and AudioSystem</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

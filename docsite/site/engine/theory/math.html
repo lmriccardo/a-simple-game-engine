@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Math · ASGE</title>
-<meta name="description" content="Linear algebra, geometry and interpolation helpers."/>
+<meta name="description" content="Vectors, shapes, collision tests, easing, tweens and splines."/>
 <meta property="og:title" content="Math · ASGE"/>
-<meta property="og:description" content="Linear algebra, geometry and interpolation helpers."/>
+<meta property="og:description" content="Vectors, shapes, collision tests, easing, tweens and splines."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,46 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Math</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">Linear algebra, geometry and interpolation helpers.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Math.hpp" target="_blank" rel="noopener"><code>Core/Math/Math.hpp</code></a>, <a href="../examples/rotation_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">The small maths toolbox the rest of the engine leans on: vectors, shapes, collision tests and
+interpolation.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>2D games are mostly vectors and rectangles. Keeping them in one dependency-free module, rather than reaching into SDL
+types, means gameplay, physics, rendering and the editor all speak the same small set of types.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="linear-algebra">Linear algebra</h3>
+<p><code>asge::math::Vec2&lt;T&gt;</code> (and <code>Vec3</code>), built on a shared <code>VecN</code>, with the common
+aliases <code>Float2</code>, <code>Double2</code>, <code>Int2</code> and <code>Int642</code>. Arithmetic operators are
+provided; positions, sizes and mouse deltas throughout the API are <code>Float2</code> or <code>Int2</code>.</p>
+
+<h3 id="geometry-and-collision">Geometry and collision</h3>
+<p><code>Rect</code> and <code>Circle</code> are the two collider shapes. <code>Collision.hpp</code> has the overlap tests
+(<code>AabbOverlap</code>, <code>CircleOverlap</code>) and <code>PenetrationVector</code> overloads for every
+rect/circle pairing, returning an <code>std::optional&lt;Float2&gt;</code> that says how to push the first shape out of the
+second. <a href="physics.html">Physics</a> is built on these.</p>
+
+<h3 id="interpolation">Interpolation</h3>
+<ul>
+  <li><code>Easing</code> and <code>Ease(easing, t)</code>: <code>Linear</code>, <code>InQuad</code>, <code>OutQuad</code>, <code>InOutQuad</code>, <code>OutCubic</code>; the input is clamped to [0, 1].</li>
+  <li><code>Tween&lt;T&gt;</code>: moves a float, <code>Float2</code> or similar from one value to another over a duration; call <code>Update(dt)</code> each frame and read <code>Value()</code>.</li>
+  <li><code>CatmullRomSpline</code>: a smooth curve through waypoints, with arc-length sampling so motion along it is at constant speed. <code>PathFollowingSystem</code> and the editor's path preview use it.</li>
+</ul>
+<div class="code-card">
+  <div class="code-card-head"><span>math.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">using asge::math::Easing;
+
+asge::math::Tween&lt;float&gt; slide( 0.0f, 100.0f, /* seconds */ 2.0f, Easing::OutQuad );
+
+// each frame:
+slide.Update( dt );
+float x = slide.Value();       // eased value; slide.IsFinished() once the duration has elapsed</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Math.hpp" target="_blank" rel="noopener"><code>Core/Math/Math.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Geometry/Collision.hpp" target="_blank" rel="noopener"><code>Core/Math/Geometry/Collision.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Interpolation/Tween.hpp" target="_blank" rel="noopener"><code>Core/Math/Interpolation/Tween.hpp</code></a>.
+<a href="../examples/rotation_demo.html">Rotation demo</a> &middot; <a href="../examples/path_following_demo.html">Path following demo</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#linear-algebra">Linear algebra</a></li><li class="l3"><a href="#geometry-and-collision">Geometry and collision</a></li><li class="l3"><a href="#interpolation">Interpolation</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

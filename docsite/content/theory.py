@@ -1,19 +1,14 @@
 """Engine theory section: the concept behind each subsystem, then how ASGE does it.
 
-Four subsystems get full pages (ECS, game loop & timing, events & signals,
-memory & threading); every other implemented subsystem is a short stub.
-All type and function names below are checked against src/ASGE.
+The core pages (ECS, game loop & timing, events & signals, memory & threading) live
+here; the other subsystems are in theory_systems.py. All type and function names
+are checked against src/ASGE.
 """
 import html
 
-from _shared import GITHUB_URL, Page, code_card, register, render_page
-
-SRC = f"{GITHUB_URL}/blob/main/src/ASGE"
-
-
-def src(path: str) -> str:
-    return f'<a href="{SRC}/{path}" target="_blank" rel="noopener"><code>{html.escape(path)}</code></a>'
-
+from _shared import Page, code_card, register, render_page
+from content.theory_systems import PAGES as SYSTEM_PAGES
+from content.theory_systems import src
 
 # --- full pages --------------------------------------------------------------
 
@@ -267,64 +262,25 @@ FULL_PAGES = [
     ("game-loop", "Game loop & timing", "The main loop, the per-frame system order, game states, the clock and profiling.", LOOP),
     ("events-signals", "Events & signals", "SDL event translation, SystemEvent and the type-safe Signal/Connection pattern.", EVENTS),
     ("memory-threading", "Memory & threading", "Linear, pool and stack allocators, the free-list and the ThreadPool.", MEMORY),
-]
-
-# --- stubs (only subsystems present in src/ASGE) -----------------------------
-
-STUBS = [
-    ("input", "Input", "Keyboard and mouse state tracked every frame from the event stream.",
-     "Input/InputSystem.hpp", "../examples/input_demo.html"),
-    ("rendering", "Rendering", "The thin video layer over SDL3: window, renderer, textures, cameras and primitives.",
-     "Video/VideoSystem.hpp", "../examples/shapes_demo.html"),
-    ("audio", "Audio", "The audio device and streams, driven by AudioSource components.",
-     "Audio/AudioDevice.hpp", "../examples/audio_demo.html"),
-    ("filesystem", "Filesystem & VFS", "File IO, file watching and the virtual file system.",
-     "Core/Filesystem/VirtualFileSystem.hpp", "../examples/file_watching.html"),
-    ("assets", "Assets", "The AssetManager, typed asset pools and spritesheet frame tables.",
-     "Game/Assets/AssetManager.hpp", "../examples/texture_demo.html"),
-    ("scenes", "Scenes", "SceneManager and the scene serializer that loads and saves a Registry.",
-     "Game/Scene/SceneManager.hpp", "../examples/scene_demo.html"),
-    ("physics", "Physics", "Rigidbody and Collider components with collision detection and resolution systems.",
-     "Game/Systems/PhysicsSystem.hpp", "../examples/physics_demo.html"),
-    ("ui", "UI", "Anchored UI components with interaction and layout systems.",
-     "Game/UI.hpp", "../examples/index.html"),
-    ("math", "Math", "Linear algebra, geometry and interpolation helpers.",
-     "Core/Math/Math.hpp", "../examples/rotation_demo.html"),
-]
-
-
-def _stub_body(title: str, summary: str, header: str, example: str) -> str:
-    return f"""
-<h1>{html.escape(title)}</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">{html.escape(summary)}</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source {src(header)}, <a href="{example}">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
-"""
-
+] + SYSTEM_PAGES
 
 INDEX = """
 <h1>Engine theory</h1>
-<p class="lede">What the main parts of a game engine do, and how ASGE implements the ones it has today.
-Each page first explains the concept, then shows the ASGE types that realise it.</p>
+<p class="lede">What the main parts of a game engine do, and how ASGE implements each one.
+Every page first explains the concept, then shows the ASGE types that realise it, with a short snippet.</p>
 <div class="grid">
 """ + "\n".join(
     f'<a class="card" href="{slug}.html"><h3>{html.escape(title)}</h3><p>{html.escape(summary)}</p></a>'
     for slug, title, summary, _ in FULL_PAGES
 ) + """
 </div>
-<h2>Shorter overviews</h2>
-<ul>
-""" + "\n".join(f'<li><a href="{slug}.html">{html.escape(title)}</a> - {html.escape(summary)}</li>' for slug, title, summary, *_ in STUBS) + """
-</ul>
 """
 
-PAGES = {"engine/theory/index.html": register(Page(
+PAGES ={"engine/theory/index.html": register(Page(
     "engine/theory/index.html", "Engine theory", "engine", "Theory",
     "What the main parts of a game engine do, and how ASGE implements them.",
 ))}
-for _slug, _title, _summary, *_ in FULL_PAGES + STUBS:
+for _slug, _title, _summary, _ in FULL_PAGES:
     PAGES[f"engine/theory/{_slug}.html"] = register(Page(
         f"engine/theory/{_slug}.html", _title, "engine", "Theory", _summary))
 
@@ -334,7 +290,4 @@ def build() -> dict[str, str]:
     for slug, _title, _summary, body in FULL_PAGES:
         path = f"engine/theory/{slug}.html"
         out[path] = render_page(page=PAGES[path], body=body)
-    for slug, title, summary, header, example in STUBS:
-        path = f"engine/theory/{slug}.html"
-        out[path] = render_page(page=PAGES[path], body=_stub_body(title, summary, header, example))
     return out

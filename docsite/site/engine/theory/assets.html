@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Assets · ASGE</title>
-<meta name="description" content="The AssetManager, typed asset pools and spritesheet frame tables."/>
+<meta name="description" content="The AssetManager&#x27;s path-keyed caches, sprite resolution and spritesheet frame tables."/>
 <meta property="og:title" content="Assets · ASGE"/>
-<meta property="og:description" content="The AssetManager, typed asset pools and spritesheet frame tables."/>
+<meta property="og:description" content="The AssetManager&#x27;s path-keyed caches, sprite resolution and spritesheet frame tables."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -50,12 +50,48 @@
 <div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
 <article class="article">
 <h1>Assets</h1>
-<p><span class="badge badge-progress">In progress</span></p>
-<p class="lede">The AssetManager, typed asset pools and spritesheet frame tables.</p>
-<p>A full write-up of the concept and ASGE's implementation is still to come.
-Meanwhile: source <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/AssetManager.hpp" target="_blank" rel="noopener"><code>Game/Assets/AssetManager.hpp</code></a>, <a href="../examples/texture_demo.html">a related example</a>, and the
-<a href="../api/index.html">API reference</a>.</p>
+<p class="lede">Loading an image or a sound is slow; loading it twice is wasteful. An asset layer loads each file once
+and shares it.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>Assets (textures, fonts, audio, animation data) are loaded by <em>name</em> and cached, so the second request for
+the same asset is a lookup. Components then hold a cheap reference or a path instead of a copy, and a scene file can
+store just the path.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<h3 id="assetmanager-and-assetpool">AssetManager and AssetPool</h3>
+<p><code>asset::AssetManager</code> is the one entry point. It is built over a
+<a href="filesystem.html">VirtualFileSystem</a> and owns a path-keyed <code>AssetPool</code> per asset type, each a cache of
+<code>std::shared_ptr&lt;Asset&lt;T&gt;&gt;</code>:</p>
+<ul>
+  <li><code>GetImage</code>, <code>GetAudio</code>, <code>GetFrameTable</code> by virtual path; <code>GetFont</code> by path <em>and</em> pixel height, since a font is baked at a size.</li>
+  <li><code>GetTexture</code> uploads an image to the GPU once, caches the <code>ITexture</code> by virtual path and keeps ownership; <code>UnloadTexture</code> drops it.</li>
+  <li>Loads fail with a <code>Result</code> error when the path does not resolve through the VFS or the file cannot be decoded.</li>
+</ul>
+<div class="code-card">
+  <div class="code-card-head"><span>assets.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">asge::game::asset::AssetManager assets( vfs );
+
+auto image = assets.GetImage( &quot;textures/hero.png&quot; );   // Result&lt;shared_ptr&lt;Asset&lt;Image&gt;&gt;&gt;
+auto again = assets.GetImage( &quot;textures/hero.png&quot; );   // cached: same asset, no second decode</code></pre>
+</div>
+<h3 id="resolving-components">Resolving components</h3>
+<p>A <code>Sprite</code> stores its <code>m_VirtualPath</code> and <code>m_SourceRect</code>; those are what round-trip
+through a scene file. Each frame <code>ResolveAssets</code> (called from <code>Game::Render</code>) turns the paths of
+sprites and animations back into live textures. A sprite's texture therefore points into the manager's cache and must
+not outlive it.</p>
+
+<h3 id="spritesheets-and-animation-clips">Spritesheets and animation clips</h3>
+<p>A <code>FrameTable</code> is a named sequence of source rects into a spritesheet, loaded from a small TOML file.
+A <code>GridSpec</code> describes a contiguous range of cells over a regular grid (row-major or column-major), and
+<code>MakeGridFrames</code> does the grid math. An optional <code>frame_durations</code> array gives frames their own
+display time.</p>
+
+<h2 id="see-also">See also</h2>
+<p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/AssetManager.hpp" target="_blank" rel="noopener"><code>Game/Assets/AssetManager.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/AssetPool.hpp" target="_blank" rel="noopener"><code>Game/Assets/AssetPool.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/FrameTable.hpp" target="_blank" rel="noopener"><code>Game/Assets/FrameTable.hpp</code></a>.
+<a href="../examples/texture_demo.html">Texture demo</a> &middot; <a href="../examples/animation_demo.html">Animation demo</a></p>
 </article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#assetmanager-and-assetpool">AssetManager and AssetPool</a></li><li class="l3"><a href="#resolving-components">Resolving components</a></li><li class="l3"><a href="#spritesheets-and-animation-clips">Spritesheets and animation clips</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

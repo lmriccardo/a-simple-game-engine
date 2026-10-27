@@ -137,6 +137,17 @@ def test_time_page_does_not_claim_a_targetfps_getter():
     assert "<code>TargetFPS()</code>" not in theory.LOOP
 
 
+def test_every_theory_page_is_a_full_page():
+    from content import theory
+
+    pages = theory.build()
+    assert len(pages) == 14, sorted(pages)
+    for path, doc in pages.items():
+        assert "In progress" not in doc and "still to come" not in doc, path
+        if not path.endswith("index.html"):
+            assert "The concept</h2>" in doc and "How ASGE does it" in doc, path
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
