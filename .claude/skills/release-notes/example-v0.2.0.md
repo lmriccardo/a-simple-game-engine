@@ -2,7 +2,7 @@
 
 Rendering primitives are complete. v0.1.1 brought shapes and v0.1.2 brought textures — v0.2.0 closes it out with text, so `IRenderer` can now put a shape, a sprite, and a text label on screen in a single frame.
 
-## Highlights
+## Engine Highlights
 
 - **Text rendering** — a new `Font` type bakes TTF files into a glyph atlas via `stb_truetype`, and `IRenderer::DrawString` draws strings against it using each glyph's own baked metrics. A new `text_demo` example bakes one font at three sizes, with a color-cycling headline.
 - **Sub-region texture draws** — `DrawTexture(src, dst)` draws an arbitrary source rect into an arbitrary destination rect — the primitive text rendering (and future sprite-sheet work) is built on.

@@ -4,7 +4,7 @@
 milestone, name the arc: what this release finishes and what the release(s)
 before it already contributed.>
 
-## Highlights
+## Engine Highlights
 
 - **<Feature name>** — <what it is, the new types/methods in `backticks`,
   and the one-clause reason it matters. No build-order narration, no bug
@@ -12,6 +12,13 @@ before it already contributed.>
 - **<Feature name>** — <...>
 - **New `<example>_demo` example** — <what it exercises end-to-end, in one
   sentence.>
+
+## Editor Highlights
+
+<Level editor (`editor/`) changes only. Same bullet style as above. Omit this
+section if the release doesn't touch the editor.>
+
+- **<Feature name>** — <...>
 
 ## Testing
 
