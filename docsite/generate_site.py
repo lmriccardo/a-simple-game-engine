@@ -8,9 +8,9 @@ after editing a content module or the shared layout in _shared.py. The API
 reference (site/engine/api/) is built separately by generate_api.py in CI.
 """
 from _shared import SITE, write
-from content import engine, overview  # importing registers each module's pages
+from content import engine, overview, theory  # importing registers each module's pages
 
-MODULES = [overview, engine]
+MODULES = [overview, engine, theory]
 
 
 def main():
