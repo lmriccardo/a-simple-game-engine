@@ -148,16 +148,16 @@ def render_page(*, page: Page, body: str, sidebar: str | None = None, raw: bool 
     main_js = rel(depth, "assets/js/main.js")
     desc = html.escape(page.summary)
     title = html.escape(page.title)
+    side = sidebar if sidebar is not None else render_sidebar(page)
     if raw:
         content = body
     else:
         body = add_heading_ids(body)
-        side = sidebar if sidebar is not None else render_sidebar(page)
         toc = build_toc(body)
         cls = "layout" + ("" if side else " no-sidebar")
         parts = [f'<div class="container {cls}">']
         if side:
-            parts.append(f'<aside class="sidebar" id="sidebar" aria-label="Section navigation">{side}</aside>')
+            parts.append(f'<aside class="sidebar" aria-label="Section navigation">{side}</aside>')
         parts.append(f'<article class="article">{body}</article>')
         if toc:
             parts.append(f'<aside class="toc-wrap">{toc}</aside>')
@@ -187,10 +187,16 @@ def render_page(*, page: Page, body: str, sidebar: str | None = None, raw: bool 
     <div class="nav-right">
       <button class="search-btn" data-search-open aria-label="Search the docs">{SEARCH_ICON}<span>Search</span><kbd>Ctrl K</kbd></button>
       <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme">{THEME_ICON}</button>
-      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="sidebar">{MENU_ICON}</button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer">{MENU_ICON}</button>
     </div>
   </div>
 </header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  {render_nav(page)}
+  </nav>
+  {side}
+</div>
 <main>
 {content}
 </main>

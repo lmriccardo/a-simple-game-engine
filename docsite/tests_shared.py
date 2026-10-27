@@ -45,6 +45,13 @@ def test_render_page_no_toc_when_no_headings():
     assert 'class="toc"' not in s.render_page(page=p, body="<h1>R</h1>")
 
 
+def test_drawer_has_section_links_for_raw_pages():
+    p = s.Page("index.html", "Home", "overview", "", "x")
+    _reset(p)
+    out = s.render_page(page=p, body="<h1>Home</h1>", raw=True)
+    assert 'id="drawer"' in out and 'href="engine/getting-started.html"' in out, out[:900]
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
