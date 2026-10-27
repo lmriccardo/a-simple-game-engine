@@ -159,6 +159,13 @@ void DrawAssetContextMenu(
         ioResult.m_OpenCreateClip = true;
     }
 
+    if ( inAllowCreateClip && ImGui::MenuItem( "Reload Asset" ) )
+    {
+        ioResult.m_ContextAction = AssetContextAction::ReloadTexture;
+        ioResult.m_ContextKind = inKind;
+        ioResult.m_ContextPath = inPath;
+    }
+
     ImGui::EndPopup();
 }
 
