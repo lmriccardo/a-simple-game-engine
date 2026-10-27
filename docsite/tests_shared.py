@@ -79,6 +79,27 @@ def test_api_fixture_renders_through_shared_layout():
         assert any(e["url"] == "engine/api/classasge_1_1Foo.html" and e["section"] == "API" for e in index), index
 
 
+def test_search_index_covers_pages_but_not_api():
+    a = s.Page("engine/theory/ecs.html", "ECS", "engine", "Theory", "x")
+    api = s.Page("engine/api/index.html", "API Reference", "engine", "Reference", "x")
+    _reset(a, api)
+    rendered = {
+        "engine/theory/ecs.html": s.render_page(page=a, body="<h1>ECS</h1><p>Sparse set pools</p>"),
+        "engine/api/index.html": "<html></html>",
+    }
+    index = s.build_search_index(rendered)
+    assert [e["url"] for e in index] == ["engine/theory/ecs.html"], index
+    assert index[0]["title"] == "ECS" and index[0]["section"] == "Theory", index
+    assert "Sparse set pools" in index[0]["text"] and "<" not in index[0]["text"], index
+
+
+def test_render_page_has_search_dialog_and_script():
+    p = s.Page("index.html", "Home", "overview", "", "x")
+    _reset(p)
+    out = s.render_page(page=p, body="<h1>Home</h1>", raw=True)
+    assert '<dialog class="search-modal"' in out and "assets/js/search.js" in out, out[-900:]
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

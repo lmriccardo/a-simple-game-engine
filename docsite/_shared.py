@@ -220,11 +220,35 @@ def render_page(*, page: Page, body: str, sidebar: str | None = None, raw: bool 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
 <script src="{main_js}"></script>
+<script src="{rel(depth, 'assets/js/search.js')}"></script>
 {extra_scripts}
 </body>
 </html>
 """
+
+
+def build_search_index(rendered: dict[str, str]) -> list[dict]:
+    """Search entries {title,url,section,text} for every registered non-API page in `rendered`
+    (site-relative path -> HTML). API pages get their own index from generate_api.py."""
+    labels = {key: label for key, label, _ in SECTIONS}
+    out = []
+    for page in SITE_MAP:
+        doc = rendered.get(page.path)
+        if doc is None or page.path.startswith("engine/api/"):
+            continue
+        m = re.search(r'<article class="article">(.*?)</article>', doc, re.S)
+        text = html.unescape(re.sub(r"<[^>]+>", " ", m.group(1) if m else doc))
+        out.append({
+            "title": page.title, "url": page.path,
+            "section": page.group or labels.get(page.section, page.section),
+            "text": re.sub(r"\s+", " ", text).strip()[:2000],
+        })
+    return out
 
 
 def write(path: Path, content: str):
