@@ -7,42 +7,46 @@
 <meta name="description" content="One-shot and looping playback"/>
 <meta property="og:title" content="Audio · ASGE"/>
 <meta property="og:description" content="One-shot and looping playback"/>
-<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
-<link rel="stylesheet" href="../assets/css/style.css"/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
 
 </head>
-<body>
+<body data-root="../../">
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
-    <nav class="nav-links">
-    <a href="../index.html">Overview</a>
-    <a href="../install.html">Install</a>
-    <a href="../examples/index.html" class="active">Examples</a>
-    <div class="nav-dropdown">
-    <a href="../editor/index.html" aria-haspopup="true">Editor<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
-    <div class="nav-menu" role="menu">
-      <a href="../editor/projects-and-scenes.html" role="menuitem">Projects &amp; Scenes</a>
-      <a href="../editor/entities-and-components.html" role="menuitem">Entities &amp; Components</a>
-      <a href="../editor/ui-and-layout.html" role="menuitem">UI &amp; Layout</a>
-      <a href="../editor/viewport-and-navigation.html" role="menuitem">Viewport &amp; Navigation</a>
-      <a href="../editor/assets-and-vfs.html" role="menuitem">Assets &amp; VFS</a>
-      <a href="../editor/advanced-editing.html" role="menuitem">Advanced Editing</a>
-      <a href="../editor/releases.html" role="menuitem">Editor Releases</a>
-    </div>
-    </div>
-    <a href="../api/index.html">API Reference</a>
-    <a href="../releases.html">Releases</a>
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
     <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
       <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
-      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
 </header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html" aria-current="page">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
 <main>
-
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html" aria-current="page">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
 <section style="padding-top:36px;padding-bottom:20px;">
   <div class="container">
     <a class="back-link" href="index.html">&larr; All examples</a>
@@ -52,29 +56,29 @@
         <h1>Audio</h1>
         <p class="lede">One-shot and looping playback</p>
         <p>Demonstrates <code>AudioSource</code>/<code>AudioSystem</code>: replaying a short one-shot "blip" immediately even while it's still sounding, toggling a looping ambient hum, adjusting the audio device's master gain, and detaching a source's stream back to the shared pool.</p>
-        <h3>Controls</h3><ul class="controls-list"><li><kbd>SPACE</kbd> <span>Replay the one-shot blip</span></li><li><kbd>L</kbd> <span>Toggle the looping ambient hum</span></li><li><kbd>↑ / ↓</kbd> <span>Master volume</span></li><li><kbd>D</kbd> <span>Detach the blip&#x27;s stream back to the pool</span></li></ul>
+        <h3 id="controls">Controls</h3><ul class="controls-list"><li><kbd>SPACE</kbd> <span>Replay the one-shot blip</span></li><li><kbd>L</kbd> <span>Toggle the looping ambient hum</span></li><li><kbd>↑ / ↓</kbd> <span>Master volume</span></li><li><kbd>D</kbd> <span>Detach the blip&#x27;s stream back to the pool</span></li></ul>
         
         <div class="tags" style="margin-top:16px;"><span class="tag">Audio</span></div>
       </div>
-      <div class="example-media"><img src="../assets/img/examples/audio_demo.png" alt="Audio screenshot"/></div>
+      <div class="example-media"><img src="../../assets/img/examples/audio_demo.png" alt="Audio screenshot"/></div>
     </div>
   </div>
 </section>
 
 <section class="alt">
   <div class="container">
-    <h2>Run it yourself</h2>
+    <h2 id="run-it-yourself">Run it yourself</h2>
     <div class="code-card">
   <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
   <pre><code class="language-bash">cmake --build --preset windows-debug --target audio_demo
 # binary lands under bin/ (e.g. bin/Debug/audio_demo.exe on Windows)</code></pre>
 </div>
-    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+    <p class="lede">See <a href="../getting-started.html">Installation</a> for the full build setup.</p>
   </div>
 </section>
 <section>
   <div class="container">
-    <h2>Source</h2>
+    <h2 id="source">Source</h2>
     <div class="code-card">
   <div class="code-card-head"><span>examples/audio_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
   <pre><code class="language-cpp">#pragma once
@@ -113,6 +117,7 @@ public:
     [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
     Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
     void Render(asge::video::IRenderer&amp; inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 18, 18, 24, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
 };
 
@@ -193,14 +198,11 @@ std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
 AudioDemoState::Update(
     [[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const&amp; inInput)
 {
-    asge::game::systems::AudioSystem( m_Registry, m_AudioDev );
     return std::nullopt;
 }
 
 void AudioDemoState::Render(asge::video::IRenderer &amp;inRenderer)
 {
-    inRenderer.Clear({ 18, 18, 24, 255 });
-
     bool ambientPlaying = false;
     if ( auto ambient = m_Registry.GetComponent&lt;AudioSource&gt;(m_Ambient) )
         ambientPlaying = ambient.Value().get().m_Playing;
@@ -215,7 +217,7 @@ void AudioDemoState::Render(asge::video::IRenderer &amp;inRenderer)
     // &quot;AMBIENT&quot; indicator (left) -- lit while the looping background hum plays.
     inRenderer.DrawRect(
         asge::math::Rect{ 120.0f, 220.0f, 200.0f, 160.0f },
-        ambientPlaying ? asge::media::RGBA_Color{ 80, 220, 140, 255 } : asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        ambientPlaying ? asge::graphics::RGBA_Color{ 80, 220, 140, 255 } : asge::graphics::RGBA_Color{ 55, 55, 60, 255 },
         true
     );
 
@@ -227,9 +229,9 @@ void AudioDemoState::Render(asge::video::IRenderer &amp;inRenderer)
 
     inRenderer.DrawRect(
         asge::math::Rect{ 480.0f, 220.0f, 200.0f, 160.0f },
-        blipSounding      ? asge::media::RGBA_Color{ 240, 200, 60, 255 } :
-        blipDetached      ? asge::media::RGBA_Color{ 90, 40, 40, 255 }  :
-                             asge::media::RGBA_Color{ 55, 55, 60, 255 },
+        blipSounding      ? asge::graphics::RGBA_Color{ 240, 200, 60, 255 } :
+        blipDetached      ? asge::graphics::RGBA_Color{ 90, 40, 40, 255 }  :
+                             asge::graphics::RGBA_Color{ 55, 55, 60, 255 },
         true
     );
 
@@ -237,10 +239,10 @@ void AudioDemoState::Render(asge::video::IRenderer &amp;inRenderer)
     // tracks m_MasterVolume -- both driven by AudioDevice::SetGain via
     // AdjustMasterVolume, not a separate progress animation.
     asge::math::Rect const volumeTrack{ 120.0f, 440.0f, 560.0f, 24.0f };
-    inRenderer.DrawRect(volumeTrack, asge::media::RGBA_Color{ 90, 90, 100, 255 }, false);
+    inRenderer.DrawRect(volumeTrack, asge::graphics::RGBA_Color{ 90, 90, 100, 255 }, false);
     inRenderer.DrawRect(
         asge::math::Rect{ volumeTrack.m_X, volumeTrack.m_Y, volumeTrack.m_Width * m_MasterVolume, volumeTrack.m_Height },
-        asge::media::RGBA_Color{ 100, 170, 240, 255 },
+        asge::graphics::RGBA_Color{ 100, 170, 240, 255 },
         true
     );
 }
@@ -305,7 +307,9 @@ std::unique_ptr&lt;AudioDemoGame::StateType&gt; AudioDemoGame::CreateState([[may
     <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/audio_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
   </div>
 </section>
-
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l3"><a href="#controls">Controls</a></li><li class="l2"><a href="#run-it-yourself">Run it yourself</a></li><li class="l2"><a href="#source">Source</a></li></ul></nav></aside>
+</div>
 </main>
 <footer class="site-footer">
   <div class="container">
@@ -313,8 +317,8 @@ std::unique_ptr&lt;AudioDemoGame::StateType&gt; AudioDemoGame::CreateState([[may
     <div class="footer-links">
       <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
-      <a href="../index.html#roadmap">Roadmap</a>
-      <a href="../releases.html">Releases</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
     </div>
   </div>
 </footer>
@@ -322,7 +326,7 @@ std::unique_ptr&lt;AudioDemoGame::StateType&gt; AudioDemoGame::CreateState([[may
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
-<script src="../assets/js/main.js"></script>
+<script src="../../assets/js/main.js"></script>
 
 </body>
 </html>

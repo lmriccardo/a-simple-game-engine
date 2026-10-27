@@ -52,6 +52,15 @@ def test_drawer_has_section_links_for_raw_pages():
     assert 'id="drawer"' in out and 'href="engine/getting-started.html"' in out, out[:900]
 
 
+def test_sidebar_group_order():
+    ex = s.Page("engine/examples/a.html", "A", "engine", "Examples", "x")
+    st = s.Page("engine/getting-started.html", "GS", "engine", "Start", "x")
+    th = s.Page("engine/theory/ecs.html", "ECS", "engine", "Theory", "x")
+    _reset(ex, th, st)
+    html = s.render_sidebar(st)
+    assert html.index("Start") < html.index("Theory") < html.index("Examples"), html
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

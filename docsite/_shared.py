@@ -42,6 +42,10 @@ SECTIONS = [
 ]
 
 
+# Sidebar group order within a section; unknown groups follow in registration order.
+GROUP_ORDER = ["Start", "Guide", "Theory", "Reference", "Examples"]
+
+
 def register(page: Page) -> Page:
     SITE_MAP[:] = [p for p in SITE_MAP if p.path != page.path] + [page]
     return page
@@ -69,7 +73,8 @@ def render_sidebar(page: Page) -> str:
         if p.section == page.section and p.group:
             groups.setdefault(p.group, []).append(p)
     out = []
-    for name, pages in groups.items():
+    known = lambda g: GROUP_ORDER.index(g) if g in GROUP_ORDER else len(GROUP_ORDER)  # noqa: E731
+    for name, pages in sorted(groups.items(), key=lambda kv: known(kv[0])):
         items = []
         for p in pages:
             cur = ' aria-current="page"' if p.path == page.path else ""

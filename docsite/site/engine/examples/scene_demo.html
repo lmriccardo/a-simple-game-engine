@@ -7,42 +7,46 @@
 <meta name="description" content="A whole level loaded from TOML"/>
 <meta property="og:title" content="Scene Management · ASGE"/>
 <meta property="og:description" content="A whole level loaded from TOML"/>
-<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
-<link rel="stylesheet" href="../assets/css/style.css"/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
 
 </head>
-<body>
+<body data-root="../../">
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
-    <nav class="nav-links">
-    <a href="../index.html">Overview</a>
-    <a href="../install.html">Install</a>
-    <a href="../examples/index.html" class="active">Examples</a>
-    <div class="nav-dropdown">
-    <a href="../editor/index.html" aria-haspopup="true">Editor<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></a>
-    <div class="nav-menu" role="menu">
-      <a href="../editor/projects-and-scenes.html" role="menuitem">Projects &amp; Scenes</a>
-      <a href="../editor/entities-and-components.html" role="menuitem">Entities &amp; Components</a>
-      <a href="../editor/ui-and-layout.html" role="menuitem">UI &amp; Layout</a>
-      <a href="../editor/viewport-and-navigation.html" role="menuitem">Viewport &amp; Navigation</a>
-      <a href="../editor/assets-and-vfs.html" role="menuitem">Assets &amp; VFS</a>
-      <a href="../editor/advanced-editing.html" role="menuitem">Advanced Editing</a>
-      <a href="../editor/releases.html" role="menuitem">Editor Releases</a>
-    </div>
-    </div>
-    <a href="../api/index.html">API Reference</a>
-    <a href="../releases.html">Releases</a>
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
     <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
       <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
-      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
 </header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html" aria-current="page">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
 <main>
-
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html" aria-current="page">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
 <section style="padding-top:36px;padding-bottom:20px;">
   <div class="container">
     <a class="back-link" href="index.html">&larr; All examples</a>
@@ -53,29 +57,29 @@
         <p class="lede">A whole level loaded from TOML</p>
         <p>Loads its whole entity set from a hand-authored TOML scene file (<code>assets/scene.toml</code>) via <code>SceneManager::LoadScene</code> instead of spawning entities in code — see <code>ecs_demo</code> for the code-driven equivalent this replaces.</p>
 <p>Ties together every ASGE subsystem at its current state: the virtual filesystem loads the TOML, the asset pipeline resolves textures, the ECS registry holds the resulting entities, and <code>SceneManager</code> can swap the whole active scene at runtime or snapshot it back out to disk.</p>
-        <h3>Controls</h3><ul class="controls-list"><li><kbd>W A S D</kbd> <span>Move the player entity</span></li><li><kbd>P</kbd> <span>Save a snapshot of the current scene back to TOML (edge-triggered)</span></li><li><kbd>L</kbd> <span>Swap to the other scene file, alternating back and forth</span></li></ul>
+        <h3 id="controls">Controls</h3><ul class="controls-list"><li><kbd>W A S D</kbd> <span>Move the player entity</span></li><li><kbd>P</kbd> <span>Save a snapshot of the current scene back to TOML (edge-triggered)</span></li><li><kbd>L</kbd> <span>Swap to the other scene file, alternating back and forth</span></li></ul>
         
         <div class="tags" style="margin-top:16px;"><span class="tag">Scenes</span><span class="tag">ECS</span><span class="tag">Assets</span></div>
       </div>
-      <div class="example-media"><img src="../assets/img/examples/scene_demo.png" alt="Scene Management screenshot"/></div>
+      <div class="example-media"><img src="../../assets/img/examples/scene_demo.png" alt="Scene Management screenshot"/></div>
     </div>
   </div>
 </section>
 
 <section class="alt">
   <div class="container">
-    <h2>Run it yourself</h2>
+    <h2 id="run-it-yourself">Run it yourself</h2>
     <div class="code-card">
   <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
   <pre><code class="language-bash">cmake --build --preset windows-debug --target scene_demo
 # binary lands under bin/ (e.g. bin/Debug/scene_demo.exe on Windows)</code></pre>
 </div>
-    <p class="lede">See <a href="../install.html">Installation</a> for the full build setup.</p>
+    <p class="lede">See <a href="../getting-started.html">Installation</a> for the full build setup.</p>
   </div>
 </section>
 <section>
   <div class="container">
-    <h2>Source</h2>
+    <h2 id="source">Source</h2>
     <div class="code-card">
   <div class="code-card-head"><span>examples/scene_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
   <pre><code class="language-cpp">#pragma once
@@ -104,14 +108,9 @@
  * OnSystemEvent is left empty, same as input_demo, since polling covers
  * everything this demo needs.
  *
- * Notably absent: asge::game::systems::MovementSystem/RenderSystem. Both
- * take a bare Registry and have no notion of &quot;active scene&quot; — SceneManager
- * now keeps every resident scene&#x27;s entities in the *same* Registry (see its
- * own doc comment), so calling those systems against GetRegistry() directly
- * would move/draw every resident scene at once, not just the active one.
- * MoveActiveEntities()/RenderActiveEntities() below are small local
- * stand-ins scoped to SceneManager::ActiveEntities() instead — teaching the
- * shared systems to be scene-aware for real is future work, not this demo&#x27;s.
+ * Movement, layout, propagation and drawing of the active scene all happen in
+ * Game&lt;TStateId&gt;&#x27;s own per-frame pipeline (SceneManager&#x27;s Registry holds only
+ * the active scene), so this state only reacts to input and scene swaps.
  */
 class SceneDemoState final : public asge::game::state::IGameState&lt;int&gt;
 {
@@ -120,16 +119,7 @@ class SceneDemoState final : public asge::game::state::IGameState&lt;int&gt;
 
     asge::ecs::Entity m_Player{ asge::ecs::Entity::Null() };
 
-    // Textures are cached by the virtual path each Sprite names, so several
-    // entities sharing one texture only create it once -- and so a scene
-    // swap&#x27;s freshly-loaded sprites still resolve against the same cache
-    // instead of recreating a texture already loaded once.
-    std::unordered_map&lt;std::string, std::unique_ptr&lt;asge::video::ITexture&gt;&gt; m_Textures;
-
-    void ResolveSpriteTextures( asge::video::IRenderer&amp; inRenderer );
     void UpdatePlayerVelocity( asge::input::InputState const&amp; inInput );
-    void MoveActiveEntities( float inDeltaTime );   // MovementSystem, scoped to ActiveEntities()
-    void RenderActiveEntities( asge::video::IRenderer&amp; inRenderer ); // RenderSystem, likewise
     void WrapAroundScreen();
     void SaveSceneSnapshot() const;
     void RefreshPlayerReference(); // re-finds &quot;the player&quot; after any (re)load
@@ -141,6 +131,7 @@ public:
     [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
     Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
     void Render(asge::video::IRenderer&amp; inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 15, 15, 20, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
 };
 
@@ -193,106 +184,11 @@ void SceneDemoState::RefreshPlayerReference()
     m_Player = active.empty() ? asge::ecs::Entity::Null() : active.back();
 }
 
-void SceneDemoState::ResolveSpriteTextures(asge::video::IRenderer &amp;inRenderer)
-{
-    for ( auto entity : m_SceneManager.ActiveEntities() )
-    {
-        auto&amp; registry = m_SceneManager.GetRegistry();
-        auto spriteResult = registry.GetComponent&lt;Sprite&gt;(entity);
-        if ( !spriteResult ) continue;
-
-        Sprite&amp; s = spriteResult.Value().get();
-        if ( s.m_Texture || s.m_VirtualPath.empty() ) continue;
-
-        // Cached by virtual path so entities sharing one texture (every
-        // sprite in this demo, all pointing at assets/checker.bmp) only
-        // pay for CreateTexture once -- including across a scene swap,
-        // whose freshly-loaded sprites arrive with m_Texture null again
-        // but hit this same cache instead of recreating it.
-        auto cached = m_Textures.find(s.m_VirtualPath);
-        if ( cached == m_Textures.end() )
-        {
-            auto imageAsset = m_Assets.GetImage(s.m_VirtualPath);
-            if ( !imageAsset )
-            {
-                imageAsset.LogError();
-                continue;
-            }
-
-            auto texture = inRenderer.CreateTexture(imageAsset.Value()-&gt;Get());
-            if ( !texture ) continue;
-            cached = m_Textures.emplace(s.m_VirtualPath, std::move(texture)).first;
-        }
-
-        s.m_Texture = cached-&gt;second.get();
-    }
-}
-
-void SceneDemoState::MoveActiveEntities(float inDeltaTime)
-{
-    // Same logic as asge::game::systems::MovementSystem, just scoped to
-    // ActiveEntities() instead of View&lt;Transform, Velocity&gt;() over the
-    // whole (multi-scene) Registry -- see this class&#x27;s doc comment.
-    auto&amp; registry = m_SceneManager.GetRegistry();
-    for ( auto entity : m_SceneManager.ActiveEntities() )
-    {
-        auto transform = registry.GetComponent&lt;Transform&gt;(entity);
-        auto velocity  = registry.GetComponent&lt;Velocity&gt;(entity);
-        if ( !transform || !velocity ) continue;
-
-        transform.Value().get().m_X += velocity.Value().get().m_DX * inDeltaTime;
-        transform.Value().get().m_Y += velocity.Value().get().m_DY * inDeltaTime;
-    }
-}
-
-void SceneDemoState::RenderActiveEntities(asge::video::IRenderer &amp;inRenderer)
-{
-    // Same logic as asge::game::systems::RenderSystem, scoped the same way
-    // MoveActiveEntities() is -- see this class&#x27;s doc comment.
-    auto&amp; registry = m_SceneManager.GetRegistry();
-    for ( auto entity : m_SceneManager.ActiveEntities() )
-    {
-        auto transformResult = registry.GetComponent&lt;Transform&gt;(entity);
-        auto spriteResult    = registry.GetComponent&lt;Sprite&gt;(entity);
-        if ( !transformResult || !spriteResult ) continue;
-
-        asge::video::ITexture* texture = spriteResult.Value().get().m_Texture;
-        if ( !texture ) continue;
-
-        auto const&amp; t = transformResult.Value().get();
-        auto const&amp; src = spriteResult.Value().get().m_SourceRect;
-
-        float srcW{};
-        float srcH{};
-        if ( src.has_value() )
-        {
-            srcW = src-&gt;m_Width;
-            srcH = src-&gt;m_Height;
-        }
-        else
-        {
-            asge::math::Int2 const texSize = texture-&gt;Size();
-            srcW = static_cast&lt;float&gt;(texSize.x());
-            srcH = static_cast&lt;float&gt;(texSize.y());
-        }
-
-        asge::math::Rect const destRect{
-            t.m_X, t.m_Y,
-            srcW * t.m_ScaleX,
-            srcH * t.m_ScaleY
-        };
-
-        if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, destRect );
-        else                   inRenderer.DrawTexture( *texture, destRect );
-    }
-}
-
 void SceneDemoState::WrapAroundScreen()
 {
     // Demo-specific dressing (not part of the shared Game/Systems library):
     // keeps drifting entities on screen by teleporting them across once
-    // they fully exit one edge. Same approach as ecs_demo, scoped to
-    // ActiveEntities() for the same reason MoveActiveEntities() is.
+    // they fully exit one edge. Same approach as ecs_demo.
     auto&amp; registry = m_SceneManager.GetRegistry();
     for ( auto entity : m_SceneManager.ActiveEntities() )
     {
@@ -300,13 +196,13 @@ void SceneDemoState::WrapAroundScreen()
         if ( !transform ) continue;
 
         auto&amp; t = transform.Value().get();
-        float const margin = 64.0f * std::max(t.m_ScaleX, t.m_ScaleY);
+        float const margin = 64.0f * std::max(t.m_LocalScale.x(), t.m_LocalScale.y());
 
-        if ( t.m_X &lt; -margin )                    t.m_X = kWindowWidth + margin;
-        else if ( t.m_X &gt; kWindowWidth + margin )  t.m_X = -margin;
+        if ( t.m_LocalCoordinates.x() &lt; -margin )                    { t.m_LocalCoordinates.x() = kWindowWidth + margin; t.m_Dirty = true; }
+        else if ( t.m_LocalCoordinates.x() &gt; kWindowWidth + margin )  { t.m_LocalCoordinates.x() = -margin; t.m_Dirty = true; }
 
-        if ( t.m_Y &lt; -margin )                     t.m_Y = kWindowHeight + margin;
-        else if ( t.m_Y &gt; kWindowHeight + margin )  t.m_Y = -margin;
+        if ( t.m_LocalCoordinates.y() &lt; -margin )                     { t.m_LocalCoordinates.y() = kWindowHeight + margin; t.m_Dirty = true; }
+        else if ( t.m_LocalCoordinates.y() &gt; kWindowHeight + margin )  { t.m_LocalCoordinates.y() = -margin; t.m_Dirty = true; }
     }
 }
 
@@ -341,10 +237,9 @@ void SceneDemoState::SaveSceneSnapshot() const
 }
 
 std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
-SceneDemoState::Update(float inDeltaTime, asge::input::InputState const&amp; inInput)
+SceneDemoState::Update([[maybe_unused]] float inDeltaTime, asge::input::InputState const&amp; inInput)
 {
     UpdatePlayerVelocity(inInput);
-    MoveActiveEntities(inDeltaTime);
     WrapAroundScreen();
 
     // Edge-triggered -- IsKeyPressed, not IsKeyDown, so one tap saves once
@@ -354,8 +249,7 @@ SceneDemoState::Update(float inDeltaTime, asge::input::InputState const&amp; inI
     // L requests a swap to the second scene file, alternating back and
     // forth on repeated presses. RequestLoad() only *queues* it -- the
     // swap itself happens below, via ApplyPendingTransition(), now that
-    // MoveActiveEntities()/WrapAroundScreen are done iterating this
-    // frame&#x27;s active entities. Doing the swap immediately from inside this
+    // WrapAroundScreen is done iterating this frame&#x27;s active entities. Doing the swap immediately from inside this
     // Update() would risk mutating the very entity list those two just
     // iterated.
     if ( inInput.IsKeyPressed(asge::input::Keycode::L) )
@@ -375,11 +269,8 @@ SceneDemoState::Update(float inDeltaTime, asge::input::InputState const&amp; inI
     return std::nullopt;
 }
 
-void SceneDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+void SceneDemoState::Render([[maybe_unused]] asge::video::IRenderer &amp;inRenderer)
 {
-    inRenderer.Clear({ 15, 15, 20, 255 });
-    ResolveSpriteTextures(inRenderer); // cheap no-op for sprites that already have a texture
-    RenderActiveEntities(inRenderer);
 }
 
 void SceneDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &amp;inSysEvent)
@@ -397,13 +288,6 @@ SceneDemoGame::SceneDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio
     auto mountResult = m_Vfs.Mount(&quot;assets&quot;, ASGE_SCENE_DEMO_ASSET_DIR);
     if ( !mountResult ) mountResult.LogError();
 
-    // m_SceneManager.LoadScene() directly, not the Game::LoadScene()
-    // convenience wrapper -- that wrapper also runs AssetManager::
-    // ResolveAssets, which would resolve sprites through a texture cache
-    // separate from this demo&#x27;s own m_Textures (see SceneDemoState), and a
-    // later scene swap (see Update()&#x27;s L-key handling) goes through
-    // m_SceneManager directly too, so every load stays on one resolution
-    // path instead of two.
     auto loadResult = m_SceneManager.LoadScene(&quot;assets/scene.toml&quot;);
     if ( !loadResult ) loadResult.LogError();
 
@@ -419,7 +303,9 @@ std::unique_ptr&lt;SceneDemoGame::StateType&gt; SceneDemoGame::CreateState([[may
     <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/scene_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
   </div>
 </section>
-
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l3"><a href="#controls">Controls</a></li><li class="l2"><a href="#run-it-yourself">Run it yourself</a></li><li class="l2"><a href="#source">Source</a></li></ul></nav></aside>
+</div>
 </main>
 <footer class="site-footer">
   <div class="container">
@@ -427,8 +313,8 @@ std::unique_ptr&lt;SceneDemoGame::StateType&gt; SceneDemoGame::CreateState([[may
     <div class="footer-links">
       <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
-      <a href="../index.html#roadmap">Roadmap</a>
-      <a href="../releases.html">Releases</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
     </div>
   </div>
 </footer>
@@ -436,7 +322,7 @@ std::unique_ptr&lt;SceneDemoGame::StateType&gt; SceneDemoGame::CreateState([[may
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
-<script src="../assets/js/main.js"></script>
+<script src="../../assets/js/main.js"></script>
 
 </body>
 </html>

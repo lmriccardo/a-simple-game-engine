@@ -765,3 +765,10 @@ th { color: var(--text-muted); font-weight: 600; }
   .drawer-sections a[aria-current="page"] { background: var(--accent); color: var(--accent-contrast); }
   .drawer .side-group a { padding: 10px 12px; }
 }
+
+/* Legacy hero/section markup reused inside the docs article */
+.article .container { max-width: none; padding: 0; }
+.article .hero { padding: 0 0 8px; border: 0; background: none; }
+.article section.alt { background: none; border: 0; }
+.article .example-hero { grid-template-columns: minmax(0, 1fr); }
+.article .example-media { margin-top: 16px; }
