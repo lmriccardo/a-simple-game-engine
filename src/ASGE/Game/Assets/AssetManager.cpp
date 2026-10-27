@@ -54,6 +54,22 @@ void asge::game::asset::AssetManager::UnloadTexture(str::StringCRef inVirtualPat
     m_TextureCache.erase( inVirtualPath );
 }
 
+void asge::game::asset::AssetManager::ReloadTexture(
+    str::StringCRef inVirtualPath, ecs::Registry &inRegistry) noexcept
+{
+    // Un-resolve first: Sprite::m_Texture points into m_TextureCache, so it
+    // must not be left dangling once UnloadTexture frees the entry.
+    for ( auto [e, sprite] : inRegistry.View<components::Sprite>().IncludeDisabled() )
+    {
+        if ( sprite.get().m_ResolvedVirtualPath != inVirtualPath ) continue;
+        sprite.get().m_Texture = nullptr;
+        sprite.get().m_ResolvedVirtualPath.clear();
+    }
+
+    UnloadTexture( inVirtualPath );
+    m_ImagePool.Remove( inVirtualPath );
+}
+
 asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetFontAtlasTexture(
     media::Font const &inFont, video::IRenderer &inRenderer) noexcept
 {

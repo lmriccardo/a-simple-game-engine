@@ -112,6 +112,14 @@ public:
     void UnloadTexture( str::StringCRef inVirtualPath ) noexcept;
 
     /**
+     * @brief Drops the decoded Image and GPU texture cached for inVirtualPath
+     *        and un-resolves every Sprite in inRegistry using it.
+     * The next ResolveAssets() re-reads the file from disk, so those sprites
+     * pick up its new pixels instead of the stale cached ones.
+     */
+    void ReloadTexture( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept;
+
+    /**
      * @brief Loads (or returns the cached) GPU texture for inFont's baked
      *        glyph atlas, creating it via inRenderer on first request.
      *
