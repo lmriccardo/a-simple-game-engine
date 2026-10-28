@@ -9,11 +9,7 @@
         {
             "name": "windows-base",
             "hidden": true,
-            "generator": "Visual Studio 18 2026",
-            "architecture": {
-                "value": "x64",
-                "strategy": "set"
-            },
+            "generator": "Ninja Multi-Config",
             "binaryDir": "${sourceDir}/build",
             "condition": {
                 "type": "equals",
@@ -24,7 +20,7 @@
         {
             "name": "windows",
             "displayName": "Windows (dev: tests + examples)",
-            "description": "Matches the day-to-day local dev loop: multi-config VS generator, tests and examples both built.",
+            "description": "Matches the day-to-day local dev loop: Ninja Multi-Config generator (run from a VS Developer shell), tests and examples both built.",
             "inherits": "windows-base",
             "cacheVariables": {
                 "BUILD_TESTING": "ON",
@@ -56,6 +52,7 @@
         {
             "name": "linux-base",
             "hidden": true,
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "condition": {
                 "type": "equals",
@@ -121,6 +118,7 @@
         {
             "name": "macos-base",
             "hidden": true,
+            "generator": "Ninja",
             "binaryDir": "${sourceDir}/build",
             "condition": {
                 "type": "equals",
