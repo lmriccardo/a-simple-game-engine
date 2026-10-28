@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <system_error>
 
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
-#include <ASGE/Core/Configuration/TOML_Parser.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
 
 namespace
 {

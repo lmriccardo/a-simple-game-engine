@@ -1,4 +1,4 @@
-#include <ASGE/Core/Configuration/TOML_Parser.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
 #include <ASGE/Core/Errors.hpp>
 
 #include <gtest/gtest.h>

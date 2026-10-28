@@ -2,8 +2,8 @@
 #include "Inspector.hpp"
 
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
-#include <ASGE/Core/Configuration/TOML_Parser.hpp>
-#include <ASGE/Core/Configuration/TOML_TableView.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_TableView.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Game/Assets/FrameTable.hpp>
 

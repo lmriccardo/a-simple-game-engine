@@ -9,7 +9,7 @@
 #include <ASGE/Core/Filesystem/Filesystem.hpp>
 #include <ASGE/Core/Errors.hpp>
 
-#include "TOML_Parser.hpp"
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
 
 namespace asge::config
 {
