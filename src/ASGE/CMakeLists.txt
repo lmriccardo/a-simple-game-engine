@@ -52,7 +52,7 @@ add_library(ASGE STATIC
     Core/Memory/LinearAllocator.cpp
 
     # Configuration utilities
-    Core/Configuration/TOML_Parser.cpp
+    Core/Formats/TOML/TOML_Parser.cpp
     Core/Configuration/ConfigurationManager.cpp
 
     # String utilities

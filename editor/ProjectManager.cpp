@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
 #include <ASGE/Core/Errors.hpp>
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Game/Project/Project.hpp>

@@ -1,5 +1,5 @@
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
-#include <ASGE/Core/Configuration/TOML_Parser.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
 #include <ASGE/Core/Configuration/ConfigurationManager.hpp>
 
 #include <gtest/gtest.h>

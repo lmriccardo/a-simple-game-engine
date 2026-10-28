@@ -1,6 +1,4 @@
 add_executable(ASGE_ConfigurationTests
-    TOMLParserTests.cpp
-    TOMLBuilderTests.cpp
     ConfigurationManagerTests.cpp
 )
 

@@ -1,9 +1,9 @@
 #include "FrameTable.hpp"
 
 #include <algorithm>
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
-#include <ASGE/Core/Configuration/TOML_Parser.hpp>
-#include <ASGE/Core/Configuration/TOML_TableView.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_TableView.hpp>
 #include <ASGE/Core/Strings.hpp>
 
 namespace

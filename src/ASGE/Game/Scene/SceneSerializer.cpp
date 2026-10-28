@@ -1,7 +1,7 @@
 #include "SceneSerializer.hpp"
 #include <utility>
 #include <vector>
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
 #include <ASGE/Game/Components.hpp>
 
 #include "Serialize.hpp"

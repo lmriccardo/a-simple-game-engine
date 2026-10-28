@@ -1,5 +1,5 @@
 #include <ASGE/Game/Project/Project.hpp>
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
 
 #include <gtest/gtest.h>
 

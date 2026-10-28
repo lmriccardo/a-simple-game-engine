@@ -2,7 +2,7 @@
 #include <ASGE/Audio/AudioDevice.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Velocity.hpp>
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
 #include <ASGE/Game/Scene/SceneSerializer.hpp>
 #include <filesystem>
 

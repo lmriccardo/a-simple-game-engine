@@ -1,7 +1,7 @@
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
-#include <ASGE/Core/Configuration/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
 
 #include <gtest/gtest.h>
 
