@@ -45,7 +45,7 @@ jobs:
       - uses: seanmiddleditch/gha-setup-ninja@v5
 
       - name: Set up MSVC environment
-        if: runner.os == \'Windows\'
+        if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Install dependencies on Linux or macOS
