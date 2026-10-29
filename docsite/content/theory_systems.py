@@ -268,6 +268,22 @@ happens next.</p>
 (do these two shapes overlap, and by how much) and <em>resolution</em> (push them apart, or just report it). Shapes carry
 a <em>layer</em> and a <em>mask</em> so, for example, bullets can ignore other bullets.</p>
 
+<h3>Why a broad phase</h3>
+<p>Testing every shape against every other costs O(n&sup2;) checks per frame: 1,000 colliders is about half a million
+pairs, almost all of them far apart. The broad phase throws away the obvious non-pairs cheaply, using only bounding
+boxes, so the expensive narrow-phase test runs on a handful of candidates.</p>
+
+<h3>Quadtrees</h3>
+<p>A <em>quadtree</em> is a tree that recursively splits 2D space. The root covers the whole world; when a node holds
+too many elements it is cut into four equal quadrants (NW, NE, SW, SE) and its elements move down into the child that
+contains them. Nodes in crowded areas keep splitting, empty areas stay as big cheap nodes. An element that straddles a
+split line fits no single quadrant, so it stays in the parent.</p>
+<p>Two things follow. A <em>query</em> ("what overlaps this rect?") skips every subtree whose quadrant does not touch
+the rect, so it costs roughly O(log n + k) for k results instead of O(n). And a <em>pair search</em> only has to compare
+an element with the others in its own node and in the nodes above and below it, never with distant quadrants. The price
+is rebuilding the tree when things move; for a moving scene the usual choice is to rebuild it every frame, which is cheap
+because inserts are cheap.</p>
+
 <h2>How ASGE does it</h2>
 <h3>Components</h3>
 <ul>
@@ -280,21 +296,28 @@ a <em>layer</em> and a <em>mask</em> so, for example, bullets can ignore other b
 <p>These run inside <code>Game::Update</code> in this order (see <a href="game-loop.html">Game loop &amp; timing</a>):</p>
 <ol>
   <li><code>GravitySystem</code> and <code>MovementSystem</code>: plain Euler integration, <code>position += velocity * dt</code>.</li>
-  <li><code>DetectCollisions</code>: a naive all-pairs check that skips pairs whose layer/mask do not match and dispatches on the actual shape pair, returning a list of <code>CollisionContact</code>.</li>
-  <li><code>ResolveCollisions</code>: pushes apart every non-trigger contact using the penetration vector from <code>math::PenetrationVector</code>.</li>
-  <li><code>DispatchTriggerEvents</code>: fires <code>OnCollisionTriggerEnter</code>, <code>Stay</code> and <code>Exit</code> for trigger contacts, using <code>PhysicsState</code> to remember last frame's pairs.</li>
+  <li><code>CollisionSystem</code>: detection, resolution and trigger events in one pass, described below.</li>
 </ol>
+
+<h3>Collision pipeline</h3>
+<ol>
+  <li><strong>Build the broad phase.</strong> Every frame, <code>CollisionSystem</code> computes the rect enclosing all colliders, <code>Reset</code>s a <code>spatial::QuadTree&lt;Entity&gt;</code> to that area and <code>Insert</code>s each entity with its world-space bounds. A circle is inserted as its bounding rect, so the tree only ever deals in rectangles.</li>
+  <li><strong>Find candidate pairs.</strong> <code>QuadTree::ForEachPair</code> reports each unordered pair of overlapping bounding rects exactly once, never an element with itself.</li>
+  <li><strong>Narrow phase, per pair.</strong> Pairs whose layer/mask do not match, with an <code>Unknown</code> resolution, or on the same body are skipped. The rest go through the exact shape test, <code>math::PenetrationVector</code> (rect/rect, circle/circle or rect/circle), which returns a push-out vector or nothing. <code>Solid</code> pairs are pushed apart (mass-weighted; only bodies with <code>Velocity</code> and <code>Rigidbody</code> move). <code>Trigger</code> pairs are recorded instead.</li>
+  <li><strong>Emit trigger events.</strong> Only after the traversal ends, so handlers cannot touch the registry mid-walk, <code>OnCollisionTriggerEnter</code> and <code>Stay</code> fire, then <code>Exit</code> for last frame's pairs that are gone, using <code>PhysicsState</code> to remember them.</li>
+</ol>
+
+<h3>The QuadTree</h3>
+<p><code>asge::spatial::QuadTree&lt;T&gt;</code> (in <code>Core/Spatial</code>) is a region quadtree over axis-aligned rectangles. A leaf splits when it holds more than 16 elements (<code>s_MaxNofElements</code>), down to a depth of 10 (<code>s_MaxDepth</code>). Each element lives in the deepest node whose quadrant fully contains it. Nodes and element blocks are carved out of a fixed-size arena, so <code>Insert</code> never touches the heap; if the arena or element budget runs out the tree degrades (the system logs a warning) instead of failing. Elements cannot be removed one by one, which is why the physics system rebuilds the tree each frame.</p>
+<p>Besides <code>ForEachPair</code> it offers <code>Query</code> by rect, point or circle, and <code>Nearest</code> for the closest element to a point.</p>
 """ + code_card("physics.cpp", "cpp", """using namespace asge::game::components;
 
 auto& collider = registry.GetOrAddComponent<Collider>( entity ).get();
 collider.m_Resolution = ResolutionType::Trigger;   // sensor: reports overlaps, never pushes
 collider.m_Layer      = 0b01;                      // I live on layer 1...
 collider.m_Mask       = 0b10;                      // ...and only care about layer 2""") + """
-<p>The all-pairs check is simple and fine for small scenes; a broad-phase structure is the natural upgrade if
-entity counts grow.</p>
-
 <h2>See also</h2>
-<p>Source: """ + src("Game/Systems/PhysicsSystem.hpp") + ", " + src("Game/Components/Collider.hpp") + ", " + src("Core/Math/Geometry/Collision.hpp") + """.
+<p>Source: """ + src("Game/Systems/PhysicsSystem.hpp") + ", " + src("Game/Components/Collider.hpp") + ", " + src("Core/Math/Geometry/Collision.hpp") + ", " + src("Core/Spatial/QuadTree.hpp") + """.
 <a href="../examples/physics_demo.html">Physics demo</a> &middot; <a href="math.html">Math</a></p>
 """
 
