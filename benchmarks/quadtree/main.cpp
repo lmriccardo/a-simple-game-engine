@@ -173,6 +173,28 @@ Checksum TreePairs( Tree const& inTree, std::vector<Rect> const& inRects )
     return TreeQueries( inTree, inRects );
 }
 
+/** @brief Counts each overlapping unordered pair once by linear scan; the sum adds both ids. */
+Checksum BruteUniquePairs( std::vector<Rect> const& inRects )
+{
+    Checksum sum;
+    for ( std::size_t i = 0; i < inRects.size(); ++i )
+    {
+        for ( std::size_t j = i + 1; j < inRects.size(); ++j )
+        {
+            if ( asge::math::AabbOverlap( inRects[i], inRects[j] ) ) { ++sum.m_Hits; sum.m_Sum += i + j; }
+        }
+    }
+    return sum;
+}
+
+/** @brief Same checksum as BruteUniquePairs, produced by the tree's ForEachPair. */
+Checksum TreeUniquePairs( Tree const& inTree )
+{
+    Checksum sum;
+    inTree.ForEachPair( [&sum]( int a, int b ) { ++sum.m_Hits; sum.m_Sum += static_cast<std::uint64_t>( a + b ); return true; } );
+    return sum;
+}
+
 struct Row
 {
     std::string m_Dist;       // Distribution name
@@ -274,6 +296,22 @@ void RunCase( Distribution inDist, std::size_t inN, Options const& inOptions, st
 
     Checksum pairsTree, pairsBrute;
     auto const pairsTreeStats = bench::Measure( warmup, inOptions.m_Reps, [&] { pairsTree = TreePairs( tree, rects ); } );
+    Checksum uniqueTree, uniqueBrute;
+    auto const uniqueStats = bench::Measure( warmup, inOptions.m_Reps, [&] { uniqueTree = TreeUniquePairs( tree ); } );
+    if ( inN <= k_BruteForcePairsLimit )
+    {
+        auto const uniqueBruteStats = bench::Measure( 1, bruteReps, [&] { uniqueBrute = BruteUniquePairs( rects ); } );
+        add( "pairs", uniqueBruteStats.m_MedianNs, uniqueStats, static_cast<double>( inN ), uniqueBrute == uniqueTree );
+    }
+    else
+    {
+        // Every ordered pair appears twice in all-pairs, plus one self hit per rect
+        Checksum expected;
+        expected.m_Hits = ( pairsTree.m_Hits - inN ) / 2;
+        expected.m_Sum  = pairsTree.m_Sum - static_cast<std::uint64_t>( inN ) * ( inN - 1 ) / 2;
+        add( "pairs", -1.0, uniqueStats, static_cast<double>( inN ), expected == uniqueTree );
+    }
+
     if ( inN <= k_BruteForcePairsLimit )
     {
         auto const pairsBruteStats = bench::Measure( 1, bruteReps, [&] { pairsBrute = BrutePairs( rects ); } );

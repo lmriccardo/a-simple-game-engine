@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <random>
+#include <set>
 #include <system_error>
 #include <vector>
 
@@ -313,6 +314,153 @@ TEST_F(QuadTreeTest, Query_VisitsParentBeforeChildrenInQuadrantOrder)
     ASSERT_EQ( order.size(), 13u );
     EXPECT_GE( order[0], 100 ); // the straddlers held by the root come first
     EXPECT_EQ( std::vector<int>( order.end() - 4, order.end() ), ( std::vector<int>{ 0, 1, 2, 3 } ) );
+}
+
+// ─── ForEachPair ──────────────────────────────────────────────────────
+
+using PairList = std::vector<std::pair<int, int>>;
+
+PairList BrutePairs( std::vector<Rect> const& inRects, std::vector<int> const& inIds )
+{
+    PairList out;
+    for ( std::size_t i = 0; i < inRects.size(); ++i )
+    {
+        for ( std::size_t j = i + 1; j < inRects.size(); ++j )
+        {
+            if ( asge::math::AabbOverlap( inRects[i], inRects[j] ) )
+            {
+                out.emplace_back( std::min( inIds[i], inIds[j] ), std::max( inIds[i], inIds[j] ) );
+            }
+        }
+    }
+    std::sort( out.begin(), out.end() );
+    return out;
+}
+
+PairList TreePairs( QuadTree<int> const& inTree )
+{
+    PairList out;
+    inTree.ForEachPair( [&out]( int a, int b ) { out.emplace_back( std::min( a, b ), std::max( a, b ) ); return true; } );
+    std::sort( out.begin(), out.end() );
+    return out;
+}
+
+TEST_F(QuadTreeTest, ForEachPair_BeforeReset_VisitsNothing)
+{
+    QuadTree<int> tree( k_NodeBytes, k_MaxElements );
+    int calls = 0;
+    tree.ForEachPair( [&calls]( int, int ) { ++calls; return true; } );
+    EXPECT_EQ( calls, 0 );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_SingleElement_VisitsNothing)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 10.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+    EXPECT_TRUE( TreePairs( m_Tree ).empty() );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_TwoOverlappingElements_ReportedOnce)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 10.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 12.0f, 12.0f, 5.0f, 5.0f } ).IsOk() );
+    EXPECT_EQ( TreePairs( m_Tree ), ( PairList{ { 1, 2 } } ) );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_TouchingElements_NotReported)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 10.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 15.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+    EXPECT_TRUE( TreePairs( m_Tree ).empty() );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_CoincidentElements_EveryCombinationOnce)
+{
+    for ( int i = 0; i < 20; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 5.0f, 5.0f, 2.0f, 2.0f } ).IsOk() );
+    }
+    EXPECT_EQ( TreePairs( m_Tree ).size(), 190u );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_OverlappingStraddlersInRoot_Reported)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 30.0f, 30.0f, 40.0f, 40.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 40.0f, 40.0f, 40.0f, 40.0f } ).IsOk() );
+    EXPECT_EQ( TreePairs( m_Tree ), ( PairList{ { 1, 2 } } ) );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_StraddlerAgainstDeepElements_Reported)
+{
+    for ( int i = 0; i < 40; ++i )
+    {
+        float const x = static_cast<float>( 1 + ( i % 8 ) * 3 );
+        float const y = static_cast<float>( 1 + ( i / 8 ) * 3 );
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ x, y, 1.0f, 1.0f } ).IsOk() );
+    }
+    ASSERT_TRUE( m_Tree.Insert( 100, Rect{ 0.0f, 0.0f, 60.0f, 60.0f } ).IsOk() );
+
+    PairList const pairs = TreePairs( m_Tree );
+    EXPECT_EQ( pairs.size(), 40u );
+    for ( auto const& [a, b] : pairs ) EXPECT_EQ( b, 100 );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_VisitorReturningFalse_StopsTraversal)
+{
+    for ( int i = 0; i < 20; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 5.0f, 5.0f, 2.0f, 2.0f } ).IsOk() );
+    }
+
+    int calls = 0;
+    m_Tree.ForEachPair( [&calls]( int, int ) { return ++calls < 3; } );
+    EXPECT_EQ( calls, 3 );
+}
+
+TEST_F(QuadTreeTest, ForEachPair_MatchesBruteForceOnRandomData)
+{
+    std::mt19937 rng( 99 );
+    std::uniform_real_distribution<float> pos( 0.0f, 90.0f ), size( 0.5f, 6.0f ), big( 20.0f, 40.0f );
+
+    std::vector<Rect> rects;
+    std::vector<int> ids;
+    for ( int i = 0; i < 600; ++i )
+    {
+        float const w = ( i % 25 == 0 ) ? big( rng ) : size( rng );
+        float const h = ( i % 25 == 0 ) ? big( rng ) : size( rng );
+        Rect r{ pos( rng ), pos( rng ), w, h };
+        r.m_X = std::min( r.m_X, 100.0f - w );
+        r.m_Y = std::min( r.m_Y, 100.0f - h );
+        rects.push_back( r );
+        ids.push_back( i );
+        ASSERT_TRUE( m_Tree.Insert( i, r ).IsOk() );
+    }
+
+    PairList const expected = BrutePairs( rects, ids );
+    PairList const actual   = TreePairs( m_Tree );
+
+    EXPECT_EQ( actual, expected );
+    std::set<std::pair<int, int>> const unique( actual.begin(), actual.end() );
+    EXPECT_EQ( unique.size(), actual.size() ) << "duplicate pair";
+}
+
+TEST_F(QuadTreeTest, ForEachPair_AnyArenaSize_MatchesBruteForceOnAcceptedElements)
+{
+    for ( std::size_t bytes = 128; bytes <= 8192; bytes += 160 )
+    {
+        QuadTree<int> tree( bytes, k_MaxElements );
+        tree.Reset( 100.0f, 100.0f );
+
+        std::vector<Rect> rects;
+        std::vector<int> ids;
+        for ( int i = 0; i < 120; ++i )
+        {
+            float const size = ( i % 5 == 0 ) ? 30.0f : 3.0f;
+            Rect const r{ static_cast<float>( ( i * 7 ) % 70 ), static_cast<float>( ( i * 13 ) % 70 ), size, size };
+            if ( tree.Insert( i, r ).IsOk() ) { rects.push_back( r ); ids.push_back( i ); }
+        }
+
+        EXPECT_EQ( TreePairs( tree ), BrutePairs( rects, ids ) ) << "arena bytes: " << bytes;
+    }
 }
 
 // ─── Reset ────────────────────────────────────────────────────────────

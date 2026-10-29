@@ -1,6 +1,7 @@
 #pragma once
 
 #include <system_error>
+#include "QuadTree.hpp"
 
 namespace asge::spatial
 {
@@ -237,6 +238,83 @@ inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect,
 }
 
 template <typename T>
+template <typename Visitor>
+inline bool QuadTree<T>::visitPairs(
+    QuadNode const *inNode, std::vector<Entry> &ioScratch, 
+    std::size_t inAncBegin, std::size_t inAncEnd, Visitor &inVisitor) const
+{
+    // Pairs inside the node, and between the node's elements and the ancestor elements
+    for ( QuadBlockHeader const* h1 = inNode->m_Head; h1 != nullptr; h1 = h1->m_Next )
+    {
+        Block const* block1 = static_cast<Block const*>( h1 );
+
+        for ( std::uint32_t i = 0; i < block1->m_Used; ++i )
+        {
+            math::Rect const& rect  = block1->m_Bounds[i];
+            T const&          value = block1->m_Values[i];
+
+            for ( std::size_t a = inAncBegin; a < inAncEnd; ++a )
+            {
+                if ( math::AabbOverlap( rect, ioScratch[a].m_Bounds ) && !inVisitor( value, ioScratch[a].m_Value ) )
+                {
+                    return false;
+                }
+            }
+
+            for ( QuadBlockHeader const* h2 = h1; h2 != nullptr; h2 = h2->m_Next )
+            {
+                Block const* block2 = static_cast<Block const*>( h2 );
+
+                for ( std::uint32_t j = ( h2 == h1 ) ? i + 1 : 0; j < block2->m_Used; ++j )
+                {
+                    if ( math::AabbOverlap( rect, block2->m_Bounds[j] ) && !inVisitor( value, block2->m_Values[j] ) )
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    if ( inNode->IsLeaf() ) return true;
+
+    for ( QuadNode const* child : inNode->m_Children )
+    {
+        // Only what overlaps the child's area can pair with something inside it
+        std::size_t const childBegin = ioScratch.size();
+
+        for ( std::size_t a = inAncBegin; a < inAncEnd; ++a )
+        {
+            if ( math::AabbOverlap( ioScratch[a].m_Bounds, child->m_Bounds ) )
+            {
+                Entry const entry = ioScratch[a];
+                ioScratch.push_back( entry );
+            }
+        }
+
+        for ( QuadBlockHeader const* h = inNode->m_Head; h != nullptr; h = h->m_Next )
+        {
+            Block const* block = static_cast<Block const*>( h );
+
+            for ( std::uint32_t i = 0; i < block->m_Used; ++i )
+            {
+                if ( math::AabbOverlap( block->m_Bounds[i], child->m_Bounds ) )
+                {
+                    ioScratch.push_back( Entry{ block->m_Bounds[i], block->m_Values[i] } );
+                }
+            }
+        }
+
+        bool const keepGoing = visitPairs( child, ioScratch, childBegin, ioScratch.size(), inVisitor );
+        ioScratch.erase( ioScratch.begin() + static_cast<std::ptrdiff_t>( childBegin ), ioScratch.end() );
+
+        if ( !keepGoing ) return false;
+    }
+
+    return true;
+}
+
+template <typename T>
 inline QuadTree<T>::QuadTree(std::size_t inArenaBytes, std::size_t inMaxElements)
     : m_Allocator( inArenaBytes ), m_MaxElements( inMaxElements )
 {
@@ -289,6 +367,17 @@ template <typename Visitor>
 inline void QuadTree<T>::Query(math::Rect const &inRect, Visitor &&inVisitor) const
 {
     if ( m_Root ) query( m_Root, inRect, inVisitor );
+}
+
+template <typename T>
+template <typename Visitor>
+inline void QuadTree<T>::ForEachPair(Visitor &&inVisitor) const
+{
+    if ( m_Root == nullptr ) return;
+
+    std::vector<Entry> scratch;
+    scratch.reserve( 256 );
+    visitPairs( m_Root, scratch, 0, 0, inVisitor );
 }
 
 }

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <new>
 #include <type_traits>
+#include <vector>
 
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
@@ -69,6 +70,13 @@ class QuadTree
         std::array<T, s_BlockCapacity>           m_Values; // Element values
     };
 
+    /** @brief Copy of an element of a node above the one being visited, used by ForEachPair. */
+    struct Entry
+    {
+        math::Rect  m_Bounds; // Element bounds
+        T           m_Value;  // Element value
+    };
+
     mem::ArenaAllocator m_Allocator;                    // Arena allocator for nodes and blocks
     QuadNode*           m_Root       { nullptr };       // Root Node of the Tree
     QuadBlockHeader*    m_FreeBlocks { nullptr };       // Blocks released by subdivision, reused first
@@ -110,6 +118,17 @@ class QuadTree
     template<typename Visitor>
     bool query( QuadNode const* inNode, math::Rect const& inRect, Visitor& inVisitor ) const;
 
+    /**
+     * @brief Reports the overlapping pairs found in the subtree of inNode.
+     *
+     * ioScratch[inAncBegin, inAncEnd) holds the ancestor elements that overlap inNode and is
+     * the end of the buffer on entry; children append their own filtered list after it and
+     * truncate back once visited. Returns false once the visitor asked to stop.
+     */
+    template<typename Visitor>
+    bool visitPairs( QuadNode const* inNode, std::vector<Entry>& ioScratch,
+                     std::size_t inAncBegin, std::size_t inAncEnd, Visitor& inVisitor ) const;
+
 public:
     /** @brief Reserves an arena of inArenaBytes for nodes and element blocks, and caps the tree at inMaxElements. */
     QuadTree( std::size_t inArenaBytes, std::size_t inMaxElements );
@@ -137,6 +156,9 @@ public:
      */
     template<typename Visitor>
     void Query( math::Rect const& inRect, Visitor&& inVisitor ) const;
+
+    template<typename Visitor>
+    void ForEachPair( Visitor&& inVisitor ) const;
 };
 
 }
