@@ -195,16 +195,13 @@ public:
             ApplyTransition( *transition );
 
         auto& registry = m_SceneManager.GetRegistry();
+        
         systems::GravitySystem( registry, inDeltaTime );
         systems::MovementSystem( registry, inDeltaTime );
         systems::PathFollowingSystem( registry, inDeltaTime );
         systems::UILayoutSystem( registry );
         systems::TransformPropagationSystem( registry );
-
-        auto contacts = systems::DetectCollisions( registry );
-        systems::ResolveCollisions( registry, contacts );
-        systems::DispatchTriggerEvents( m_PhysicsState, contacts );
-
+        systems::CollisionSystem( registry, m_PhysicsState );
         systems::AudioSystem( registry, m_AudioDev );
     }
 

@@ -21,3 +21,13 @@ float asge::math::Distance(Rect const &inRect, Float2 const &inP) noexcept
     float const closestY = std::clamp( inP.y(), inRect.m_Y, inRect.m_Y + inRect.m_Height );
     return Distance( Float2{ closestX, closestY }, inP );
 }
+
+asge::math::Rect asge::math::Merge(Rect const &inR1, Rect const &inR2) noexcept
+{
+    float const startX = std::min( inR1.m_X, inR2.m_X );
+    float const startY = std::min( inR1.m_Y, inR2.m_Y );
+    float const stopX  = std::max( inR1.m_X + inR1.m_Width, inR2.m_X + inR2.m_Width ); 
+    float const stopY  = std::max( inR1.m_Y + inR1.m_Height, inR2.m_Y + inR2.m_Height );
+
+    return Rect{ startX, startY, stopX - startX, stopY - startY };
+}

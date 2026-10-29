@@ -226,4 +226,45 @@ TEST(DistanceRectTest, PointPastACorner_ReturnsDistanceToCorner)
     EXPECT_FLOAT_EQ(Distance(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Float2{13.0f, 14.0f}), 5.0f);
 }
 
+// ─── Merge ───────────────────────────────────────────────────────────────────
+
+namespace
+{
+void ExpectRectEq(Rect const& inActual, Rect const& inExpected)
+{
+    EXPECT_FLOAT_EQ(inActual.m_X, inExpected.m_X);
+    EXPECT_FLOAT_EQ(inActual.m_Y, inExpected.m_Y);
+    EXPECT_FLOAT_EQ(inActual.m_Width, inExpected.m_Width);
+    EXPECT_FLOAT_EQ(inActual.m_Height, inExpected.m_Height);
+}
+}
+
+TEST(MergeRectTest, DisjointRects_ReturnsEnclosingRect)
+{
+    ExpectRectEq(Merge(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Rect{20.0f, 30.0f, 5.0f, 5.0f}), Rect{0.0f, 0.0f, 25.0f, 35.0f});
+}
+
+TEST(MergeRectTest, OverlappingRects_ReturnsUnionBounds)
+{
+    ExpectRectEq(Merge(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Rect{5.0f, 5.0f, 10.0f, 10.0f}), Rect{0.0f, 0.0f, 15.0f, 15.0f});
+}
+
+TEST(MergeRectTest, ContainedRect_ReturnsOuterRect)
+{
+    Rect const outer{0.0f, 0.0f, 20.0f, 20.0f};
+    ExpectRectEq(Merge(outer, Rect{5.0f, 5.0f, 2.0f, 2.0f}), outer);
+}
+
+TEST(MergeRectTest, NegativeCoordinates_ReturnsEnclosingRect)
+{
+    ExpectRectEq(Merge(Rect{-10.0f, -20.0f, 5.0f, 5.0f}, Rect{0.0f, 0.0f, 4.0f, 4.0f}), Rect{-10.0f, -20.0f, 14.0f, 24.0f});
+}
+
+TEST(MergeRectTest, ArgumentOrder_DoesNotMatter)
+{
+    Rect const a{-3.0f, 2.0f, 4.0f, 6.0f};
+    Rect const b{7.0f, -1.0f, 2.0f, 2.0f};
+    ExpectRectEq(Merge(a, b), Merge(b, a));
+}
+
 }

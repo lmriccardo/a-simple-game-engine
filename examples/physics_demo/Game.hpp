@@ -23,7 +23,7 @@
  * other. Both still land on the floor/walls normally (m_Mask still includes
  * the default layer everything else uses), but the second one falls
  * straight through the first instead of stacking on it -- see SpawnBox's
- * inLayer/inMask parameters and components::details::LayersCanCollide.
+ * inLayer/inMask parameters and components::LayersCanCollide.
  */
 
 #include <ASGE/ASGE.hpp>

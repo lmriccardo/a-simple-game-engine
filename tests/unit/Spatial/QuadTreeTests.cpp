@@ -758,6 +758,33 @@ TEST_F(QuadTreeTest, Reset_ResizesRootBounds)
     EXPECT_EQ( result.Code(), std::make_error_code( std::errc::invalid_argument ) );
 }
 
+TEST_F(QuadTreeTest, ResetRect_OffsetBounds_AcceptsInsideAndRejectsOutside)
+{
+    ASSERT_TRUE( m_Tree.Reset( Rect{ -50.0f, 20.0f, 100.0f, 40.0f } ).IsOk() );
+
+    EXPECT_TRUE( m_Tree.Insert( 1, Rect{ -50.0f, 20.0f, 10.0f, 10.0f } ).IsOk() );
+    EXPECT_TRUE( m_Tree.Insert( 2, Rect{ 40.0f, 50.0f, 10.0f, 10.0f } ).IsOk() );
+
+    auto result = m_Tree.Insert( 3, Rect{ 1.0f, 1.0f, 1.0f, 1.0f } );
+    ASSERT_FALSE( result.IsOk() );
+    EXPECT_EQ( result.Code(), std::make_error_code( std::errc::invalid_argument ) );
+    EXPECT_EQ( Collect( Rect{ -50.0f, 20.0f, 100.0f, 40.0f } ).size(), 2u );
+}
+
+TEST_F(QuadTreeTest, ResetRect_InvalidBounds_ReturnsInvalidArgument)
+{
+    float const nan = std::numeric_limits<float>::quiet_NaN();
+    float const inf = std::numeric_limits<float>::infinity();
+
+    for ( Rect const& r : { Rect{ 0.0f, 0.0f, 0.0f, 10.0f }, Rect{ 0.0f, 0.0f, 10.0f, -1.0f }, Rect{ nan, 0.0f, 10.0f, 10.0f },
+                            Rect{ 0.0f, inf, 10.0f, 10.0f }, Rect{ 0.0f, 0.0f, nan, 10.0f } } )
+    {
+        auto result = m_Tree.Reset( r );
+        ASSERT_FALSE( result.IsOk() );
+        EXPECT_EQ( result.Code(), std::make_error_code( std::errc::invalid_argument ) );
+    }
+}
+
 TEST_F(QuadTreeTest, Reset_AfterHeavyUse_ReusesArenaAndCapacity)
 {
     for ( int round = 0; round < 5; ++round )

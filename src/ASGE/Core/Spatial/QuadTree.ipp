@@ -373,6 +373,12 @@ inline QuadTree<T>::QuadTree(std::size_t inArenaBytes, std::size_t inMaxElements
 template <typename T>
 inline asge::BoolResult QuadTree<T>::Reset(float inW, float inH) noexcept
 {
+    return Reset( math::Rect{ 0.0f, 0.0f, inW, inH } );
+}
+
+template <typename T>
+inline asge::BoolResult QuadTree<T>::Reset(math::Rect const &inBounds) noexcept
+{
     m_Allocator.Reset();
     m_FreeBlocks = nullptr;
     m_Size = 0;
@@ -381,12 +387,14 @@ inline asge::BoolResult QuadTree<T>::Reset(float inW, float inH) noexcept
     m_Exhausted = false;
     m_Root = nullptr;
 
-    if ( !( std::isfinite( inW ) && std::isfinite( inH ) && inW > 0.0f && inH > 0.0f ) )
+    if ( !( std::isfinite( inBounds.m_X ) && std::isfinite( inBounds.m_Y ) &&
+            std::isfinite( inBounds.m_Width ) && std::isfinite( inBounds.m_Height ) &&
+            inBounds.m_Width > 0.0f && inBounds.m_Height > 0.0f ) )
     {
-        return BoolResult::Err( std::make_error_code( std::errc::invalid_argument ), "tree size must be finite and positive" );
+        return BoolResult::Err( std::make_error_code( std::errc::invalid_argument ), "tree bounds must be finite with positive size" );
     }
 
-    m_Root = createNode( math::Rect{ 0.0f, 0.0f, inW, inH }, 0 );
+    m_Root = createNode( inBounds, 0 );
     if ( m_Root == nullptr )
     {
         return BoolResult::Err( std::make_error_code( std::errc::no_buffer_space ), "arena too small for the root node" );

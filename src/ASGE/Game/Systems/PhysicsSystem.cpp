@@ -13,14 +13,21 @@
 
 #include "TransformPropagationSystem.hpp"
 
+#include <ASGE/Core/Logger/Logger.hpp>
+
 #include <cmath>
+#include <optional>
+#include <set>
 #include <unordered_map>
+#include <vector>
 
 namespace
 {
 using namespace asge::game::components;
 using namespace asge::ecs;
 using namespace asge::math;
+
+using AppliedCorrections = std::unordered_map<Entity, Float2>;
 
 constexpr float         kGravity    = 980.0f; // pixel/s^2
 constexpr std::size_t   kNodeBytes  = 72;
@@ -91,14 +98,11 @@ float RemainingCorrection( float inApplied, float inWanted ) noexcept
     return std::abs( inWanted ) > std::abs( inApplied ) ? inWanted - inApplied : 0.0f;
 }
 
-using AppliedCorrections = std::unordered_map<Entity, Float2>;
-
 /**
  * @brief Pushes e1/e2 apart along mtv, splitting the correction by mass
  *        ratio when both are movable — the actual push-out logic for a
- *        Solid/Solid overlap. See ResolveCollisions for the movable
- *        rules (needs both Velocity and Rigidbody) this assumes were
- *        already checked to decide it should even be called.
+ *        Solid/Solid overlap. Only a body with both Velocity and
+ *        Rigidbody moves; a pair with neither is left alone.
  */
 void ResolveSolidCollision(
     Registry &inRegistry, Entity e1, Transform& t1, Entity e2, Transform& t2, 
@@ -152,6 +156,98 @@ Rect ToBroadPhaseRect( ColliderShape const& inShape ) noexcept
         else return BoundingRect( s );
     }, inShape);
 }
+
+// Smallest rect enclosing every collider, or nullopt when there are none.
+std::optional<Rect> ComputeColliderExtension( Registry const& inRegistry ) noexcept
+{
+    std::optional<Rect> extension;
+
+    for ( auto [ e, t, c ] : inRegistry.View<Transform, Collider>() )
+    {
+        Rect const r = ToBroadPhaseRect( asge::game::systems::WorldBounds( t.get(), c.get() ) );
+        extension = extension ? Merge( *extension, r ) : r;
+    }
+
+    return extension;
+}
+
+// A trigger overlap found during traversal; emitted only once the traversal is over.
+struct TriggerContact
+{
+    Entity m_First;
+    Entity m_Second;
+    bool   m_Enter;
+};
+
+std::optional<Float2> PenetrationVector( Transform const& t1, Collider const& c1,
+    Transform const& t2, Collider const& c2) noexcept 
+{
+    auto const obj1 = asge::game::systems::WorldBounds( t1, c1 );
+    auto const obj2 = asge::game::systems::WorldBounds( t2, c2 );
+
+    return std::visit( []( auto const& shape1, auto const& shape2 )
+    {
+        return asge::math::PenetrationVector( shape1, shape2 );
+    }, obj1, obj2);
+}
+
+bool CheckCollision( 
+    Registry& inRegistry, Entity inE1, Entity inE2, AppliedCorrections& inCorrections,
+    asge::game::systems::PhysicsState& ioState, std::set<EntityPair>& ioPairs,
+    std::vector<TriggerContact>& ioContacts ) noexcept
+{
+    auto const& c1 = inRegistry.GetComponent<Collider>( inE1 ).Value().get();
+    auto const& c2 = inRegistry.GetComponent<Collider>( inE2 ).Value().get();
+    auto&       t1 = inRegistry.GetComponent<Transform>( inE1 ).Value().get();
+    auto&       t2 = inRegistry.GetComponent<Transform>( inE2 ).Value().get();
+    auto const  b1 = BodyOf( inRegistry, inE1 );
+    auto const  b2 = BodyOf( inRegistry, inE2 );
+
+    if ( 
+            !LayersCanCollide( c1, c2 ) || (b1 == b2) 
+        ||  HasUnknownResolution( c1 )  || HasUnknownResolution( c2 ) )
+    {
+        return true;
+    }
+
+    auto mtv = PenetrationVector( t1, c1, t2, c2 );
+    if ( !mtv )
+    {
+        return true;
+    }
+
+    bool const c1Trigger = c1.m_Resolution == ResolutionType::Trigger;
+    bool const c2Trigger = c2.m_Resolution == ResolutionType::Trigger;
+
+    if ( c1Trigger || c2Trigger )
+    {
+        auto key = MakeCanonicalPair( inE1, inE2 );
+        ioPairs.insert( key );
+
+        // A Trigger is always reported as the first entity, whatever order the
+        // broad phase produced the pair in.
+        bool const swap = c2Trigger && !c1Trigger;
+        ioContacts.push_back( 
+            { 
+                swap ? inE2 : inE1, swap ? inE1 : inE2,
+                !ioState.m_PreviousTriggerPairs.contains( key ) 
+            } );
+    }
+    else
+    {
+        // A shape is pushed through its body (see BodyOf), not on its own.
+        auto bt1 = inRegistry.GetComponent<Transform>( b1 );
+        auto bt2 = inRegistry.GetComponent<Transform>( b2 );
+        if ( bt1 && bt2 )
+        {
+            ResolveSolidCollision( 
+                inRegistry, b1, bt1.Value().get(), b2, bt2.Value().get(), *mtv, inCorrections 
+            );
+        }
+    }
+
+    return true;
+}
 }
 
 asge::game::components::ColliderShape asge::game::systems::WorldBounds(
@@ -191,122 +287,65 @@ void asge::game::systems::MovementSystem(ecs::Registry &inRegistry, float inDelt
     }
 }
 
-void asge::game::systems::CollisionSystem(ecs::Registry &inRegistry) noexcept
+void asge::game::systems::CollisionSystem(ecs::Registry &inRegistry, PhysicsState& ioState) noexcept
 {
     static asge::spatial::QuadTree<asge::ecs::Entity> quadTree( GetArenaSize(), kMaxEntities );
-    // quadTree.Reset(  );
+
+    AppliedCorrections corrections;
+    std::set<ecs::EntityPair> triggerPairs;
+    std::vector<TriggerContact> contacts;
 
     // Step 1: Build the collision QuadTree with entities that have both
-    // Transform and collider component, using Worldbounds coordinates
+    // Transform and collider component, using Worldbounds coordinates.
+    // With no colliders there is nothing to build; the Exit pass below still runs.
+    auto const extension = ComputeColliderExtension( inRegistry );
+    if ( !extension ) return;
+    
+    auto const reset = quadTree.Reset( *extension );
+    if ( !reset.IsOk() )
+    {
+        LOG_ERROR( "CollisionSystem: broad phase skipped, QuadTree reset failed" );
+        reset.LogError();
+        return;
+    }
+    
+    std::size_t rejected = 0;
     for ( auto [ e, t, c ] : inRegistry.View<components::Transform, components::Collider>() )
     {
-        // Insert the entity into the quadtree
-        quadTree.Insert( e, ToBroadPhaseRect(WorldBounds( t.get(), c.get() )) );
-    }
-}
-
-std::vector<asge::game::systems::CollisionContact> 
-asge::game::systems::DetectCollisions(ecs::Registry &inRegistry) noexcept
-{
-    std::vector<CollisionContact> collisions{};
-
-    auto view = inRegistry.View<components::Transform, components::Collider>();
-    for ( auto it = view.begin(); it != view.end(); ++it )
-    {
-        for ( auto jt = std::next( it ); jt != view.end(); ++jt )
-        {
-            auto [ e1, t1, c1 ] = (*it);
-            auto [ e2, t2, c2 ] = (*jt);
-
-            if ( !details::LayersCanCollide( c1.get(), c2.get() ) ) continue;
-
-            auto const obj1 = WorldBounds( t1.get(), c1.get() );
-            auto const obj2 = WorldBounds( t2.get(), c2.get() );
-
-            auto mtv = std::visit( []( auto const& shape1, auto const& shape2 )
-            {
-                return math::PenetrationVector( shape1, shape2 );
-            }, obj1, obj2);
-
-            if ( !mtv ) continue;
-
-            // Two shapes of one compound body never collide with each other.
-            if ( BodyOf( inRegistry, e1 ) == BodyOf( inRegistry, e2 ) ) continue;
-
-            // Unknown means "unrecognized/not configured" (only reachable
-            // via a Collider set up outside the normal Solid/Trigger API,
-            // e.g. hand-edited TOML) -- ignore the pair entirely rather
-            // than guessing whether it should push or trigger.
-            bool const c1Unknown = c1.get().m_Resolution == ResolutionType::Unknown;
-            bool const c2Unknown = c2.get().m_Resolution == ResolutionType::Unknown;
-            if ( c1Unknown || c2Unknown ) continue;
-
-            bool const c1Trigger = c1.get().m_Resolution == ResolutionType::Trigger;
-            bool const c2Trigger = c2.get().m_Resolution == ResolutionType::Trigger;
-
-            // A Trigger is always reported as the contact's first entity,
-            // regardless of View's own pair order, so a consumer with
-            // exactly one Trigger side (the common case) can always treat
-            // m_Entity1 as "the trigger" without checking both.
-            if ( c2Trigger && !c1Trigger )
-                collisions.emplace_back( e2, e1, math::Float2{ -mtv->x(), -mtv->y() }, true );
-            else
-                collisions.emplace_back( e1, e2, *mtv, c1Trigger || c2Trigger );
-        }
+        if ( !quadTree.Insert( e, ToBroadPhaseRect( WorldBounds( t.get(), c.get() ) ) ).IsOk() )
+            ++rejected;
     }
 
-    return collisions;
-}
-
-void asge::game::systems::ResolveCollisions(
-    ecs::Registry &inRegistry, std::span<CollisionContact const> inContacts) noexcept
-{
-    AppliedCorrections applied;
-
-    for ( auto& contact : inContacts )
+    if ( rejected > 0 || quadTree.ArenaExhausted() )
     {
-        if ( contact.m_IsTrigger ) continue;
-
-        // A shape is pushed through its body (see BodyOf), not on its own.
-        auto const e1 = BodyOf( inRegistry, contact.m_Entity1 );
-        auto const e2 = BodyOf( inRegistry, contact.m_Entity2 );
-        if ( e1 == e2 ) continue;
-
-        auto t1 = inRegistry.GetComponent<components::Transform>( e1 );
-        auto t2 = inRegistry.GetComponent<components::Transform>( e2 );
-        if ( !t1 || !t2 ) continue;
-
-        ResolveSolidCollision( inRegistry, e1, t1.Value().get(), e2, t2.Value().get(), contact.m_Penetration, applied );
+        LOG_WARNING( "CollisionSystem: QuadTree degraded, ", rejected, 
+            " collider(s) not inserted, arena exhausted: ", quadTree.ArenaExhausted() );
     }
-}
 
-void asge::game::systems::DispatchTriggerEvents(
-    PhysicsState &inState, std::span<CollisionContact const> inContacts) noexcept
-{
-    std::set<ecs::EntityPair> currentTriggerPairs;
+    // Step 2: Runs the collision test by checking each pair
+    quadTree.ForEachPair( [&]( auto e1, auto e2 ) {
+        return CheckCollision( inRegistry, e1, e2, corrections, ioState, triggerPairs, contacts );
+    } );
 
-    for ( auto& contact : inContacts )
+    // Step 3: Emit trigger events only now, so handlers can't touch the
+    // registry while the tree is being traversed.
+    for ( auto const& contact : contacts )
     {
-        if ( !contact.m_IsTrigger ) continue;
-
-        auto key = MakeCanonicalPair( contact.m_Entity1, contact.m_Entity2 );
-        currentTriggerPairs.insert( key );
-
-        if ( !inState.m_PreviousTriggerPairs.contains( key ) )
-            events::OnCollisionTriggerEnter().Emit( contact.m_Entity1, contact.m_Entity2 );
+        if ( contact.m_Enter )
+            events::OnCollisionTriggerEnter().Emit( contact.m_First, contact.m_Second );
         else
-            events::OnCollisionTriggerStay().Emit( contact.m_Entity1, contact.m_Entity2 );
+            events::OnCollisionTriggerStay().Emit( contact.m_First, contact.m_Second );
     }
 
     // Anything overlapping last frame but absent from this frame's contact
     // list — either it stopped overlapping, or an entity was destroyed.
-    for ( auto const& pair : inState.m_PreviousTriggerPairs )
+    for ( auto const& pair : ioState.m_PreviousTriggerPairs )
     {
-        if ( !currentTriggerPairs.contains( pair ) )
+        if ( !triggerPairs.contains( pair ) )
             events::OnCollisionTriggerExit().Emit( pair.m_First, pair.m_Second );
     }
 
-    inState.m_PreviousTriggerPairs = std::move( currentTriggerPairs );
+    ioState.m_PreviousTriggerPairs = std::move( triggerPairs );
 }
 
 void asge::game::systems::GravitySystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
@@ -326,9 +365,7 @@ void asge::game::systems::PhysicsUpdate(
     MovementSystem( inRegistry, inDeltaTime );
     PathFollowingSystem( inRegistry, inDeltaTime );
     TransformPropagationSystem( inRegistry );
-    auto contacts = DetectCollisions( inRegistry );
-    ResolveCollisions( inRegistry, contacts );
-    DispatchTriggerEvents( inState, contacts );
+    CollisionSystem( inRegistry, inState );
 }
 
 void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept

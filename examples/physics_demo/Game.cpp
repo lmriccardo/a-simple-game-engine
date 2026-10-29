@@ -23,7 +23,7 @@ constexpr float kMaxBoxSize    = 48.0f;
 constexpr float kMinMass       = 0.5f;
 constexpr float kMaxMass       = 3.0f;
 constexpr float kFallLimit     = kWindowHeight + 200.0f; // safety net for a box tunneling past the floor
-constexpr std::size_t kMaxBoxes = 80; // keeps DetectCollisions's all-pairs check cheap
+constexpr std::size_t kMaxBoxes = 80; // keeps CollisionSystem's narrow phase cheap
 
 // A Trigger-resolution despawn zone near the bottom-right, sitting on top
 // of the floor -- any box's Collider overlapping it is removed instead of
@@ -72,7 +72,7 @@ PhysicsDemoState::PhysicsDemoState(asge::ecs::Registry& inRegistry)
 void PhysicsDemoState::SpawnStaticGeometry()
 {
     // Floor and side walls: Transform + Collider only -- no Velocity or
-    // Rigidbody, so ResolveCollisions treats them as immovable.
+    // Rigidbody, so CollisionSystem treats them as immovable.
     auto makeStatic = [this]( asge::math::Rect inBounds )
     {
         auto entity = m_Registry.CreateEntity();
@@ -185,7 +185,7 @@ void PhysicsDemoState::DespawnFallenBoxes()
 void PhysicsDemoState::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
 {
     // events::OnCollisionTriggerEnter() fires synchronously, from inside
-    // systems::DispatchTriggerEvents -- itself called partway through
+    // systems::CollisionSystem -- itself called partway through
     // PhysicsUpdate, still iterating this frame's contact list. Destroying
     // an entity here rather than deferring it could disturb that in-progress
     // iteration (or any later contact in the same list still referencing this

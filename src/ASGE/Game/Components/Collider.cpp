@@ -18,9 +18,14 @@ asge::game::components::ResolutionType asge::game::components::details::FromStri
     return ResolutionType::Unknown;
 }
 
-bool asge::game::components::details::LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept
+bool asge::game::components::LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept
 {
     return ( inA.m_Layer & inB.m_Mask ) != 0 && ( inB.m_Layer & inA.m_Mask ) != 0;
+}
+
+bool asge::game::components::HasUnknownResolution(Collider const &inCollider) noexcept
+{
+    return inCollider.m_Resolution == ResolutionType::Unknown;
 }
 
 void asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(

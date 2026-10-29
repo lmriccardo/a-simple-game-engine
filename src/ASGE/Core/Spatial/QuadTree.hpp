@@ -152,6 +152,9 @@ public:
      */
     BoolResult Reset( float inW, float inH ) noexcept;
 
+    /** @brief Like Reset(inW, inH), but the new tree covers inBounds, which may start away from the origin. */
+    BoolResult Reset( math::Rect const& inBounds ) noexcept;
+
     /**
      * @brief Inserts an element with the given bounds.
      *
