@@ -280,6 +280,41 @@ TEST_F(QuadTreeTest, Query_MatchesBruteForceOnRandomData)
     }
 }
 
+TEST_F(QuadTreeTest, Query_DeepestTree_NeverOverflowsTheStack)
+{
+    // Coincident tiny rects force subdivision down to the depth cap in one corner
+    for ( int i = 0; i < 300; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 0.0f, 0.0f, 0.01f, 0.01f } ).IsOk() );
+    }
+    for ( int i = 0; i < 300; ++i )
+    {
+        float const x = static_cast<float>( i % 100 );
+        ASSERT_TRUE( m_Tree.Insert( 1000 + i, Rect{ x, x, 0.01f, 0.01f } ).IsOk() );
+    }
+
+    EXPECT_EQ( Collect( Rect{ 0.0f, 0.0f, 100.0f, 100.0f } ).size(), 600u );
+}
+
+TEST_F(QuadTreeTest, Query_VisitsParentBeforeChildrenInQuadrantOrder)
+{
+    for ( int i = 0; i < 9; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( 100 + i, Rect{ 40.0f, 40.0f, 20.0f, 20.0f } ).IsOk() );
+    }
+    ASSERT_TRUE( m_Tree.Insert( 3, Rect{ 80.0f, 80.0f, 5.0f, 5.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 10.0f, 80.0f, 5.0f, 5.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 80.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 0, Rect{ 10.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+
+    std::vector<int> order;
+    m_Tree.Query( Rect{ 0.0f, 0.0f, 100.0f, 100.0f }, [&order]( int v ) { order.push_back( v ); return true; } );
+
+    ASSERT_EQ( order.size(), 13u );
+    EXPECT_GE( order[0], 100 ); // the straddlers held by the root come first
+    EXPECT_EQ( std::vector<int>( order.end() - 4, order.end() ), ( std::vector<int>{ 0, 1, 2, 3 } ) );
+}
+
 // ─── Reset ────────────────────────────────────────────────────────────
 
 TEST_F(QuadTreeTest, Reset_ClearsElements)

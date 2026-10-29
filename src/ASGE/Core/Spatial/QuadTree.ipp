@@ -199,27 +199,36 @@ template <typename Visitor>
 inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect, Visitor &inVisitor) const
 {
     if ( !math::AabbOverlap( inNode->m_Bounds, inRect ) ) return true;
-    
-    for ( QuadBlockHeader const* h = inNode->m_Head; h != nullptr; h = h->m_Next )
-    {
-        Block const* block = static_cast<Block const*>( h );
 
-        for ( std::uint32_t i = 0; i < block->m_Used; ++i )
+    std::array<QuadNode const*, s_QueryStackSize> stack;
+    std::size_t top = 0;
+    stack[top++] = inNode;
+
+    while ( top != 0 )
+    {
+        QuadNode const* node = stack[--top];
+
+        for ( QuadBlockHeader const* h = node->m_Head; h != nullptr; h = h->m_Next )
         {
-            if ( math::AabbOverlap( block->m_Bounds[i], inRect ) && !inVisitor( block->m_Values[i] ) )
+            Block const* block = static_cast<Block const*>( h );
+
+            for ( std::uint32_t i = 0; i < block->m_Used; ++i )
             {
-                return false;
+                if ( math::AabbOverlap( block->m_Bounds[i], inRect ) && !inVisitor( block->m_Values[i] ) )
+                {
+                    return false;
+                }
             }
         }
-    }
 
-    if ( !inNode->IsLeaf() )
-    {
-        for ( QuadNode const* child : inNode->m_Children )
+        if ( node->IsLeaf() ) continue;
+
+        // Pushed in reverse so child 0 is popped first
+        for ( int c = 3; c >= 0; --c )
         {
-            if ( !query( child, inRect, inVisitor ) )
+            if ( math::AabbOverlap( node->m_Children[c]->m_Bounds, inRect ) )
             {
-                return false;
+                stack[top++] = node->m_Children[c];
             }
         }
     }

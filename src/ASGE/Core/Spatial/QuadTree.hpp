@@ -59,6 +59,9 @@ class QuadTree
 
     static constexpr std::size_t s_BlockCapacity = QuadNode::s_MaxNofElements;
 
+    // Popping a node pushes at most 4 children, so a walk of depth D never holds more than 3*D + 4 nodes
+    static constexpr std::size_t s_QueryStackSize = 3 * QuadNode::s_MaxDepth + 4;
+
     /** @brief Fixed-size run of elements of one node, stored as parallel arrays. */
     struct Block : QuadBlockHeader
     {
@@ -98,7 +101,12 @@ class QuadTree
      */
     void subdivide( QuadNode* inNode ) noexcept;
 
-    /** @brief Recursive query step; returns false once the visitor asked to stop. */
+    /**
+     * @brief Visits the overlapping elements of the subtree using an explicit fixed-size stack.
+     *
+     * Nodes are visited in the same order as a recursive walk (parent, then children 0..3).
+     * Returns false once the visitor asked to stop.
+     */
     template<typename Visitor>
     bool query( QuadNode const* inNode, math::Rect const& inRect, Visitor& inVisitor ) const;
 
