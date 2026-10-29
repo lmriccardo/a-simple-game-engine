@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Audio · ASGE</title>
-<meta name="description" content="The audio device and its stream pool, AudioSource components and the AudioSystem."/>
+<meta name="description" content="How ASGE opens the audio device and mixes several clips at once through a pool of streams, and how AudioSource components and the AudioSystem drive playback from the scene."/>
 <meta property="og:title" content="Audio · ASGE"/>
-<meta property="og:description" content="The audio device and its stream pool, AudioSource components and the AudioSystem."/>
+<meta property="og:description" content="How ASGE opens the audio device and mixes several clips at once through a pool of streams, and how AudioSource components and the AudioSystem drive playback from the scene."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -58,6 +58,19 @@ on entities.</p>
 the game runs. Engines open one output device, keep a bounded pool of <em>streams</em> bound to it, and feed decoded
 clip data into those streams.</p>
 
+<h3 id="decoded-sound">Decoded sound</h3>
+<p>Audio on a computer is a long run of numbers, <em>samples</em>, played at a fixed rate (for example 44,100 per second).
+A clip is decoded once into that raw form; playing it means copying samples to the device just ahead of the speaker. If the
+copying is late the sound crackles, which is why audio must never wait on slow work such as loading a file.</p>
+<h3 id="mixing">Mixing</h3>
+<p>Speakers receive one signal, so several sounds are <em>mixed</em> by adding their samples together, each scaled by its
+own volume (<em>gain</em>). Too many loud sounds at once can exceed the maximum and distort, so engines cap the number of
+simultaneous voices; a bounded pool also keeps memory use predictable.</p>
+<h3 id="sound-as-game-state">Sound as game state</h3>
+<p>Treating a sound as something an entity <em>has</em> (play, stop, loop) rather than a one-off call means it can be saved
+in a scene, edited in a tool and driven by the same systems as everything else. The system, not gameplay code, owns the
+details of starting and stopping streams.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="audiodevice-and-audiostream">AudioDevice and AudioStream</h3>
 <p><code>asge::audio::AudioDevice</code> owns SDL's audio subsystem, one physical playback device and a fixed pool
@@ -92,7 +105,7 @@ if ( source )
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Audio/AudioDevice.hpp" target="_blank" rel="noopener"><code>Audio/AudioDevice.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Components/AudioSource.hpp" target="_blank" rel="noopener"><code>Game/Components/AudioSource.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Systems/AudioSystem.hpp" target="_blank" rel="noopener"><code>Game/Systems/AudioSystem.hpp</code></a>.
 <a href="../examples/audio_demo.html">Audio demo</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#audiodevice-and-audiostream">AudioDevice and AudioStream</a></li><li class="l3"><a href="#audiosource-and-audiosystem">AudioSource and AudioSystem</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#decoded-sound">Decoded sound</a></li><li class="l3"><a href="#mixing">Mixing</a></li><li class="l3"><a href="#sound-as-game-state">Sound as game state</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#audiodevice-and-audiostream">AudioDevice and AudioStream</a></li><li class="l3"><a href="#audiosource-and-audiosystem">AudioSource and AudioSystem</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

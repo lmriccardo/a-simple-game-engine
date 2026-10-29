@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Assets · ASGE</title>
-<meta name="description" content="The AssetManager&#x27;s path-keyed caches, sprite resolution and spritesheet frame tables."/>
+<meta name="description" content="How the AssetManager loads each file once and caches it by virtual path, how sprites are resolved into textures, and how spritesheet frame tables describe animation frames."/>
 <meta property="og:title" content="Assets · ASGE"/>
-<meta property="og:description" content="The AssetManager&#x27;s path-keyed caches, sprite resolution and spritesheet frame tables."/>
+<meta property="og:description" content="How the AssetManager loads each file once and caches it by virtual path, how sprites are resolved into textures, and how spritesheet frame tables describe animation frames."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -58,6 +58,19 @@ and shares it.</p>
 the same asset is a lookup. Components then hold a cheap reference or a path instead of a copy, and a scene file can
 store just the path.</p>
 
+<h3 id="caching-and-sharing">Caching and sharing</h3>
+<p>If a hundred enemies use the same sprite sheet, loading it a hundred times wastes time and memory. A cache keyed by path
+returns the same loaded asset to everyone. Shared ownership means the asset stays alive while anything uses it and can be
+freed once nothing does.</p>
+<h3 id="handles-instead-of-data">Handles instead of data</h3>
+<p>Components that store the loaded data itself cannot be saved to a file, and are expensive to copy. Storing the path (or a
+small handle) keeps components light and saveable; a separate step later turns the path into the live resource. That
+resolve step is where a missing or broken file is detected and reported.</p>
+<h3 id="loading-cost">Loading cost</h3>
+<p>Decoding an image or sound, then uploading it to the GPU, can take milliseconds, enough to drop frames. Engines load at
+well-chosen moments (between levels, behind a loading screen) or in the background. Parameters that change the result, such
+as a font's pixel size, must be part of the cache key, since the same file at two sizes is two different assets.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="assetmanager-and-assetpool">AssetManager and AssetPool</h3>
 <p><code>asset::AssetManager</code> is the one entry point. It is built over a
@@ -91,7 +104,7 @@ display time.</p>
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/AssetManager.hpp" target="_blank" rel="noopener"><code>Game/Assets/AssetManager.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/AssetPool.hpp" target="_blank" rel="noopener"><code>Game/Assets/AssetPool.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Assets/FrameTable.hpp" target="_blank" rel="noopener"><code>Game/Assets/FrameTable.hpp</code></a>.
 <a href="../examples/texture_demo.html">Texture demo</a> &middot; <a href="../examples/animation_demo.html">Animation demo</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#assetmanager-and-assetpool">AssetManager and AssetPool</a></li><li class="l3"><a href="#resolving-components">Resolving components</a></li><li class="l3"><a href="#spritesheets-and-animation-clips">Spritesheets and animation clips</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#caching-and-sharing">Caching and sharing</a></li><li class="l3"><a href="#handles-instead-of-data">Handles instead of data</a></li><li class="l3"><a href="#loading-cost">Loading cost</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#assetmanager-and-assetpool">AssetManager and AssetPool</a></li><li class="l3"><a href="#resolving-components">Resolving components</a></li><li class="l3"><a href="#spritesheets-and-animation-clips">Spritesheets and animation clips</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

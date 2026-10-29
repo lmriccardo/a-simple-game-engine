@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Game loop &amp; timing · ASGE</title>
-<meta name="description" content="The main loop, the per-frame system order, game states, the clock and profiling."/>
+<meta name="description" content="How the main loop reads input, updates the simulation with a delta time and renders, the order in which systems run every frame, and how game states, the clock and the profiler fit around it."/>
 <meta property="og:title" content="Game loop &amp; timing · ASGE"/>
-<meta property="og:description" content="The main loop, the per-frame system order, game states, the clock and profiling."/>
+<meta property="og:description" content="How the main loop reads input, updates the simulation with a delta time and renders, the order in which systems run every frame, and how game states, the clock and the profiler fit around it."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -59,6 +59,26 @@ passed, draw, repeat.</p>
 whether the simulation uses a variable step (one update per frame with the real delta) or a fixed step
 (update at a constant rate, possibly several times per frame); a variable step is simpler, a fixed step is
 more deterministic.</p>
+
+<h3 id="anatomy-of-a-frame">Anatomy of a frame</h3>
+<p>Every frame does the same four jobs in the same order: <strong>input</strong> (drain the OS event queue and update
+input state), <strong>update</strong> (advance the simulation), <strong>render</strong> (draw the result) and
+<strong>present</strong> (swap the finished image onto the screen). Doing input first means the update sees the freshest
+state; presenting last is what makes a frame visible at all.</p>
+<h3 id="delta-time">Delta time</h3>
+<p>Without delta time, <code>x += 5</code> each frame moves twice as far at 120 FPS as at 60 FPS. Multiplying by the
+seconds since the last frame, <code>x += speed * dt</code>, makes motion depend on <em>time</em> and not on frame rate. A
+very long frame (a breakpoint, a window drag) produces a huge delta that can push objects through walls, which is why
+engines often clamp it.</p>
+<h3 id="variable-versus-fixed-step">Variable versus fixed step</h3>
+<p>A variable step is the simplest option and fine for most games. A fixed step runs the simulation at a constant rate
+(say 60 times a second) and accumulates leftover real time, so results are reproducible and physics stays stable; the
+cost is more machinery, and rendering then often needs to interpolate between two simulation states.</p>
+<h3 id="pacing-the-frame">Pacing the frame</h3>
+<p>Without a limit a loop runs as fast as the machine allows, burning CPU and battery for no visible gain. Engines either
+wait for the display's vertical sync or sleep until the target frame time has passed. Time can also be scaled
+(slow motion) or paused, which is why a clock distinguishes <em>scaled</em> game time from <em>unscaled</em> real time:
+a pause menu still needs real time to animate.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="application">Application</h3>
@@ -127,7 +147,7 @@ void Update()
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Application/Application.hpp" target="_blank" rel="noopener"><code>Application/Application.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Game.hpp" target="_blank" rel="noopener"><code>Game/Game.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Time/Time.hpp" target="_blank" rel="noopener"><code>Core/Time/Time.hpp</code></a>.
 <a href="../examples/scoped_profiler.html">Scoped profiler example</a> &middot; <a href="../examples/moving_box.html">Moving box</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#application">Application</a></li><li class="l3"><a href="#one-frame-inside-game">One frame inside Game</a></li><li class="l3"><a href="#game-states">Game states</a></li><li class="l3"><a href="#time">Time</a></li><li class="l3"><a href="#profiling">Profiling</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#anatomy-of-a-frame">Anatomy of a frame</a></li><li class="l3"><a href="#delta-time">Delta time</a></li><li class="l3"><a href="#variable-versus-fixed-step">Variable versus fixed step</a></li><li class="l3"><a href="#pacing-the-frame">Pacing the frame</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#application">Application</a></li><li class="l3"><a href="#one-frame-inside-game">One frame inside Game</a></li><li class="l3"><a href="#game-states">Game states</a></li><li class="l3"><a href="#time">Time</a></li><li class="l3"><a href="#profiling">Profiling</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

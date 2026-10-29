@@ -109,7 +109,7 @@
  * other. Both still land on the floor/walls normally (m_Mask still includes
  * the default layer everything else uses), but the second one falls
  * straight through the first instead of stacking on it -- see SpawnBox&#x27;s
- * inLayer/inMask parameters and components::details::LayersCanCollide.
+ * inLayer/inMask parameters and components::LayersCanCollide.
  */
 
 #include &lt;ASGE/ASGE.hpp&gt;
@@ -187,7 +187,7 @@ constexpr float kMaxBoxSize    = 48.0f;
 constexpr float kMinMass       = 0.5f;
 constexpr float kMaxMass       = 3.0f;
 constexpr float kFallLimit     = kWindowHeight + 200.0f; // safety net for a box tunneling past the floor
-constexpr std::size_t kMaxBoxes = 80; // keeps DetectCollisions&#x27;s all-pairs check cheap
+constexpr std::size_t kMaxBoxes = 80; // keeps CollisionSystem&#x27;s narrow phase cheap
 
 // A Trigger-resolution despawn zone near the bottom-right, sitting on top
 // of the floor -- any box&#x27;s Collider overlapping it is removed instead of
@@ -236,7 +236,7 @@ PhysicsDemoState::PhysicsDemoState(asge::ecs::Registry&amp; inRegistry)
 void PhysicsDemoState::SpawnStaticGeometry()
 {
     // Floor and side walls: Transform + Collider only -- no Velocity or
-    // Rigidbody, so ResolveCollisions treats them as immovable.
+    // Rigidbody, so CollisionSystem treats them as immovable.
     auto makeStatic = [this]( asge::math::Rect inBounds )
     {
         auto entity = m_Registry.CreateEntity();
@@ -349,7 +349,7 @@ void PhysicsDemoState::DespawnFallenBoxes()
 void PhysicsDemoState::HandleTriggerOverlap(asge::ecs::Entity inA, asge::ecs::Entity inB)
 {
     // events::OnCollisionTriggerEnter() fires synchronously, from inside
-    // systems::DispatchTriggerEvents -- itself called partway through
+    // systems::CollisionSystem -- itself called partway through
     // PhysicsUpdate, still iterating this frame&#x27;s contact list. Destroying
     // an entity here rather than deferring it could disturb that in-progress
     // iteration (or any later contact in the same list still referencing this

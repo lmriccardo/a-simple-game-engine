@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Input · ASGE</title>
-<meta name="description" content="Keyboard and mouse state, with down/pressed/released queries derived from the event stream."/>
+<meta name="description" content="How raw keyboard and mouse events become the questions gameplay code asks, such as whether a key is down, was just pressed or was just released, and how the per-frame input state is kept and queried."/>
 <meta property="og:title" content="Input · ASGE"/>
-<meta property="og:description" content="Keyboard and mouse state, with down/pressed/released queries derived from the event stream."/>
+<meta property="og:description" content="How raw keyboard and mouse events become the questions gameplay code asks, such as whether a key is down, was just pressed or was just released, and how the per-frame input state is kept and queried."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -59,6 +59,20 @@ the current and the previous frame, and derive three queries from them: <strong>
 <strong>pressed</strong> (up last frame, down now) and <strong>released</strong> (down last frame, up now). Edge
 queries such as "pressed" are what make a jump fire once instead of every frame the key is held.</p>
 
+<h3 id="why-snapshots">Why snapshots?</h3>
+<p>Reacting to events directly ("on key down, jump") scatters input handling across the code and makes it hard to ask
+state questions such as "is the player holding right?". Polling a per-frame snapshot gives every system one consistent
+answer for the whole frame, no matter how many events arrived or in what order, and keeps input code in the update step
+where gameplay logic lives.</p>
+<h3 id="mouse-input">Mouse input</h3>
+<p>The mouse adds continuous values: a <em>position</em> (where the pointer is now), a <em>delta</em> (how far it moved
+this frame) and a <em>scroll</em> amount. Positions are in window space, so converting to world coordinates is the
+camera's job. Deltas and scroll must be accumulated across all events in a frame and reset on the next one, otherwise
+several small motions in one frame are lost.</p>
+<h3 id="keys-not-characters">Keys, not characters</h3>
+<p>Game controls care about physical keys (a "move left" binding), not the text the key would type. That is why input is
+expressed in key codes; remapping then means changing a binding instead of rewriting logic.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <p><code>asge::input::InputSystem</code> is owned by <code>Application</code> and mirrors <code>VideoSystem</code>'s shape.
 Every frame the loop calls <code>NewFrame()</code> to roll the current snapshot into the previous one, then feeds each
@@ -92,7 +106,7 @@ It is not a second event source: <code>InputState</code> simply consumes the sam
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Input/InputSystem.hpp" target="_blank" rel="noopener"><code>Input/InputSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Input/InputState.hpp" target="_blank" rel="noopener"><code>Input/InputState.hpp</code></a>.
 <a href="../examples/input_demo.html">Input demo</a> &middot; <a href="game-loop.html">Game loop &amp; timing</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#why-snapshots">Why snapshots?</a></li><li class="l3"><a href="#mouse-input">Mouse input</a></li><li class="l3"><a href="#keys-not-characters">Keys, not characters</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

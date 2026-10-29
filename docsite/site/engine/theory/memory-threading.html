@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Memory &amp; threading · ASGE</title>
-<meta name="description" content="Linear, pool and stack allocators, the free-list and the ThreadPool."/>
+<meta name="description" content="The custom allocators (linear, pool, stack and free-list) that avoid per-frame heap traffic, when each one fits, and how the ThreadPool spreads work across cores."/>
 <meta property="og:title" content="Memory &amp; threading · ASGE"/>
-<meta property="og:description" content="Linear, pool and stack allocators, the free-list and the ThreadPool."/>
+<meta property="og:description" content="The custom allocators (linear, pool, stack and free-list) that avoid per-frame heap traffic, when each one fits, and how the ThreadPool spreads work across cores."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -59,6 +59,22 @@ matters, with allocators that match an allocation <em>pattern</em>: bump pointer
 pools for many same-sized objects, stacks for strictly nested lifetimes. For CPU parallelism, a thread pool
 reuses a fixed set of worker threads instead of spawning one per task.</p>
 
+<h3 id="why-general-allocation-hurts">Why general allocation hurts</h3>
+<p>A general-purpose allocator has to handle any size and any lifetime, so it searches for free blocks, takes locks in
+multithreaded programs and leaves gaps behind as blocks of different sizes come and go (<em>fragmentation</em>). Its cost
+is also unpredictable, which shows up as an occasional slow frame. Knowing the allocation pattern lets you replace all that
+with a few instructions.</p>
+<h3 id="matching-pattern-to-allocator">Matching pattern to allocator</h3>
+<p>A <em>linear</em> (arena) allocator just bumps a pointer and frees everything at once: ideal for scratch data that
+dies at the end of a frame. A <em>pool</em> keeps same-sized slots on a free list: ideal for many identical objects that
+come and go in any order. A <em>stack</em> allows frees only in reverse order, matching strictly nested lifetimes. The
+restriction is the point; each gives up some flexibility in exchange for speed and predictability.</p>
+<h3 id="threads-in-a-game">Threads in a game</h3>
+<p>Creating a thread costs far more than calling a function, so spawning one per small task loses the benefit. A
+thread pool starts its workers once and feeds them jobs from a queue. The hard part of parallel code is not starting
+work but sharing data safely: jobs should either own their data or touch disjoint parts of it, since locks reintroduce the
+stalls parallelism was meant to remove.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="allocators-asge-mem">Allocators (<code>asge::mem</code>)</h3>
 <table>
@@ -87,7 +103,7 @@ pool.Submit( [] { /* void work: no future is returned */ } );</code></pre>
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Memory/" target="_blank" rel="noopener"><code>Core/Memory/</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Concurrent/ThreadPool.hpp" target="_blank" rel="noopener"><code>Core/Concurrent/ThreadPool.hpp</code></a>.
 <a href="ecs.html">ECS</a> shows the free-list in use.</p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#allocators-asge-mem">Allocators (asge::mem)</a></li><li class="l3"><a href="#thread-pool-asge-concurrent">Thread pool (asge::concurrent)</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#why-general-allocation-hurts">Why general allocation hurts</a></li><li class="l3"><a href="#matching-pattern-to-allocator">Matching pattern to allocator</a></li><li class="l3"><a href="#threads-in-a-game">Threads in a game</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#allocators-asge-mem">Allocators (asge::mem)</a></li><li class="l3"><a href="#thread-pool-asge-concurrent">Thread pool (asge::concurrent)</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

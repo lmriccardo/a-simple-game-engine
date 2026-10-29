@@ -40,6 +40,24 @@ so behaviour can be written once and applied to every object that has the right 
 <p>Storing each component type in its own densely packed array keeps iteration cache-friendly, and
 composing objects from components avoids deep inheritance hierarchies.</p>
 
+<h3>Why not inheritance?</h3>
+<p>The classic alternative is a class tree: <code>Enemy</code> derives from <code>Actor</code>, a flying enemy from
+<code>Enemy</code>, and so on. It works until a new object needs a mix of branches (a flying, shooting, destructible
+crate) and the tree has to be reshuffled. With components, that crate is just an entity carrying the right bundle of
+data; no class had to change.</p>
+<h3>Data-oriented layout</h3>
+<p>CPUs are fast at reading memory in order and slow at chasing pointers. A system that touches only
+<code>Position</code> and <code>Velocity</code> reads two tightly packed arrays and never loads the sprite, health or
+audio data of the same entities. That is the main performance argument for an ECS, and it grows with the entity count.</p>
+<h3>Systems and ordering</h3>
+<p>Systems hold no state of their own; everything they need is in components or shared resources. That makes them
+easy to test and to reason about, but it means <em>order</em> matters: gravity must run before movement, and movement
+before collision, or objects react to last frame's positions. Engines therefore fix the system order in one place.</p>
+<h3>Trade-offs</h3>
+<p>The price is indirection. Finding "the one entity with component X" means a lookup, behaviour is spread across
+systems instead of living in one class, and removing an entity while iterating needs care. For small, singular objects
+(the player controller, say) plain code is often clearer; the ECS earns its keep for the many similar things in a scene.</p>
+
 <h2>How ASGE does it</h2>
 <h3>Generational entity handles</h3>
 <p>An <code>asge::ecs::Entity</code> is an index plus a generation counter. When an entity is destroyed its
@@ -121,6 +139,26 @@ whether the simulation uses a variable step (one update per frame with the real 
 (update at a constant rate, possibly several times per frame); a variable step is simpler, a fixed step is
 more deterministic.</p>
 
+<h3>Anatomy of a frame</h3>
+<p>Every frame does the same four jobs in the same order: <strong>input</strong> (drain the OS event queue and update
+input state), <strong>update</strong> (advance the simulation), <strong>render</strong> (draw the result) and
+<strong>present</strong> (swap the finished image onto the screen). Doing input first means the update sees the freshest
+state; presenting last is what makes a frame visible at all.</p>
+<h3>Delta time</h3>
+<p>Without delta time, <code>x += 5</code> each frame moves twice as far at 120 FPS as at 60 FPS. Multiplying by the
+seconds since the last frame, <code>x += speed * dt</code>, makes motion depend on <em>time</em> and not on frame rate. A
+very long frame (a breakpoint, a window drag) produces a huge delta that can push objects through walls, which is why
+engines often clamp it.</p>
+<h3>Variable versus fixed step</h3>
+<p>A variable step is the simplest option and fine for most games. A fixed step runs the simulation at a constant rate
+(say 60 times a second) and accumulates leftover real time, so results are reproducible and physics stays stable; the
+cost is more machinery, and rendering then often needs to interpolate between two simulation states.</p>
+<h3>Pacing the frame</h3>
+<p>Without a limit a loop runs as fast as the machine allows, burning CPU and battery for no visible gain. Engines either
+wait for the display's vertical sync or sleep until the target frame time has passed. Time can also be scaled
+(slow motion) or paused, which is why a clock distinguishes <em>scaled</em> game time from <em>unscaled</em> real time:
+a pause menu still needs real time to animate.</p>
+
 <h2>How ASGE does it</h2>
 <h3>Application</h3>
 <p><code>asge::Application&lt;TGame&gt;</code> owns the video, input and audio systems and constructs your
@@ -191,6 +229,20 @@ messages that code polls or receives, and <strong>signals and slots</strong>, wh
 signal and any number of listeners (slots) connect callbacks to it. Both remove direct dependencies between
 the sender and its receivers.</p>
 
+<h3>Why decouple?</h3>
+<p>If the player code calls the HUD directly, the player depends on the HUD, and the HUD cannot be removed or tested
+without it. With an announcement instead ("score changed"), the producer neither knows nor cares who listens: the HUD, an
+achievement tracker and a sound effect can all react, and none of them is named in the player code.</p>
+<h3>Polling versus callbacks</h3>
+<p>An event stream is usually <em>pulled</em>: the loop drains a queue once per frame and handles each message in
+order, so all reactions happen at a predictable point. A signal is <em>pushed</em>: the slots run immediately, inside the
+call that emitted it. Push is convenient but means arbitrary code runs in the middle of the emitter's work, so a slot that
+modifies the very collection being iterated can cause trouble.</p>
+<h3>Lifetimes</h3>
+<p>The classic bug of callbacks is the dangling listener: an object is destroyed but its callback is still registered,
+and the next emit calls into freed memory. Any signal design therefore needs a way to disconnect, either explicitly or
+automatically when the listener goes away.</p>
+
 <h2>How ASGE does it</h2>
 <h3>System events</h3>
 <p>SDL events are translated once, in <code>event::_internal::ProcessEvent</code>, into
@@ -236,6 +288,22 @@ matters, with allocators that match an allocation <em>pattern</em>: bump pointer
 pools for many same-sized objects, stacks for strictly nested lifetimes. For CPU parallelism, a thread pool
 reuses a fixed set of worker threads instead of spawning one per task.</p>
 
+<h3>Why general allocation hurts</h3>
+<p>A general-purpose allocator has to handle any size and any lifetime, so it searches for free blocks, takes locks in
+multithreaded programs and leaves gaps behind as blocks of different sizes come and go (<em>fragmentation</em>). Its cost
+is also unpredictable, which shows up as an occasional slow frame. Knowing the allocation pattern lets you replace all that
+with a few instructions.</p>
+<h3>Matching pattern to allocator</h3>
+<p>A <em>linear</em> (arena) allocator just bumps a pointer and frees everything at once: ideal for scratch data that
+dies at the end of a frame. A <em>pool</em> keeps same-sized slots on a free list: ideal for many identical objects that
+come and go in any order. A <em>stack</em> allows frees only in reverse order, matching strictly nested lifetimes. The
+restriction is the point; each gives up some flexibility in exchange for speed and predictability.</p>
+<h3>Threads in a game</h3>
+<p>Creating a thread costs far more than calling a function, so spawning one per small task loses the benefit. A
+thread pool starts its workers once and feeds them jobs from a queue. The hard part of parallel code is not starting
+work but sharing data safely: jobs should either own their data or touch disjoint parts of it, since locks reintroduce the
+stalls parallelism was meant to remove.</p>
+
 <h2>How ASGE does it</h2>
 <h3>Allocators (<code>asge::mem</code>)</h3>
 <table>
@@ -258,10 +326,10 @@ returns <code>void</code>. The pool is neither copyable nor movable because work
 """
 
 FULL_PAGES = [
-    ("ecs", "Entity-Component-System", "Entities, components, systems and views, and how ASGE's Registry implements them.", ECS),
-    ("game-loop", "Game loop & timing", "The main loop, the per-frame system order, game states, the clock and profiling.", LOOP),
-    ("events-signals", "Events & signals", "SDL event translation, SystemEvent and the type-safe Signal/Connection pattern.", EVENTS),
-    ("memory-threading", "Memory & threading", "Linear, pool and stack allocators, the free-list and the ThreadPool.", MEMORY),
+    ("ecs", "Entity-Component-System", "Why a game object is split into identity, data and behaviour, and how ASGE's Registry stores entities and components, iterates them through views, and runs systems over them each frame.", ECS),
+    ("game-loop", "Game loop & timing", "How the main loop reads input, updates the simulation with a delta time and renders, the order in which systems run every frame, and how game states, the clock and the profiler fit around it.", LOOP),
+    ("events-signals", "Events & signals", "How raw SDL events are translated into engine events, and how the type-safe Signal/Connection pattern lets one part of the program announce something without knowing who is listening.", EVENTS),
+    ("memory-threading", "Memory & threading", "The custom allocators (linear, pool, stack and free-list) that avoid per-frame heap traffic, when each one fits, and how the ThreadPool spreads work across cores.", MEMORY),
 ] + SYSTEM_PAGES
 
 INDEX = """
