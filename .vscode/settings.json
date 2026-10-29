@@ -24,6 +24,7 @@
         "ui",
         "agent",
         "editor",
-        "doc"
+        "doc",
+        "benchmarks"
     ]
 }

@@ -96,6 +96,11 @@ if(ASGE_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
+option(ASGE_BUILD_BENCHMARKS "Build the benchmarks folder" OFF)
+if(ASGE_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+
 option(ASGE_BUILD_EDITOR "Build the asge-editor tool" ON)
 if(ASGE_BUILD_EDITOR)
     # Dear ImGui, vendored via scripts/install-imgui.* into third-party/imgui --
