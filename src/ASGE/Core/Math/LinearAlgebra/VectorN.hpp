@@ -321,6 +321,12 @@ auto Length( VecN<N, T, Derived> const& inVector ) noexcept
     return static_cast<RetType>( std::sqrt( static_cast<double>(LengthSquared( inVector )) ) );
 }
 
+template<std::size_t N, _internal::Numeric T, typename Derived>
+auto Distance( VecN<N, T, Derived> const& inVec1, VecN<N, T, Derived> const& inVec2 ) noexcept
+{
+    return Length( inVec2 - inVec1 );
+}
+
 /** @brief Returns `inVector` scaled to unit length. Dividing by a zero
  *  length (a zero vector) yields a vector of NaNs/infinities. */
 template<std::size_t N, _internal::Numeric T, typename Derived>

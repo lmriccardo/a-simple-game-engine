@@ -14,17 +14,17 @@ using ColliderShape = std::variant<math::Rect, math::Circle>;
 
 /**
  * @brief A bitmask identifying/filtering which Colliders can collide with
- *        which — see Collider::m_Layer/m_Mask and details::LayersCanCollide.
+ *        which — see Collider::m_Layer/m_Mask and LayersCanCollide.
  */
 using CollisionLayer = std::uint32_t;
 
 /**
- * @brief How DetectCollisions/ResolveCollisions react to an overlap
+ * @brief How CollisionSystem react to an overlap
  *        involving this Collider.
  */
 enum class ResolutionType
 {
-    Unknown, // Unrecognized/not-yet-configured — DetectCollisions ignores the pair entirely (no push-out, no trigger event)
+    Unknown, // Unrecognized/not-yet-configured — CollisionSystem ignores the pair entirely (no push-out, no trigger event)
     Trigger, // Non-blocking sensor — never pushed out or pushes anything out; overlap fires events::OnCollisionTriggerEnter/Stay/Exit instead
     Solid    // The default — participates in normal push-out collision response
 };
@@ -54,10 +54,12 @@ str::String ToString( ResolutionType inResolveT ) noexcept;
 /** @brief The read-side counterpart to ToString — any string other than "Solid"/"Trigger" maps to Unknown. */
 ResolutionType FromString( str::StringView inSv ) noexcept;
 
+}
+
 /**
  * @brief Whether two Colliders are even willing to collide with each other,
  *        before either's actual shape/overlap is looked at — see
- *        systems::DetectCollisions, which skips a pair entirely on false.
+ *        systems::CollisionSystem, which skips a pair entirely on false.
  *
  * Mutual: inA's layer must be in inB's mask *and* inB's layer must be in
  * inA's mask, so one side excluding the other is enough to skip the pair
@@ -65,7 +67,8 @@ ResolutionType FromString( str::StringView inSv ) noexcept;
  */
 bool LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept;
 
-}
+/** @brief Returns True if input collider has unknown resolution type */
+bool HasUnknownResolution( Collider const& inCollider ) noexcept;
 
 }
 

@@ -71,6 +71,9 @@ add_library(ASGE STATIC
     Core/ECS/Registry.cpp
     Core/ECS/Hierarchy.cpp
 
+    # Spatial Core components
+    Core/Spatial/QuadTree.cpp
+
     # ECS components
     Game/Components/Transform.cpp
     Game/Components/Hierarchy.cpp

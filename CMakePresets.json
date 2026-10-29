@@ -174,6 +174,48 @@
                 "ASGE_BUILD_EXAMPLES": "OFF",
                 "ASGE_INSTALL": "ON"
             }
+        },
+        {
+            "name": "windows-bench",
+            "displayName": "Windows (benchmarks, Release)",
+            "description": "Optimized build of benchmarks/ only (no tests, examples or editor), in its own build/bench directory so the Debug dev tree is left alone.",
+            "inherits": "windows-base",
+            "binaryDir": "${sourceDir}/build/bench",
+            "cacheVariables": {
+                "BUILD_TESTING": "OFF",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_BUILD_EDITOR": "OFF",
+                "ASGE_BUILD_BENCHMARKS": "ON"
+            }
+        },
+        {
+            "name": "linux-bench",
+            "displayName": "Linux (benchmarks, Release)",
+            "description": "Optimized build of benchmarks/ only (no tests, examples or editor), in its own build/bench directory so the Debug dev tree is left alone.",
+            "inherits": "linux-base",
+            "binaryDir": "${sourceDir}/build/bench",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "BUILD_TESTING": "OFF",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_BUILD_EDITOR": "OFF",
+                "ASGE_BUILD_BENCHMARKS": "ON"
+            }
+        },
+        {
+            "name": "macos-bench",
+            "displayName": "macOS (benchmarks, Release)",
+            "description": "Optimized build of benchmarks/ only (no tests, examples or editor), in its own build/bench directory so the Debug dev tree is left alone.",
+            "inherits": "macos-base",
+            "binaryDir": "${sourceDir}/build/bench",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "SDL3_DIR": "/opt/homebrew/lib/cmake/SDL3",
+                "BUILD_TESTING": "OFF",
+                "ASGE_BUILD_EXAMPLES": "OFF",
+                "ASGE_BUILD_EDITOR": "OFF",
+                "ASGE_BUILD_BENCHMARKS": "ON"
+            }
         }
     ],
     "buildPresets": [
@@ -233,6 +275,19 @@
         {
             "name": "macos-package",
             "configurePreset": "macos-package"
+        },
+        {
+            "name": "windows-bench",
+            "configurePreset": "windows-bench",
+            "configuration": "Release"
+        },
+        {
+            "name": "linux-bench",
+            "configurePreset": "linux-bench"
+        },
+        {
+            "name": "macos-bench",
+            "configurePreset": "macos-bench"
         }
     ],
     "testPresets": [

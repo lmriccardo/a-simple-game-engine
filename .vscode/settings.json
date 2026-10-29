@@ -23,6 +23,9 @@
         "claude-skills",
         "ui",
         "agent",
-        "editor"
+        "editor",
+        "doc",
+        "benchmarks",
+        "systems"
     ]
 }

@@ -17,4 +17,13 @@ struct Rect
 /** @brief True if inP falls strictly inside inRect -- a point exactly on an edge does not count. */
 bool Contains( Rect const& inRect, Float2 const& inP ) noexcept;
 
+/** @brief True if inRect2 lies fully inside inRect1 -- unlike the point overload, shared edges count as inside. */
+bool Contains( Rect const& inRect1, Rect const& inRect2 ) noexcept;
+
+/** @brief Computes the distance between a Rect and a point */
+float Distance( Rect const& inRect, Float2 const& inP ) noexcept;
+
+/** @brief Merges two rects into a single bigger rect */
+Rect Merge( Rect const& inR1, Rect const& inR2 ) noexcept;
+
 }

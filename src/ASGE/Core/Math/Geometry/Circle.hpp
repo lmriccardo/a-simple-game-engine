@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
+#include "Rect.hpp"
 
 namespace asge::math
 {
@@ -27,5 +28,7 @@ struct Circle
  * @return The circle's outline points
  */
 std::vector<Int2> MidpointCirclePoints(Int2 inCenter, int inRadius);
+
+Rect BoundingRect( Circle const& inCircle ) noexcept;
 
 }

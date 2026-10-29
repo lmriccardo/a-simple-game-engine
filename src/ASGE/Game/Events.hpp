@@ -10,9 +10,9 @@ namespace asge::game::events
  * @brief Fires the first frame a Trigger Collider pair starts overlapping.
  *
  * A process-wide signal (not per-Registry) fired synchronously from
- * systems::DispatchTriggerEvents — see its doc comment for exactly when
+ * systems::CollisionSystem — see its doc comment for exactly when
  * this fires vs. OnCollisionTriggerStay/Exit. If exactly one side of the
- * pair is a Trigger, it's reported first (see CollisionContact).
+ * pair is a Trigger, it's reported first.
  */
 signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerEnter() noexcept;
 
