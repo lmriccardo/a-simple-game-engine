@@ -25,6 +25,20 @@ the current and the previous frame, and derive three queries from them: <strong>
 <strong>pressed</strong> (up last frame, down now) and <strong>released</strong> (down last frame, up now). Edge
 queries such as "pressed" are what make a jump fire once instead of every frame the key is held.</p>
 
+<h3>Why snapshots?</h3>
+<p>Reacting to events directly ("on key down, jump") scatters input handling across the code and makes it hard to ask
+state questions such as "is the player holding right?". Polling a per-frame snapshot gives every system one consistent
+answer for the whole frame, no matter how many events arrived or in what order, and keeps input code in the update step
+where gameplay logic lives.</p>
+<h3>Mouse input</h3>
+<p>The mouse adds continuous values: a <em>position</em> (where the pointer is now), a <em>delta</em> (how far it moved
+this frame) and a <em>scroll</em> amount. Positions are in window space, so converting to world coordinates is the
+camera's job. Deltas and scroll must be accumulated across all events in a frame and reset on the next one, otherwise
+several small motions in one frame are lost.</p>
+<h3>Keys, not characters</h3>
+<p>Game controls care about physical keys (a "move left" binding), not the text the key would type. That is why input is
+expressed in key codes; remapping then means changing a binding instead of rewriting logic.</p>
+
 <h2>How ASGE does it</h2>
 <p><code>asge::input::InputSystem</code> is owned by <code>Application</code> and mirrors <code>VideoSystem</code>'s shape.
 Every frame the loop calls <code>NewFrame()</code> to roll the current snapshot into the previous one, then feeds each
@@ -66,6 +80,20 @@ a texture, with SDL3 as the only backend today.</p>
 the finished frame. Hiding it behind an interface keeps game code independent of the graphics API, so a different
 backend could be added later without touching gameplay. Cameras convert <em>world space</em> (where things are
 in the level) into <em>screen space</em> (pixels in the window).</p>
+
+<h3>Immediate versus retained</h3>
+<p>An <em>immediate-mode</em> renderer draws what you tell it to, right now, every frame; nothing is remembered between
+frames. A retained scene graph keeps objects and draws them for you. Immediate mode is simple and fits 2D games where
+the scene is already stored elsewhere (here, in the ECS); the cost is that you submit every draw call yourself each frame.</p>
+<h3>Textures and the GPU</h3>
+<p>An image decoded in RAM must be <em>uploaded</em> to the GPU before it can be drawn quickly. Uploading is slow, so it
+should happen once and the resulting texture be reused, which is the reason textures are cached by the asset layer. Draw
+order also matters in 2D: later draws cover earlier ones, so sprites are sorted by layer (and often by their Y position
+for a top-down look) before submission.</p>
+<h3>Cameras</h3>
+<p>A camera is a position and a zoom. Subtracting its position and scaling by the zoom maps a world coordinate onto the
+window, and the inverse maps a mouse click back into the world. The same transform lets the renderer skip anything outside
+the visible area (<em>culling</em>), which saves draw calls in large levels.</p>
 
 <h2>How ASGE does it</h2>
 <h3>Video system and backends</h3>
@@ -111,6 +139,19 @@ on entities.</p>
 the game runs. Engines open one output device, keep a bounded pool of <em>streams</em> bound to it, and feed decoded
 clip data into those streams.</p>
 
+<h3>Decoded sound</h3>
+<p>Audio on a computer is a long run of numbers, <em>samples</em>, played at a fixed rate (for example 44,100 per second).
+A clip is decoded once into that raw form; playing it means copying samples to the device just ahead of the speaker. If the
+copying is late the sound crackles, which is why audio must never wait on slow work such as loading a file.</p>
+<h3>Mixing</h3>
+<p>Speakers receive one signal, so several sounds are <em>mixed</em> by adding their samples together, each scaled by its
+own volume (<em>gain</em>). Too many loud sounds at once can exceed the maximum and distort, so engines cap the number of
+simultaneous voices; a bounded pool also keeps memory use predictable.</p>
+<h3>Sound as game state</h3>
+<p>Treating a sound as something an entity <em>has</em> (play, stop, loop) rather than a one-off call means it can be saved
+in a scene, edited in a tool and driven by the same systems as everything else. The system, not gameplay code, owns the
+details of starting and stopping streams.</p>
+
 <h2>How ASGE does it</h2>
 <h3>AudioDevice and AudioStream</h3>
 <p><code>asge::audio::AudioDevice</code> owns SDL's audio subsystem, one physical playback device and a fixed pool
@@ -153,6 +194,19 @@ installed.</p>
 short, stable names (<code>textures/hero.png</code>) onto real directories chosen at startup. The same game data then
 works from a dev checkout, an installed build or an archive, and tools can remap folders without touching scenes.</p>
 
+<h3>Mounts</h3>
+<p>The usual model is the <em>mount</em>: a virtual root such as <code>textures</code> is bound to a real folder. Looking up
+a virtual path replaces the root with the real folder, so only the mount table needs to know where data really lives. With
+several mounts you can layer a mod folder over the base game, as the first match wins.</p>
+<h3>Why not relative paths?</h3>
+<p>Relative paths depend on the <em>working directory</em>, which changes with how the game is launched (double click,
+terminal, IDE). Absolute paths bake in a developer's machine. Virtual paths avoid both and also use forward slashes
+everywhere, so scene files behave the same on Windows, Linux and macOS.</p>
+<h3>Watching files</h3>
+<p>Tools want to react when a file changes on disk, for example reloading a texture after an artist saves it. Operating
+systems offer native notifications for this, which are cheaper and faster than re-scanning folders. The watcher runs on its
+own thread so waiting for changes never blocks the game.</p>
+
 <h2>How ASGE does it</h2>
 <h3>VirtualFileSystem</h3>
 <p><code>asge::filesystem::VirtualFileSystem</code> keeps a list of <em>mounts</em>, each binding a virtual root to a
@@ -190,6 +244,19 @@ and shares it.</p>
 <p>Assets (textures, fonts, audio, animation data) are loaded by <em>name</em> and cached, so the second request for
 the same asset is a lookup. Components then hold a cheap reference or a path instead of a copy, and a scene file can
 store just the path.</p>
+
+<h3>Caching and sharing</h3>
+<p>If a hundred enemies use the same sprite sheet, loading it a hundred times wastes time and memory. A cache keyed by path
+returns the same loaded asset to everyone. Shared ownership means the asset stays alive while anything uses it and can be
+freed once nothing does.</p>
+<h3>Handles instead of data</h3>
+<p>Components that store the loaded data itself cannot be saved to a file, and are expensive to copy. Storing the path (or a
+small handle) keeps components light and saveable; a separate step later turns the path into the live resource. That
+resolve step is where a missing or broken file is detected and reported.</p>
+<h3>Loading cost</h3>
+<p>Decoding an image or sound, then uploading it to the GPU, can take milliseconds, enough to drop frames. Engines load at
+well-chosen moments (between levels, behind a loading screen) or in the background. Parameters that change the result, such
+as a font's pixel size, must be part of the cache key, since the same file at two sizes is two different assets.</p>
 
 <h2>How ASGE does it</h2>
 <h3>AssetManager and AssetPool</h3>
@@ -231,6 +298,19 @@ SCENES = """
 entity's components and rebuilt by reading them back. That makes levels data rather than code, and lets tools such as
 the <a href="../../editor/index.html">level editor</a> author them. A scene manager decides which scene is active and how
 to switch between them.</p>
+
+<h3>What a scene contains</h3>
+<p>A scene stores <em>what is needed to rebuild the world</em>: entities and the plain data of their components, with
+references to other things (assets, parent entities) written as stable names instead of memory addresses. Runtime-only state,
+such as a loaded texture, is not saved but rebuilt on load from those names.</p>
+<h3>Identity across save and load</h3>
+<p>Entity ids are only meaningful inside one running program. When a scene is loaded, new entities get new ids, so anything
+that refers to another entity (a parent link, say) must be translated from the saved reference to the new one. Getting this
+remapping right is the hardest part of any serializer.</p>
+<h3>Switching scenes</h3>
+<p>Switching can mean destroying the old world and loading the new from disk, which is simple but slow, or keeping visited
+scenes in memory so returning is instant at the cost of RAM. Which is right depends on how big levels are and how often
+players move between them.</p>
 
 <h2>How ASGE does it</h2>
 <h3>SceneSerializer</h3>
@@ -330,6 +410,20 @@ UI = """
 <em>layout</em> (where does each widget go, so you do not position everything by hand). Treating widgets as entities means
 the same scene format, hierarchy and editor tooling cover UI too.</p>
 
+<h3>Immediate versus retained UI</h3>
+<p>In <em>immediate-mode</em> UI, code describes the interface every frame (<code>if (Button("Play")) ...</code>) and
+nothing persists. In <em>retained-mode</em> UI, widgets are objects that exist between frames, hold their own state (hovered,
+pressed, value) and can be saved. Game menus and HUDs, which are designed by people and loaded from files, fit retained mode.</p>
+<h3>Hit testing and input states</h3>
+<p>A button needs more than "mouse is over it". It has states: <em>hovered</em>, <em>held</em> and <em>clicked</em>. A click is
+conventionally registered when the button is released <em>while still over the widget</em>, so the player can cancel by
+dragging away. Overlapping widgets need a rule for which one receives the click.</p>
+<h3>Layout</h3>
+<p>Positioning every widget by pixel breaks when the window size or text changes. Layout containers place their children:
+a stack lines them up in a row or column, a grid arranges rows and columns, and absolute layout leaves positions alone.
+Children can ask to fill the available space or align to an edge. HUD elements are usually anchored to the screen rather
+than the world, so they stay put when the camera moves.</p>
+
 <h2>How ASGE does it</h2>
 <h3>Widgets</h3>
 <p>Each widget is a bundle of components over a <code>UIRect</code>: <code>UIButton</code>, <code>UILabel</code>,
@@ -366,6 +460,24 @@ interpolation.</p>
 <p>2D games are mostly vectors and rectangles. Keeping them in one dependency-free module, rather than reaching into SDL
 types, means gameplay, physics, rendering and the editor all speak the same small set of types.</p>
 
+<h3>Vectors</h3>
+<p>A 2D vector is a pair of numbers that can mean a position, a direction or a displacement. Adding vectors moves things, a
+scalar multiple stretches them, and its length gives distance or speed. Working with vectors instead of separate x and y
+variables keeps formulas short and hard to get wrong.</p>
+<h3>Shapes and overlap tests</h3>
+<p>Two axis-aligned rectangles overlap exactly when they overlap on both axes, which costs a handful of comparisons. Two
+circles overlap when the distance between their centres is smaller than the sum of the radii. Cheap tests like these are why
+games approximate complicated art with simple collision shapes.</p>
+<h3>Penetration</h3>
+<p>Knowing that two shapes overlap is not enough to react; you also need to know how to separate them. The
+<em>minimum translation vector</em> is the shortest move that makes them just touch. For rectangles it is the smaller of the
+overlaps on the two axes; for circles it lies along the line between the centres.</p>
+<h3>Interpolation and easing</h3>
+<p>Interpolating means blending between two values by a fraction <code>t</code> from 0 to 1. Feeding <code>t</code> through
+an <em>easing</em> function makes motion start slowly, end softly or overshoot, which is what makes UI and animation feel
+natural. Splines extend this idea to smooth curves through several points. Floating-point rounding means tests on values
+should allow a small tolerance instead of exact equality.</p>
+
 <h2>How ASGE does it</h2>
 <h3>Linear algebra</h3>
 <p><code>asge::math::Vec2&lt;T&gt;</code> (and <code>Vec3</code>), built on a shared <code>VecN</code>, with the common
@@ -397,13 +509,13 @@ float x = slide.Value();       // eased value; slide.IsFinished() once the durat
 """
 
 PAGES = [
-    ("input", "Input", "Keyboard and mouse state, with down/pressed/released queries derived from the event stream.", INPUT),
-    ("rendering", "Rendering", "The thin video layer: VideoSystem, IRenderer, textures, cameras and the SDL3 backend.", RENDERING),
-    ("audio", "Audio", "The audio device and its stream pool, AudioSource components and the AudioSystem.", AUDIO),
-    ("filesystem", "Filesystem & VFS", "Virtual paths mounted onto real directories, file IO and file watching.", FILESYSTEM),
-    ("assets", "Assets", "The AssetManager's path-keyed caches, sprite resolution and spritesheet frame tables.", ASSETS),
-    ("scenes", "Scenes", "SceneSerializer and SceneManager: saving, loading and switching between levels.", SCENES),
-    ("physics", "Physics", "Colliders, layers and masks, and the movement, collision and trigger systems.", PHYSICS),
-    ("ui", "UI", "Widgets as entities, the Create* functions, and the interaction and layout systems.", UI),
-    ("math", "Math", "Vectors, shapes, collision tests, easing, tweens and splines.", MATH),
+    ("input", "Input", "How raw keyboard and mouse events become the questions gameplay code asks, such as whether a key is down, was just pressed or was just released, and how the per-frame input state is kept and queried.", INPUT),
+    ("rendering", "Rendering", "The thin rendering layer over SDL3: the VideoSystem and window, the abstract IRenderer, textures and sprites, cameras, and how draw calls reach the backend each frame.", RENDERING),
+    ("audio", "Audio", "How ASGE opens the audio device and mixes several clips at once through a pool of streams, and how AudioSource components and the AudioSystem drive playback from the scene.", AUDIO),
+    ("filesystem", "Filesystem & VFS", "How virtual paths are mounted onto real directories so game data does not depend on where it lives, plus the file IO helpers and the file watcher used to detect changes on disk.", FILESYSTEM),
+    ("assets", "Assets", "How the AssetManager loads each file once and caches it by virtual path, how sprites are resolved into textures, and how spritesheet frame tables describe animation frames.", ASSETS),
+    ("scenes", "Scenes", "How a level's entities are saved to a scene file and loaded back by the SceneSerializer, and how the SceneManager keeps one active scene and caches visited ones for instant switching.", SCENES),
+    ("physics", "Physics", "How movement, gravity and collisions work: colliders with layers and masks, a QuadTree broad phase feeding a shape-accurate narrow phase, solid push-out, and trigger enter/stay/exit events.", PHYSICS),
+    ("ui", "UI", "How menus and HUDs are built from ordinary entities with UI components, created through the Create* helpers, then laid out and made clickable by the layout and interaction systems.", UI),
+    ("math", "Math", "The maths toolbox the engine leans on: vectors, Rect and Circle shapes, overlap and penetration tests, plus easing curves, tweens and splines for smooth motion.", MATH),
 ]

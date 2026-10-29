@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Events &amp; signals · ASGE</title>
-<meta name="description" content="SDL event translation, SystemEvent and the type-safe Signal/Connection pattern."/>
+<meta name="description" content="How raw SDL events are translated into engine events, and how the type-safe Signal/Connection pattern lets one part of the program announce something without knowing who is listening."/>
 <meta property="og:title" content="Events &amp; signals · ASGE"/>
-<meta property="og:description" content="SDL event translation, SystemEvent and the type-safe Signal/Connection pattern."/>
+<meta property="og:description" content="How raw SDL events are translated into engine events, and how the type-safe Signal/Connection pattern lets one part of the program announce something without knowing who is listening."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -59,6 +59,20 @@ messages that code polls or receives, and <strong>signals and slots</strong>, wh
 signal and any number of listeners (slots) connect callbacks to it. Both remove direct dependencies between
 the sender and its receivers.</p>
 
+<h3 id="why-decouple">Why decouple?</h3>
+<p>If the player code calls the HUD directly, the player depends on the HUD, and the HUD cannot be removed or tested
+without it. With an announcement instead ("score changed"), the producer neither knows nor cares who listens: the HUD, an
+achievement tracker and a sound effect can all react, and none of them is named in the player code.</p>
+<h3 id="polling-versus-callbacks">Polling versus callbacks</h3>
+<p>An event stream is usually <em>pulled</em>: the loop drains a queue once per frame and handles each message in
+order, so all reactions happen at a predictable point. A signal is <em>pushed</em>: the slots run immediately, inside the
+call that emitted it. Push is convenient but means arbitrary code runs in the middle of the emitter's work, so a slot that
+modifies the very collection being iterated can cause trouble.</p>
+<h3 id="lifetimes">Lifetimes</h3>
+<p>The classic bug of callbacks is the dangling listener: an object is destroyed but its callback is still registered,
+and the next emit calls into freed memory. Any signal design therefore needs a way to disconnect, either explicitly or
+automatically when the listener goes away.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="system-events">System events</h3>
 <p>SDL events are translated once, in <code>event::_internal::ProcessEvent</code>, into
@@ -102,7 +116,7 @@ announcing a score change to the HUD.</p>
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Events/Events.hpp" target="_blank" rel="noopener"><code>Events/Events.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Patterns/Signal.hpp" target="_blank" rel="noopener"><code>Core/Patterns/Signal.hpp</code></a>.
 <a href="../examples/input_demo.html">Input demo</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#system-events">System events</a></li><li class="l3"><a href="#signals">Signals</a></li><li class="l2"><a href="#choosing">Choosing</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#why-decouple">Why decouple?</a></li><li class="l3"><a href="#polling-versus-callbacks">Polling versus callbacks</a></li><li class="l3"><a href="#lifetimes">Lifetimes</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#system-events">System events</a></li><li class="l3"><a href="#signals">Signals</a></li><li class="l2"><a href="#choosing">Choosing</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

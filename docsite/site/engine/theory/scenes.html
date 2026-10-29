@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Scenes · ASGE</title>
-<meta name="description" content="SceneSerializer and SceneManager: saving, loading and switching between levels."/>
+<meta name="description" content="How a level&#x27;s entities are saved to a scene file and loaded back by the SceneSerializer, and how the SceneManager keeps one active scene and caches visited ones for instant switching."/>
 <meta property="og:title" content="Scenes · ASGE"/>
-<meta property="og:description" content="SceneSerializer and SceneManager: saving, loading and switching between levels."/>
+<meta property="og:description" content="How a level&#x27;s entities are saved to a scene file and loaded back by the SceneSerializer, and how the SceneManager keeps one active scene and caches visited ones for instant switching."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -58,6 +58,19 @@ entity's components and rebuilt by reading them back. That makes levels data rat
 the <a href="../../editor/index.html">level editor</a> author them. A scene manager decides which scene is active and how
 to switch between them.</p>
 
+<h3 id="what-a-scene-contains">What a scene contains</h3>
+<p>A scene stores <em>what is needed to rebuild the world</em>: entities and the plain data of their components, with
+references to other things (assets, parent entities) written as stable names instead of memory addresses. Runtime-only state,
+such as a loaded texture, is not saved but rebuilt on load from those names.</p>
+<h3 id="identity-across-save-and-load">Identity across save and load</h3>
+<p>Entity ids are only meaningful inside one running program. When a scene is loaded, new entities get new ids, so anything
+that refers to another entity (a parent link, say) must be translated from the saved reference to the new one. Getting this
+remapping right is the hardest part of any serializer.</p>
+<h3 id="switching-scenes">Switching scenes</h3>
+<p>Switching can mean destroying the old world and loading the new from disk, which is simple but slow, or keeping visited
+scenes in memory so returning is instant at the cost of RAM. Which is right depends on how big levels are and how often
+players move between them.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="sceneserializer">SceneSerializer</h3>
 <p><code>SceneSerializer</code> writes every alive entity of a <code>Registry</code> to a TOML scene file
@@ -86,7 +99,7 @@ and scene instead of building one by hand.</p>
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Scene/SceneManager.hpp" target="_blank" rel="noopener"><code>Game/Scene/SceneManager.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Scene/SceneSerializer.hpp" target="_blank" rel="noopener"><code>Game/Scene/SceneSerializer.hpp</code></a>.
 <a href="../examples/scene_demo.html">Scene demo</a> &middot; <a href="ecs.html">ECS</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#sceneserializer">SceneSerializer</a></li><li class="l3"><a href="#scenemanager">SceneManager</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#what-a-scene-contains">What a scene contains</a></li><li class="l3"><a href="#identity-across-save-and-load">Identity across save and load</a></li><li class="l3"><a href="#switching-scenes">Switching scenes</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#sceneserializer">SceneSerializer</a></li><li class="l3"><a href="#scenemanager">SceneManager</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

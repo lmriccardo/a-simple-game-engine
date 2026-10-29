@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Math · ASGE</title>
-<meta name="description" content="Vectors, shapes, collision tests, easing, tweens and splines."/>
+<meta name="description" content="The maths toolbox the engine leans on: vectors, Rect and Circle shapes, overlap and penetration tests, plus easing curves, tweens and splines for smooth motion."/>
 <meta property="og:title" content="Math · ASGE"/>
-<meta property="og:description" content="Vectors, shapes, collision tests, easing, tweens and splines."/>
+<meta property="og:description" content="The maths toolbox the engine leans on: vectors, Rect and Circle shapes, overlap and penetration tests, plus easing curves, tweens and splines for smooth motion."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -57,6 +57,24 @@ interpolation.</p>
 <p>2D games are mostly vectors and rectangles. Keeping them in one dependency-free module, rather than reaching into SDL
 types, means gameplay, physics, rendering and the editor all speak the same small set of types.</p>
 
+<h3 id="vectors">Vectors</h3>
+<p>A 2D vector is a pair of numbers that can mean a position, a direction or a displacement. Adding vectors moves things, a
+scalar multiple stretches them, and its length gives distance or speed. Working with vectors instead of separate x and y
+variables keeps formulas short and hard to get wrong.</p>
+<h3 id="shapes-and-overlap-tests">Shapes and overlap tests</h3>
+<p>Two axis-aligned rectangles overlap exactly when they overlap on both axes, which costs a handful of comparisons. Two
+circles overlap when the distance between their centres is smaller than the sum of the radii. Cheap tests like these are why
+games approximate complicated art with simple collision shapes.</p>
+<h3 id="penetration">Penetration</h3>
+<p>Knowing that two shapes overlap is not enough to react; you also need to know how to separate them. The
+<em>minimum translation vector</em> is the shortest move that makes them just touch. For rectangles it is the smaller of the
+overlaps on the two axes; for circles it lies along the line between the centres.</p>
+<h3 id="interpolation-and-easing">Interpolation and easing</h3>
+<p>Interpolating means blending between two values by a fraction <code>t</code> from 0 to 1. Feeding <code>t</code> through
+an <em>easing</em> function makes motion start slowly, end softly or overshoot, which is what makes UI and animation feel
+natural. Splines extend this idea to smooth curves through several points. Floating-point rounding means tests on values
+should allow a small tolerance instead of exact equality.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="linear-algebra">Linear algebra</h3>
 <p><code>asge::math::Vec2&lt;T&gt;</code> (and <code>Vec3</code>), built on a shared <code>VecN</code>, with the common
@@ -89,7 +107,7 @@ float x = slide.Value();       // eased value; slide.IsFinished() once the durat
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Math.hpp" target="_blank" rel="noopener"><code>Core/Math/Math.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Geometry/Collision.hpp" target="_blank" rel="noopener"><code>Core/Math/Geometry/Collision.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Math/Interpolation/Tween.hpp" target="_blank" rel="noopener"><code>Core/Math/Interpolation/Tween.hpp</code></a>.
 <a href="../examples/rotation_demo.html">Rotation demo</a> &middot; <a href="../examples/path_following_demo.html">Path following demo</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#linear-algebra">Linear algebra</a></li><li class="l3"><a href="#geometry-and-collision">Geometry and collision</a></li><li class="l3"><a href="#interpolation">Interpolation</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#vectors">Vectors</a></li><li class="l3"><a href="#shapes-and-overlap-tests">Shapes and overlap tests</a></li><li class="l3"><a href="#penetration">Penetration</a></li><li class="l3"><a href="#interpolation-and-easing">Interpolation and easing</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#linear-algebra">Linear algebra</a></li><li class="l3"><a href="#geometry-and-collision">Geometry and collision</a></li><li class="l3"><a href="#interpolation">Interpolation</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

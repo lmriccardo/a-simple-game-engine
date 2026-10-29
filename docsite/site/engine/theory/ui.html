@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>UI · ASGE</title>
-<meta name="description" content="Widgets as entities, the Create* functions, and the interaction and layout systems."/>
+<meta name="description" content="How menus and HUDs are built from ordinary entities with UI components, created through the Create* helpers, then laid out and made clickable by the layout and interaction systems."/>
 <meta property="og:title" content="UI · ASGE"/>
-<meta property="og:description" content="Widgets as entities, the Create* functions, and the interaction and layout systems."/>
+<meta property="og:description" content="How menus and HUDs are built from ordinary entities with UI components, created through the Create* helpers, then laid out and made clickable by the layout and interaction systems."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -57,6 +57,20 @@
 <em>layout</em> (where does each widget go, so you do not position everything by hand). Treating widgets as entities means
 the same scene format, hierarchy and editor tooling cover UI too.</p>
 
+<h3 id="immediate-versus-retained-ui">Immediate versus retained UI</h3>
+<p>In <em>immediate-mode</em> UI, code describes the interface every frame (<code>if (Button("Play")) ...</code>) and
+nothing persists. In <em>retained-mode</em> UI, widgets are objects that exist between frames, hold their own state (hovered,
+pressed, value) and can be saved. Game menus and HUDs, which are designed by people and loaded from files, fit retained mode.</p>
+<h3 id="hit-testing-and-input-states">Hit testing and input states</h3>
+<p>A button needs more than "mouse is over it". It has states: <em>hovered</em>, <em>held</em> and <em>clicked</em>. A click is
+conventionally registered when the button is released <em>while still over the widget</em>, so the player can cancel by
+dragging away. Overlapping widgets need a rule for which one receives the click.</p>
+<h3 id="layout">Layout</h3>
+<p>Positioning every widget by pixel breaks when the window size or text changes. Layout containers place their children:
+a stack lines them up in a row or column, a grid arranges rows and columns, and absolute layout leaves positions alone.
+Children can ask to fill the available space or align to an edge. HUD elements are usually anchored to the screen rather
+than the world, so they stay put when the camera moves.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="widgets">Widgets</h3>
 <p>Each widget is a bundle of components over a <code>UIRect</code>: <code>UIButton</code>, <code>UILabel</code>,
@@ -86,7 +100,7 @@ font path is rejected with <code>UIWidgetError::TextWithNoFont</code>.</p>
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/UI.hpp" target="_blank" rel="noopener"><code>Game/UI.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Systems/UISystem.hpp" target="_blank" rel="noopener"><code>Game/Systems/UISystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Game/Components/UI/UIPanel.hpp" target="_blank" rel="noopener"><code>Game/Components/UI/UIPanel.hpp</code></a>.
 <a href="../../editor/arrange-the-ui.html">Arrange the UI in the editor</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#widgets">Widgets</a></li><li class="l3"><a href="#interaction-and-layout">Interaction and layout</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#immediate-versus-retained-ui">Immediate versus retained UI</a></li><li class="l3"><a href="#hit-testing-and-input-states">Hit testing and input states</a></li><li class="l3"><a href="#layout">Layout</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#widgets">Widgets</a></li><li class="l3"><a href="#interaction-and-layout">Interaction and layout</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

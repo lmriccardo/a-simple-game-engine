@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Filesystem &amp; VFS · ASGE</title>
-<meta name="description" content="Virtual paths mounted onto real directories, file IO and file watching."/>
+<meta name="description" content="How virtual paths are mounted onto real directories so game data does not depend on where it lives, plus the file IO helpers and the file watcher used to detect changes on disk."/>
 <meta property="og:title" content="Filesystem &amp; VFS · ASGE"/>
-<meta property="og:description" content="Virtual paths mounted onto real directories, file IO and file watching."/>
+<meta property="og:description" content="How virtual paths are mounted onto real directories so game data does not depend on where it lives, plus the file IO helpers and the file watcher used to detect changes on disk."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -58,6 +58,19 @@ installed.</p>
 short, stable names (<code>textures/hero.png</code>) onto real directories chosen at startup. The same game data then
 works from a dev checkout, an installed build or an archive, and tools can remap folders without touching scenes.</p>
 
+<h3 id="mounts">Mounts</h3>
+<p>The usual model is the <em>mount</em>: a virtual root such as <code>textures</code> is bound to a real folder. Looking up
+a virtual path replaces the root with the real folder, so only the mount table needs to know where data really lives. With
+several mounts you can layer a mod folder over the base game, as the first match wins.</p>
+<h3 id="why-not-relative-paths">Why not relative paths?</h3>
+<p>Relative paths depend on the <em>working directory</em>, which changes with how the game is launched (double click,
+terminal, IDE). Absolute paths bake in a developer's machine. Virtual paths avoid both and also use forward slashes
+everywhere, so scene files behave the same on Windows, Linux and macOS.</p>
+<h3 id="watching-files">Watching files</h3>
+<p>Tools want to react when a file changes on disk, for example reloading a texture after an artist saves it. Operating
+systems offer native notifications for this, which are cheaper and faster than re-scanning folders. The watcher runs on its
+own thread so waiting for changes never blocks the game.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="virtualfilesystem">VirtualFileSystem</h3>
 <p><code>asge::filesystem::VirtualFileSystem</code> keeps a list of <em>mounts</em>, each binding a virtual root to a
@@ -88,7 +101,7 @@ bool ok   = vfs.Exists( &quot;textures/hero.png&quot; );</code></pre>
 <p>Source: <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/VirtualFileSystem.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/VirtualFileSystem.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/FileWatcher.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/FileWatcher.hpp</code></a>, <a href="https://github.com/lmriccardo/a-simple-game-engine/blob/main/src/ASGE/Core/Filesystem/FileIO.hpp" target="_blank" rel="noopener"><code>Core/Filesystem/FileIO.hpp</code></a>.
 <a href="../examples/file_watching.html">File watching example</a> &middot; <a href="assets.html">Assets</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#virtualfilesystem">VirtualFileSystem</a></li><li class="l3"><a href="#file-io-and-watching">File IO and watching</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#mounts">Mounts</a></li><li class="l3"><a href="#why-not-relative-paths">Why not relative paths?</a></li><li class="l3"><a href="#watching-files">Watching files</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#virtualfilesystem">VirtualFileSystem</a></li><li class="l3"><a href="#file-io-and-watching">File IO and watching</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

@@ -4,9 +4,9 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Rendering · ASGE</title>
-<meta name="description" content="The thin video layer: VideoSystem, IRenderer, textures, cameras and the SDL3 backend."/>
+<meta name="description" content="The thin rendering layer over SDL3: the VideoSystem and window, the abstract IRenderer, textures and sprites, cameras, and how draw calls reach the backend each frame."/>
 <meta property="og:title" content="Rendering · ASGE"/>
-<meta property="og:description" content="The thin video layer: VideoSystem, IRenderer, textures, cameras and the SDL3 backend."/>
+<meta property="og:description" content="The thin rendering layer over SDL3: the VideoSystem and window, the abstract IRenderer, textures and sprites, cameras, and how draw calls reach the backend each frame."/>
 <link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
 <link rel="stylesheet" href="../../assets/css/style.css"/>
 
@@ -59,6 +59,20 @@ the finished frame. Hiding it behind an interface keeps game code independent of
 backend could be added later without touching gameplay. Cameras convert <em>world space</em> (where things are
 in the level) into <em>screen space</em> (pixels in the window).</p>
 
+<h3 id="immediate-versus-retained">Immediate versus retained</h3>
+<p>An <em>immediate-mode</em> renderer draws what you tell it to, right now, every frame; nothing is remembered between
+frames. A retained scene graph keeps objects and draws them for you. Immediate mode is simple and fits 2D games where
+the scene is already stored elsewhere (here, in the ECS); the cost is that you submit every draw call yourself each frame.</p>
+<h3 id="textures-and-the-gpu">Textures and the GPU</h3>
+<p>An image decoded in RAM must be <em>uploaded</em> to the GPU before it can be drawn quickly. Uploading is slow, so it
+should happen once and the resulting texture be reused, which is the reason textures are cached by the asset layer. Draw
+order also matters in 2D: later draws cover earlier ones, so sprites are sorted by layer (and often by their Y position
+for a top-down look) before submission.</p>
+<h3 id="cameras">Cameras</h3>
+<p>A camera is a position and a zoom. Subtracting its position and scaling by the zoom maps a world coordinate onto the
+window, and the inverse maps a mouse click back into the world. The same transform lets the renderer skip anything outside
+the visible area (<em>culling</em>), which saves draw calls in large levels.</p>
+
 <h2 id="how-asge-does-it">How ASGE does it</h2>
 <h3 id="video-system-and-backends">Video system and backends</h3>
 <p><code>asge::video::VideoSystem</code> brings up a window and a renderer for a chosen <code>GraphicsBackend</code>
@@ -95,7 +109,7 @@ inRenderer.Present();</code></pre>
 <a href="../examples/shapes_demo.html">Shapes demo</a> &middot; <a href="../examples/texture_demo.html">Texture demo</a> &middot;
 <a href="../examples/camera_demo.html">Camera demo</a> &middot; <a href="math.html">Math</a></p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#video-system-and-backends">Video system and backends</a></li><li class="l3"><a href="#irenderer">IRenderer</a></li><li class="l3"><a href="#camera">Camera</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#immediate-versus-retained">Immediate versus retained</a></li><li class="l3"><a href="#textures-and-the-gpu">Textures and the GPU</a></li><li class="l3"><a href="#cameras">Cameras</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#video-system-and-backends">Video system and backends</a></li><li class="l3"><a href="#irenderer">IRenderer</a></li><li class="l3"><a href="#camera">Camera</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">
