@@ -526,6 +526,46 @@ TEST_F(TriggerCollisionTest, DestroyedOverlappingEntity_StillFiresExit)
     EXPECT_EQ(exits[0].second, e2);
 }
 
+TEST_F(TriggerCollisionTest, AllCollidersRemoved_StillFiresExitAndNextOverlapIsEnterNotStay)
+{
+    // With no collider left the broad phase has nothing to build, but the
+    // Exit pass and the previous-pairs update must still run -- otherwise the
+    // stale pair survives and a later re-overlap is reported as Stay.
+    std::vector<std::pair<Entity, Entity>> exits;
+    std::vector<std::pair<Entity, Entity>> stays;
+    auto exitConnection = asge::game::events::OnCollisionTriggerExit().Connect(
+        [&exits]( Entity inA, Entity inB ) { exits.emplace_back( inA, inB ); }
+    );
+    auto stayConnection = asge::game::events::OnCollisionTriggerStay().Connect(
+        [&stays]( Entity inA, Entity inB ) { stays.emplace_back( inA, inB ); }
+    );
+
+    auto e1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto e2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    RunCollisions(); // Enter
+    ASSERT_TRUE(m_Registry.RemoveComponent<Collider>(e1).IsOk());
+    ASSERT_TRUE(m_Registry.RemoveComponent<Collider>(e2).IsOk());
+    RunCollisions(); // no colliders at all -> Exit
+
+    ASSERT_TRUE(m_Registry.AddComponent(e1, Collider{
+        .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 10.0f, 10.0f },
+        .m_Resolution = ResolutionType::Trigger }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(e2, Collider{
+        .m_LocalBounds = asge::math::Rect{ 0.0f, 0.0f, 10.0f, 10.0f },
+        .m_Resolution = ResolutionType::Trigger }).IsOk());
+    RunCollisions(); // overlapping again -> a fresh Enter
+
+    exitConnection.Disconnect();
+    stayConnection.Disconnect();
+
+    ASSERT_EQ(exits.size(), 1u);
+    EXPECT_EQ(exits[0].first, e1);
+    EXPECT_EQ(exits[0].second, e2);
+    EXPECT_EQ(m_Overlaps.size(), 2u);
+    EXPECT_TRUE(stays.empty());
+}
+
 // ─── PathFollowingSystem ─────────────────────────────────────────────────────
 
 // Builds an entity with a Transform and a PathFollow whose m_Path is already

@@ -298,34 +298,40 @@ void asge::game::systems::CollisionSystem(ecs::Registry &inRegistry, PhysicsStat
     // Step 1: Build the collision QuadTree with entities that have both
     // Transform and collider component, using Worldbounds coordinates.
     // With no colliders there is nothing to build; the Exit pass below still runs.
+    // A failed Reset skips the broad phase the same way.
     auto const extension = ComputeColliderExtension( inRegistry );
-    if ( !extension ) return;
-    
-    auto const reset = quadTree.Reset( *extension );
-    if ( !reset.IsOk() )
+    bool built = false;
+    if ( extension )
     {
-        LOG_ERROR( "CollisionSystem: broad phase skipped, QuadTree reset failed" );
-        reset.LogError();
-        return;
-    }
-    
-    std::size_t rejected = 0;
-    for ( auto [ e, t, c ] : inRegistry.View<components::Transform, components::Collider>() )
-    {
-        if ( !quadTree.Insert( e, ToBroadPhaseRect( WorldBounds( t.get(), c.get() ) ) ).IsOk() )
-            ++rejected;
+        auto const reset = quadTree.Reset( *extension );
+        built = reset.IsOk();
+        if ( !built )
+        {
+            LOG_ERROR( "CollisionSystem: broad phase skipped, QuadTree reset failed" );
+            reset.LogError();
+        }
     }
 
-    if ( rejected > 0 || quadTree.ArenaExhausted() )
+    if ( built )
     {
-        LOG_WARNING( "CollisionSystem: QuadTree degraded, ", rejected, 
-            " collider(s) not inserted, arena exhausted: ", quadTree.ArenaExhausted() );
-    }
+        std::size_t rejected = 0;
+        for ( auto [ e, t, c ] : inRegistry.View<components::Transform, components::Collider>() )
+        {
+            if ( !quadTree.Insert( e, ToBroadPhaseRect( WorldBounds( t.get(), c.get() ) ) ).IsOk() )
+                ++rejected;
+        }
 
-    // Step 2: Runs the collision test by checking each pair
-    quadTree.ForEachPair( [&]( auto e1, auto e2 ) {
-        return CheckCollision( inRegistry, e1, e2, corrections, ioState, triggerPairs, contacts );
-    } );
+        if ( rejected > 0 || quadTree.ArenaExhausted() )
+        {
+            LOG_WARNING( "CollisionSystem: QuadTree degraded, ", rejected,
+                " collider(s) not inserted, arena exhausted: ", quadTree.ArenaExhausted() );
+        }
+
+        // Step 2: Runs the collision test by checking each pair
+        quadTree.ForEachPair( [&]( auto e1, auto e2 ) {
+            return CheckCollision( inRegistry, e1, e2, corrections, ioState, triggerPairs, contacts );
+        } );
+    }
 
     // Step 3: Emit trigger events only now, so handlers can't touch the
     // registry while the tree is being traversed.
