@@ -180,4 +180,50 @@ TEST(ContainsTest, PointJustOutsideEachEdge_ReturnsFalse)
     EXPECT_FALSE(Contains(rect, Float2{5.0f, 10.1f}));
 }
 
+// ─── Contains (Rect) ─────────────────────────────────────────────────────────
+
+TEST(ContainsRectTest, InnerRectWellInside_ReturnsTrue)
+{
+    EXPECT_TRUE(Contains(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Rect{2.0f, 2.0f, 3.0f, 3.0f}));
+}
+
+TEST(ContainsRectTest, SharedEdges_ReturnsTrue)
+{
+    Rect const outer{0.0f, 0.0f, 10.0f, 10.0f};
+    EXPECT_TRUE(Contains(outer, outer));
+    EXPECT_TRUE(Contains(outer, Rect{0.0f, 0.0f, 5.0f, 5.0f}));
+    EXPECT_TRUE(Contains(outer, Rect{5.0f, 5.0f, 5.0f, 5.0f}));
+}
+
+TEST(ContainsRectTest, PokingOutOfAnySide_ReturnsFalse)
+{
+    Rect const outer{0.0f, 0.0f, 10.0f, 10.0f};
+    EXPECT_FALSE(Contains(outer, Rect{-1.0f, 2.0f, 3.0f, 3.0f}));
+    EXPECT_FALSE(Contains(outer, Rect{2.0f, -1.0f, 3.0f, 3.0f}));
+    EXPECT_FALSE(Contains(outer, Rect{8.0f, 2.0f, 3.0f, 3.0f}));
+    EXPECT_FALSE(Contains(outer, Rect{2.0f, 8.0f, 3.0f, 3.0f}));
+}
+
+TEST(ContainsRectTest, OuterInsideInner_ReturnsFalse)
+{
+    EXPECT_FALSE(Contains(Rect{2.0f, 2.0f, 3.0f, 3.0f}, Rect{0.0f, 0.0f, 10.0f, 10.0f}));
+}
+
+// ─── Distance (Rect, point) ──────────────────────────────────────────────────
+
+TEST(DistanceRectTest, PointInside_ReturnsZero)
+{
+    EXPECT_FLOAT_EQ(Distance(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Float2{5.0f, 5.0f}), 0.0f);
+}
+
+TEST(DistanceRectTest, PointBesideAnEdge_ReturnsPerpendicularDistance)
+{
+    EXPECT_FLOAT_EQ(Distance(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Float2{13.0f, 5.0f}), 3.0f);
+}
+
+TEST(DistanceRectTest, PointPastACorner_ReturnsDistanceToCorner)
+{
+    EXPECT_FLOAT_EQ(Distance(Rect{0.0f, 0.0f, 10.0f, 10.0f}, Float2{13.0f, 14.0f}), 5.0f);
+}
+
 }
