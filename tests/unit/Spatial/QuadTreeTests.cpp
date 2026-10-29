@@ -1,6 +1,8 @@
 #include <ASGE/Core/Spatial/QuadTree.hpp>
 
 #include <algorithm>
+#include <limits>
+#include <optional>
 #include <random>
 #include <set>
 #include <system_error>
@@ -461,6 +463,278 @@ TEST_F(QuadTreeTest, ForEachPair_AnyArenaSize_MatchesBruteForceOnAcceptedElement
 
         EXPECT_EQ( TreePairs( tree ), BrutePairs( rects, ids ) ) << "arena bytes: " << bytes;
     }
+}
+
+// ─── Query (point / circle) ───────────────────────────────────────────
+
+using asge::math::Circle;
+using asge::math::Float2;
+
+TEST_F(QuadTreeTest, QueryPoint_InsideElement_Reported)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 10.0f, 10.0f, 10.0f, 10.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 50.0f, 50.0f, 10.0f, 10.0f } ).IsOk() );
+
+    std::vector<int> found;
+    m_Tree.Query( Float2{ 15.0f, 15.0f }, [&found]( int v ) { found.push_back( v ); return true; } );
+    EXPECT_EQ( found, std::vector<int>{ 1 } );
+}
+
+TEST_F(QuadTreeTest, QueryPoint_OnEdgeOrOutside_NotReported)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 10.0f, 10.0f, 10.0f, 10.0f } ).IsOk() );
+
+    int calls = 0;
+    auto const count = [&calls]( int ) { ++calls; return true; };
+    m_Tree.Query( Float2{ 10.0f, 15.0f }, count );
+    m_Tree.Query( Float2{ 30.0f, 30.0f }, count );
+    EXPECT_EQ( calls, 0 );
+}
+
+TEST_F(QuadTreeTest, QueryPoint_BeforeReset_VisitsNothing)
+{
+    QuadTree<int> tree( k_NodeBytes, k_MaxElements );
+    int calls = 0;
+    tree.Query( Float2{ 1.0f, 1.0f }, [&calls]( int ) { ++calls; return true; } );
+    EXPECT_EQ( calls, 0 );
+}
+
+TEST_F(QuadTreeTest, QueryPoint_OverlappingElements_AllReportedAndCanStop)
+{
+    for ( int i = 0; i < 20; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 40.0f, 40.0f, 20.0f, 20.0f } ).IsOk() );
+    }
+
+    int calls = 0;
+    m_Tree.Query( Float2{ 50.0f, 50.0f }, [&calls]( int ) { ++calls; return true; } );
+    EXPECT_EQ( calls, 20 );
+
+    calls = 0;
+    m_Tree.Query( Float2{ 50.0f, 50.0f }, [&calls]( int ) { return ++calls < 4; } );
+    EXPECT_EQ( calls, 4 );
+}
+
+TEST_F(QuadTreeTest, QueryCircle_ReportsElementsWithinRadius)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 50.0f, 50.0f, 4.0f, 4.0f } ).IsOk() );  // center inside the rect
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 60.0f, 50.0f, 4.0f, 4.0f } ).IsOk() );  // 5 away from a center at 55
+    ASSERT_TRUE( m_Tree.Insert( 3, Rect{ 90.0f, 90.0f, 4.0f, 4.0f } ).IsOk() );  // far away
+
+    EXPECT_EQ( [&] { std::vector<int> v; m_Tree.Query( Circle{ Float2{ 52.0f, 52.0f }, 10.0f }, [&v]( int x ) { v.push_back( x ); return true; } ); std::sort( v.begin(), v.end() ); return v; }(),
+               ( std::vector<int>{ 1, 2 } ) );
+}
+
+TEST_F(QuadTreeTest, QueryCircle_TouchingOnly_NotReported)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 60.0f, 50.0f, 4.0f, 4.0f } ).IsOk() );
+
+    int calls = 0;
+    m_Tree.Query( Circle{ Float2{ 50.0f, 52.0f }, 10.0f }, [&calls]( int ) { ++calls; return true; } );
+    EXPECT_EQ( calls, 0 );
+}
+
+TEST_F(QuadTreeTest, QueryCircle_VisitorReturningFalse_StopsTraversal)
+{
+    for ( int i = 0; i < 30; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 10.0f + i, 10.0f, 1.0f, 1.0f } ).IsOk() );
+    }
+
+    int calls = 0;
+    m_Tree.Query( Circle{ Float2{ 25.0f, 10.0f }, 50.0f }, [&calls]( int ) { return ++calls < 5; } );
+    EXPECT_EQ( calls, 5 );
+}
+
+TEST_F(QuadTreeTest, QueryPointAndCircle_MatchBruteForceOnRandomData)
+{
+    std::mt19937 rng( 5 );
+    std::uniform_real_distribution<float> pos( 0.0f, 90.0f ), size( 0.5f, 8.0f ), big( 20.0f, 40.0f );
+
+    std::vector<Rect> rects;
+    for ( int i = 0; i < 600; ++i )
+    {
+        float const w = ( i % 25 == 0 ) ? big( rng ) : size( rng );
+        float const h = ( i % 25 == 0 ) ? big( rng ) : size( rng );
+        Rect r{ pos( rng ), pos( rng ), w, h };
+        r.m_X = std::min( r.m_X, 100.0f - w );
+        r.m_Y = std::min( r.m_Y, 100.0f - h );
+        rects.push_back( r );
+        ASSERT_TRUE( m_Tree.Insert( i, r ).IsOk() );
+    }
+
+    for ( int q = 0; q < 100; ++q )
+    {
+        Float2 const point{ pos( rng ), pos( rng ) };
+        float const radius = size( rng ) * 2.0f;
+
+        std::vector<int> expectedPoint, expectedCircle, gotPoint, gotCircle;
+        for ( int i = 0; i < static_cast<int>( rects.size() ); ++i )
+        {
+            if ( asge::math::Contains( rects[i], point ) ) expectedPoint.push_back( i );
+            if ( asge::math::Distance( rects[i], point ) < radius ) expectedCircle.push_back( i );
+        }
+
+        m_Tree.Query( point, [&gotPoint]( int v ) { gotPoint.push_back( v ); return true; } );
+        m_Tree.Query( Circle{ point, radius }, [&gotCircle]( int v ) { gotCircle.push_back( v ); return true; } );
+        std::sort( gotPoint.begin(), gotPoint.end() );
+        std::sort( gotCircle.begin(), gotCircle.end() );
+
+        EXPECT_EQ( gotPoint, expectedPoint );
+        EXPECT_EQ( gotCircle, expectedCircle );
+    }
+}
+
+// ─── Nearest ──────────────────────────────────────────────────────────
+
+TEST_F(QuadTreeTest, Nearest_BeforeResetOrWhenEmpty_ReturnsNothing)
+{
+    QuadTree<int> uninitialised( k_NodeBytes, k_MaxElements );
+    EXPECT_FALSE( uninitialised.Nearest( Float2{ 1.0f, 1.0f } ).has_value() );
+    EXPECT_FALSE( m_Tree.Nearest( Float2{ 1.0f, 1.0f } ).has_value() );
+}
+
+TEST_F(QuadTreeTest, Nearest_PicksTheClosestElement)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 10.0f, 10.0f, 5.0f, 5.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 80.0f, 80.0f, 5.0f, 5.0f } ).IsOk() );
+
+    EXPECT_EQ( m_Tree.Nearest( Float2{ 20.0f, 20.0f } ), std::optional<int>( 1 ) );
+    EXPECT_EQ( m_Tree.Nearest( Float2{ 70.0f, 70.0f } ), std::optional<int>( 2 ) );
+}
+
+TEST_F(QuadTreeTest, Nearest_PointInsideElement_ReturnsThatElement)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 0.0f, 0.0f, 100.0f, 100.0f } ).IsOk() );
+    ASSERT_TRUE( m_Tree.Insert( 2, Rect{ 60.0f, 60.0f, 2.0f, 2.0f } ).IsOk() );
+
+    EXPECT_EQ( m_Tree.Nearest( Float2{ 61.0f, 61.0f } ).has_value(), true );
+    EXPECT_EQ( m_Tree.Nearest( Float2{ 5.0f, 5.0f } ), std::optional<int>( 1 ) );
+}
+
+TEST_F(QuadTreeTest, Nearest_MatchesBruteForceDistanceOnRandomData)
+{
+    std::mt19937 rng( 17 );
+    std::uniform_real_distribution<float> pos( 0.0f, 90.0f ), size( 0.5f, 8.0f ), big( 20.0f, 40.0f );
+
+    std::vector<Rect> rects;
+    for ( int i = 0; i < 600; ++i )
+    {
+        float const w = ( i % 25 == 0 ) ? big( rng ) : size( rng );
+        float const h = ( i % 25 == 0 ) ? big( rng ) : size( rng );
+        Rect r{ pos( rng ), pos( rng ), w, h };
+        r.m_X = std::min( r.m_X, 100.0f - w );
+        r.m_Y = std::min( r.m_Y, 100.0f - h );
+        rects.push_back( r );
+        ASSERT_TRUE( m_Tree.Insert( i, r ).IsOk() );
+    }
+
+    for ( int q = 0; q < 200; ++q )
+    {
+        Float2 const point{ pos( rng ) + 5.0f, pos( rng ) + 5.0f };
+
+        float expected = std::numeric_limits<float>::infinity();
+        for ( Rect const& r : rects ) expected = std::min( expected, asge::math::Distance( r, point ) );
+
+        auto const nearest = m_Tree.Nearest( point );
+        ASSERT_TRUE( nearest.has_value() );
+        EXPECT_FLOAT_EQ( asge::math::Distance( rects[*nearest], point ), expected );
+    }
+}
+
+// ─── Statistics ───────────────────────────────────────────────────────
+
+TEST_F(QuadTreeTest, Stats_FreshTree_OnlyTheRoot)
+{
+    EXPECT_EQ( m_Tree.NodeCount(), 1u );
+    EXPECT_EQ( m_Tree.MaxDepthReached(), 0 );
+    EXPECT_FALSE( m_Tree.ArenaExhausted() );
+    EXPECT_GT( m_Tree.ArenaUsed(), 0u );
+    EXPECT_EQ( m_Tree.ArenaCapacity(), k_NodeBytes );
+}
+
+TEST_F(QuadTreeTest, Stats_SubdivisionAddsFourNodesAndOneLevel)
+{
+    for ( int i = 0; i < 9; ++i )
+    {
+        float const x = 10.0f + 30.0f * static_cast<float>( i % 3 );
+        float const y = 10.0f + 30.0f * static_cast<float>( i / 3 );
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ x, y, 0.5f, 0.5f } ).IsOk() );
+    }
+
+    EXPECT_EQ( m_Tree.NodeCount(), 5u );
+    EXPECT_EQ( m_Tree.MaxDepthReached(), 1 );
+}
+
+TEST_F(QuadTreeTest, Stats_CoincidentElements_ReachTheDepthCap)
+{
+    for ( int i = 0; i < 100; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 1.0f, 1.0f, 0.01f, 0.01f } ).IsOk() );
+    }
+
+    EXPECT_EQ( m_Tree.MaxDepthReached(), QuadNode::s_MaxDepth );
+}
+
+TEST_F(QuadTreeTest, Stats_ArenaUsedGrowsWithInserts)
+{
+    auto const before = m_Tree.ArenaUsed();
+    for ( int i = 0; i < 50; ++i )
+    {
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 1.0f + i, 1.0f, 0.5f, 0.5f } ).IsOk() );
+    }
+
+    EXPECT_GT( m_Tree.ArenaUsed(), before );
+    EXPECT_LE( m_Tree.ArenaUsed(), m_Tree.ArenaCapacity() );
+}
+
+TEST_F(QuadTreeTest, Stats_ExhaustedArena_SetsTheFlagUntilNextReset)
+{
+    QuadTree<int> tree( 512, k_MaxElements );
+    ASSERT_TRUE( tree.Reset( 100.0f, 100.0f ).IsOk() );
+
+    for ( int i = 0; i < 50; ++i ) (void) tree.Insert( i, Rect{ 1.0f + i, 1.0f, 0.5f, 0.5f } );
+    EXPECT_TRUE( tree.ArenaExhausted() );
+
+    ASSERT_TRUE( tree.Reset( 100.0f, 100.0f ).IsOk() );
+    EXPECT_FALSE( tree.ArenaExhausted() );
+    EXPECT_EQ( tree.NodeCount(), 1u );
+}
+
+// ─── Reset validation ─────────────────────────────────────────────────
+
+TEST_F(QuadTreeTest, Reset_InvalidSize_ReturnsInvalidArgument)
+{
+    float const nan = std::numeric_limits<float>::quiet_NaN();
+    float const inf = std::numeric_limits<float>::infinity();
+
+    for ( auto const& [w, h] : std::vector<std::pair<float, float>>{ { 0.0f, 10.0f }, { 10.0f, 0.0f }, { -1.0f, 10.0f },
+                                                                      { 10.0f, -5.0f }, { nan, 10.0f }, { 10.0f, nan }, { inf, 10.0f } } )
+    {
+        auto result = m_Tree.Reset( w, h );
+        ASSERT_FALSE( result.IsOk() ) << w << "x" << h;
+        EXPECT_EQ( result.Code(), std::make_error_code( std::errc::invalid_argument ) );
+    }
+}
+
+TEST_F(QuadTreeTest, Reset_InvalidSize_LeavesTreeUninitialised)
+{
+    ASSERT_TRUE( m_Tree.Insert( 1, Rect{ 1.0f, 1.0f, 1.0f, 1.0f } ).IsOk() );
+    ASSERT_FALSE( m_Tree.Reset( 0.0f, 0.0f ).IsOk() );
+
+    EXPECT_EQ( m_Tree.Size(), 0u );
+    auto result = m_Tree.Insert( 2, Rect{ 1.0f, 1.0f, 1.0f, 1.0f } );
+    ASSERT_FALSE( result.IsOk() );
+    EXPECT_EQ( result.Code(), std::make_error_code( std::errc::operation_not_permitted ) );
+}
+
+TEST_F(QuadTreeTest, Reset_ArenaTooSmallForRoot_ReturnsNoBufferSpace)
+{
+    QuadTree<int> tree( 8, k_MaxElements );
+    auto result = tree.Reset( 100.0f, 100.0f );
+    ASSERT_FALSE( result.IsOk() );
+    EXPECT_EQ( result.Code(), std::make_error_code( std::errc::no_buffer_space ) );
+    EXPECT_TRUE( tree.ArenaExhausted() );
 }
 
 // ─── Reset ────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <new>
+#include <optional>
 #include <type_traits>
 #include <vector>
 
@@ -82,6 +83,9 @@ class QuadTree
     QuadBlockHeader*    m_FreeBlocks { nullptr };       // Blocks released by subdivision, reused first
     std::size_t         m_MaxElements;                  // Element budget fixed at construction
     std::size_t         m_Size       { 0 };             // Number of elements currently stored
+    std::size_t         m_NodeCount  { 0 };             // Nodes created since the last Reset
+    std::uint16_t       m_MaxDepth   { 0 };             // Deepest node created since the last Reset
+    bool                m_Exhausted  { false };         // An arena allocation failed since the last Reset
 
     /** @brief Allocates a node from the arena, or returns nullptr if the arena is full. */
     QuadNode* createNode( math::Rect const& inBounds, std::uint16_t inDepth ) noexcept;
@@ -110,13 +114,19 @@ class QuadTree
     void subdivide( QuadNode* inNode ) noexcept;
 
     /**
-     * @brief Visits the overlapping elements of the subtree using an explicit fixed-size stack.
+     * @brief Visits the elements of the subtree for which inElemPred holds, using an explicit fixed-size stack.
      *
-     * Nodes are visited in the same order as a recursive walk (parent, then children 0..3).
-     * Returns false once the visitor asked to stop.
+     * A child is entered only if inNodePred holds for its bounds, so the node predicate must be
+     * true whenever the element predicate is true for something inside the node. Nodes are visited
+     * in the same order as a recursive walk (parent, then children 0..3). Returns false once the
+     * visitor asked to stop.
      */
-    template<typename Visitor>
-    bool query( QuadNode const* inNode, math::Rect const& inRect, Visitor& inVisitor ) const;
+    template<typename NodePred, typename ElemPred, typename Visitor>
+    bool traverse( QuadNode const* inNode, NodePred inNodePred, ElemPred inElemPred, Visitor& inVisitor ) const;
+
+    /** @brief Branch-and-bound step of Nearest: updates the best element found so far in the subtree. */
+    void nearest( QuadNode const* inNode, math::Float2 const& inPoint,
+                  float& ioBestDistance, std::optional<T>& ioBest ) const noexcept;
 
     /**
      * @brief Reports the overlapping pairs found in the subtree of inNode.
@@ -133,8 +143,14 @@ public:
     /** @brief Reserves an arena of inArenaBytes for nodes and element blocks, and caps the tree at inMaxElements. */
     QuadTree( std::size_t inArenaBytes, std::size_t inMaxElements );
 
-    /** @brief Drops every element and node, then starts a new empty tree covering [0,inW]x[0,inH]. */
-    void Reset( float inW, float inH ) noexcept;
+    /**
+     * @brief Drops every element and node, then starts a new empty tree covering [0,inW]x[0,inH].
+     *
+     * Errors with invalid_argument unless both sizes are finite and positive, and with
+     * no_buffer_space if the arena cannot even hold the root. After an error the tree is
+     * empty and uninitialised, so Insert fails until a Reset succeeds.
+     */
+    BoolResult Reset( float inW, float inH ) noexcept;
 
     /**
      * @brief Inserts an element with the given bounds.
@@ -157,6 +173,58 @@ public:
     template<typename Visitor>
     void Query( math::Rect const& inRect, Visitor&& inVisitor ) const;
 
+    /**
+     * @brief Calls inVisitor(value) for every element whose rect strictly contains inPoint.
+     *
+     * Same visitor protocol as the Rect overload; a point exactly on an element's edge is not inside it.
+     */
+    template<typename Visitor>
+    void Query( math::Float2 const& inPoint, Visitor&& inVisitor ) const;
+
+    /**
+     * @brief Calls inVisitor(value) for every element whose rect is closer to the circle's
+     *        center than its radius.
+     *
+     * Same visitor protocol as the Rect overload; an element that only touches the circle is not reported.
+     */
+    template<typename Visitor>
+    void Query( math::Circle const& inCircle, Visitor&& inVisitor ) const;
+
+    /**
+     * @brief Returns the value of the element whose rect is closest to inPoint.
+     *
+     * The distance is 0 for a point inside or on an element. When several elements are equally
+     * close, which one is returned is unspecified. Empty if the tree is empty or uninitialised.
+     */
+    std::optional<T> Nearest( math::Float2 const& inPoint ) const noexcept;
+
+    /** @brief Number of nodes created since the last Reset, root included. */
+    std::size_t NodeCount() const noexcept;
+
+    /** @brief Depth of the deepest node created since the last Reset (the root is 0). */
+    std::uint16_t MaxDepthReached() const noexcept;
+
+    /**
+     * @brief True if an arena allocation failed since the last Reset.
+     *
+     * It means the tree degraded: some leaf could not split, or an Insert was refused for lack
+     * of memory. Compare ArenaUsed() with ArenaCapacity() to size the arena.
+     */
+    bool ArenaExhausted() const noexcept;
+
+    /** @brief Arena bytes consumed so far by nodes and element blocks. */
+    std::size_t ArenaUsed() const noexcept;
+
+    /** @brief Total arena size in bytes. */
+    std::size_t ArenaCapacity() const noexcept;
+
+    /**
+     * @brief Calls inVisitor(a, b) once for every unordered pair of overlapping elements.
+     *
+     * Never pairs an element with itself and never reports a pair twice; the order of the
+     * pairs and of the two values within a pair is unspecified. The visitor returns true to
+     * continue or false to stop early. Allocates one scratch buffer per call.
+     */
     template<typename Visitor>
     void ForEachPair( Visitor&& inVisitor ) const;
 };

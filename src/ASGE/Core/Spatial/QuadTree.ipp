@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <system_error>
 #include "QuadTree.hpp"
 
@@ -9,7 +12,15 @@ template <typename T>
 inline QuadNode* QuadTree<T>::createNode(math::Rect const &inBounds, std::uint16_t inDepth) noexcept
 {
     void* mem = m_Allocator.Alloc( sizeof( QuadNode ), alignof( QuadNode ) );
-    return mem ? ::new ( mem ) QuadNode( inBounds, inDepth ) : nullptr;
+    if ( mem == nullptr )
+    {
+        m_Exhausted = true;
+        return nullptr;
+    }
+
+    ++m_NodeCount;
+    m_MaxDepth = std::max( m_MaxDepth, inDepth );
+    return ::new ( mem ) QuadNode( inBounds, inDepth );
 }
 
 template <typename T>
@@ -25,7 +36,11 @@ inline typename QuadTree<T>::Block* QuadTree<T>::acquireBlock() noexcept
     else
     {
         void* mem = m_Allocator.Alloc( sizeof( Block ), alignof( Block ) );
-        if ( mem == nullptr ) return nullptr;
+        if ( mem == nullptr )
+        {
+            m_Exhausted = true;
+            return nullptr;
+        }
         block = ::new ( mem ) Block;
     }
 
@@ -196,10 +211,10 @@ inline void QuadTree<T>::subdivide(QuadNode *inNode) noexcept
 }
 
 template <typename T>
-template <typename Visitor>
-inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect, Visitor &inVisitor) const
+template <typename NodePred, typename ElemPred, typename Visitor>
+inline bool QuadTree<T>::traverse(QuadNode const *inNode, NodePred inNodePred, ElemPred inElemPred, Visitor &inVisitor) const
 {
-    if ( !math::AabbOverlap( inNode->m_Bounds, inRect ) ) return true;
+    if ( !inNodePred( inNode->m_Bounds ) ) return true;
 
     std::array<QuadNode const*, s_QueryStackSize> stack;
     std::size_t top = 0;
@@ -215,7 +230,7 @@ inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect,
 
             for ( std::uint32_t i = 0; i < block->m_Used; ++i )
             {
-                if ( math::AabbOverlap( block->m_Bounds[i], inRect ) && !inVisitor( block->m_Values[i] ) )
+                if ( inElemPred( block->m_Bounds[i] ) && !inVisitor( block->m_Values[i] ) )
                 {
                     return false;
                 }
@@ -227,7 +242,7 @@ inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect,
         // Pushed in reverse so child 0 is popped first
         for ( int c = 3; c >= 0; --c )
         {
-            if ( math::AabbOverlap( node->m_Children[c]->m_Bounds, inRect ) )
+            if ( inNodePred( node->m_Children[c]->m_Bounds ) )
             {
                 stack[top++] = node->m_Children[c];
             }
@@ -235,6 +250,41 @@ inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect,
     }
 
     return true;
+}
+
+template <typename T>
+inline void QuadTree<T>::nearest(QuadNode const *inNode, math::Float2 const &inPoint,
+                                 float &ioBestDistance, std::optional<T> &ioBest) const noexcept
+{
+    for ( QuadBlockHeader const* h = inNode->m_Head; h != nullptr; h = h->m_Next )
+    {
+        Block const* block = static_cast<Block const*>( h );
+
+        for ( std::uint32_t i = 0; i < block->m_Used; ++i )
+        {
+            float const d = math::Distance( block->m_Bounds[i], inPoint );
+            if ( d < ioBestDistance )
+            {
+                ioBestDistance = d;
+                ioBest = block->m_Values[i];
+            }
+        }
+    }
+
+    if ( inNode->IsLeaf() ) return;
+
+    // Visit the closest quadrants first so the bound tightens early and prunes the rest
+    std::array<std::pair<float, QuadNode const*>, 4> order;
+    for ( int c = 0; c < 4; ++c )
+    {
+        order[c] = { math::Distance( inNode->m_Children[c]->m_Bounds, inPoint ), inNode->m_Children[c] };
+    }
+    std::sort( order.begin(), order.end(), []( auto const& a, auto const& b ) { return a.first < b.first; } );
+
+    for ( auto const& [distance, child] : order )
+    {
+        if ( distance < ioBestDistance ) nearest( child, inPoint, ioBestDistance, ioBest );
+    }
 }
 
 template <typename T>
@@ -321,12 +371,28 @@ inline QuadTree<T>::QuadTree(std::size_t inArenaBytes, std::size_t inMaxElements
 }
 
 template <typename T>
-inline void QuadTree<T>::Reset(float inW, float inH) noexcept
+inline asge::BoolResult QuadTree<T>::Reset(float inW, float inH) noexcept
 {
     m_Allocator.Reset();
     m_FreeBlocks = nullptr;
     m_Size = 0;
+    m_NodeCount = 0;
+    m_MaxDepth = 0;
+    m_Exhausted = false;
+    m_Root = nullptr;
+
+    if ( !( std::isfinite( inW ) && std::isfinite( inH ) && inW > 0.0f && inH > 0.0f ) )
+    {
+        return BoolResult::Err( std::make_error_code( std::errc::invalid_argument ), "tree size must be finite and positive" );
+    }
+
     m_Root = createNode( math::Rect{ 0.0f, 0.0f, inW, inH }, 0 );
+    if ( m_Root == nullptr )
+    {
+        return BoolResult::Err( std::make_error_code( std::errc::no_buffer_space ), "arena too small for the root node" );
+    }
+
+    return BoolResult::Ok();
 }
 
 template <typename T>
@@ -366,7 +432,74 @@ template <typename T>
 template <typename Visitor>
 inline void QuadTree<T>::Query(math::Rect const &inRect, Visitor &&inVisitor) const
 {
-    if ( m_Root ) query( m_Root, inRect, inVisitor );
+    if ( m_Root == nullptr ) return;
+
+    auto const overlaps = [&inRect]( math::Rect const& inBounds ) { return math::AabbOverlap( inBounds, inRect ); };
+    traverse( m_Root, overlaps, overlaps, inVisitor );
+}
+
+template <typename T>
+template <typename Visitor>
+inline void QuadTree<T>::Query(math::Float2 const &inPoint, Visitor &&inVisitor) const
+{
+    if ( m_Root == nullptr ) return;
+
+    auto const contains = [&inPoint]( math::Rect const& inBounds ) { return math::Contains( inBounds, inPoint ); };
+    traverse( m_Root, contains, contains, inVisitor );
+}
+
+template <typename T>
+template <typename Visitor>
+inline void QuadTree<T>::Query(math::Circle const &inCircle, Visitor &&inVisitor) const
+{
+    if ( m_Root == nullptr ) return;
+
+    auto const reaches = [&inCircle]( math::Rect const& inBounds )
+    {
+        return math::Distance( inBounds, inCircle.m_Center ) < inCircle.m_Radius;
+    };
+    traverse( m_Root, reaches, reaches, inVisitor );
+}
+
+template <typename T>
+inline std::optional<T> QuadTree<T>::Nearest(math::Float2 const &inPoint) const noexcept
+{
+    std::optional<T> best;
+    if ( m_Root == nullptr ) return best;
+
+    float bestDistance = std::numeric_limits<float>::infinity();
+    nearest( m_Root, inPoint, bestDistance, best );
+    return best;
+}
+
+template <typename T>
+inline std::size_t QuadTree<T>::NodeCount() const noexcept
+{
+    return m_NodeCount;
+}
+
+template <typename T>
+inline std::uint16_t QuadTree<T>::MaxDepthReached() const noexcept
+{
+    return m_MaxDepth;
+}
+
+template <typename T>
+inline bool QuadTree<T>::ArenaExhausted() const noexcept
+{
+    return m_Exhausted;
+}
+
+template <typename T>
+inline std::size_t QuadTree<T>::ArenaUsed() const noexcept
+{
+    return m_Allocator.Used();
+}
+
+template <typename T>
+inline std::size_t QuadTree<T>::ArenaCapacity() const noexcept
+{
+    return m_Allocator.Capacity();
 }
 
 template <typename T>
