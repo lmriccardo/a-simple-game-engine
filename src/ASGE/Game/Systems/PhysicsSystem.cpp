@@ -9,6 +9,7 @@
 #include "../Events.hpp"
 
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
+#include <ASGE/Core/Spatial/QuadTree.hpp>
 
 #include "TransformPropagationSystem.hpp"
 
@@ -20,6 +21,15 @@ namespace
 using namespace asge::game::components;
 using namespace asge::ecs;
 using namespace asge::math;
+
+constexpr float         kGravity    = 980.0f; // pixel/s^2
+constexpr std::size_t   kNodeBytes  = 72;
+constexpr std::size_t   kBlockBytes = 16 + 16 * (16 + sizeof(asge::ecs::Entity));
+
+constexpr std::size_t GetArenaSize() noexcept
+{
+    return ( kMaxEntities / 6 ) * ( kNodeBytes + kBlockBytes ) * 2 + 64 * 1024;
+}
 
 // Applies a positional correction and zeroes velocity on whichever axis moved.
 // Updates both Local and World coordinates together (rather than just Local +
@@ -37,8 +47,6 @@ void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& i
     if ( inDelta.x() != 0.0f ) inV.m_DX = 0.0f;
     if ( inDelta.y() != 0.0f ) inV.m_DY = 0.0f;
 }
-
-constexpr float kGravity = 980.0f; // pixel/s^2
 
 // The entity that actually moves when inShape's collider is pushed: inShape
 // itself, or its nearest ancestor with a Rigidbody and a Velocity -- so a
@@ -134,6 +142,16 @@ void ResolveSolidCollision(
     if ( movable1 ) push( e1, t1, vel1.Value().get(), { mtv.x() * share1, mtv.y() * share1 } );
     if ( movable2 ) push( e2, t2, vel2.Value().get(), { -mtv.x() * share2, -mtv.y() * share2 } );
 }
+
+Rect ToBroadPhaseRect( ColliderShape const& inShape ) noexcept
+{
+    return std::visit( []( auto const& s ) -> Rect
+    {
+        using S = std::decay_t<decltype(s)>;
+        if constexpr ( std::is_same_v<S, Rect> ) return s;
+        else return BoundingRect( s );
+    }, inShape);
+}
 }
 
 asge::game::components::ColliderShape asge::game::systems::WorldBounds(
@@ -170,6 +188,20 @@ void asge::game::systems::MovementSystem(ecs::Registry &inRegistry, float inDelt
         t.m_LocalCoordinates.x() += velocity.get().m_DX * inDeltaTime;
         t.m_LocalCoordinates.y() += velocity.get().m_DY * inDeltaTime;
         t.m_Dirty = true;
+    }
+}
+
+void asge::game::systems::CollisionSystem(ecs::Registry &inRegistry) noexcept
+{
+    static asge::spatial::QuadTree<asge::ecs::Entity> quadTree( GetArenaSize(), kMaxEntities );
+    // quadTree.Reset(  );
+
+    // Step 1: Build the collision QuadTree with entities that have both
+    // Transform and collider component, using Worldbounds coordinates
+    for ( auto [ e, t, c ] : inRegistry.View<components::Transform, components::Collider>() )
+    {
+        // Insert the entity into the quadtree
+        quadTree.Insert( e, ToBroadPhaseRect(WorldBounds( t.get(), c.get() )) );
     }
 }
 

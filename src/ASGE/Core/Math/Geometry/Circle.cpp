@@ -23,3 +23,13 @@ std::vector<Int2> asge::math::MidpointCirclePoints(Int2 inCenter, int inRadius)
 
     return outPoints;
 }
+
+Rect asge::math::BoundingRect(Circle const &inCircle) noexcept
+{
+    return math::Rect{ 
+        inCircle.m_Center.x() - inCircle.m_Radius, 
+        inCircle.m_Center.y() - inCircle.m_Radius,
+        2.0f * inCircle.m_Radius, 
+        2.0f * inCircle.m_Radius 
+    };
+}

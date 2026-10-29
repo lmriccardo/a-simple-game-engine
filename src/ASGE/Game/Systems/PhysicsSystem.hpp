@@ -53,6 +53,8 @@ struct CollisionContact
  */
 void MovementSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
+void CollisionSystem( ecs::Registry& inRegistry ) noexcept;
+
 /**
  * @brief Finds every overlapping Transform+Collider pair this frame.
  *

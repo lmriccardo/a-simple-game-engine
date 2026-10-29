@@ -67,10 +67,10 @@ private:
 
     static constexpr bool kSkipDisabled = !( std::is_same_v<std::remove_const_t<Ts>, markers::Disable> || ... );
 
-    std::function<bool(Entity)> m_IsDisabled; // Registry::IsDisabled(), bound at construction -- see class docs
-    Tuple_t                m_Pools;          // Pointers to every pool contributing to the View
-    bool                  m_Valid;           // false if any pool is nullptr
-    IComponentPool const* m_SmallestPool;    // The least dense pool, drives iteration -- only ever read from, so const regardless of Ts
+    std::function<bool(Entity)> m_IsDisabled;   // Registry::IsDisabled(), bound at construction -- see class docs
+    Tuple_t                     m_Pools;        // Pointers to every pool contributing to the View
+    bool                        m_Valid;        // false if any pool is nullptr
+    IComponentPool const*       m_SmallestPool; // The least dense pool, drives iteration -- only ever read from, so const regardless of Ts
     
     bool m_IncludeDisabled{false}; // Set when the called would like to include also disabled entities
 
@@ -192,8 +192,7 @@ public:
     /** @brief One-past-the-last element of the view. */
     Iterator end()
     {
-        std::size_t const size = m_Valid ? m_SmallestPool->Size() : 0;
-        return Iterator( this, size );
+        return Iterator( this, Size() );
     }
 
     /**
@@ -206,6 +205,12 @@ public:
         m_IncludeDisabled = true;
         return std::move( *this );
     }
+
+    std::size_t Size() const noexcept
+    {
+        if ( !m_Valid ) return 0;
+        return m_SmallestPool->Size();
+    };
 };
 
 }
