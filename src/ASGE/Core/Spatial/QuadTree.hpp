@@ -25,8 +25,8 @@ struct QuadBlockHeader
 
 struct QuadNode
 {
-    static constexpr std::uint16_t s_MaxNofElements = 8;
-    static constexpr std::uint16_t s_MaxDepth       = 8;
+    static constexpr std::uint16_t s_MaxNofElements = 16;
+    static constexpr std::uint16_t s_MaxDepth       = 10;
 
     math::Rect                  m_Bounds; // The bounds of the current quadtree node
     std::array<QuadNode*, 4>    m_Children; // The 4 quadrant subdivision
@@ -48,7 +48,7 @@ struct QuadNode
  * @brief Region quadtree over axis-aligned rectangles, rebuilt from scratch via Reset().
  *
  * Nodes and the blocks holding their elements live in a fixed-size arena, so Insert never
- * allocates from the heap. A node's elements sit in contiguous 8-slot blocks (bounds and
+ * allocates from the heap. A node's elements sit in contiguous fixed-size blocks (bounds and
  * values in separate arrays) chained together when the node overflows. An element sits in
  * the deepest node whose quadrant fully contains it, so elements straddling a split line
  * stay in the parent. Elements cannot be removed individually.

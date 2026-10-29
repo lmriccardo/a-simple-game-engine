@@ -301,7 +301,8 @@ TEST_F(QuadTreeTest, Query_DeepestTree_NeverOverflowsTheStack)
 
 TEST_F(QuadTreeTest, Query_VisitsParentBeforeChildrenInQuadrantOrder)
 {
-    for ( int i = 0; i < 9; ++i )
+    int const straddlers = QuadNode::s_MaxNofElements;
+    for ( int i = 0; i < straddlers; ++i )
     {
         ASSERT_TRUE( m_Tree.Insert( 100 + i, Rect{ 40.0f, 40.0f, 20.0f, 20.0f } ).IsOk() );
     }
@@ -313,7 +314,7 @@ TEST_F(QuadTreeTest, Query_VisitsParentBeforeChildrenInQuadrantOrder)
     std::vector<int> order;
     m_Tree.Query( Rect{ 0.0f, 0.0f, 100.0f, 100.0f }, [&order]( int v ) { order.push_back( v ); return true; } );
 
-    ASSERT_EQ( order.size(), 13u );
+    ASSERT_EQ( order.size(), static_cast<std::size_t>( straddlers ) + 4u );
     EXPECT_GE( order[0], 100 ); // the straddlers held by the root come first
     EXPECT_EQ( std::vector<int>( order.end() - 4, order.end() ), ( std::vector<int>{ 0, 1, 2, 3 } ) );
 }
@@ -655,10 +656,11 @@ TEST_F(QuadTreeTest, Stats_FreshTree_OnlyTheRoot)
 
 TEST_F(QuadTreeTest, Stats_SubdivisionAddsFourNodesAndOneLevel)
 {
-    for ( int i = 0; i < 9; ++i )
+    // Spread over the four quadrants, clear of the split lines, so the first split is the only one
+    for ( int i = 0; i <= QuadNode::s_MaxNofElements; ++i )
     {
-        float const x = 10.0f + 30.0f * static_cast<float>( i % 3 );
-        float const y = 10.0f + 30.0f * static_cast<float>( i / 3 );
+        float const x = static_cast<float>( ( i % 2 ) * 50 + 5 + 8 * ( i / 4 ) );
+        float const y = static_cast<float>( ( ( i / 2 ) % 2 ) * 50 + 5 );
         ASSERT_TRUE( m_Tree.Insert( i, Rect{ x, y, 0.5f, 0.5f } ).IsOk() );
     }
 

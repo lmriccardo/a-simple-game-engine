@@ -30,6 +30,7 @@ struct Options
     std::vector<std::size_t> m_Sizes { 1000, 5000, 20000, 100000 }; // Element counts to sweep
     int                      m_Reps  { 15 };                        // Timed repetitions per measurement
     std::string              m_CsvPath;                             // Optional CSV output file
+    bool                     m_SkipBrute { false };                 // Time only the tree, no brute-force baseline or check
 };
 
 struct Checksum
@@ -227,7 +228,7 @@ void Print( Row const& inRow )
         inRow.m_TreeMs, inRow.m_TreeMinMs, inRow.m_NsPerOp, speedup, inRow.m_Verified ? "ok" : "MISMATCH" );
 }
 
-/** @brief Parses --sizes a,b,c  --reps N  --csv file. Returns false on a bad argument. */
+/** @brief Parses --sizes a,b,c  --reps N  --csv file  --no-brute. Returns false on a bad argument. */
 bool ParseArgs( int inArgc, char** inArgv, Options& outOptions )
 {
     for ( int i = 1; i < inArgc; ++i )
@@ -237,6 +238,7 @@ bool ParseArgs( int inArgc, char** inArgv, Options& outOptions )
 
         if ( arg == "--reps" && hasValue ) outOptions.m_Reps = std::atoi( inArgv[++i] );
         else if ( arg == "--csv" && hasValue ) outOptions.m_CsvPath = inArgv[++i];
+        else if ( arg == "--no-brute" ) outOptions.m_SkipBrute = true;
         else if ( arg == "--sizes" && hasValue )
         {
             outOptions.m_Sizes.clear();
@@ -252,7 +254,7 @@ bool ParseArgs( int inArgc, char** inArgv, Options& outOptions )
         }
         else
         {
-            std::fprintf( stderr, "usage: quadtree_bench [--sizes 1000,5000] [--reps 15] [--csv out.csv]\n" );
+            std::fprintf( stderr, "usage: quadtree_bench [--sizes 1000,5000] [--reps 15] [--csv out.csv] [--no-brute]\n" );
             return false;
         }
     }
@@ -282,10 +284,20 @@ void RunCase( Distribution inDist, std::size_t inN, Options const& inOptions, st
     std::size_t failures = 0;
     auto const build = bench::Measure( warmup, inOptions.m_Reps, [&] { failures += Build( tree, rects, world ); } );
     add( "build", -1.0, build, static_cast<double>( inN ), failures == 0 );
+    std::printf( "# arena %.1f of %.1f MiB used, %zu nodes, depth %u%s\n",
+        static_cast<double>( tree.ArenaUsed() ) / ( 1 << 20 ), static_cast<double>( tree.ArenaCapacity() ) / ( 1 << 20 ),
+        tree.NodeCount(), static_cast<unsigned>( tree.MaxDepthReached() ), tree.ArenaExhausted() ? " (EXHAUSTED)" : "" );
 
     auto const queryScenario = [&]( char const* inName, std::vector<Rect> const& inWindows )
     {
         Checksum brute, fromTree;
+        if ( inOptions.m_SkipBrute )
+        {
+            auto const only = bench::Measure( warmup, inOptions.m_Reps, [&] { fromTree = TreeQueries( tree, inWindows ); } );
+            add( inName, -1.0, only, static_cast<double>( inWindows.size() ), true );
+            return;
+        }
+
         auto const bruteStats = bench::Measure( 1, bruteReps, [&] { brute = BruteQueries( rects, inWindows ); } );
         auto const treeStats  = bench::Measure( warmup, inOptions.m_Reps, [&] { fromTree = TreeQueries( tree, inWindows ); } );
         add( inName, bruteStats.m_MedianNs, treeStats, static_cast<double>( inWindows.size() ), brute == fromTree );
@@ -298,7 +310,7 @@ void RunCase( Distribution inDist, std::size_t inN, Options const& inOptions, st
     auto const pairsTreeStats = bench::Measure( warmup, inOptions.m_Reps, [&] { pairsTree = TreePairs( tree, rects ); } );
     Checksum uniqueTree, uniqueBrute;
     auto const uniqueStats = bench::Measure( warmup, inOptions.m_Reps, [&] { uniqueTree = TreeUniquePairs( tree ); } );
-    if ( inN <= k_BruteForcePairsLimit )
+    if ( inN <= k_BruteForcePairsLimit && !inOptions.m_SkipBrute )
     {
         auto const uniqueBruteStats = bench::Measure( 1, bruteReps, [&] { uniqueBrute = BruteUniquePairs( rects ); } );
         add( "pairs", uniqueBruteStats.m_MedianNs, uniqueStats, static_cast<double>( inN ), uniqueBrute == uniqueTree );
@@ -312,7 +324,7 @@ void RunCase( Distribution inDist, std::size_t inN, Options const& inOptions, st
         add( "pairs", -1.0, uniqueStats, static_cast<double>( inN ), expected == uniqueTree );
     }
 
-    if ( inN <= k_BruteForcePairsLimit )
+    if ( inN <= k_BruteForcePairsLimit && !inOptions.m_SkipBrute )
     {
         auto const pairsBruteStats = bench::Measure( 1, bruteReps, [&] { pairsBrute = BrutePairs( rects ); } );
         add( "all-pairs", pairsBruteStats.m_MedianNs, pairsTreeStats, static_cast<double>( inN ), pairsBrute == pairsTree );
