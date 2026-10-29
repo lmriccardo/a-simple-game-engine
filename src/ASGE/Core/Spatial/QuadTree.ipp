@@ -52,6 +52,14 @@ inline typename QuadTree<T>::Block* QuadTree<T>::acquireBlock() noexcept
 template <typename T>
 inline void QuadTree<T>::releaseBlock(QuadBlockHeader *inBlock) noexcept
 {
+#ifndef NDEBUG
+    // O(free blocks) walk, debug builds only: catches a block released twice
+    for ( QuadBlockHeader* it = m_FreeBlocks; it != nullptr; it = it->m_Next )
+    {
+        ASGE_ASSERT( it != inBlock, "QuadTree block released twice" );
+    }
+#endif
+
     inBlock->m_Next = m_FreeBlocks;
     m_FreeBlocks = inBlock;
 }
