@@ -23,6 +23,7 @@
         "claude-skills",
         "ui",
         "agent",
-        "editor"
+        "editor",
+        "doc"
     ]
 }

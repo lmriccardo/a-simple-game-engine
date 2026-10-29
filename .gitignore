@@ -21,3 +21,5 @@ graphify-out/cache/*
 !graphify-out/cache/semantic/
 .claude/settings.json.graphify-bak
 worktrees/
+
+docs/superpower
