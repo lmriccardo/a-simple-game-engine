@@ -12,16 +12,56 @@ inline QuadNode* QuadTree<T>::createNode(math::Rect const &inBounds, std::uint16
 }
 
 template <typename T>
-inline void QuadTree<T>::addElementToNode(QuadNode *inNode, T inElement, math::Rect const &inBounds) noexcept
+inline typename QuadTree<T>::Block* QuadTree<T>::acquireBlock() noexcept
 {
-    std::uint32_t idx = static_cast<std::uint32_t>( m_Elements.size() );
+    Block* block = nullptr;
 
-    m_Elements.push_back( Element{ 
-        .m_Value = inElement, .m_Next = inNode->m_FirstElement, .m_Bounds = inBounds 
-    } );
+    if ( m_FreeBlocks != nullptr )
+    {
+        block = static_cast<Block*>( m_FreeBlocks );
+        m_FreeBlocks = block->m_Next;
+    }
+    else
+    {
+        void* mem = m_Allocator.Alloc( sizeof( Block ), alignof( Block ) );
+        if ( mem == nullptr ) return nullptr;
+        block = ::new ( mem ) Block;
+    }
 
-    inNode->m_FirstElement = idx;
+    block->m_Next = nullptr;
+    block->m_Used = 0;
+    return block;
+}
+
+template <typename T>
+inline void QuadTree<T>::releaseBlock(QuadBlockHeader *inBlock) noexcept
+{
+    inBlock->m_Next = m_FreeBlocks;
+    m_FreeBlocks = inBlock;
+}
+
+template <typename T>
+inline bool QuadTree<T>::addElementToNode(QuadNode *inNode, T inElement, math::Rect const &inBounds) noexcept
+{
+    Block* tail = static_cast<Block*>( inNode->m_Tail );
+
+    if ( tail == nullptr || tail->m_Used == s_BlockCapacity )
+    {
+        Block* fresh = acquireBlock();
+        if ( fresh == nullptr ) return false;
+
+        if ( tail != nullptr ) tail->m_Next = fresh;
+        else inNode->m_Head = fresh;
+
+        inNode->m_Tail = fresh;
+        tail = fresh;
+    }
+
+    tail->m_Bounds[tail->m_Used] = inBounds;
+    tail->m_Values[tail->m_Used] = inElement;
+    tail->m_Used++;
     inNode->m_Count++;
+    return true;
 }
 
 template <typename T>
@@ -44,28 +84,26 @@ inline int QuadTree<T>::getQuadrantIndex(QuadNode const *inNode, math::Rect cons
 }
 
 template <typename T>
-inline void QuadTree<T>::insert(QuadNode *inNode, T inElement, math::Rect const &inBounds) noexcept
+inline bool QuadTree<T>::insert(QuadNode *inNode, T inElement, math::Rect const &inBounds) noexcept
 {
+    // A full leaf below the depth cap splits first; the element is then placed in the new layout
+    if (   inNode->IsLeaf() && inNode->m_Count >= QuadNode::s_MaxNofElements
+        && inNode->m_Depth < QuadNode::s_MaxDepth )
+    {
+        subdivide( inNode );
+    }
+
     // Descend while the element fits entirely inside a single quadrant
     if ( !inNode->IsLeaf() )
     {
         if ( auto const quadrantIdx = getQuadrantIndex( inNode, inBounds ); quadrantIdx != -1 )
         {
-            insert( inNode->m_Children[quadrantIdx], inElement, inBounds );
-            return;
+            if ( insert( inNode->m_Children[quadrantIdx], inElement, inBounds ) ) return true;
         }
-
-        // Straddles a split line: it belongs to this node
-        addElementToNode( inNode, inElement, inBounds );
-        return;
     }
 
-    addElementToNode( inNode, inElement, inBounds );
-
-    if ( inNode->m_Count > QuadNode::s_MaxNofElements && inNode->m_Depth < QuadNode::s_MaxDepth )
-    {
-        subdivide( inNode );
-    }
+    // Leaf, straddling a split line, or the child had no room: it belongs to this node
+    return addElementToNode( inNode, inElement, inBounds );
 }
 
 template <typename T>
@@ -92,24 +130,68 @@ inline void QuadTree<T>::subdivide(QuadNode *inNode) noexcept
 
     inNode->m_Children = children;
 
-    // Redistribute the node's elements: those fitting a quadrant move down
-    auto currentElementIdx = inNode->m_FirstElement;
-    inNode->m_FirstElement = k_NoNext;
-    inNode->m_Count = 0;
+    // Walk the node's elements, copying those that fit a quadrant into the child and
+    // compacting the rest towards the front of the same chain. The write cursor never
+    // passes the read cursor, so this is safe in place.
+    QuadBlockHeader* writeBlock = inNode->m_Head;
+    std::uint32_t    writeIdx   = 0;
+    std::uint32_t    kept       = 0;
 
-    while ( currentElementIdx != k_NoNext )
+    for ( QuadBlockHeader* h = inNode->m_Head; h != nullptr; h = h->m_Next )
     {
-        Element& currElement = m_Elements[currentElementIdx];
-        auto const nextIdx = currElement.m_Next;
-        int const targetChild = getQuadrantIndex( inNode, currElement.m_Bounds );
+        Block* readBlock = static_cast<Block*>( h );
 
-        QuadNode* targetNode = ( targetChild != -1 ) ? inNode->m_Children[targetChild] : inNode;
-        currElement.m_Next = targetNode->m_FirstElement;
-        targetNode->m_FirstElement = currentElementIdx;
-        targetNode->m_Count++;
+        for ( std::uint32_t i = 0; i < readBlock->m_Used; ++i )
+        {
+            math::Rect const bounds = readBlock->m_Bounds[i];
+            T const          value  = readBlock->m_Values[i];
 
-        currentElementIdx = nextIdx;
+            int const quadrantIdx = getQuadrantIndex( inNode, bounds );
+            if ( quadrantIdx != -1 && addElementToNode( inNode->m_Children[quadrantIdx], value, bounds ) )
+            {
+                continue;
+            }
+
+            Block* target = static_cast<Block*>( writeBlock );
+            target->m_Bounds[writeIdx] = bounds;
+            target->m_Values[writeIdx] = value;
+            ++kept;
+
+            if ( ++writeIdx == s_BlockCapacity )
+            {
+                writeBlock = target->m_Next;
+                writeIdx   = 0;
+            }
+        }
     }
+
+    // Keep only the blocks the surviving elements need and recycle the rest
+    std::uint32_t const keptBlocks = ( kept + s_BlockCapacity - 1 ) / s_BlockCapacity;
+    QuadBlockHeader* last = nullptr;
+    QuadBlockHeader* cur  = inNode->m_Head;
+
+    for ( std::uint32_t b = 0; b < keptBlocks; ++b )
+    {
+        last = cur;
+        cur  = cur->m_Next;
+    }
+
+    while ( cur != nullptr )
+    {
+        QuadBlockHeader* const next = cur->m_Next;
+        releaseBlock( cur );
+        cur = next;
+    }
+
+    if ( last != nullptr )
+    {
+        last->m_Used = kept - ( keptBlocks - 1 ) * static_cast<std::uint32_t>( s_BlockCapacity );
+        last->m_Next = nullptr;
+    }
+
+    inNode->m_Head  = ( keptBlocks != 0 ) ? inNode->m_Head : nullptr;
+    inNode->m_Tail  = last;
+    inNode->m_Count = kept;
 }
 
 template <typename T>
@@ -118,11 +200,13 @@ inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect,
 {
     if ( !math::AabbOverlap( inNode->m_Bounds, inRect ) ) return true;
     
-    for ( auto i = inNode->m_FirstElement; i != k_NoNext; i = m_Elements[i].m_Next )
+    for ( QuadBlockHeader const* h = inNode->m_Head; h != nullptr; h = h->m_Next )
     {
-        if ( math::AabbOverlap( m_Elements[i].m_Bounds, inRect ) )
+        Block const* block = static_cast<Block const*>( h );
+
+        for ( std::uint32_t i = 0; i < block->m_Used; ++i )
         {
-            if ( !inVisitor( m_Elements[i].m_Value ) )
+            if ( math::AabbOverlap( block->m_Bounds[i], inRect ) && !inVisitor( block->m_Values[i] ) )
             {
                 return false;
             }
@@ -144,17 +228,17 @@ inline bool QuadTree<T>::query(QuadNode const *inNode, math::Rect const &inRect,
 }
 
 template <typename T>
-inline QuadTree<T>::QuadTree(std::size_t inMaxNodeBytes, std::size_t inMaxElements)
-    : m_Allocator( inMaxNodeBytes ), m_MaxElements( inMaxElements )
+inline QuadTree<T>::QuadTree(std::size_t inArenaBytes, std::size_t inMaxElements)
+    : m_Allocator( inArenaBytes ), m_MaxElements( inMaxElements )
 {
-    m_Elements.reserve( inMaxElements );
 }
 
 template <typename T>
 inline void QuadTree<T>::Reset(float inW, float inH) noexcept
 {
     m_Allocator.Reset();
-    m_Elements.clear();
+    m_FreeBlocks = nullptr;
+    m_Size = 0;
     m_Root = createNode( math::Rect{ 0.0f, 0.0f, inW, inH }, 0 );
 }
 
@@ -171,19 +255,24 @@ inline asge::BoolResult QuadTree<T>::Insert(T inElement, math::Rect const &inBou
         return BoolResult::Err( std::make_error_code( std::errc::invalid_argument ), "out of bounds" );
     }
 
-    if ( m_Elements.size() >= m_MaxElements )
+    if ( m_Size >= m_MaxElements )
     {
         return BoolResult::Err( std::make_error_code( std::errc::no_buffer_space ), "element capacity reached" );
     }
 
-    insert( m_Root, inElement, inBounds );
+    if ( !insert( m_Root, inElement, inBounds ) )
+    {
+        return BoolResult::Err( std::make_error_code( std::errc::no_buffer_space ), "arena out of memory" );
+    }
+
+    ++m_Size;
     return BoolResult::Ok();
 }
 
 template <typename T>
 inline std::size_t QuadTree<T>::Size() const noexcept
 {
-    return m_Elements.size();
+    return m_Size;
 }
 
 template <typename T>

@@ -245,7 +245,7 @@ void RunCase( Distribution inDist, std::size_t inN, Options const& inOptions, st
     auto const smallWindows = MakeWindows( k_SmallWindowSide, world, 7 );
     auto const largeWindows = MakeWindows( world * k_LargeWindowFraction, world, 8 );
 
-    Tree tree( inN * 256 + ( 1u << 20 ), inN );
+    Tree tree( inN * 512 + ( 1u << 20 ), inN );
     std::string const dist = Name( inDist );
     int const warmup = 2;
     int const bruteReps = std::max( 3, inOptions.m_Reps / 5 ); // brute force is slow and low-variance

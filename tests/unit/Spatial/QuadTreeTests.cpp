@@ -39,7 +39,8 @@ TEST(QuadNodeTest, NewNode_IsEmptyLeaf)
     QuadNode node( Rect{ 0.0f, 0.0f, 10.0f, 10.0f } );
     EXPECT_TRUE( node.IsLeaf() );
     EXPECT_EQ( node.m_Count, 0 );
-    EXPECT_EQ( node.m_FirstElement, k_NoNext );
+    EXPECT_EQ( node.m_Head, nullptr );
+    EXPECT_EQ( node.m_Tail, nullptr );
     EXPECT_EQ( node.m_Depth, 0 );
 }
 
@@ -194,20 +195,62 @@ TEST_F(QuadTreeTest, Insert_IdenticalRects_TerminatesViaDepthCap)
     EXPECT_EQ( Collect( Rect{ 0.0f, 0.0f, 5.0f, 5.0f } ).size(), 200u );
 }
 
-TEST_F(QuadTreeTest, Insert_ArenaExhausted_StillStoresAndFindsElements)
+TEST_F(QuadTreeTest, Insert_ManyStraddlersInRoot_ChainBlocksAndAreAllFound)
 {
-    // Room for the root and nothing else: subdivision must degrade gracefully
-    QuadTree<int> tree( sizeof( QuadNode ) + alignof( std::max_align_t ), k_MaxElements );
-    tree.Reset( 100.0f, 100.0f );
-
-    for ( int i = 0; i < 50; ++i )
+    for ( int i = 0; i < 1000; ++i )
     {
-        ASSERT_TRUE( tree.Insert( i, Rect{ static_cast<float>( i ), 1.0f, 0.5f, 0.5f } ).IsOk() );
+        ASSERT_TRUE( m_Tree.Insert( i, Rect{ 40.0f, 40.0f, 20.0f, 20.0f } ).IsOk() );
     }
 
-    int calls = 0;
-    tree.Query( Rect{ 0.0f, 0.0f, 100.0f, 100.0f }, [&calls]( int ) { ++calls; return true; } );
-    EXPECT_EQ( calls, 50 );
+    EXPECT_EQ( Collect( Rect{ 45.0f, 45.0f, 1.0f, 1.0f } ).size(), 1000u );
+}
+
+TEST_F(QuadTreeTest, Insert_ArenaExhausted_ReturnsNoBufferSpaceAndKeepsStoredElements)
+{
+    QuadTree<int> tree( 512, k_MaxElements );
+    tree.Reset( 100.0f, 100.0f );
+
+    int accepted = 0;
+    std::error_code firstError;
+    for ( int i = 0; i < 50; ++i )
+    {
+        auto result = tree.Insert( i, Rect{ 1.0f + i, 1.0f, 0.5f, 0.5f } );
+        if ( result.IsOk() ) ++accepted;
+        else if ( !firstError ) firstError = result.Code();
+    }
+
+    EXPECT_GT( accepted, 0 );
+    EXPECT_LT( accepted, 50 );
+    EXPECT_EQ( firstError, std::make_error_code( std::errc::no_buffer_space ) );
+    EXPECT_EQ( tree.Size(), static_cast<std::size_t>( accepted ) );
+
+    int found = 0;
+    tree.Query( Rect{ 0.0f, 0.0f, 100.0f, 100.0f }, [&found]( int ) { ++found; return true; } );
+    EXPECT_EQ( found, accepted );
+}
+
+TEST_F(QuadTreeTest, Insert_AnyArenaSize_NeverLosesAnAcceptedElement)
+{
+    for ( std::size_t bytes = 128; bytes <= 8192; bytes += 96 )
+    {
+        QuadTree<int> tree( bytes, k_MaxElements );
+        tree.Reset( 100.0f, 100.0f );
+
+        std::vector<int> accepted;
+        for ( int i = 0; i < 120; ++i )
+        {
+            float const x = static_cast<float>( ( i * 7 ) % 90 );
+            float const y = static_cast<float>( ( i * 13 ) % 90 );
+            float const size = ( i % 5 == 0 ) ? 30.0f : 1.0f;
+            if ( tree.Insert( i, Rect{ x, y, size, size } ).IsOk() ) accepted.push_back( i );
+        }
+
+        std::vector<int> found;
+        tree.Query( Rect{ 0.0f, 0.0f, 100.0f, 100.0f }, [&found]( int v ) { found.push_back( v ); return true; } );
+        std::sort( found.begin(), found.end() );
+
+        EXPECT_EQ( found, accepted ) << "arena bytes: " << bytes;
+    }
 }
 
 TEST_F(QuadTreeTest, Query_MatchesBruteForceOnRandomData)

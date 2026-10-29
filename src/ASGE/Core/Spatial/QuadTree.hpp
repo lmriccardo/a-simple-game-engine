@@ -3,7 +3,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <vector>
+#include <new>
+#include <type_traits>
 
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
@@ -13,8 +14,13 @@
 namespace asge::spatial
 {
 
-inline static constexpr std::uint32_t k_NoNext = UINT32_MAX;
- 
+/** @brief Type-independent head of an element block, so QuadNode can chain blocks without knowing T. */
+struct QuadBlockHeader
+{
+    QuadBlockHeader*    m_Next { nullptr }; // Next block of the same node, or the free-list successor
+    std::uint32_t       m_Used { 0 };       // Slots filled in this block; only a node's last block is partial
+};
+
 struct QuadNode
 {
     static constexpr std::uint16_t s_MaxNofElements = 8;
@@ -23,9 +29,10 @@ struct QuadNode
     math::Rect                  m_Bounds; // The bounds of the current quadtree node
     std::array<QuadNode*, 4>    m_Children; // The 4 quadrant subdivision
 
-    std::uint32_t m_FirstElement    { k_NoNext }; // First element pointed to by the node
-    std::uint16_t m_Count           { 0 };        // Total number of elements in the node
-    std::uint16_t m_Depth           { 0 };        // Distance from the root (root is 0)
+    QuadBlockHeader*    m_Head  { nullptr };    // First element block of the node
+    QuadBlockHeader*    m_Tail  { nullptr };    // Last element block, the one new elements are appended to
+    std::uint32_t       m_Count { 0 };          // Total number of elements in the node
+    std::uint16_t       m_Depth { 0 };          // Distance from the root (root is 0)
     
     QuadNode( math::Rect const& inBounds, std::uint16_t inDepth = 0 );
     QuadNode( QuadNode const& ) = delete;
@@ -38,41 +45,57 @@ struct QuadNode
 /**
  * @brief Region quadtree over axis-aligned rectangles, rebuilt from scratch via Reset().
  *
- * Nodes live in a fixed-size arena and elements in a single pre-reserved vector, so
- * Insert never allocates; it fails with an error when either budget is exhausted.
- * An element sits in the deepest node whose quadrant fully contains it, so elements
- * straddling a split line stay in the parent. Elements cannot be removed individually.
+ * Nodes and the blocks holding their elements live in a fixed-size arena, so Insert never
+ * allocates from the heap. A node's elements sit in contiguous 8-slot blocks (bounds and
+ * values in separate arrays) chained together when the node overflows. An element sits in
+ * the deepest node whose quadrant fully contains it, so elements straddling a split line
+ * stay in the parent. Elements cannot be removed individually.
  */
 template<typename T>
 class QuadTree
 {
-public:
-    struct Element
+    static_assert( std::is_trivially_copyable_v<T> && std::is_default_constructible_v<T>,
+        "QuadTree values live in arena memory that is never destroyed" );
+
+    static constexpr std::size_t s_BlockCapacity = QuadNode::s_MaxNofElements;
+
+    /** @brief Fixed-size run of elements of one node, stored as parallel arrays. */
+    struct Block : QuadBlockHeader
     {
-        T               m_Value;    // The value of the element
-        std::uint32_t   m_Next;     // Next value pointed to 
-        math::Rect      m_Bounds;   // Element bounds
+        std::array<math::Rect, s_BlockCapacity>  m_Bounds; // Element bounds
+        std::array<T, s_BlockCapacity>           m_Values; // Element values
     };
 
-private:
-    mem::ArenaAllocator     m_Allocator;        // Arena allocator for creating nodes
-    std::vector<Element>    m_Elements;         // Linked list of node elements
-    QuadNode*               m_Root { nullptr }; // Root Node of the Tree
-    std::size_t             m_MaxElements;      // Element budget fixed at construction
+    mem::ArenaAllocator m_Allocator;                    // Arena allocator for nodes and blocks
+    QuadNode*           m_Root       { nullptr };       // Root Node of the Tree
+    QuadBlockHeader*    m_FreeBlocks { nullptr };       // Blocks released by subdivision, reused first
+    std::size_t         m_MaxElements;                  // Element budget fixed at construction
+    std::size_t         m_Size       { 0 };             // Number of elements currently stored
 
     /** @brief Allocates a node from the arena, or returns nullptr if the arena is full. */
     QuadNode* createNode( math::Rect const& inBounds, std::uint16_t inDepth ) noexcept;
 
-    /** @brief Pushes the element on the front of the node's element list. */
-    void addElementToNode( QuadNode* inNode, T inElement, math::Rect const& inBounds ) noexcept;
+    /** @brief Returns an empty block from the free list or the arena, or nullptr if the arena is full. */
+    Block* acquireBlock() noexcept;
+
+    /** @brief Pushes the block on the free list for later reuse. */
+    void releaseBlock( QuadBlockHeader* inBlock ) noexcept;
+
+    /** @brief Appends the element to the node's last block, chaining a new one if full. False if the arena is full. */
+    bool addElementToNode( QuadNode* inNode, T inElement, math::Rect const& inBounds ) noexcept;
 
     /** @brief Returns 0..3 if the input rect fits one quadrant, -1 otherwise */
     int getQuadrantIndex( QuadNode const* inNode, math::Rect const& inBounds ) const noexcept;
 
-    /** @brief Recursively insert an element into the quad tree */
-    void insert( QuadNode* inNode, T inElement, math::Rect const& inBounds ) noexcept;
+    /** @brief Recursively inserts an element into the tree. False only if the arena has no room for it. */
+    bool insert( QuadNode* inNode, T inElement, math::Rect const& inBounds ) noexcept;
 
-    /** @brief Subdivide the input quad node into 4 different regions and reorganize elements */
+    /**
+     * @brief Splits the leaf into 4 children and moves the elements that fit a quadrant down.
+     *
+     * Elements that straddle a split line, or whose child could not get a block, stay in
+     * the node. If the arena cannot hold 4 children the node is left as a leaf.
+     */
     void subdivide( QuadNode* inNode ) noexcept;
 
     /** @brief Recursive query step; returns false once the visitor asked to stop. */
@@ -80,8 +103,8 @@ private:
     bool query( QuadNode const* inNode, math::Rect const& inRect, Visitor& inVisitor ) const;
 
 public:
-    /** @brief Reserves an arena of inMaxNodeBytes and room for inMaxElements elements. */
-    QuadTree( std::size_t inMaxNodeBytes, std::size_t inMaxElements );
+    /** @brief Reserves an arena of inArenaBytes for nodes and element blocks, and caps the tree at inMaxElements. */
+    QuadTree( std::size_t inArenaBytes, std::size_t inMaxElements );
 
     /** @brief Drops every element and node, then starts a new empty tree covering [0,inW]x[0,inH]. */
     void Reset( float inW, float inH ) noexcept;
@@ -89,9 +112,9 @@ public:
     /**
      * @brief Inserts an element with the given bounds.
      *
-     * Errors if Reset() was never called, the bounds are not fully inside the root,
-     * or the element budget is exhausted. Running out of node memory is not an error:
-     * the node just stops subdividing.
+     * Errors if Reset() was never called, the bounds are not fully inside the root, the
+     * element budget is exhausted, or the arena has no room left for the element. A failed
+     * insert leaves the tree valid and unchanged in content.
      */
     BoolResult Insert( T inElement, math::Rect const& inBounds ) noexcept;
 
