@@ -25,7 +25,7 @@ inline str::String ToErrorString(UIWidgetError e) noexcept
 {
     switch (e)
     {
-    case UIWidgetError::TextWithNoFont: "text provided but there is no font path available";
+    case UIWidgetError::TextWithNoFont: return "text provided but there is no font path available";
     }
     return "unknown UI widget error";
 }
@@ -66,7 +66,7 @@ struct LabelDesc
 {
     str::String                 m_Name;
     math::Float2                m_Position{};
-    std::optional<math::Float2> m_Size;              // nullopt: fit the text
+    std::optional<math::Float2> m_Size{};            // nullopt: fit the text
     bool                        m_ScreenSpace{ true };
     TextDesc                    m_Text;
 };

@@ -23,7 +23,7 @@ struct UIButton
     details::StateColors m_Colors;
 
     // Runtime
-    signals::Signal<> m_OnClick; // Fired by systems::UIInteractionSystem on click
+    signals::Signal<> m_OnClick{}; // Fired by systems::UIInteractionSystem on click
 };
 
 }
