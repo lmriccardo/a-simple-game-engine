@@ -1,21 +1,28 @@
 #include "Collider.hpp"
 
-asge::str::String asge::game::components::details::ToString( ResolutionType inResolveT ) noexcept
+namespace
+{
+
+using namespace asge;
+
+asge::str::String ToString( asge::game::components::ResolutionType inResolveT ) noexcept
 {
     switch ( inResolveT )
     {
-    case ResolutionType::Solid   : return "Solid";
-    case ResolutionType::Trigger : return "Trigger";
-    case ResolutionType::Unknown : return "Unknown";
+    case asge::game::components::ResolutionType::Solid   : return "Solid";
+    case asge::game::components::ResolutionType::Trigger : return "Trigger";
+    case asge::game::components::ResolutionType::Unknown : return "Unknown";
     }
     return "Unknown";
 }
 
-asge::game::components::ResolutionType asge::game::components::details::FromString( str::StringView inSv ) noexcept
+asge::game::components::ResolutionType FromString( asge::str::StringView inSv ) noexcept
 {
-    if ( inSv == "Solid" ) return ResolutionType::Solid;
-    if ( inSv == "Trigger" ) return ResolutionType::Trigger;
-    return ResolutionType::Unknown;
+    if ( inSv == "Solid" ) return asge::game::components::ResolutionType::Solid;
+    if ( inSv == "Trigger" ) return asge::game::components::ResolutionType::Trigger;
+    return asge::game::components::ResolutionType::Unknown;
+}
+
 }
 
 bool asge::game::components::LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept
@@ -39,7 +46,7 @@ void asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(
         Serializer<ShapeT>::ToToml( inShape, table );
     }, inCollider.m_LocalBounds);
 
-    table.Set<str::String>( "m_Resolution", components::details::ToString( inCollider.m_Resolution ) );
+    table.Set<str::String>( "m_Resolution", ToString( inCollider.m_Resolution ) );
     table.Set<int>( "m_Layer", static_cast<int>( inCollider.m_Layer ) );
     table.Set<int>( "m_Mask",  static_cast<int>( inCollider.m_Mask ) );
 }
@@ -63,9 +70,24 @@ asge::game::components::Collider asge::game::scene::Serializer<asge::game::compo
         result.m_LocalBounds = Serializer<math::Circle>::FromToml( table );
     }
 
-    result.m_Resolution = components::details::FromString( table.Get( "m_Resolution", std::string("Solid") ) );
+    result.m_Resolution = FromString( table.Get( "m_Resolution", std::string("Solid") ) );
     result.m_Layer = static_cast<components::CollisionLayer>( table.Get<int>("m_Layer", 1) );
     result.m_Mask  = static_cast<components::CollisionLayer>( table.Get<int>("m_Mask", -1) );
 
     return result;
+}
+
+asge::signals::Signal<asge::ecs::Entity> &asge::game::components::Collider::OnEnter() noexcept
+{
+    return m_OnEnter.Get();
+}
+
+asge::signals::Signal<asge::ecs::Entity> &asge::game::components::Collider::OnExit() noexcept
+{
+    return m_OnExit.Get();
+}
+
+asge::signals::Signal<asge::ecs::Entity> &asge::game::components::Collider::OnStay() noexcept
+{
+    return m_OnStay.Get();
 }
