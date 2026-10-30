@@ -1,17 +1,17 @@
-# Graph Report - refactor-collision_detection_perf  (2026-10-29)
+# Graph Report - a-simple-game-engine  (2026-10-30)
 
 ## Corpus Check
-- 474 files · ~515,410 words
+- 474 files · ~524,030 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 47 file(s) not represented in the graph (top: .bmp 10, (none) 6, .toml 6)
+- Unclassified: 46 file(s) not represented in the graph (top: .bmp 10, .toml 6, (none) 5)
 
 ## Summary
-- 6984 nodes · 12088 edges · 348 communities (320 shown, 28 thin omitted)
+- 7007 nodes · 12125 edges · 353 communities (324 shown, 29 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 575 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `019b7eb5`
+- Built from commit: `e2358d51`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -41,14 +41,14 @@
 - TEST_F
 - BoolResult
 - AssetManager
-- Application
+- DrawItem
 - IRenderer
 - TOML_Parser.cpp
 - Registry
 - RecordingRenderer
-- Components.hpp
+- PhysicsSystem.cpp
 - TEST
-- AssetManagerTests.cpp
+- RenderSystem.cpp
 - main
 - RecordingRenderer
 - ResultBase
@@ -66,7 +66,7 @@
 - FileWatcher.cpp
 - LoadContext
 - TEST
-- editor/main.cpp
+- vector
 - TEST
 - FileWatcher
 - AudioStream
@@ -74,12 +74,12 @@
 - CLAUDE.md graphify Trigger Rule
 - AssetBrowser.cpp
 - PhysicsDemoState
-- AudioClip.cpp
+- AudioClip
 - TEST
 - render_page
 - RotationDemoState
 - Thread
-- ITexture
+- NullRenderer
 - Beyond the Roadmap (untracked game-building needs)
 - TEST
 - TOMLTableView
@@ -94,7 +94,7 @@
 - TEST
 - TimingBucket
 - TEST
-- InputState
+- TEST
 - SceneManager.cpp
 - Game
 - engine.py
@@ -107,16 +107,16 @@
 - ASGE engine library target
 - TEST
 - Image.cpp
-- AudioDevice
+- Hierarchy
 - TEST_F
 - SceneManager
 - AudioSource
-- SDLRenderer.cpp
+- ITexture
 - SDLRenderer
-- FakeRenderer
+- InputState
 - AssetTreeNode
 - Roadmap README
-- AudioDemoState
+- AudioDevice
 - TEST
 - TEST
 - TEST_F
@@ -126,7 +126,7 @@
 - UIPanel
 - TEST
 - TEST_F
-- Core Engine Phase 1
+- Enums.hpp
 - Simple Game Engine Roadmap (tiered implementation order)
 - camera_demo/Game.cpp
 - TEST
@@ -137,24 +137,24 @@
 - ConfigurationManager
 - shapes_demo/Game.cpp
 - TEST_F
-- algorithm
+- VirtualFileSystem
 - Animation
 - Collider
 - What You Must Do When Invoked
-- DrawAssetInspectorPanel
+- TOMLTypeInfo
 - WatchedDir
 - VecN
 - ASGE Level Editor Build Roadmap
-- Join
+- SliderDesc
 - AssetPool
-- SDLWindow.cpp
+- asge::filesystem::_apple::FileWatcher::OnFSEventStream
 - Context.cpp
 - Strings.cpp
-- Sprite
-- SDLTextureTest
+- Transform
+- SDLHeadlessTest
 - AssetManagerTest
 - TEST_F
-- Transform
+- TEST
 - FileMetadata.cpp
 - PathFollow
 - TEST
@@ -169,17 +169,17 @@
 - PoolAllocator
 - TEST_F
 - MockGameState
-- Errors.hpp
+- cstddef
 - Project
-- Signal
-- Functools.hpp
+- FileWatcher.hpp
+- MapTupleImpl
 - Context
 - MouseMotionEvent
 - TEST
 - TEST_F
 - MovingBox
 - VirtualFileSystem.cpp
-- AudioStream.cpp
+- FrameTable
 - check_site.py
 - Font
 - FreeList
@@ -191,34 +191,34 @@
 - Networking Phase 2 Roadmap
 - CreateClipDraft
 - CapturedStdout
-- Common.hpp
+- UISlider
 - Vec3
 - Asset
-- vector
+- AssetResolver.hpp
 - QuadNode
 - TEST
 - FakeTexture
 - QuadTree
-- SDLUploadBuffer
+- CppProjectInput
 - MPMCQueue
 - Thread.cpp
-- PhysicsSystem.cpp
-- TEST
+- CheckCollision
+- FrameTableLoadTest
 - CppProject.cpp
 - ReadImageTest
 - TEST_F
 - TEST_F
 - CancelState
-- CppBuild.cpp
-- Input System Phase 1
+- TEST_F
+- Input System Phase 2 Roadmap
 - ThreadPool
-- AssetManager.cpp
+- Result
 - TEST
 - AssetManagerIntegrationTest
-- ResourceHolder
+- Serializer<components::Interactable>
 - Segment
 - Time.cpp
-- MakeErrorFromErrno
+- ArenaAllocator
 - Tween
 - Vec2
 - EntityAllocator
@@ -226,104 +226,110 @@
 - VirtualFileSystemTest
 - SceneSerializerTest
 - TEST
-- TEST_F
+- asge::game::scene::Serializer<asge::game::components::UILayoutItem>::FromToml
 - TOMLBuilder
 - FakeTexture
 - main.js
-- IGameState
+- UILayoutItem
 - TEST_F
-- MovingBoxState
+- Measure
 - TEST_F
 - CatmullRomSpline.cpp
 - EmptyContext
-- UISystemTests.cpp
-- MakeMinimalWav
+- UISystem.cpp
+- Scripting & Events Phase 3 Roadmap
 - TEST_F
-- string
+- TOMLParserTests.cpp
 - generate_site.py
-- InputSystem
-- Result
+- Application
+- PanelDesc
 - SDLTexture
 - SceneManagerTest
 - Rendering System Phase 2 Roadmap
 - VectorN.hpp
-- FileDialogResult
-- MovingBoxGame.hpp
-- UI Framework Phase 1
+- VfsPanel.cpp
+- PathSegment
+- UI Framework Phase 2 Roadmap
 - TEST
-- HitEntry
+- UISystemTests.cpp
 - Graphics/Camera.cpp
 - ProjectData
 - AssetPoolTest
 - TEST
 - ComponentTypeId.hpp
 - TEST
-- FileWatcher.hpp
-- SliderDesc
+- memory
+- CheckboxDesc
 - ContextWithValue
 - TEST_F
 - MouseButtonEvent
-- SDLHeadlessTest
-- FakeTexture
+- SDLTextureTest
+- AllocArray
 - graphify reference: extra exports and benchmark
 - UILabel
 - KeyboardEvent
-- EntityGroup
+- Serializer<components::AudioSource>
 - TEST
 - Camera Follow Demo Screenshot (camera tracking yellow player over tiled world, HUD bars)
 - Texture Demo Screenshot
 - releases.js
 - .mcp.json
-- TEST
+- Serializer<components::Camera>
 - CatmullRomSpline
-- UISlider
+- Serializer<components::Collider>
 - IFileEventHandler
 - GameStateStackTest
 - WaypointEditState
 - TEST
 - TimingProfiler.cpp
 - asge::time::FormatTimestamp
-- AudioClip
-- Camera
+- Serializer<ecs::components::Hierarchy>
+- Serializer<components::Name>
 - VideoSystem
 - FSEventEntry
-- CreateState
+- Serializer<components::PathFollow>
 - ConfigurationManagerTest
 - Docs Workflow (GitHub Pages)
 - ThreadPool.cpp
-- asge::game::scene::SceneSerializer::Load
+- Serializer<components::RenderInfo>
 - PixelFormatInfo
 - MakeA8Image
 - MountInfo
-- asge::math::BuildArcLengthTable
+- Serializer<components::Rigidbody>
 - ConfigIntegrationTest
-- NanosFrom
-- MakeClipAsset
-- MotionEvent
-- ApplicationConfig
+- TimeUtils.hpp
+- Serializer<components::UIButton>
+- Serializer<components::UICheckbox>
+- Serializer<components::UILabel>
 - MakeSolidRedBmp
-- Rigidbody.hpp
+- Rigidbody
 - Serializer<components::Sprite>
-- Transform.hpp
+- Serializer<components::Transform>
 - IContext
 - .Data
 - asge::game::scene::SceneManager::ApplyPendingTransition
 - Rect
 - CompileCheckGame
 - Deleter
-- .Update
+- Serializer<components::UILayoutItem>
 - ECS Demo Screenshot (many textured checker entities moving)
 - ASGE Brand Mark (caret + dot on purple-teal gradient)
 - CommonEvent
 - TEST
+- Serializer<components::UIPanel>
 - RenderInfo
-- asge::math::BoundingRect
-- SDLWindow
+- Serializer<components::UISlider>
+- Serializer<components::Velocity>
+- InspectorResult
+- Events/Events.cpp
+- asge::event::_internal::ToKeycode
 - ResolveAssetsTest
+- Camera
 - FunctoolsTests.cpp
 - DrawString (baked glyph atlas text rendering)
 - graphify reference: query, path, explain
-- WindowEvent
+- MyClass
+- is_result_impl
 - ConcatTuples
 - TEST_F
 - asge::logger::Logger::OnLogConnect
@@ -337,6 +343,7 @@
 - install-sdl-linux.sh
 - install-sdl-mac.sh
 - install-stb.sh script
+- HierarchyTests.cpp
 - .TestVec3
 - QuadTreeTest
 - Audio Demo Screenshot (green/red play-state panels and blue volume/progress bar)
@@ -350,19 +357,17 @@
 - graphify reference: commit hook and native CLAUDE.md integration
 - graphify reference: incremental update and cluster-only
 - Get
-- asge::game::scene::SceneManager::LoadSceneCommon
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
 - GetTextureTest
 - extraction-spec.md
 - DestroyEntity
-- AhemPath
 - Image Info Console Output
 - map
 
 ## God Nodes (most connected - your core abstractions)
-1. `Registry` - 207 edges
-2. `Entity` - 160 edges
+1. `Registry` - 209 edges
+2. `Entity` - 163 edges
 3. `TEST()` - 121 edges
 4. `Rect` - 107 edges
 5. `IRenderer` - 105 edges
@@ -373,14 +378,14 @@
 10. `TOMLTableView` - 69 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `ASGE (A Simple Game Engine)` --semantically_similar_to--> `Roadmap Overview (vision, platforms, priorities)`  [INFERRED] [semantically similar]
-  README.md → docs/roadmap/00-overview.md
-- `ASGE Editor - Issues` --references--> `Hierarchy`  [INFERRED]
+- `ASGE Editor - Issues` --references--> `ForEachChild()`  [INFERRED]
   docs/level_editor_roadmap/issues.md → src/ASGE/Core/ECS/Hierarchy.hpp
 - `asge-editor Executable Target` --semantically_similar_to--> `setup_example CMake Macro`  [INFERRED] [semantically similar]
   editor/CMakeLists.txt → examples/CMakeLists.txt
 - `Immediate-mode UI with debug overlay` --semantically_similar_to--> `imgui static library (Dear ImGui + SDL3 backends)`  [INFERRED] [semantically similar]
   docs/roadmap/phase-1/09.1-ui-framework.md → CMakeLists.txt
+- `ASGE (A Simple Game Engine)` --semantically_similar_to--> `Roadmap Overview (vision, platforms, priorities)`  [INFERRED] [semantically similar]
+  README.md → docs/roadmap/00-overview.md
 - `ASGE Editor - Issues` --references--> `DuplicateEntity()`  [INFERRED]
   docs/level_editor_roadmap/issues.md → editor/main.cpp
 
@@ -406,7 +411,7 @@
 - **ThreadPool as shared job-system backend** — src_asge_core_concurrent_threadpool_threadpool, docs_roadmap_phase_2_13_2_optimization_shared_job_system, docs_roadmap_phase_2_03_2_entity_component_system_parallel_system_execution, docs_roadmap_phase_2_05_2_asset_pipeline_async_asset_loading, docs_roadmap_phase_2_08_2_audio_system_music_streaming [INFERRED 0.85]
 - **ASGE brand identity across docsite and editor** — docsite_site_assets_img_logo_logo, docsite_site_assets_img_favicon_favicon, editor_assets_icon_icon, docsite_site_assets_img_logo_asge_brand_mark [INFERRED 0.95]
 
-## Communities (348 total, 28 thin omitted)
+## Communities (353 total, 29 thin omitted)
 
 ### Community 0 - "TEST"
 Cohesion: 0.02
@@ -418,7 +423,7 @@ Nodes (52): api_page(), build_namespace_tree(), build_refid_map(), build_search_
 
 ### Community 2 - "TEST"
 Cohesion: 0.02
-Nodes (94): ActiveCameraEntityMissingCameraComponent_LeavesTheRendererSCameraUntouched, ActiveCameraEntityMissingTransform_LeavesTheRendererSCameraUntouched, ActiveCameraPointsAtEntityNull_LeavesTheRendererSCameraUntouched, AdvancesAnimationThenDrawsTheUpdatedFrame, AdvancesToNextFrameOnceFrameDurationElapses, AnimationSystemTest, CameraSystemTest, ClearingTheClipPathWhilePlayingRestoresTheSpritesOwnSourceRect (+86 more)
+Nodes (96): ActiveCameraEntityMissingCameraComponent_LeavesTheRendererSCameraUntouched, ActiveCameraEntityMissingTransform_LeavesTheRendererSCameraUntouched, ActiveCameraPointsAtEntityNull_LeavesTheRendererSCameraUntouched, AdvancesAnimationThenDrawsTheUpdatedFrame, AdvancesToNextFrameOnceFrameDurationElapses, AnimationSystemTest, CameraSystemTest, ClearingTheClipPathWhilePlayingRestoresTheSpritesOwnSourceRect (+88 more)
 
 ### Community 3 - "Traits.hpp"
 Cohesion: 0.12
@@ -426,7 +431,7 @@ Nodes (15): bool_constant<(std::is_same_v<T, Rest> && ...)>, disjunction<std::is
 
 ### Community 4 - "TEST"
 Cohesion: 0.03
-Nodes (67): Callable_CanBeCalledMultipleTimes, Callable_ConstMemberFuncViaLambda, Callable_FreeFunctionStoredArgs, Callable_LambdaWithCapture, Callable_MemberFuncViaLambda, Callable_MultipleStoredArgs, Callable_NoArgsVoidLambda, Callable_ReturnsDoubleDirectly (+59 more)
+Nodes (68): Callable_CanBeCalledMultipleTimes, Callable_ConstMemberFuncViaLambda, Callable_FreeFunctionStoredArgs, Callable_LambdaWithCapture, Callable_MemberFuncViaLambda, Callable_MultipleStoredArgs, Callable_NoArgsVoidLambda, Callable_ReturnsDoubleDirectly (+60 more)
 
 ### Community 5 - "TEST"
 Cohesion: 0.02
@@ -441,8 +446,8 @@ Cohesion: 0.10
 Nodes (40): BrutePairs(), BruteQueries(), BruteUniquePairs(), Build(), Checksum, m_Hits, m_Sum, size_t (+32 more)
 
 ### Community 8 - "gtest"
-Cohesion: 0.08
-Nodes (23): buildoutput, chrono, configurationmanager, cppbuild, cppproject, ctime, thread, entitygroups (+15 more)
+Cohesion: 0.10
+Nodes (15): ApplicationTest, buildoutput, chrono, cppbuild, cppproject, atomic, thread, future (+7 more)
 
 ### Community 9 - "Debug Logger ([INFO][time][Func] format)"
 Cohesion: 0.32
@@ -450,11 +455,11 @@ Nodes (8): Configuration Reader Console Output, FileWatcher, Configuration Write
 
 ### Community 10 - "RGBA_Color"
 Cohesion: 0.06
-Nodes (27): Color32, Color32A, ColorFromFloat4(), FloatFromColor(), Float2, Landmark, m_Color, m_Pos (+19 more)
+Nodes (30): Color32, Color32A, ColorFromFloat4(), FloatFromColor(), Float2, Landmark, m_Color, m_Pos (+22 more)
 
 ### Community 11 - "ASGE.hpp"
-Cohesion: 0.05
-Nodes (19): ApplicationTest, context, events, FastOperation(), FrameUpdate(), main(), SlowOperation(), iostream (+11 more)
+Cohesion: 0.10
+Nodes (3): context, random, GraphicsBackend
 
 ### Community 12 - "TEST_F"
 Cohesion: 0.04
@@ -481,12 +486,12 @@ Cohesion: 0.09
 Nodes (22): Timepoint, uint64_t, TimeSystem, Delta, Elapsed, FrameIndex, Pause, Paused (+14 more)
 
 ### Community 18 - "Logger"
-Cohesion: 0.06
-Nodes (34): atomic_ll, ColorFor(), ImU32, ImVec4, LogLevel, SDL_Window, size_t, string (+26 more)
+Cohesion: 0.09
+Nodes (23): atomic_ll, OnLog(), First, BuildMessage(), LogLevel, mutex, ostringstream, String (+15 more)
 
 ### Community 19 - "Entity"
 Cohesion: 0.05
-Nodes (51): ASGE Editor - Issues, AttachAssetComponent(), AssetPickKind, String, DuplicateEntity(), DuplicateSubtree(), EntityIndex, pool_t (+43 more)
+Nodes (57): concepts, EntityGroup, m_Members, m_Name, m_Open, m_Parent, string, vector (+49 more)
 
 ### Community 20 - "setup_example CMake Macro"
 Cohesion: 0.18
@@ -498,51 +503,51 @@ Nodes (23): optional, StateType, SystemEvent, unique_ptr, game::Game<int>, game:
 
 ### Community 22 - "TEST_F"
 Cohesion: 0.05
-Nodes (43): Exists_ResolvablePathReturnsTrue, Exists_UnresolvablePathReturnsFalse, IsMounted_NoMountsReturnsFalse, IsMounted_NormalizesInputBeforeComparing, IsMounted_OverlayMountStillReportsTrueOnce, IsMounted_RegisteredRootReturnsTrue, IsMounted_UnregisteredRootReturnsFalse, ListMounts_EmptyByDefault (+35 more)
+Nodes (44): Exists_ResolvablePathReturnsTrue, Exists_UnresolvablePathReturnsFalse, IsMounted_NoMountsReturnsFalse, IsMounted_NormalizesInputBeforeComparing, IsMounted_OverlayMountStillReportsTrueOnce, IsMounted_RegisteredRootReturnsTrue, IsMounted_UnregisteredRootReturnsFalse, ListMounts_EmptyByDefault (+36 more)
 
 ### Community 23 - "BoolResult"
-Cohesion: 0.09
-Nodes (32): _internal::ResultBase<bool, BoolResult>, asge::audio::AudioDevice::DetachStream(), asge::audio::AudioDevice::Id(), asge::audio::AudioDevice::Initialize(), asge::audio::AudioDevice::SetGain(), asge::audio::AudioDevice::Size(), SDL_AudioDeviceID, size_t (+24 more)
+Cohesion: 0.06
+Nodes (48): _internal::ResultBase<bool, BoolResult>, asge::audio::AudioDevice::DetachStream(), asge::audio::AudioDevice::Id(), asge::audio::AudioDevice::Initialize(), asge::audio::AudioDevice::SetGain(), asge::audio::AudioDevice::Size(), SDL_AudioDeviceID, size_t (+40 more)
 
 ### Community 24 - "AssetManager"
 Cohesion: 0.06
 Nodes (40): AssetKind, HasSegments, AssetManager, GetAudio, GetFont, GetFontAtlasTexture, GetFrameTable, GetTexture (+32 more)
 
-### Community 25 - "Application"
-Cohesion: 0.22
-Nodes (8): Application, m_AudioDev, m_Game, m_InputSys, m_Running, m_VideoSys, SDL_Event, TGame
+### Community 25 - "DrawItem"
+Cohesion: 0.10
+Nodes (22): uint32_t, DrawItem, m_DstRect, m_Entity, m_RenderInfo, m_SortY, m_Transform, m_Visual (+14 more)
 
 ### Community 26 - "IRenderer"
-Cohesion: 0.08
-Nodes (42): ComputeGizmoHandles(), Float2, ImU32, ImVec2, optional, size_t, vector, DrawArrow() (+34 more)
+Cohesion: 0.06
+Nodes (43): ComputeGizmoHandles(), Float2, ImU32, ImVec2, optional, size_t, vector, DrawArrow() (+35 more)
 
 ### Community 27 - "TOML_Parser.cpp"
-Cohesion: 0.06
-Nodes (59): istringstream, ostream, asge::config::toml::_internal::DetectStringType(), asge::config::toml::_internal::DetectType(), asge::config::toml::_internal::EscapeForOutput(), asge::config::toml::_internal::FindOrCreateTable(), asge::config::toml::_internal::FindSubTable(), asge::config::toml::_internal::FindSubTableAt() (+51 more)
+Cohesion: 0.09
+Nodes (41): istringstream, asge::config::toml::_internal::DetectStringType(), asge::config::toml::_internal::DetectType(), asge::config::toml::_internal::EscapeForOutput(), asge::config::toml::_internal::FindOrCreateTable(), asge::config::toml::_internal::FindSubTable(), asge::config::toml::_internal::FindSubTableAt(), asge::config::toml::_internal::ParseArray() (+33 more)
 
 ### Community 28 - "Registry"
-Cohesion: 0.06
-Nodes (59): kMaxEntities, unique_ptr, vector, Registry, DestroyAllEntities, ForEachEntity, m_Allocator, m_Pools (+51 more)
+Cohesion: 0.07
+Nodes (38): CircleCollider_DrawsUnfilledCircleAtWorldOffsetCenter, EmptyRegistry_DrawsNothing, kMaxEntities, PhysicsDebugSystemTest, RectCollider_DrawsUnfilledRectAtWorldOffsetBounds, SolidResolution_DrawsGreen, unique_ptr, vector (+30 more)
 
 ### Community 29 - "RecordingRenderer"
 Cohesion: 0.05
 Nodes (31): CircleCall, m_Center, m_Color, m_Fill, m_Radius, Camera, Float2, string (+23 more)
 
-### Community 30 - "Components.hpp"
-Cohesion: 0.04
-Nodes (42): serialize, Camera, m_Smoothing, m_Zoom, StringView, Serializer<components::Camera>, FromToml, kTableName (+34 more)
+### Community 30 - "PhysicsSystem.cpp"
+Cohesion: 0.08
+Nodes (23): cmath, color, serialize, Camera, m_Smoothing, m_Zoom, PanelLayout, LayoutType (+15 more)
 
 ### Community 31 - "TEST"
 Cohesion: 0.05
 Nodes (40): Alloc_AlignmentRespected, Alloc_ConsecutiveAllocsDoNotOverlap, Alloc_ExactFillReturnsValidPointer, Alloc_OverCapacityReturnsNull, Alloc_PointerIsWithinBuffer, AllocArray_TrivialType_SizeReflected, AllocOne_ForwardsConstructorArgs, Capacity_IsConstantAcrossAllocs (+32 more)
 
-### Community 32 - "AssetManagerTests.cpp"
-Cohesion: 0.05
-Nodes (19): animation, AudioSource, cmath, Collider, color, pathfollow, physicssystem, RenderError (+11 more)
+### Community 32 - "RenderSystem.cpp"
+Cohesion: 0.07
+Nodes (18): Collider, collision, events, Camera, physicssystem, spritegeometry, Camera, ScreenSpaceCamera (+10 more)
 
 ### Community 33 - "main"
-Cohesion: 0.12
-Nodes (18): ClearKnownAssets(), InitConsolePanel(), CppBuild, m_Process, m_State, m_Thread, path, Float2 (+10 more)
+Cohesion: 0.16
+Nodes (20): InitConsolePanel(), path, CppProjectDir(), DeleteCppProject(), IsCppProjectLinked(), OpenInVSCode(), path, string (+12 more)
 
 ### Community 34 - "RecordingRenderer"
 Cohesion: 0.06
@@ -558,11 +563,11 @@ Nodes (10): Camera, Float2, Int2, StringView, video::IRenderer, Viewport, NullRe
 
 ### Community 37 - "TEST_F"
 Cohesion: 0.05
-Nodes (42): ApplyPendingTransition_FailedLoadStillClearsPendingAndLeavesActiveSceneIntact, ApplyPendingTransition_NothingPendingIsNoOp, CachedSceneCount_TracksResidentButInactiveScenes, ClearCache_RemovesEveryResidentButInactiveScene, CreateEntity_ActiveSceneTagsEntityAndItAppearsInActiveEntities, CreateEntity_NoActiveSceneReturnsNoActiveSceneError, CreateEntity_SurvivesASaveSceneRoundTrip, DuplicateEntity_CopiesSerializableComponentsAndTagsIntoActiveScene (+34 more)
+Nodes (43): ApplyPendingTransition_FailedLoadStillClearsPendingAndLeavesActiveSceneIntact, ApplyPendingTransition_NothingPendingIsNoOp, CachedSceneCount_TracksResidentButInactiveScenes, ClearCache_RemovesEveryResidentButInactiveScene, CreateEntity_ActiveSceneTagsEntityAndItAppearsInActiveEntities, CreateEntity_NoActiveSceneReturnsNoActiveSceneError, CreateEntity_SurvivesASaveSceneRoundTrip, DuplicateEntity_CopiesSerializableComponentsAndTagsIntoActiveScene (+35 more)
 
 ### Community 38 - "SDL_TranslationUnit.cpp"
-Cohesion: 0.13
-Nodes (23): SIEvent, CheckOne(), EventType, SystemEventType, ToSysEventType(), ToSysEventTypeImpl(), asge::event::_internal::ProcessEvent_SDL(), asge::event::_internal::__processKeyboard() (+15 more)
+Cohesion: 0.23
+Nodes (14): SIEvent, asge::event::_internal::ProcessEvent_SDL(), asge::event::_internal::__processKeyboard(), asge::event::_internal::__processMouse(), asge::event::_internal::__processQuit(), asge::event::_internal::__processWindow(), asge::event::_internal::ToEventType(), EventType (+6 more)
 
 ### Community 39 - "TEST"
 Cohesion: 0.04
@@ -573,12 +578,12 @@ Cohesion: 0.06
 Nodes (34): ArrayTable_CalledTwiceCreatesTwoHeaders, ArrayTable_ElementsCanHaveOwnNestedSubtablesAndReparse, Get_FloatKeyBoolTypedValueReturnsDefault, Get_FloatKeyInteroperatesWithDoubleGet, Get_FloatKeyReadsIntTypedValue, Get_FloatKeyRoundTripsThroughSet, Get_FloatKeyStringTypedValueReturnsDefault, Get_FloatMissingKeyReturnsDefault (+26 more)
 
 ### Community 41 - "TEST_F"
-Cohesion: 0.10
-Nodes (20): AudioClipLoadOggFixtureTest, InitializeAudioSystem_ActuallyInitializesTheSubsystem, Load_OggGarbageBytesReturnsDecodeFailedError, Load_UnsupportedExtensionReturnsInvalidFormatError, Load_ValidOggFileDecodesSuccessfully, Load_ValidWavFileDecodesSuccessfully, Load_WavGarbageBytesReturnsDecodeFailedError, OpenNewAudioDevice_AfterInitializeSucceeds (+12 more)
+Cohesion: 0.09
+Nodes (29): AudioClipLoadOggFixtureTest, InitializeAudioSystem_ActuallyInitializesTheSubsystem, Load_OggGarbageBytesReturnsDecodeFailedError, Load_UnsupportedExtensionReturnsInvalidFormatError, Load_ValidOggFileDecodesSuccessfully, Load_ValidWavFileDecodesSuccessfully, Load_WavGarbageBytesReturnsDecodeFailedError, OpenNewAudioDevice_AfterInitializeSucceeds (+21 more)
 
 ### Community 42 - "Table"
 Cohesion: 0.08
-Nodes (31): enable_shared_from_this<Table>, friend, RetType, asge::config::toml::_internal::Table::SetParent(), weak_ptr, Get(), GetTypedArray(), pointer (+23 more)
+Nodes (34): enable_shared_from_this<Table>, friend, RetType, asge::config::toml::_internal::Table::SetParent(), weak_ptr, Get(), GetTypedArray(), pointer (+26 more)
 
 ### Community 43 - "CameraFollowDemoState"
 Cohesion: 0.08
@@ -589,28 +594,28 @@ Cohesion: 0.08
 Nodes (33): optional, StateType, SystemEvent, unique_ptr, Drifter, dx, dy, x (+25 more)
 
 ### Community 45 - "TEST_F"
-Cohesion: 0.06
-Nodes (37): FileWithFrameTableTableReturnsTrue, FrameDurationsAreReadAndFallBackWhereMissingOrNonPositive, FrameDurationsRoundTrip, LoadRejectsClipRunningPastKnownGrid, MalformedTomlReturnsError, MalformedTomlReturnsFalseRatherThanError, MissingFrameTableSectionDefaultsToEmptyFrameListRatherThanError, MissingOriginAssetDefaultsToEmptyRatherThanFailing (+29 more)
+Cohesion: 0.11
+Nodes (19): FileWithFrameTableTableReturnsTrue, FrameDurationsAreReadAndFallBackWhereMissingOrNonPositive, FrameDurationsRoundTrip, LoadRejectsClipRunningPastKnownGrid, MalformedTomlReturnsError, MalformedTomlReturnsFalseRatherThanError, MissingFrameTableSectionDefaultsToEmptyFrameListRatherThanError, MissingOriginAssetDefaultsToEmptyRatherThanFailing (+11 more)
 
 ### Community 46 - "TEST"
 Cohesion: 0.04
-Nodes (48): AabbOverlapTest, AllPointsStayWithinOnePixelOfTheTrueRadius, ArgumentOrder_DoesNotMatter, CircleRect_IsTheOppositeOfRectCircle, collision, ContainedRect_ReturnsOuterRect, ContainsRectTest, ContainsTest (+40 more)
+Nodes (47): AabbOverlapTest, AllPointsStayWithinOnePixelOfTheTrueRadius, ArgumentOrder_DoesNotMatter, CircleRect_IsTheOppositeOfRectCircle, ContainedRect_ReturnsOuterRect, ContainsRectTest, ContainsTest, DisjointRects_ReturnsEnclosingRect (+39 more)
 
 ### Community 47 - "FileWatcher.cpp"
 Cohesion: 0.09
-Nodes (30): callback_type, callback_type_cref, ConstFSEventStreamRef, FSEventStreamEventFlags, FSEventStreamEventId, mask_type, asge::filesystem::_apple::FileWatcher::AddWatch(), asge::filesystem::_apple::FileWatcher::MapEvent() (+22 more)
+Nodes (35): callback_type, callback_type_cref, FSEventStreamEventFlags, mask_type, asge::filesystem::_apple::FileWatcher::AddWatch(), asge::filesystem::_apple::FileWatcher::FileWatcher(), asge::filesystem::_apple::FileWatcher::MapEvent(), asge::filesystem::_apple::FileWatcher::Run() (+27 more)
 
 ### Community 48 - "LoadContext"
-Cohesion: 0.06
-Nodes (38): asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(), T, asge::game::scene::Serializer<asge::game::components::Camera>::FromToml(), asge::game::scene::Serializer<asge::game::components::Camera>::ToToml(), Camera, T, asge::game::scene::Serializer<asge::game::components::Name>::FromToml(), asge::game::scene::Serializer<asge::game::components::Name>::ToToml() (+30 more)
+Cohesion: 0.04
+Nodes (54): asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(), T, asge::game::scene::Serializer<asge::game::components::AudioSource>::ToToml(), T, asge::game::scene::Serializer<asge::game::components::Camera>::FromToml(), asge::game::scene::Serializer<asge::game::components::Camera>::ToToml(), Camera, T (+46 more)
 
 ### Community 49 - "TEST"
 Cohesion: 0.06
 Nodes (32): Alloc_ConsecutiveAllocsReturnDistinctPointers, Alloc_NotEmptyAfterAlloc, Alloc_ReturnsNonNullForFreshAllocator, Alloc_ValuesIndependentAcrossAllocations, Construction_RemainingEqualsTotalCapacity, Destructor_CallsDestructorsForAllLiveObjects, Free_AllowsMemoryReuse, Free_DestructorCalled (+24 more)
 
-### Community 50 - "editor/main.cpp"
+### Community 50 - "vector"
 Cohesion: 0.08
-Nodes (30): cstdio, deque, string, SDL_Window, SDL_Window, AddMount(), SDL_Window, set (+22 more)
+Nodes (26): configurationmanager, cstdint, cstdio, string, SDL_Window, vector, entitygroups, fileio (+18 more)
 
 ### Community 51 - "TEST"
 Cohesion: 0.06
@@ -618,27 +623,27 @@ Nodes (32): AtOne_ReturnsSecondEndpoint, AtOne_ReturnsSecondEndpointTangent, AtZ
 
 ### Community 52 - "FileWatcher"
 Cohesion: 0.07
-Nodes (29): main(), FileWatcher, AddWatch, m_DirectoriesMutex, m_EpollHandle, m_EpollValid, m_hIOCP, m_InotifyHandle (+21 more)
+Nodes (31): main(), asge::filesystem::_linux::FileWatcher::ReadInotifyEvents(), FileWatcher, AddWatch, ConsumeInotifyEvent, m_DirectoriesMutex, m_EpollHandle, m_EpollValid (+23 more)
 
 ### Community 53 - "AudioStream"
 Cohesion: 0.09
-Nodes (28): AudioStreamTest, ClearData_OnInvalidStreamReturnsInvalidStreamError, ClearData_OnValidStreamEmptiesTheQueue, DefaultConstructed_IsInvalidWithNoIndex, Index_SetterRoundTrips, IsDataAvailable_OnInvalidStreamIsFalse, PutData_QueuesTheClipsWholeBuffer, Reset_OnDefaultConstructed_StaysInvalid (+20 more)
+Nodes (29): AudioStreamTest, ClearData_OnInvalidStreamReturnsInvalidStreamError, ClearData_OnValidStreamEmptiesTheQueue, DefaultConstructed_IsInvalidWithNoIndex, Index_SetterRoundTrips, IsDataAvailable_OnInvalidStreamIsFalse, PutData_QueuesTheClipsWholeBuffer, Reset_OnDefaultConstructed_StaysInvalid (+21 more)
 
 ### Community 54 - "ComponentPool"
 Cohesion: 0.05
 Nodes (36): component_ref, const_component_ref, Nc, Ne, Pool, ComponentPool, m_DenseComponent, m_DenseEntity (+28 more)
 
 ### Community 56 - "AssetBrowser.cpp"
-Cohesion: 0.17
-Nodes (30): assetresolver, AssetSectionContext, m_AllowCreateClip, m_ContextMenu, m_HasProject, m_Kind, CollectUsedPaths(), AssetPickKind (+22 more)
+Cohesion: 0.09
+Nodes (48): AssetContextAction, assetresolver, AssetBrowserResult, m_ContextAction, m_ContextKind, m_ContextPath, m_ContextTarget, m_OpenCreateClip (+40 more)
 
 ### Community 57 - "PhysicsDemoState"
-Cohesion: 0.06
+Cohesion: 0.05
 Nodes (47): CollisionLayer, Float2, optional, StateType, SystemEvent, unique_ptr, game::Game<int>, game::state::IGameState<int> (+39 more)
 
-### Community 58 - "AudioClip.cpp"
-Cohesion: 0.16
-Nodes (14): sdl_init, asge::media::AudioClip::Data(), asge::media::AudioClip::Load(), asge::media::AudioClip::Size(), asge::media::OpenNewAudioDevice(), byte, Path, SDL_AudioDeviceID (+6 more)
+### Community 58 - "AudioClip"
+Cohesion: 0.08
+Nodes (29): audiosystem, sdl_audio, SDL_AudioSpec, sdl_hints, sdl_init, sdl_iostream, asge::media::AudioClip::Data(), asge::media::AudioClip::Load() (+21 more)
 
 ### Community 59 - "TEST"
 Cohesion: 0.07
@@ -656,21 +661,21 @@ Nodes (24): optional, StateType, SystemEvent, unique_ptr, game::Game<int>, game:
 Cohesion: 0.10
 Nodes (25): asge::concurrent::Thread::Cancel(), asge::concurrent::Thread::Start(), _Callable, context_pointer, id, string, uint64_t, unique_ptr (+17 more)
 
-### Community 63 - "ITexture"
+### Community 63 - "NullRenderer"
 Cohesion: 0.10
-Nodes (12): ITexture, GetColorMod, IsValid, Camera, Float2, StringView, unique_ptr, video::IRenderer (+4 more)
+Nodes (10): Camera, Float2, Int2, StringView, unique_ptr, video::IRenderer, Viewport, NullRenderer (+2 more)
 
 ### Community 64 - "Beyond the Roadmap (untracked game-building needs)"
-Cohesion: 0.10
-Nodes (28): v0.8.2 release (Catmull-Rom spline, PathFollowingSystem), Editor integration main priority, Roadmap Overview (vision, platforms, priorities), Beyond the Roadmap (untracked game-building needs), Broad-phase collision detection, Game-state / screen flow (done), Cross-Registry render-order interleaving, Save-game persistence (+20 more)
+Cohesion: 0.09
+Nodes (29): v0.8.2 release (Catmull-Rom spline, PathFollowingSystem), Editor integration main priority, Roadmap Overview (vision, platforms, priorities), Beyond the Roadmap (untracked game-building needs), Broad-phase collision detection, Game-state / screen flow (done), Cross-Registry render-order interleaving, Save-game persistence (+21 more)
 
 ### Community 65 - "TEST"
-Cohesion: 0.04
-Nodes (55): AbsolutePanel_LeavesChildrenUntouched, AbsoluteParent_StillLaysOutANestedPanel, AlignmentAccountsForLocalScale, AutoSizedLabel_KeepsItsSizeButAFixedSizeLabelIsResized, Center_PlacesAnUnfilledChildInTheMiddleOfItsSlot, ChildLargerThanItsSlot_StartsAtTheSlotEdgeInsteadOfOverflowingBackwards, ChildRect_IsResizedToFillItsSlot, ChildrenPastTheLastSlot_KeepTheirPosition (+47 more)
+Cohesion: 0.03
+Nodes (59): AbsolutePanel_LeavesChildrenUntouched, AbsoluteParent_StillLaysOutANestedPanel, AlignmentAccountsForLocalScale, AutoSizedLabel_KeepsItsSizeButAFixedSizeLabelIsResized, Center_PlacesAnUnfilledChildInTheMiddleOfItsSlot, ChildLargerThanItsSlot_StartsAtTheSlotEdgeInsteadOfOverflowingBackwards, ChildRect_IsResizedToFillItsSlot, ChildrenPastTheLastSlot_KeepTheirPosition (+51 more)
 
 ### Community 66 - "TOMLTableView"
 Cohesion: 0.07
-Nodes (36): optional, path, string, LoadEditorSession(), LoadProject(), PortablePath(), Disable, Get() (+28 more)
+Nodes (38): ClearKnownAssets(), path, string, LoadEditorSession(), LoadProject(), PortablePath(), Disable, Get() (+30 more)
 
 ### Community 67 - "BackgroundComponent"
 Cohesion: 0.11
@@ -701,28 +706,28 @@ Cohesion: 0.07
 Nodes (31): Create_AlreadyLinked_ReturnsFileExistsAndTouchesNothing, Create_CMakeListsPointsAtTheAsgeFolder, Create_DuplicateSanitizedNames_GetNumericSuffixes, Create_EverythingInsideTheProjectFolder_IsPortableAndListsWhatToCopy, Create_GameMapsEveryStateIdToItsSceneStem, Create_GameReadsTheWindowSizeFromTheProjectAndMainUsesIt, Create_KeepsAnExistingVSCodeSettingsFile, Create_MountOutsideTheProjectFolder_IsNotPortable (+23 more)
 
 ### Community 74 - "asge CMake project (v0.8.2, C++23)"
-Cohesion: 0.10
-Nodes (26): git-cliff changelog generation (cliff.toml), package job (per-OS build/install/archive matrix), release job (git-cliff notes, CHANGELOG PR, draft GH release), Release-on-tag GitHub workflow, ASGE CHANGELOG, v0.8.0 release (AudioDevice, AudioClip, AudioSystem), v0.8.1 release (camera/viewport, docs site, Registry resources), v0.8.3 release (rotation/path-following demos in examples) (+18 more)
+Cohesion: 0.11
+Nodes (25): git-cliff changelog generation (cliff.toml), package job (per-OS build/install/archive matrix), release job (git-cliff notes, CHANGELOG PR, draft GH release), Release-on-tag GitHub workflow, ASGE CHANGELOG, v0.8.0 release (AudioDevice, AudioClip, AudioSystem), v0.8.1 release (camera/viewport, docs site, Registry resources), v0.8.3 release (rotation/path-following demos in examples) (+17 more)
 
 ### Community 75 - "TEST"
 Cohesion: 0.08
 Nodes (26): ArenaAllocatorTest, Construction_CapacityMatchesRequestedSize, GetMarker_InitialOffsetIsZero, MoveAssignment_DestinationHasOriginalCapacity, MoveAssignment_SourceCapacityBecomesZero, Rewind_RestoresOffset, Alloc_IncreasesUsed, Alloc_ReturnsNonNullForValidRequest (+18 more)
 
 ### Community 76 - "TimingBucket"
-Cohesion: 0.10
-Nodes (19): atomic_uint64_t, Timepoint, ScopedTimer, m_Start, mutex, String, unordered_map, TimingBucket (+11 more)
+Cohesion: 0.09
+Nodes (23): atomic_uint64_t, FastOperation(), FrameUpdate(), main(), SlowOperation(), Timepoint, ScopedTimer, m_Start (+15 more)
 
 ### Community 77 - "TEST"
 Cohesion: 0.08
 Nodes (26): CenterAlign_EvenPaddingSplitsExactlyInHalf, CenterAlign_SplitsPaddingWithExtraSpaceOnTheRight, CodePointLengthTest, EachKnownNameMapsBackToItsValue, EachKnownValueMapsToItsLowercaseName, EmptyString_ReturnsZero, FourByteUtf8Sequence_CountsAsOneCodePoint, InputAlreadyAtWidth_ReturnsItUnchanged (+18 more)
 
-### Community 78 - "InputState"
-Cohesion: 0.08
-Nodes (39): Consume_IgnoresUnrelatedEventsWithoutCrashing, InputStateTest, IsKeyDown_FalseBeforeAnyEvent, IsKeyDown_ReflectsLatestKeyEvent, IsKeyPressed_TrueOnlyOnTheFrameItWentDown, IsKeyReleased_TrueOnlyOnTheFrameItWentUp, kKeyCount, kMouseBCount (+31 more)
+### Community 78 - "TEST"
+Cohesion: 0.13
+Nodes (23): Consume_IgnoresUnrelatedEventsWithoutCrashing, InputStateTest, IsKeyDown_FalseBeforeAnyEvent, IsKeyDown_ReflectsLatestKeyEvent, IsKeyPressed_TrueOnlyOnTheFrameItWentDown, IsKeyReleased_TrueOnlyOnTheFrameItWentUp, MouseButton_DownPressedReleasedFollowTheSameFrameRule, MouseDelta_IsDifferenceSinceLastNewFrame (+15 more)
 
 ### Community 79 - "SceneManager.cpp"
-Cohesion: 0.10
-Nodes (25): asge::game::scene::SceneManager::ActiveEntities(), asge::game::scene::SceneManager::CachedSceneCount(), asge::game::scene::SceneManager::CopyEntities(), asge::game::scene::SceneManager::CopyEntityComponents(), asge::game::scene::SceneManager::DuplicateEntity(), asge::game::scene::SceneManager::EntitiesInScene(), asge::game::scene::SceneManager::EvictCachedScene(), asge::game::scene::SceneManager::LoadScene() (+17 more)
+Cohesion: 0.09
+Nodes (31): asge::game::scene::SceneManager::ActiveEntities(), asge::game::scene::SceneManager::CachedSceneCount(), asge::game::scene::SceneManager::CopyEntities(), asge::game::scene::SceneManager::CopyEntityComponents(), asge::game::scene::SceneManager::CreateEntity(), asge::game::scene::SceneManager::DuplicateEntity(), asge::game::scene::SceneManager::EntitiesInScene(), asge::game::scene::SceneManager::EvictCachedScene() (+23 more)
 
 ### Community 80 - "Game"
 Cohesion: 0.06
@@ -737,8 +742,8 @@ Cohesion: 0.10
 Nodes (19): DetachAudioSource_ReleasesTheStreamAndClearsIt, DetachAudioSource_ThenReplayCreatesAFreshStream, DetachAudioSource_WithNoStreamIsANoOp, AudioSystemTest, m_Device, m_Entity, m_Registry, testing::Test (+11 more)
 
 ### Community 83 - "Inspector.cpp"
-Cohesion: 0.06
-Nodes (65): AnchorCondOnResize(), ClipNameFromPath(), ColliderDrawState, m_Active, m_Entity, m_Snapshot, ComponentEntry, m_Name (+57 more)
+Cohesion: 0.07
+Nodes (61): AnchorCondOnResize(), ClipNameFromPath(), ColliderDrawState, m_Active, m_Entity, m_Snapshot, ComponentEntry, m_Name (+53 more)
 
 ### Community 84 - "InputDemoState"
 Cohesion: 0.13
@@ -768,45 +773,45 @@ Nodes (24): A8_IsOneBytePerPixel, A8Format_TreatsThePixelByteItselfAsAlpha, Alph
 Cohesion: 0.11
 Nodes (23): cctype, asge::media::DecodeImage(), asge::media::Image::AlphaContentBounds(), asge::media::Image::Data(), asge::media::Image::Dimensions(), asge::media::Image::Format(), asge::media::Image::Image(), asge::media::Image::Image::Load() (+15 more)
 
-### Community 91 - "AudioDevice"
-Cohesion: 0.10
-Nodes (21): AnimationDemoGame::AnimationDemoGame(), InputDemoGame::InputDemoGame(), PhysicsDemoGame::PhysicsDemoGame(), SceneDemoGame::SceneDemoGame(), AudioDevice, CreateStream, DetachStream, Id (+13 more)
+### Community 91 - "Hierarchy"
+Cohesion: 0.12
+Nodes (16): ASGE Editor - Issues, AttachAssetComponent(), AssetPickKind, String, DuplicateEntity(), DuplicateSubtree(), Hierarchy, m_FirstChild (+8 more)
 
 ### Community 92 - "TEST_F"
-Cohesion: 0.09
-Nodes (23): Load_EmptySceneFile_ResultsInEmptyRegistry, Load_FileDoesNotExistReturnsError, Load_HierarchyComponent_ReconnectsParentChildRelationshipsAmongTheNewlyCreatedEntities, Load_MalformedTomlReturnsErrorAndLeavesRegistryUntouched, Load_MidLoopFailureRollsBackOnlyThisCallsEntitiesLeavingPreexistingOnesIntact, Load_SpriteComponent_RestoresPathAndSourceRectButLeavesTextureNull, Load_UnmountedVirtualPathReturnsError, Load_ValidSceneFile_RecreatesEntitiesWithSavedComponentsInCreationOrder (+15 more)
+Cohesion: 0.08
+Nodes (25): Load_EmptySceneFile_ResultsInEmptyRegistry, Load_FileDoesNotExistReturnsError, Load_HierarchyComponent_ReconnectsParentChildRelationshipsAmongTheNewlyCreatedEntities, Load_MalformedTomlReturnsErrorAndLeavesRegistryUntouched, Load_MidLoopFailureRollsBackOnlyThisCallsEntitiesLeavingPreexistingOnesIntact, Load_SpriteComponent_RestoresPathAndSourceRectButLeavesTextureNull, Load_UnmountedVirtualPathReturnsError, Load_ValidSceneFile_RecreatesEntitiesWithSavedComponentsInCreationOrder (+17 more)
 
 ### Community 93 - "SceneManager"
 Cohesion: 0.07
 Nodes (26): PendingKind, optional, String, unordered_map, SceneManager, ApplyPendingTransition, CachedSceneCount, ClearCache (+18 more)
 
 ### Community 94 - "AudioSource"
-Cohesion: 0.09
-Nodes (26): asge::game::components::PlayAudioSource(), asge::game::components::SetVolume(), asge::game::components::StopAudioSource(), asge::game::scene::Serializer<asge::game::components::AudioSource>::FromToml(), asge::game::scene::Serializer<asge::game::components::AudioSource>::ToToml(), AudioSource, m_Clip, m_Loop (+18 more)
+Cohesion: 0.13
+Nodes (19): asge::game::components::PlayAudioSource(), asge::game::components::SetVolume(), asge::game::components::StopAudioSource(), asge::game::scene::Serializer<asge::game::components::AudioSource>::FromToml(), AudioSource, m_Clip, m_Loop, m_Playing (+11 more)
 
-### Community 95 - "SDLRenderer.cpp"
-Cohesion: 0.10
-Nodes (19): asge::video::SDLRenderer::Clear(), asge::video::SDLRenderer::CreateTexture(), asge::video::SDLRenderer::DrawCircle(), asge::video::SDLRenderer::DrawLine(), asge::video::SDLRenderer::DrawRect(), asge::video::SDLRenderer::DrawString(), asge::video::SDLRenderer::DrawTexture(), asge::video::SDLRenderer::DrawTexture9Grid() (+11 more)
+### Community 95 - "ITexture"
+Cohesion: 0.05
+Nodes (32): asge::video::SDLRenderer::Clear(), asge::video::SDLRenderer::CreateTexture(), asge::video::SDLRenderer::DrawCircle(), asge::video::SDLRenderer::DrawLine(), asge::video::SDLRenderer::DrawRect(), asge::video::SDLRenderer::DrawString(), asge::video::SDLRenderer::DrawTexture(), asge::video::SDLRenderer::DrawTexture9Grid() (+24 more)
 
 ### Community 96 - "SDLRenderer"
 Cohesion: 0.08
 Nodes (23): asge::video::SDLRenderer::SDLRenderer(), SDL_Window, Camera, Viewport, SDLRenderer, Clear, CreateTexture, Destroy (+15 more)
 
-### Community 97 - "FakeRenderer"
-Cohesion: 0.10
-Nodes (10): Camera, Float2, StringView, unique_ptr, video::IRenderer, Viewport, FakeRenderer, m_Camera (+2 more)
+### Community 97 - "InputState"
+Cohesion: 0.13
+Nodes (16): kKeyCount, kMouseBCount, SystemEvent, array, Float2, InputState, Consume, m_KeyCurrentFrame (+8 more)
 
 ### Community 98 - "AssetTreeNode"
 Cohesion: 0.10
 Nodes (26): assettree, AssetTreeTest, AssetTreeNode, m_Children, m_IsFolder, m_Name, m_Path, BuildAssetTree() (+18 more)
 
 ### Community 99 - "Roadmap README"
-Cohesion: 0.14
-Nodes (23): Core Engine Phase 1 Roadmap, Asset Pipeline Phase 1 Roadmap, Scene Management Phase 1 Roadmap, Asset Pipeline Phase 2 Roadmap, Path-Keyed Asset Cache, Scene Management Phase 2 Roadmap, Additive Scene Loading, Prefabs (+15 more)
+Cohesion: 0.12
+Nodes (30): Core Engine Phase 1 Roadmap, Asset Pipeline Phase 1 Roadmap, Scene Management Phase 1 Roadmap, Optimization Phase 1 Roadmap, Documentation Phase 1 Roadmap, ECS Phase 2 Roadmap, Archetype/Chunked Storage, Component Read/Write Declarations (+22 more)
 
-### Community 100 - "AudioDemoState"
-Cohesion: 0.11
-Nodes (19): AudioDemoGame, AudioDemoGame::AudioDemoGame(), CreateState, AudioDemoState, AdjustMasterVolume, AudioDemoState::AudioDemoState(), m_Ambient, m_Blip (+11 more)
+### Community 100 - "AudioDevice"
+Cohesion: 0.06
+Nodes (40): AudioDemoGame, AudioDemoGame::AudioDemoGame(), CreateState, AudioDemoState, AdjustMasterVolume, AudioDemoState::AudioDemoState(), m_Ambient, m_Blip (+32 more)
 
 ### Community 101 - "TEST"
 Cohesion: 0.09
@@ -821,40 +826,40 @@ Cohesion: 0.10
 Nodes (21): Concurrent_GetDuringSet_NoCorruption, Get_BeforeLoadReturnsError, Get_VectorTypeReturnsElements, Load_DirectoryPathReturnsError, Load_DoesNotEnableHotReloadByDefault, Load_SamePathTwiceReturnsOk, Load_ValidTomlThenGetReturnsValues, Load_WrongExtensionReturnsError (+13 more)
 
 ### Community 104 - "AnimationDemoState"
-Cohesion: 0.15
-Nodes (19): AnimationDemoState, AnimationDemoState::AnimationDemoState(), HandleInput, m_Playing, m_Rng, m_SpriteEntities, OnSystemEvent, Render (+11 more)
+Cohesion: 0.11
+Nodes (25): AnimationDemoGame, AnimationDemoGame::AnimationDemoGame(), CreateState, AnimationDemoState, AnimationDemoState::AnimationDemoState(), HandleInput, m_Playing, m_Rng (+17 more)
 
 ### Community 105 - "Image"
-Cohesion: 0.14
-Nodes (15): main(), data_t, PixelFormat, size_t, Image, Data, Format, Load (+7 more)
+Cohesion: 0.06
+Nodes (30): main(), sdl, SDL_PixelFormat, PixelFormat, data_t, PixelFormat, size_t, Image (+22 more)
 
 ### Community 106 - "FileEvent"
-Cohesion: 0.10
-Nodes (21): FileType, inotify_event, asge::filesystem::_linux::FileWatcher::ConsumeInotifyEvent(), asge::filesystem::_win32::FileWatcher::ProcessBuffer(), DWORD, FileEvent, CreateFileEvent, Is (+13 more)
+Cohesion: 0.13
+Nodes (15): FileType, FileEvent, Is, IsDir, s_Event, s_FileSize, s_FileType, s_OldPath (+7 more)
 
 ### Community 107 - "UIPanel"
-Cohesion: 0.06
-Nodes (48): asge::game::components::GetPanelLayout(), asge::game::scene::Serializer<asge::game::components::UIPanel>::FromToml(), asge::game::scene::Serializer<asge::game::components::UIPanel>::ToToml(), LayoutSpec, PanelLayout, String, T, FromString() (+40 more)
+Cohesion: 0.13
+Nodes (21): asge::game::components::GetPanelLayout(), asge::game::scene::Serializer<asge::game::components::UIPanel>::FromToml(), asge::game::scene::Serializer<asge::game::components::UIPanel>::ToToml(), LayoutSpec, PanelLayout, String, T, FromString() (+13 more)
 
 ### Community 108 - "TEST"
-Cohesion: 0.04
-Nodes (46): AdvancesTraveledBySpeedTimesDeltaTimeAndMovesTheTransform, ChildColliderHittingStaticWall_PushesTheParentBodyAndDragsItsChildren, DestroyedOverlappingEntity_StillFiresExit, DisjointLayerAndMask_OverlappingEntitiesAreNotPushedApart, DisjointLayerAndMask_TriggerDoesNotFireEvenWhenOverlapping, EntityMissingTransformOrCollider_SkippedNotCrashed, FinishedPath_NoLongerAdvancesOnSubsequentCalls, LoopingPath_WrapsTraveledPastTheEndInsteadOfFinishing (+38 more)
+Cohesion: 0.03
+Nodes (58): AdvancesTraveledBySpeedTimesDeltaTimeAndMovesTheTransform, AllCollidersRemoved_StillFiresExitAndNextOverlapIsEnterNotStay, ChildColliderHittingStaticWall_PushesTheParentBodyAndDragsItsChildren, DestroyedOverlappingEntity_StillFiresExit, DisjointLayerAndMask_OverlappingEntitiesAreNotPushedApart, DisjointLayerAndMask_TriggerDoesNotFireEvenWhenOverlapping, EntityMissingTransformOrCollider_SkippedNotCrashed, FinishedPath_NoLongerAdvancesOnSubsequentCalls (+50 more)
 
 ### Community 109 - "TEST_F"
 Cohesion: 0.09
 Nodes (18): AppliesRequestedColorAsAtlasColorMod, CodepointsOutsideBakedRangeAreSkippedWithoutError, CreateTextureWrapsAUsableSDLTexture, DrawTexturePositionDrawsAtNativeSizeOnly, DrawTextureRectFillsDestinationWithTexturePixels, EmptyStringDrawsNothingAndLogsNoError, EveryDrawTextureVariantLogsRenderTextureFailedForAnInvalidTexture, RemainingDrawTextureVariantsRunWithoutError (+10 more)
 
-### Community 110 - "Core Engine Phase 1"
+### Community 110 - "Enums.hpp"
 Cohesion: 0.17
-Nodes (20): TOML config manager with hot reload, Core Engine Phase 1, TimingProfiler / ScopedTimer CPU profiler, Optimization Phase 1 Roadmap, Optimization Phase 1, Documentation Phase 1 Roadmap, Continuous documentation habit, Documentation Phase 1 (+12 more)
+Nodes (15): CheckOne(), EventType, SystemEventType, uint32_t, IsIncluded(), IsValidSysType(), Offsets, KEYBOARD_EVENT_END (+7 more)
 
 ### Community 111 - "Simple Game Engine Roadmap (tiered implementation order)"
-Cohesion: 0.22
-Nodes (20): Rendering Primitives Phase 1, ECS Phase 1, Entity id (index + generation counter), Per-type sparse-set component storage, Asset Pipeline Phase 1, Virtual file system (asset path indirection), Scene Management Phase 1, Audio System Phase 1 Roadmap (+12 more)
+Cohesion: 0.16
+Nodes (31): TOML config manager with hot reload, Core Engine Phase 1, TimingProfiler / ScopedTimer CPU profiler, Rendering Primitives Phase 1, IRenderer / SDLRenderer primitive surface, ECS Phase 1, Entity id (index + generation counter), Per-type sparse-set component storage (+23 more)
 
 ### Community 112 - "camera_demo/Game.cpp"
-Cohesion: 0.15
-Nodes (17): CameraDemoGame, CameraDemoGame::CameraDemoGame(), CreateState, CameraDemoState, m_Camera, OnSystemEvent, Render, RenderMinimap (+9 more)
+Cohesion: 0.16
+Nodes (16): CameraDemoGame, CreateState, CameraDemoState, m_Camera, OnSystemEvent, Render, RenderMinimap, RenderWorld (+8 more)
 
 ### Community 113 - "TEST"
 Cohesion: 0.10
@@ -888,29 +893,29 @@ Nodes (14): optional, StateType, SystemEvent, unique_ptr, game::Game<int>, game:
 Cohesion: 0.11
 Nodes (16): OnSystemEvent_DispatchedToTopStateOnly, OnSystemEvent_EmptyStack_IsNoOp, PopRaw_EmptyStack_IsNoOp, PopRaw_ExitsTopStateAndRemovesFromStack, PushRaw_EntersStateAndAddsToStack, Render_EmptyStack_NoStatesRendered, Render_OpaqueTopState_OnlyRendersTop, Render_TransparentTopState_RendersBothBottomToTop (+8 more)
 
-### Community 121 - "algorithm"
+### Community 121 - "VirtualFileSystem"
 Cohesion: 0.07
-Nodes (22): algorithm, Measure(), Stats, m_MedianNs, m_MinNs, circle, Fn, asge::math::Ease() (+14 more)
+Nodes (21): algorithm, circle, vector, VirtualFileSystem, m_Mounts, asge::math::Ease(), Easing, SceneSerializer (+13 more)
 
 ### Community 122 - "Animation"
 Cohesion: 0.07
 Nodes (32): AlreadyPlayingThatClip_DoesNotRestart, InLoopFalse_PlaysOnce, KnownName_SwitchesClipPathAndRestartsPlayback, less, PlayClipTest, SameClipButStopped_RestartsFromFrameZero, Animation, m_Clip (+24 more)
 
 ### Community 123 - "Collider"
-Cohesion: 0.06
-Nodes (36): asge::game::components::details::FromString(), asge::game::components::details::ToString(), asge::game::components::HasUnknownResolution(), asge::game::components::LayersCanCollide(), asge::game::scene::Serializer<asge::game::components::Collider>::FromToml(), asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(), Collider, m_Layer (+28 more)
+Cohesion: 0.07
+Nodes (33): asge::game::components::HasUnknownResolution(), asge::game::components::LayersCanCollide(), asge::game::scene::Serializer<asge::game::components::Collider>::FromToml(), asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(), Collider, m_Layer, m_LocalBounds, m_Mask (+25 more)
 
 ### Community 124 - "What You Must Do When Invoked"
 Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
-### Community 125 - "DrawAssetInspectorPanel"
-Cohesion: 0.12
-Nodes (17): AssetContextAction, AssetBrowserResult, m_ContextAction, m_ContextKind, m_ContextPath, m_ContextTarget, m_OpenCreateClip, m_Pick (+9 more)
+### Community 125 - "TOMLTypeInfo"
+Cohesion: 0.18
+Nodes (13): ostream, asge::config::toml::_internal::Table::PrintTable(), asge::config::toml::_internal::WriteValue(), ValueType, DefaultTypeInfoFor(), ElementType, StringType, InferTypeInfo() (+5 more)
 
 ### Community 126 - "WatchedDir"
-Cohesion: 0.12
-Nodes (17): atomic_uint32_t, OVERLAPPED, asge::filesystem::_win32::FileWatcher::RegisterPathWithIOCP(), asge::filesystem::_win32::FileWatcher::Run(), ProcessBuffer, RegisterDirChanges, atomic_bool, DWORD (+9 more)
+Cohesion: 0.15
+Nodes (13): atomic_uint32_t, OVERLAPPED, atomic_bool, DWORD, handle_t, WatchedDir, s_Active, s_Buffer (+5 more)
 
 ### Community 127 - "VecN"
 Cohesion: 0.23
@@ -920,17 +925,17 @@ Nodes (7): const_reference, initializer_list, reference, size_type, value_type, 
 Cohesion: 0.12
 Nodes (17): Explicitly deferred editor features (undo/redo, multi-select, prefabs, SDL_GPU), DrawInspector per-component inspector, IRenderer::GetNativeHandle (raw SDL_Renderer* leak), ASGE Level Editor Build Roadmap, Phase 0: Vendor & wire Dear ImGui, Phase 1: Load a real scene into the editor, Phase 10: Asset path dropdowns & resolver correctness, Phase 2: Transform round trip (+9 more)
 
-### Community 129 - "Join"
-Cohesion: 0.15
-Nodes (16): job_queue_ref, Join, context_pointer, size_t, Worker, m_JobQueue, Run, s_Id (+8 more)
+### Community 129 - "SliderDesc"
+Cohesion: 0.17
+Nodes (12): SliderDesc, m_Enabled, m_Max, m_Min, m_Name, m_OnValueChanged, m_Position, m_ScreenSpace (+4 more)
 
 ### Community 130 - "AssetPool"
 Cohesion: 0.16
 Nodes (13): Key, Loader, AssetPool, m_Assets, m_Loader, HashTupleImpl(), asset_ptr, index_sequence (+5 more)
 
-### Community 131 - "SDLWindow.cpp"
-Cohesion: 0.20
-Nodes (6): SDLWindow, asge::video::SDLWindow::SDLWindow(), asge::video::SDLWindow::Size(), Int2, string, Destroy
+### Community 131 - "asge::filesystem::_apple::FileWatcher::OnFSEventStream"
+Cohesion: 0.18
+Nodes (11): ConstFSEventStreamRef, FSEventStreamEventId, inotify_event, asge::filesystem::_apple::FileWatcher::OnFSEventStream(), asge::filesystem::_linux::FileWatcher::ConsumeInotifyEvent(), asge::filesystem::_win32::FileWatcher::ProcessBuffer(), DWORD, size_t (+3 more)
 
 ### Community 132 - "Context.cpp"
 Cohesion: 0.17
@@ -940,13 +945,13 @@ Nodes (13): asge::concurrent::Background(), asge::concurrent::Context::AddChild(
 Cohesion: 0.21
 Nodes (16): asge::str::CodePointLength(), asge::str::DecodeUtf8(), asge::str::EncodeUtf8(), asge::str::FromString(), asge::str::Justify(), asge::str::Split(), asge::str::ToString(), asge::str::ToUtf8() (+8 more)
 
-### Community 134 - "Sprite"
-Cohesion: 0.20
-Nodes (10): asge::game::scene::Serializer<asge::game::components::Sprite>::FromToml(), asge::game::scene::Serializer<asge::game::components::Sprite>::ToToml(), optional, string, Sprite, m_ResolvedVirtualPath, m_SourceRect, m_Texture (+2 more)
+### Community 134 - "Transform"
+Cohesion: 0.09
+Nodes (31): asge::game::scene::Serializer<asge::game::components::Sprite>::FromToml(), asge::game::scene::Serializer<asge::game::components::Sprite>::ToToml(), optional, string, Sprite, m_ResolvedVirtualPath, m_SourceRect, m_Texture (+23 more)
 
-### Community 135 - "SDLTextureTest"
-Cohesion: 0.22
-Nodes (6): byte, vector, MakeSolidBlueBmp(), test::SDLHeadlessTest, SDLTextureTest, m_Renderer
+### Community 135 - "SDLHeadlessTest"
+Cohesion: 0.20
+Nodes (7): byte, vector, MakeSolidBlueBmp(), SDL_Window, testing::Test, SDLHeadlessTest, m_Window
 
 ### Community 136 - "AssetManagerTest"
 Cohesion: 0.23
@@ -956,17 +961,17 @@ Nodes (10): AssetManagerTest, m_ImagesDir, m_Vfs, byte, path, string, testing::T
 Cohesion: 0.03
 Nodes (58): ForEachPair_AnyArenaSize_MatchesBruteForceOnAcceptedElements, ForEachPair_BeforeReset_VisitsNothing, ForEachPair_CoincidentElements_EveryCombinationOnce, ForEachPair_MatchesBruteForceOnRandomData, ForEachPair_OverlappingStraddlersInRoot_Reported, ForEachPair_SingleElement_VisitsNothing, ForEachPair_StraddlerAgainstDeepElements_Reported, ForEachPair_TouchingElements_NotReported (+50 more)
 
-### Community 138 - "Transform"
-Cohesion: 0.06
-Nodes (38): DirtyParent_PropagatesPositionToItsChild, DirtyRootWithHierarchyButNoParent_StillTreatedAsARoot, DirtyRootWithNoHierarchy_CopiesLocalIntoWorldAndClearsDirty, Grandchild_ComposesTransitivelyThroughTheWholeChain, IntermediateNodeWithNoTransform_BlocksPropagationIntoItsOwnChildren, MultipleChildrenOfOneParent_AllGetPropagated, NeitherParentNorChildDirty_NeitherWorldTransformChanges, NotDirtyParent_StaticParent_DirtyChildStillPropagatesOnItsOwn (+30 more)
+### Community 138 - "TEST"
+Cohesion: 0.13
+Nodes (15): DirtyParent_PropagatesPositionToItsChild, DirtyRootWithHierarchyButNoParent_StillTreatedAsARoot, DirtyRootWithNoHierarchy_CopiesLocalIntoWorldAndClearsDirty, Grandchild_ComposesTransitivelyThroughTheWholeChain, IntermediateNodeWithNoTransform_BlocksPropagationIntoItsOwnChildren, MultipleChildrenOfOneParent_AllGetPropagated, NeitherParentNorChildDirty_NeitherWorldTransformChanges, NotDirtyParent_StaticParent_DirtyChildStillPropagatesOnItsOwn (+7 more)
 
 ### Community 139 - "FileMetadata.cpp"
 Cohesion: 0.23
 Nodes (15): FileTime, asge::filesystem::meta::Exists(), asge::filesystem::meta::GetExtension(), asge::filesystem::meta::GetFilename(), asge::filesystem::meta::GetFileSize(), asge::filesystem::meta::GetLastModified(), asge::filesystem::meta::GetStem(), asge::filesystem::meta::IsDirectory() (+7 more)
 
 ### Community 140 - "PathFollow"
-Cohesion: 0.10
-Nodes (20): asge::game::components::RebuildPath(), asge::game::scene::Serializer<asge::game::components::PathFollow>::FromToml(), asge::game::scene::Serializer<asge::game::components::PathFollow>::ToToml(), T, Float2, size_t, StringView, vector (+12 more)
+Cohesion: 0.15
+Nodes (13): asge::game::components::RebuildPath(), asge::game::scene::Serializer<asge::game::components::PathFollow>::FromToml(), Float2, size_t, vector, PathFollow, m_Finished, m_Loop (+5 more)
 
 ### Community 141 - "TEST"
 Cohesion: 0.13
@@ -977,16 +982,16 @@ Cohesion: 0.19
 Nodes (12): asge::mem::ArenaAllocator::ArenaAllocator(), asge::mem::_internal::AlignUp(), asge::mem::LinearAllocator::Alloc(), asge::mem::LinearAllocator::Capacity(), asge::mem::LinearAllocator::GetMarker(), asge::mem::LinearAllocator::LinearAllocator(), asge::mem::LinearAllocator::Remaining(), asge::mem::LinearAllocator::Rewind() (+4 more)
 
 ### Community 143 - "LinearAllocator"
-Cohesion: 0.08
-Nodes (25): AllocArray(), AllocOne(), ArenaAllocator, m_Storage, byte, size_t, size_type, T (+17 more)
+Cohesion: 0.14
+Nodes (14): size_t, LinearAllocator, Capacity, Empty, GetMarker, m_Base, m_Offset, m_Size (+6 more)
 
 ### Community 144 - "GameStateStack"
-Cohesion: 0.20
-Nodes (6): GameStateStack, m_States, size_t, StateType, SystemEvent, vector
+Cohesion: 0.16
+Nodes (8): GameStateStack, m_States, optional, size_t, StateType, SystemEvent, TStateId, vector
 
 ### Community 145 - "Transition"
-Cohesion: 0.09
-Nodes (16): TStateId, Transition, m_Kind, m_TargetId, optional, SystemEvent, MockGameState, m_BlocksUpdateBelow (+8 more)
+Cohesion: 0.06
+Nodes (19): TStateId, IGameState, OnSystemEvent, Render, Update, Transition, m_Kind, m_TargetId (+11 more)
 
 ### Community 146 - "TEST"
 Cohesion: 0.14
@@ -1001,9 +1006,9 @@ Cohesion: 0.14
 Nodes (14): ConcurrentProducersAndConsumersPreserveCount, CorrectAfterMultipleFillDrainCycles, FillsToCapacity, MaintainsFIFOOrder, MoveOnlyTypeCanBePushedAndPopped, MultipleConsumersDrainAllItems, MultipleProducersDeliverAllItems, PopAfterSingleRoundTripLeavesQueueEmpty (+6 more)
 
 ### Community 149 - "Events/Events.hpp"
-Cohesion: 0.07
-Nodes (27): CommonEvent<SystemEventType::QUIT>, CommonEvent<SystemEventType::UKNOWN>, concepts, disjunction<
-    std::is_same<std::remove_cvref_t<T>,U>...>, EventT, uint32_t, IsIncluded(), IsValidSysType() (+19 more)
+Cohesion: 0.13
+Nodes (14): CommonEvent<SystemEventType::QUIT>, CommonEvent<SystemEventType::UKNOWN>, disjunction<
+    std::is_same<std::remove_cvref_t<T>,U>...>, EventT, sdl_events, Keycode, is_any_same, QuitEvent (+6 more)
 
 ### Community 150 - "PoolAllocator"
 Cohesion: 0.18
@@ -1011,35 +1016,35 @@ Nodes (9): enable_shared_from_this<PoolAllocator<T, N>>, array, N, size_t, size_
 
 ### Community 151 - "TEST_F"
 Cohesion: 0.05
-Nodes (37): Construction_EnablesUIHitTesting, GetOrCreateState_SameIdReusedAcrossPopAndPushAgain, InvalidateState_ForcesRecreationOnNextTransitionToIt, LoadProject_MainSceneSet_LoadsItInsteadOfTheFirst, LoadProject_MissingMountDirectory_IsSkippedNotFatal, LoadProject_MissingProjectFile_ReturnsError, LoadProject_MountsVfsAndLoadsTheFirstScene, LoadProject_NoScenes_ReturnsEmptyProjectError (+29 more)
+Nodes (38): Construction_EnablesUIHitTesting, GetOrCreateState_SameIdReusedAcrossPopAndPushAgain, InvalidateState_ForcesRecreationOnNextTransitionToIt, LoadProject_MainSceneSet_LoadsItInsteadOfTheFirst, LoadProject_MissingMountDirectory_IsSkippedNotFatal, LoadProject_MissingProjectFile_ReturnsError, LoadProject_MountsVfsAndLoadsTheFirstScene, LoadProject_NoScenes_ReturnsEmptyProjectError (+30 more)
 
 ### Community 152 - "MockGameState"
 Cohesion: 0.12
 Nodes (12): optional, vector, MockGameState, m_BlocksUpdateBelow, m_EnterCount, m_EventCount, m_ExitCount, m_Id (+4 more)
 
-### Community 153 - "Errors.hpp"
-Cohesion: 0.08
-Nodes (26): audiosystem, cassert, cstddef, cstdint, array, fileio, limits, new (+18 more)
+### Community 153 - "cstddef"
+Cohesion: 0.11
+Nodes (15): cassert, cstddef, array, new, span, Alloc(), pointer, get_element_as_fold_type() (+7 more)
 
 ### Community 154 - "Project"
-Cohesion: 0.14
-Nodes (16): optional, CppInputFor(), MarkActiveSceneDirty(), SyncCppProject(), path, string, vector, Project (+8 more)
+Cohesion: 0.15
+Nodes (14): optional, MarkActiveSceneDirty(), path, string, vector, Project, m_ActiveSceneIndex, m_FilePath (+6 more)
 
-### Community 155 - "Signal"
-Cohesion: 0.14
-Nodes (10): conn_container, Game Event Bus, mutex, shared_ptr, size_t, Signal, Connect, Emit (+2 more)
+### Community 155 - "FileWatcher.hpp"
+Cohesion: 0.06
+Nodes (28): conn_container, corefoundation, coreservices, cstdlib, cstring, cxxabi, dbghelp, dispatch (+20 more)
 
-### Community 156 - "Functools.hpp"
-Cohesion: 0.18
-Nodes (18): BinOp, Call(), ForEachTupleType(), function_trait, function_trait<RetType (*)(Args...)>, Callable, index_sequence, return_type (+10 more)
+### Community 156 - "MapTupleImpl"
+Cohesion: 0.21
+Nodes (13): BinOp, ForEachTupleType(), Callable, index_sequence, T, Tuple, MapTuple(), MapTupleImpl() (+5 more)
 
 ### Community 157 - "Context"
 Cohesion: 0.15
 Nodes (12): children, enable_shared_from_this<Context>, Context, AddChild, Cancel, Done, Err, m_Children (+4 more)
 
 ### Community 158 - "MouseMotionEvent"
-Cohesion: 0.18
-Nodes (13): CommonEvent<SystemEventType::MOUSE>, Float2, uint32_t, MouseMotionEvent, s_Delta, s_MouseId, s_Position, s_WindowId (+5 more)
+Cohesion: 0.12
+Nodes (19): CommonEvent<SystemEventType::MOUSE>, CommonEvent<SystemEventType::WINDOW>, int32_t, Float2, uint32_t, MouseMotionEvent, s_Delta, s_MouseId (+11 more)
 
 ### Community 159 - "TEST"
 Cohesion: 0.15
@@ -1050,16 +1055,16 @@ Cohesion: 0.09
 Nodes (30): ClearAllGroups(), EntityGroupList, path, string, unordered_map, GroupsFilePath(), LoadGroupsFile(), RemapGroupMembers() (+22 more)
 
 ### Community 161 - "MovingBox"
-Cohesion: 0.18
-Nodes (12): Float2, MovingBox, m_Dimension, m_Down, m_Left, m_Position, m_Right, m_Speed (+4 more)
+Cohesion: 0.08
+Nodes (26): Float2, MovingBox, m_Dimension, m_Down, m_Left, m_Position, m_Right, m_Speed (+18 more)
 
 ### Community 162 - "VirtualFileSystem.cpp"
-Cohesion: 0.27
-Nodes (13): asge::filesystem::VirtualFileSystem::Exists(), asge::filesystem::VirtualFileSystem::IsMounted(), asge::filesystem::VirtualFileSystem::Mount(), asge::filesystem::VirtualFileSystem::Resolve(), asge::filesystem::VirtualFileSystem::SplitRoot(), asge::filesystem::VirtualFileSystem::ToVirtualPath(), asge::filesystem::VirtualFileSystem::Unmount(), Path (+5 more)
+Cohesion: 0.31
+Nodes (12): asge::filesystem::VirtualFileSystem::Exists(), asge::filesystem::VirtualFileSystem::IsMounted(), asge::filesystem::VirtualFileSystem::Mount(), asge::filesystem::VirtualFileSystem::Resolve(), asge::filesystem::VirtualFileSystem::SplitRoot(), asge::filesystem::VirtualFileSystem::ToVirtualPath(), asge::filesystem::VirtualFileSystem::Unmount(), Path (+4 more)
 
-### Community 163 - "AudioStream.cpp"
-Cohesion: 0.24
-Nodes (11): asge::audio::AudioStream::ClearData(), asge::audio::AudioStream::Get(), asge::audio::AudioStream::Index(), asge::audio::AudioStream::IsDataAvailable(), asge::audio::AudioStream::IsValid(), asge::audio::AudioStream::PutData(), asge::audio::AudioStream::SetAudioGain(), Get (+3 more)
+### Community 163 - "FrameTable"
+Cohesion: 0.18
+Nodes (11): FrameTable, IsFrameTable, kTableName, Load, m_FrameDurations, m_Frames, m_OriginAsset, Save (+3 more)
 
 ### Community 164 - "check_site.py"
 Cohesion: 0.16
@@ -1074,12 +1079,12 @@ Cohesion: 0.22
 Nodes (9): FreeList, m_FreeHead, m_NodeList, array, N, size_t, node_info, m_InUse (+1 more)
 
 ### Community 167 - "IWindow"
-Cohesion: 0.22
-Nodes (11): asge::video::CreateRenderer(), asge::video::CreateWindow(), asge::video::InitializeBackend(), asge::video::ShutdownBackend(), GraphicsBackend, string, unique_ptr, IWindow (+3 more)
+Cohesion: 0.08
+Nodes (23): SDLWindow, asge::video::CreateRenderer(), asge::video::CreateWindow(), asge::video::InitializeBackend(), asge::video::ShutdownBackend(), GraphicsBackend, string, unique_ptr (+15 more)
 
 ### Community 168 - "CountingThread"
-Cohesion: 0.17
-Nodes (8): CountingThread, count, limit, tearDownCalled, atomic, context_pointer, string, IdleThread
+Cohesion: 0.16
+Nodes (9): Join, CountingThread, count, limit, tearDownCalled, atomic, context_pointer, string (+1 more)
 
 ### Community 169 - "operator+"
 Cohesion: 0.20
@@ -1094,8 +1099,8 @@ Cohesion: 0.17
 Nodes (12): DefaultCamera_IsIdentity, DefaultViewport_MatchesTheWindowSize, IdentityCamera_DrawRectLandsAtWorldCoordinates, OffsetCamera_TranslatesDrawRectByCameraPosition, SDLRendererCameraTest, SetCamera_IsReturnedByGetCamera, SetViewport_IsReturnedByGetViewport, SDL_Window (+4 more)
 
 ### Community 172 - "Networking Phase 2 Roadmap"
-Cohesion: 0.21
-Nodes (12): Roadmap Overview, ECS Phase 1 Roadmap, Networking Phase 2 Roadmap, Client/Server Architecture, ECS State Replication, Networking Phase 3 Roadmap, Client-Side Prediction & Interpolation, Documentation Phase 3 Roadmap (+4 more)
+Cohesion: 0.24
+Nodes (11): ECS Phase 1 Roadmap, Networking Phase 2 Roadmap, Client/Server Architecture, ECS State Replication, Networking Phase 3 Roadmap, Client-Side Prediction & Interpolation, Documentation Phase 3 Roadmap, Comprehensive Engine Manual (+3 more)
 
 ### Community 173 - "CreateClipDraft"
 Cohesion: 0.09
@@ -1105,9 +1110,9 @@ Nodes (22): AnimationPreviewState, m_CurrentFrame, m_ElapsedTime, m_Path, AudioP
 Cohesion: 0.17
 Nodes (10): FullPipelineFromVirtualPathToRenderedGlyphProducesNoErrors, FullPipelineFromVirtualPathToRenderedPixelsProducesNoErrors, MissingVirtualPathLeavesAssetManagerAndRendererUsableAfterwards, streambuf, TEST_F(), CapturedStdout, m_Buffer, m_Prior (+2 more)
 
-### Community 175 - "Common.hpp"
-Cohesion: 0.05
-Nodes (38): asge::game::scene::Serializer<asge::game::components::Interactable>::FromToml(), StringView, Interactable, m_Clicked, m_Enabled, m_Held, m_Hovered, Serializer<components::details::StateColors> (+30 more)
+### Community 175 - "UISlider"
+Cohesion: 0.10
+Nodes (22): Serializer<components::details::StateColors>, FromToml, ToToml, asge::game::scene::Serializer<asge::game::components::UIButton>::FromToml(), asge::game::scene::Serializer<asge::game::components::UIButton>::ToToml(), T, asge::game::scene::Serializer<asge::game::components::UICheckbox>::FromToml(), asge::game::scene::Serializer<asge::game::components::UICheckbox>::ToToml() (+14 more)
 
 ### Community 176 - "Vec3"
 Cohesion: 0.29
@@ -1117,9 +1122,9 @@ Nodes (6): base, initializer_list, reference, T, value_type, Vec3
 Cohesion: 0.24
 Nodes (8): Asset, m_Value, m_VirtualPath, shared_ptr, String, StringView, T, PrivateTag
 
-### Community 178 - "vector"
-Cohesion: 0.07
-Nodes (16): vector, physicsdebugsystem, BuildArray(), string_view, to_native_type, AssetRefs<components::Animation>, AssetRefs<components::AudioSource>, AssetRefs<components::Sprite> (+8 more)
+### Community 178 - "AssetResolver.hpp"
+Cohesion: 0.11
+Nodes (9): AssetRefs<components::Animation>, AssetRefs<components::AudioSource>, AssetRefs<components::Sprite>, AssetRefs<components::UILabel>, Resolver<components::Animation>, Resolver<components::AudioSource>, Resolver<components::PathFollow>, Resolver<components::Sprite> (+1 more)
 
 ### Community 179 - "QuadNode"
 Cohesion: 0.11
@@ -1137,9 +1142,9 @@ Nodes (10): AddResolvedLabel(), frame_table, Int2, vector, video::ITexture, Fake
 Cohesion: 0.08
 Nodes (26): size_t, QuadTree, acquireBlock, addElementToNode, ArenaCapacity, ArenaExhausted, ArenaUsed, createNode (+18 more)
 
-### Community 183 - "SDLUploadBuffer"
-Cohesion: 0.18
-Nodes (10): SDL_PixelFormat, asge::video::ExpandPixelsForUpload(), asge::video::MapPixelFormat(), PixelFormat, size_t, uint8_t, vector, SDLUploadBuffer (+2 more)
+### Community 183 - "CppProjectInput"
+Cohesion: 0.22
+Nodes (10): CppProjectInput, m_MountDirs, m_ProjectFile, m_Scenes, CppScene, m_Name, m_Path, path (+2 more)
 
 ### Community 184 - "MPMCQueue"
 Cohesion: 0.18
@@ -1149,49 +1154,49 @@ Nodes (8): array, N, reference, value_type, MPMCQueue, m_ReadHead, m_Slots, m_Wr
 Cohesion: 0.20
 Nodes (6): asge::concurrent::Thread::GetThreadId(), asge::concurrent::Thread::Join(), asge::concurrent::Thread::~Thread(), id, Joinable, TearDown
 
-### Community 186 - "PhysicsSystem.cpp"
-Cohesion: 0.09
-Nodes (36): AppliedCorrections, EntityPair, m_First, m_Second, uint64_t, MakeCanonicalPair(), operator<(), PackEntity() (+28 more)
+### Community 186 - "CheckCollision"
+Cohesion: 0.08
+Nodes (32): AppliedCorrections, EntityPair, m_First, m_Second, uint64_t, MakeCanonicalPair(), operator<(), PackEntity() (+24 more)
 
-### Community 187 - "TEST"
-Cohesion: 0.17
-Nodes (11): CircleCollider_DrawsUnfilledCircleAtWorldOffsetCenter, EmptyRegistry_DrawsNothing, PhysicsDebugSystemTest, RectCollider_DrawsUnfilledRectAtWorldOffsetBounds, SolidResolution_DrawsGreen, CreateEntity, MakeRectCollider(), TEST() (+3 more)
+### Community 187 - "FrameTableLoadTest"
+Cohesion: 0.20
+Nodes (7): path, string, testing::Test, FrameTableLoadTest, m_Path, FrameTableSaveTest, IsFrameTableTest
 
 ### Community 188 - "CppProject.cpp"
-Cohesion: 0.13
-Nodes (39): CMakeListsText(), pair, path, string, vector, CppProjectDir(), CppProjectInput, m_MountDirs (+31 more)
+Cohesion: 0.23
+Nodes (24): CMakeListsText(), pair, string, vector, CppStateName(), CppTargetName(), CreateCppProject(), Escape() (+16 more)
 
 ### Community 189 - "ReadImageTest"
 Cohesion: 0.20
 Nodes (8): NonExistentPathReturnsError, path, testing::Test, ExpectDecodedSolidRedImage(), ReadImageTest, m_ImagePath, TEST_F(), ValidBmpFileDecodesSuccessfully
 
 ### Community 190 - "TEST_F"
-Cohesion: 0.15
-Nodes (14): A8ImageProducesUsableTexture, A8ImageRendersAsWhiteMaskedByItsAlphaByte, GetColorModRoundTripsWhatSetColorModWrote, MoveAssignmentTransfersHandleAndLeavesSourceInert, MoveConstructionLeavesSourceInert, SetColorModTintsSubsequentlyRenderedPixels, SizeOnDefaultConstructedHandleDoesNotCrash, size_t (+6 more)
+Cohesion: 0.20
+Nodes (10): A8ImageProducesUsableTexture, A8ImageRendersAsWhiteMaskedByItsAlphaByte, GetColorModRoundTripsWhatSetColorModWrote, MoveAssignmentTransfersHandleAndLeavesSourceInert, MoveConstructionLeavesSourceInert, SetColorModTintsSubsequentlyRenderedPixels, SizeOnDefaultConstructedHandleDoesNotCrash, TEST_F() (+2 more)
 
 ### Community 191 - "TEST_F"
-Cohesion: 0.20
-Nodes (10): CollectsOneRefPerAssetOwningComponentAcrossEntities, EmptyRegistryReturnsEmpty, EntityWithMultipleAssetOwningComponentsContributesOneRefEach, EntityWithNoAssetOwningComponentsContributesNothing, SpriteWithEmptyPathContributesNothing, CollectAssetRefsTest, m_Registry, testing::Test (+2 more)
+Cohesion: 0.12
+Nodes (14): CollectsOneRefPerAssetOwningComponentAcrossEntities, EmptyRegistryReturnsEmpty, EntityWithMultipleAssetOwningComponentsContributesOneRefEach, EntityWithNoAssetOwningComponentsContributesNothing, SpriteWithEmptyPathContributesNothing, T, IResourceHolder, ResourceHolder (+6 more)
 
 ### Community 192 - "CancelState"
 Cohesion: 0.18
 Nodes (11): condition_variable, CancelState, Cancel, Err, s_CancelDone, s_Cv, s_Error, s_Mtx (+3 more)
 
-### Community 193 - "CppBuild.cpp"
-Cohesion: 0.16
-Nodes (19): AppendBuildOutput(), BuildLevel, string, atomic, function, optional, path, string (+11 more)
+### Community 193 - "TEST_F"
+Cohesion: 0.06
+Nodes (40): Compile_WithoutACppProject_FailsAndReturnsToIdle, CppBuildDir_IsCodeBuildInsideTheProjectFolder, CppTargetName_IsTheProjectStemAsAnIdentifier, AppendBuildOutput(), BuildLevel, string, atomic, function (+32 more)
 
-### Community 194 - "Input System Phase 1"
-Cohesion: 0.27
-Nodes (10): Input System Phase 1 Roadmap, Input System Phase 1, Dense Keycode enum with SDL translation, Input System Phase 2 Roadmap, Action Map & Rebinding, Gamepad Support, Input System Phase 3 Roadmap, Touch Input (+2 more)
+### Community 194 - "Input System Phase 2 Roadmap"
+Cohesion: 0.28
+Nodes (9): Roadmap Overview, Input System Phase 1 Roadmap, Input System Phase 2 Roadmap, Action Map & Rebinding, Gamepad Support, Input System Phase 3 Roadmap, Touch Input, InputState (+1 more)
 
 ### Community 195 - "ThreadPool"
-Cohesion: 0.22
-Nodes (9): Async Asset Loading, Music Streaming, ThreadPool as Shared Job System, job_queue, vector, ThreadPool, m_Ctx, m_Queue (+1 more)
+Cohesion: 0.13
+Nodes (16): Async Asset Loading, Music Streaming, ThreadPool as Shared Job System, job_queue, job_queue_ref, context_pointer, size_t, vector (+8 more)
 
-### Community 196 - "AssetManager.cpp"
-Cohesion: 0.27
-Nodes (12): asge::game::asset::AssetManager::GetAudio(), asge::game::asset::AssetManager::GetFont(), asge::game::asset::AssetManager::GetFrameTable(), asge::game::asset::AssetManager::GetImage(), asge::game::asset::AssetManager::GetTexture(), asge::game::asset::AssetManager::ReloadTexture(), asge::game::asset::AssetManager::ResolveAssets(), asge::game::asset::AssetManager::UnloadTexture() (+4 more)
+### Community 196 - "Result"
+Cohesion: 0.14
+Nodes (26): _internal::ResultBase<T, Result<T>>, name, Result, asge::media::OpenNewAudioDevice(), SDL_AudioDeviceID, asge::game::asset::AssetManager::GetAudio(), asge::game::asset::AssetManager::GetFont(), asge::game::asset::AssetManager::GetFrameTable() (+18 more)
 
 ### Community 197 - "TEST"
 Cohesion: 0.18
@@ -1201,9 +1206,9 @@ Nodes (11): KeycodeTest, KeycodeTranslationTest, KeypadEnter_TranslatesToEnter, 
 Cohesion: 0.22
 Nodes (8): AssetManagerIntegrationTest, m_ImagesDir, m_Vfs, byte, path, test::SDLHeadlessTest, vector, MakeSolidBlueBmp()
 
-### Community 199 - "ResourceHolder"
-Cohesion: 0.40
-Nodes (4): T, IResourceHolder, ResourceHolder, m_Value
+### Community 199 - "Serializer<components::Interactable>"
+Cohesion: 0.22
+Nodes (9): StringView, Serializer<components::Interactable>, FromToml, kTableName, ToToml, Serializer<components::UIRect>, FromToml, kTableName (+1 more)
 
 ### Community 200 - "Segment"
 Cohesion: 0.15
@@ -1213,9 +1218,9 @@ Nodes (13): ArcLengthSample, m_Distance, m_T, Float2, vector, Segment, m_Length,
 Cohesion: 0.11
 Nodes (6): asge::time::FrameIndex(), asge::time::_internal::TimeSystem::FrameIndex(), asge::time::_internal::TimeSystem::SetTargetFPS(), asge::time::_internal::TimeSystem::TargetFPS(), asge::time::TargetFPS(), uint64_t
 
-### Community 202 - "MakeErrorFromErrno"
-Cohesion: 0.33
-Nodes (9): MakeErrorFromErrno(), asge::filesystem::Copy(), asge::filesystem::ReadBinary(), asge::filesystem::ReadText(), asge::filesystem::WriteText(), byte, Path, String (+1 more)
+### Community 202 - "ArenaAllocator"
+Cohesion: 0.25
+Nodes (6): ArenaAllocator, m_Storage, byte, unique_ptr, StackBuffer, m_Buffer
 
 ### Community 203 - "Tween"
 Cohesion: 0.19
@@ -1230,8 +1235,8 @@ Cohesion: 0.18
 Nodes (7): EntityAllocator, m_EntityFreeIds, m_Generations, array, EntityGeneration, N, vector
 
 ### Community 206 - "GridSpec"
-Cohesion: 0.13
-Nodes (16): asge::game::asset::FrameTable::Save(), asge::game::asset::MakeGridFrames(), GridOrder, StringView, vector, GridSpec, m_Cell, m_Columns (+8 more)
+Cohesion: 0.15
+Nodes (12): asge::game::asset::MakeGridFrames(), vector, GridSpec, m_Cell, m_Columns, m_Count, m_First, m_Order (+4 more)
 
 ### Community 207 - "VirtualFileSystemTest"
 Cohesion: 0.24
@@ -1245,13 +1250,13 @@ Nodes (7): path, testing::Test, SceneSerializerTest, m_Registry, m_Root, m_Scene
 Cohesion: 0.22
 Nodes (9): Animation_WithClipPathReturnsAnimationClipRef, Animation_WithEmptyClipPathReturnsNullopt, AssetRefsTest, AudioSource_WithEmptyVirtualClipPathReturnsNullopt, AudioSource_WithVirtualClipPathReturnsAudioClipRef, ComponentWithNoSpecializationReturnsNullopt, Sprite_WithEmptyVirtualPathReturnsNullopt, Sprite_WithVirtualPathReturnsTextureRef (+1 more)
 
-### Community 210 - "TEST_F"
-Cohesion: 0.12
-Nodes (16): Compile_WithoutACppProject_FailsAndReturnsToIdle, CppBuildDir_IsCodeBuildInsideTheProjectFolder, CppTargetName_IsTheProjectStemAsAnIdentifier, FindCppExecutable_FindsASingleConfigBuild, FindCppExecutable_NothingBuilt_ReturnsNullopt, FindCppExecutable_PrefersTheDebugFolder, Run_WithNothingBuilt_ReturnsToIdle, RunProcess_CapturesOutputLinesAndReturnsTheExitCode (+8 more)
+### Community 210 - "asge::game::scene::Serializer<asge::game::components::UILayoutItem>::FromToml"
+Cohesion: 0.43
+Nodes (7): asge::game::scene::Serializer<asge::game::components::UILayoutItem>::FromToml(), asge::game::scene::Serializer<asge::game::components::UILayoutItem>::ToToml(), SlotAlign, String, T, FromString(), ToString()
 
 ### Community 211 - "TOMLBuilder"
-Cohesion: 0.10
-Nodes (22): SaveEditorSession(), main(), LoadProjectFile_AbsolutePaths_AreKeptAsWritten, LoadProjectFile_MainScene_ResolvesAgainstTheProjectFolder, LoadProjectFile_MissingFile_ReturnsError, LoadProjectFile_NoMainScene_LeavesItEmpty, LoadProjectFile_NoScenesOrMounts_YieldsEmptyLists, LoadProjectFile_NoViewTable_LeavesTheWindowSizeUnset (+14 more)
+Cohesion: 0.08
+Nodes (26): optional, SaveEditorSession(), main(), LoadProjectFile_AbsolutePaths_AreKeptAsWritten, LoadProjectFile_MainScene_ResolvesAgainstTheProjectFolder, LoadProjectFile_MissingFile_ReturnsError, LoadProjectFile_NoMainScene_LeavesItEmpty, LoadProjectFile_NoScenesOrMounts_YieldsEmptyLists (+18 more)
 
 ### Community 212 - "FakeTexture"
 Cohesion: 0.12
@@ -1261,93 +1266,93 @@ Nodes (8): Int2, FakeTexture, m_ColorMod, m_Size, m_Valid, FakeWindow, m_Size, m
 Cohesion: 0.27
 Nodes (4): applyTheme(), currentTheme(), initThemeToggle(), systemPrefersDark()
 
-### Community 214 - "IGameState"
-Cohesion: 0.18
-Nodes (4): IGameState, OnSystemEvent, Render, Update
+### Community 214 - "UILayoutItem"
+Cohesion: 0.29
+Nodes (7): SlotAlign, UILayoutItem, m_AlignX, m_AlignY, m_FillX, m_FillY, SetItem()
 
 ### Community 215 - "TEST_F"
 Cohesion: 0.20
 Nodes (8): SaveToFile_RoundTripsThroughConfigurationManager, SaveToFile_WritesReadableToml, Load, path, testing::Test, TEST_F(), TOMLBuilderSaveTest, m_TomlPath
 
-### Community 216 - "MovingBoxState"
-Cohesion: 0.24
-Nodes (9): optional, SystemEvent, game::state::IGameState<int>, MovingBoxGame::MovingBoxGame(), MovingBoxState, m_Box, OnSystemEvent, Render (+1 more)
+### Community 216 - "Measure"
+Cohesion: 0.40
+Nodes (5): Measure(), Stats, m_MedianNs, m_MinNs, Fn
 
 ### Community 217 - "TEST_F"
 Cohesion: 0.22
 Nodes (9): HotReloadPicksUpChange, LoadAndGetTypedValue, RejectsMalformedReloadKeepsLastGood, SaveTriggersHotReloadReparseWithSameSavedContent, Save, SetHotReloadEnabled, Pred, TEST_F() (+1 more)
 
 ### Community 218 - "CatmullRomSpline.cpp"
-Cohesion: 0.26
-Nodes (9): asge::math::CatmullRomSpline::PointAt(), asge::math::CatmullRomSpline::PointAtDistance(), asge::math::CatmullRomSpline::TangentAt(), asge::math::CatmullRomSpline::TimeAtDistance(), asge::math::Hermite(), asge::math::HermiteDerivative(), LocateByDistance, LocateSegment (+1 more)
+Cohesion: 0.16
+Nodes (17): asge::math::BuildArcLengthTable(), asge::math::CatmullRomSpline::CatmullRomSpline(), asge::math::CatmullRomSpline::LocateByDistance(), asge::math::CatmullRomSpline::LocateSegment(), asge::math::CatmullRomSpline::PointAt(), asge::math::CatmullRomSpline::PointAtDistance(), asge::math::CatmullRomSpline::TangentAt(), asge::math::CatmullRomSpline::TimeAtDistance() (+9 more)
 
 ### Community 219 - "EmptyContext"
 Cohesion: 0.25
 Nodes (3): EmptyContext, ContextErr, pointer
 
-### Community 220 - "UISystemTests.cpp"
-Cohesion: 0.07
-Nodes (40): common, renderinfo, rendersystem, UIButton, m_Colors, m_OnClick, UICheckbox, m_BoxColors (+32 more)
+### Community 220 - "UISystem.cpp"
+Cohesion: 0.06
+Nodes (39): StateColors, m_Color, m_HoverColor, m_PressedColor, UIButton, m_Colors, m_OnClick, UICheckbox (+31 more)
 
-### Community 221 - "MakeMinimalWav"
-Cohesion: 0.38
-Nodes (9): byte, uint16_t, uint32_t, vector, MakeGarbageBytes(), MakeMinimalWav(), PushTag(), PushU16() (+1 more)
+### Community 221 - "Scripting & Events Phase 3 Roadmap"
+Cohesion: 0.50
+Nodes (5): Native Scripting, Scripting & Events Phase 3 Roadmap, Managed Scripting, Runtime Script Reload, Script Component
 
 ### Community 222 - "TEST_F"
 Cohesion: 0.10
 Nodes (20): Append_KeepsLinesInOrderWithTheirLevels, Clear_RemovesEverything, ConcurrentAppends_AreAllKept, CppBuildRun_WithNothingBuilt_ReportsInTheBuildOutput, BuildLine, m_Level, m_Text, ClearBuildOutput() (+12 more)
 
-### Community 223 - "string"
-Cohesion: 0.27
+### Community 223 - "TOMLParserTests.cpp"
+Cohesion: 0.32
 Nodes (11): string, T, table_pointer, ValueType, vector, DumpTable(), GetArrayOrEmpty(), GetOrNull() (+3 more)
 
 ### Community 224 - "generate_site.py"
 Cohesion: 0.28
 Nodes (7): main(), Renders docsite/site/**/*.html from the content modules in docsite/content/.…, build_search_index(), Path, Search entries {title,url,section,text} for every registered non-API page in…, write(), json
 
-### Community 225 - "InputSystem"
-Cohesion: 0.17
-Nodes (12): InputSystemTest, NewFrame_DrivesEdgeDetectionOnTheUnderlyingState, ProcessEvent_UpdatesGetState, SystemEvent, InputSystem, m_State, NewFrame, ProcessEvent (+4 more)
+### Community 225 - "Application"
+Cohesion: 0.05
+Nodes (36): ButtonDown_ProducesPressedEvent, ButtonUp_ProducesReleasedEvent, InputSystemTest, Motion_ProducesMouseMotionEvent, MouseEventTranslationTest, NewFrame_DrivesEdgeDetectionOnTheUnderlyingState, ProcessEvent_UpdatesGetState, QuitEvent_IsNotAMouseEvent (+28 more)
 
-### Community 226 - "Result"
-Cohesion: 0.11
-Nodes (27): _internal::ResultBase<T, Result<T>>, name, Result, asge::game::scene::SceneManager::CreateEntity(), AddText(), asge::game::ui::CreateButton(), asge::game::ui::CreateCheckbox(), asge::game::ui::CreateLabel() (+19 more)
+### Community 226 - "PanelDesc"
+Cohesion: 0.14
+Nodes (14): LayoutSpec, PanelDesc, m_Background, m_Border, m_BorderColor, m_Layer, m_Layout, m_Margin (+6 more)
 
 ### Community 227 - "SDLTexture"
 Cohesion: 0.10
 Nodes (15): String, ToErrorString(), asge::video::SDLTexture::GetColorMod(), asge::video::SDLTexture::SDLTexture(), asge::video::SDLTexture::SetColorMod(), asge::video::SDLTexture::Size(), Int2, SDLTexture (+7 more)
 
 ### Community 228 - "SceneManagerTest"
-Cohesion: 0.24
-Nodes (5): testing::Test, SceneManagerTest, m_Root, m_ScenePath, m_Vfs
+Cohesion: 0.19
+Nodes (7): Save, path, testing::Test, SceneManagerTest, m_Root, m_ScenePath, m_Vfs
 
 ### Community 229 - "Rendering System Phase 2 Roadmap"
-Cohesion: 0.46
-Nodes (8): Rendering System Phase 2 Roadmap, SDL_GPU Decision Gate, Material System, SDL_shadercross, SDLGPURenderer Backend Spike, Shader System, IRenderer, SDLRenderer
+Cohesion: 0.29
+Nodes (11): Rendering System Phase 1 Roadmap, Spatial Audio, Rendering System Phase 2 Roadmap, SDL_GPU Decision Gate, Material System, SDL_shadercross, SDLGPURenderer Backend Spike, Shader System (+3 more)
 
 ### Community 230 - "VectorN.hpp"
 Cohesion: 0.35
 Nodes (10): initializer_list, Distance(), Derived, N, T, Length(), LengthSquared(), NormalizeVec() (+2 more)
 
-### Community 231 - "FileDialogResult"
-Cohesion: 0.18
-Nodes (10): path, string, DialogDefaultLocation(), DrainFileDialogResult(), FileDialogResult, m_Accepted, m_Mutex, m_Path (+2 more)
+### Community 231 - "VfsPanel.cpp"
+Cohesion: 0.06
+Nodes (35): animation, AudioSource, deque, ColorFor(), ImU32, ImVec4, LogLevel, SDL_Window (+27 more)
 
-### Community 232 - "MovingBoxGame.hpp"
-Cohesion: 0.22
-Nodes (5): StateType, unique_ptr, game::Game<int>, MovingBoxGame, CreateState
+### Community 232 - "PathSegment"
+Cohesion: 0.40
+Nodes (5): optional, size_t, PathSegment, index, name
 
-### Community 233 - "UI Framework Phase 1"
-Cohesion: 0.27
-Nodes (10): IRenderer / SDLRenderer primitive surface, InputState / InputSystem queryable polling, UI Framework Phase 1 Roadmap, UI Framework Phase 1, Immediate-mode UI with debug overlay, UI Framework Phase 2 Roadmap, Retained-Mode UI, UI Animation Transitions (+2 more)
+### Community 233 - "UI Framework Phase 2 Roadmap"
+Cohesion: 0.47
+Nodes (6): UI Framework Phase 1 Roadmap, UI Framework Phase 2 Roadmap, Retained-Mode UI, UI Animation Transitions, UI Framework Phase 3 Roadmap, Declarative UI Styling & Editor
 
 ### Community 234 - "TEST"
 Cohesion: 0.20
 Nodes (10): KeepsTheCenterFixedAndMarksTransformDirty, NoSourceRect_SizedFromFullTextureScaledByTransform, NoTexture_LeavesTransformUntouched, NullTexture_ReturnsNullopt, SourceRectSet_SizedFromSourceRectNotFullTexture, SpriteGetDstRectTest, SpriteGetLocalRectTest, SpriteScaleAroundCenterTest (+2 more)
 
-### Community 235 - "HitEntry"
-Cohesion: 0.29
-Nodes (7): HitEntry, m_Entity, m_Rect, m_ScreenSpace, vector, UIHitList, m_Entries
+### Community 235 - "UISystemTests.cpp"
+Cohesion: 0.10
+Nodes (23): common, renderinfo, rendersystem, HitEntry, m_Entity, m_Rect, m_ScreenSpace, vector (+15 more)
 
 ### Community 236 - "Graphics/Camera.cpp"
 Cohesion: 0.46
@@ -1373,49 +1378,49 @@ Nodes (6): ComponentTypeId, ComponentCapacity, value, GetComponentTypeId(), size
 Cohesion: 0.20
 Nodes (10): ColumnMajorOrderWalksDownRowsBeforeAcrossColumns, ColumnMajorWithZeroRowsReturnsEmpty, CountSmallerThanGridSizeOnlyProducesThatManyFrames, FirstAndSpacingOffsetTheRange, LaysOutFramesInRowMajorOrderAcrossColumns, MakeGridFramesTest, OffsetSheetCellShiftsEveryFrameByThatOffset, TEST() (+2 more)
 
-### Community 242 - "FileWatcher.hpp"
+### Community 242 - "memory"
 Cohesion: 0.08
-Nodes (22): corefoundation, coreservices, cstdlib, cstring, cxxabi, dbghelp, dispatch, atomic (+14 more)
+Nodes (16): mutex, functional, memory, HardwareConcurrency(), size_t, tuple, unordered_map, Call() (+8 more)
 
-### Community 243 - "SliderDesc"
-Cohesion: 0.04
-Nodes (57): StateColors, m_Color, m_HoverColor, m_PressedColor, ButtonDesc, m_Colors, m_Enabled, m_Name (+49 more)
+### Community 243 - "CheckboxDesc"
+Cohesion: 0.05
+Nodes (41): ButtonDesc, m_Colors, m_Enabled, m_Name, m_OnClick, m_Position, m_ScreenSpace, m_Size (+33 more)
 
 ### Community 244 - "ContextWithValue"
 Cohesion: 0.27
 Nodes (8): Attach, ContextWithValue, m_Value, const_reference, context_pointer, shared_ptr, T, WithValue()
 
 ### Community 245 - "TEST_F"
-Cohesion: 0.25
-Nodes (8): EveryDrawTextureVariantRunsAgainstARealDecodedTexture, FullPipelineFromDiskToRenderedPixelsProducesNoErrors, MissingAssetLeavesRendererUsableForSubsequentDraws, path, test::SDLHeadlessTest, TEST_F(), TextureRenderingIntegrationTest, m_ImagePath
+Cohesion: 0.22
+Nodes (9): EveryDrawTextureVariantRunsAgainstARealDecodedTexture, FullPipelineFromDiskToRenderedPixelsProducesNoErrors, MissingAssetLeavesRendererUsableForSubsequentDraws, Load, path, test::SDLHeadlessTest, TEST_F(), TextureRenderingIntegrationTest (+1 more)
 
 ### Community 246 - "MouseButtonEvent"
-Cohesion: 0.25
-Nodes (8): uint8_t, MouseButtonEvent, s_Button, s_Clicks, s_Down, s_MouseId, s_Position, s_WindowId
+Cohesion: 0.22
+Nodes (9): MouseButton, uint8_t, MouseButtonEvent, s_Button, s_Clicks, s_Down, s_MouseId, s_Position (+1 more)
 
-### Community 247 - "SDLHeadlessTest"
-Cohesion: 0.25
-Nodes (4): SDL_Window, testing::Test, SDLHeadlessTest, m_Window
+### Community 247 - "SDLTextureTest"
+Cohesion: 0.29
+Nodes (3): test::SDLHeadlessTest, SDLTextureTest, m_Renderer
 
-### Community 248 - "FakeTexture"
-Cohesion: 0.24
-Nodes (4): Int2, video::ITexture, FakeTexture, m_Size
+### Community 248 - "AllocArray"
+Cohesion: 0.50
+Nodes (5): AllocArray(), AllocOne(), size_type, T, Alloc
 
 ### Community 249 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
 Nodes (8): graphify reference: extra exports and benchmark, Step 6b - Wiki (only if --wiki flag), Step 7 - Neo4j export (only if --neo4j or --neo4j-push flag), Step 7a - FalkorDB export (only if --falkordb or --falkordb-push flag), Step 7b - SVG export (only if --svg flag), Step 7c - GraphML export (only if --graphml flag), Step 7d - MCP server (only if --mcp flag), Step 8 - Token reduction benchmark (only if total_words > 5000)
 
 ### Community 250 - "UILabel"
-Cohesion: 0.07
-Nodes (29): asge::game::components::FromString(), asge::game::components::ToString(), asge::game::scene::Serializer<asge::game::components::UILabel>::FromToml(), asge::game::scene::Serializer<asge::game::components::UILabel>::ToToml(), String, StringView, T, VerticalAlign (+21 more)
+Cohesion: 0.09
+Nodes (22): asge::game::components::FromString(), asge::game::components::ToString(), asge::game::scene::Serializer<asge::game::components::UILabel>::FromToml(), String, StringView, VerticalAlign, String, TextAlign (+14 more)
 
 ### Community 251 - "KeyboardEvent"
 Cohesion: 0.22
 Nodes (9): CommonEvent<SystemEventType::KEYBOARD>, Keymod, KeyboardEvent, s_Down, s_KeyboardId, s_Keycode, s_Keymod, s_Repeat (+1 more)
 
-### Community 252 - "EntityGroup"
-Cohesion: 0.29
-Nodes (7): EntityGroup, m_Members, m_Name, m_Open, m_Parent, string, vector
+### Community 252 - "Serializer<components::AudioSource>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::AudioSource>, FromToml, kTableName, ToToml
 
 ### Community 254 - "TEST"
 Cohesion: 0.22
@@ -1437,17 +1442,17 @@ Nodes (26): assetButtons(), assetsFor(), badgesFor(), classify(), formatDate(), 
 Cohesion: 0.29
 Nodes (6): AGENTMEMORY_URL, graphify-mcp, wsl.exe, agentmemory, graphify, vikunja
 
-### Community 259 - "TEST"
-Cohesion: 0.20
-Nodes (10): ButtonDown_ProducesPressedEvent, ButtonUp_ProducesReleasedEvent, Motion_ProducesMouseMotionEvent, MouseEventTranslationTest, QuitEvent_IsNotAMouseEvent, sdl_events, SDL_Event, MakeSdlEvent() (+2 more)
+### Community 259 - "Serializer<components::Camera>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::Camera>, FromToml, kTableName, ToToml
 
 ### Community 260 - "CatmullRomSpline"
 Cohesion: 0.22
 Nodes (8): CatmullRomSpline, m_Segments, m_TotalLength, m_Waypoints, PointAt, PointAtDistance, TangentAt, TimeAtDistance
 
-### Community 261 - "UISlider"
-Cohesion: 0.29
-Nodes (7): UISlider, m_Max, m_Min, m_OnValueChanged, m_ThumbColor, m_TrackColor, m_Value
+### Community 261 - "Serializer<components::Collider>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::Collider>, FromToml, kTableName, ToToml
 
 ### Community 262 - "IFileEventHandler"
 Cohesion: 0.33
@@ -1462,20 +1467,20 @@ Cohesion: 0.33
 Nodes (6): Float2, vector, WaypointEditState, m_Active, m_Entity, m_Snapshot
 
 ### Community 265 - "TEST"
-Cohesion: 0.22
+Cohesion: 0.25
 Nodes (8): GetStep_IsValueRangePerPixelOfWidth, GetThumbPosition_DefaultRangeMidValue_IsHalfwayAlongWidthAndVerticallyCentered, GetThumbPosition_EmptyRange_PinsThumbToTheLeftEdge, GetThumbPosition_OffsetRange_MapsRelativeToMin, GetThumbPosition_ValueAtMinAndMax_LandsOnTheRectEdges, GetThumbPosition_ValueOutsideRange_ClampsToTheRectEdges, TEST(), UISliderTest
 
 ### Community 267 - "asge::time::FormatTimestamp"
 Cohesion: 0.40
 Nodes (5): asge::time::FormatTimestamp(), asge::time::LocalTime(), string, Timestamp, tm
 
-### Community 268 - "AudioClip"
-Cohesion: 0.22
-Nodes (10): SDL_AudioSpec, asge::audio::AudioDevice::CreateStream(), shared_ptr, AudioClip, Data, m_Data, m_Spec, Size (+2 more)
+### Community 268 - "Serializer<ecs::components::Hierarchy>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<ecs::components::Hierarchy>, FromToml, kTableName, ToToml
 
-### Community 269 - "Camera"
-Cohesion: 0.33
-Nodes (4): Camera, Camera, ScreenSpaceCamera, m_Camera
+### Community 269 - "Serializer<components::Name>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::Name>, FromToml, kTableName, ToToml
 
 ### Community 270 - "VideoSystem"
 Cohesion: 0.25
@@ -1485,9 +1490,9 @@ Nodes (8): unique_ptr, VideoSystem, Initialize, m_Backend, m_BackendInitialized,
 Cohesion: 0.40
 Nodes (5): dispatch_queue_t, FSEventStreamRef, FSEventEntry, s_Queue, s_Stream
 
-### Community 272 - "CreateState"
+### Community 272 - "Serializer<components::PathFollow>"
 Cohesion: 0.40
-Nodes (5): AnimationDemoGame, CreateState, StateType, unique_ptr, game::Game<int>
+Nodes (5): StringView, Serializer<components::PathFollow>, FromToml, kTableName, ToToml
 
 ### Community 273 - "ConfigurationManagerTest"
 Cohesion: 0.25
@@ -1501,9 +1506,9 @@ Nodes (8): Batched Docs PR Policy, docs/gh-pages-site Branch, docsite/ Documenta
 Cohesion: 0.40
 Nodes (4): asge::concurrent::_internal::Worker::Run(), asge::concurrent::ThreadPool::ThreadPool(), context_pointer, size_t
 
-### Community 276 - "asge::game::scene::SceneSerializer::Load"
+### Community 276 - "Serializer<components::RenderInfo>"
 Cohesion: 0.40
-Nodes (5): asge::game::scene::SceneSerializer::Load(), asge::game::scene::SceneSerializer::LoadFromFile(), Path, String, LoadResolved
+Nodes (5): StringView, Serializer<components::RenderInfo>, FromToml, kTableName, ToToml
 
 ### Community 277 - "PixelFormatInfo"
 Cohesion: 0.50
@@ -1517,45 +1522,45 @@ Nodes (4): AlphaFn, size_t, MakeA8Image(), MakeRgba8Image()
 Cohesion: 0.25
 Nodes (8): Path, String, MountInfo, m_RealDirectory, m_VirtualRoot, SplitPath, m_Rest, m_Root
 
-### Community 280 - "asge::math::BuildArcLengthTable"
-Cohesion: 0.32
-Nodes (8): asge::math::BuildArcLengthTable(), asge::math::CatmullRomSpline::CatmullRomSpline(), asge::math::CatmullRomSpline::LocateByDistance(), asge::math::CatmullRomSpline::LocateSegment(), Length, pair, size_t, vector
+### Community 280 - "Serializer<components::Rigidbody>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::Rigidbody>, FromToml, kTableName, ToToml
 
 ### Community 281 - "ConfigIntegrationTest"
 Cohesion: 0.29
 Nodes (5): ConfigIntegrationTest, m_TempDir, path, string, testing::Test
 
-### Community 282 - "NanosFrom"
-Cohesion: 0.50
-Nodes (4): int64_t, T, NanosFrom(), time_point
+### Community 282 - "TimeUtils.hpp"
+Cohesion: 0.18
+Nodes (9): ctime, int64_t, T, Timepoint, Timestamp, NanosFrom(), Now(), SteadyNow() (+1 more)
 
-### Community 283 - "MakeClipAsset"
-Cohesion: 0.67
-Nodes (4): audio_clip_asset, size_t, MakeClip(), MakeClipAsset()
+### Community 283 - "Serializer<components::UIButton>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::UIButton>, FromToml, kTableName, ToToml
 
-### Community 284 - "MotionEvent"
-Cohesion: 0.50
-Nodes (4): MouseButton, SystemEvent, MotionEvent(), MouseButtonEv()
+### Community 284 - "Serializer<components::UICheckbox>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::UICheckbox>, FromToml, kTableName, ToToml
 
-### Community 285 - "ApplicationConfig"
-Cohesion: 0.29
-Nodes (7): ApplicationConfig, s_Height, s_TargetFps, s_Title, s_Width, string, uint64_t
+### Community 285 - "Serializer<components::UILabel>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::UILabel>, FromToml, kTableName, ToToml
 
 ### Community 286 - "MakeSolidRedBmp"
 Cohesion: 0.67
 Nodes (4): byte, vector, MakeGarbageBytes(), MakeSolidRedBmp()
 
-### Community 287 - "Rigidbody.hpp"
-Cohesion: 0.20
-Nodes (10): asge::game::scene::Serializer<asge::game::components::Rigidbody>::FromToml(), asge::game::scene::Serializer<asge::game::components::Rigidbody>::ToToml(), StringView, Rigidbody, m_AffectedByGravity, m_Mass, Serializer<components::Rigidbody>, FromToml (+2 more)
+### Community 287 - "Rigidbody"
+Cohesion: 0.40
+Nodes (5): asge::game::scene::Serializer<asge::game::components::Rigidbody>::FromToml(), asge::game::scene::Serializer<asge::game::components::Rigidbody>::ToToml(), Rigidbody, m_AffectedByGravity, m_Mass
 
 ### Community 288 - "Serializer<components::Sprite>"
 Cohesion: 0.40
 Nodes (5): StringView, Serializer<components::Sprite>, FromToml, kTableName, ToToml
 
-### Community 289 - "Transform.hpp"
-Cohesion: 0.22
-Nodes (7): asge::game::scene::Serializer<asge::game::components::Transform>::FromToml(), asge::game::scene::Serializer<asge::game::components::Transform>::ToToml(), StringView, Serializer<components::Transform>, FromToml, kTableName, ToToml
+### Community 289 - "Serializer<components::Transform>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::Transform>, FromToml, kTableName, ToToml
 
 ### Community 290 - "IContext"
 Cohesion: 0.29
@@ -1567,7 +1572,7 @@ Nodes (3): asge::game::scene::SceneManager::ApplyPendingTransition(), LoadScene,
 
 ### Community 293 - "Rect"
 Cohesion: 0.07
-Nodes (31): asge::math::AabbOverlap(), asge::math::PenetrationVector(), Float2, optional, asge::math::Contains(), asge::math::Distance(), asge::math::Merge(), Float2 (+23 more)
+Nodes (28): asge::math::BoundingRect(), asge::math::MidpointCirclePoints(), Int2, vector, asge::math::AabbOverlap(), asge::math::Contains(), asge::math::Distance(), asge::math::Merge() (+20 more)
 
 ### Community 294 - "CompileCheckGame"
 Cohesion: 0.40
@@ -1576,6 +1581,10 @@ Nodes (4): CompileCheckGame, game::Game<int>, StateType, unique_ptr
 ### Community 295 - "Deleter"
 Cohesion: 0.33
 Nodes (4): Deleter, s_Pool, shared_ptr, T
+
+### Community 296 - "Serializer<components::UILayoutItem>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::UILayoutItem>, FromToml, kTableName, ToToml
 
 ### Community 297 - "ECS Demo Screenshot (many textured checker entities moving)"
 Cohesion: 0.50
@@ -1593,25 +1602,41 @@ Nodes (7): CommonEvent, s_Timestamp, s_Type, tag, EventType, SystemEventType, ui
 Cohesion: 0.40
 Nodes (5): CppStateNameTest, LeadingDigit_GetsScenePrefix, NoIdentifierCharacters_FallsBackToScene, SpacesAndPunctuation_BecomePascalCase, TEST()
 
-### Community 302 - "RenderInfo"
-Cohesion: 0.12
-Nodes (15): asge::game::scene::Serializer<asge::game::components::RenderInfo>::FromToml(), asge::game::scene::Serializer<asge::game::components::RenderInfo>::ToToml(), T, StringView, RenderInfo, m_InheritSortFromParent, m_Layer, m_LocalOrder (+7 more)
-
-### Community 303 - "asge::math::BoundingRect"
+### Community 301 - "Serializer<components::UIPanel>"
 Cohesion: 0.40
-Nodes (4): asge::math::BoundingRect(), asge::math::MidpointCirclePoints(), Int2, vector
+Nodes (5): StringView, Serializer<components::UIPanel>, FromToml, kTableName, ToToml
 
-### Community 305 - "SDLWindow"
+### Community 302 - "RenderInfo"
 Cohesion: 0.29
-Nodes (6): SDL_Window, SDLWindow, IsValid, m_Window, NativeHandle, Size
+Nodes (7): RenderInfo, m_InheritSortFromParent, m_Layer, m_LocalOrder, m_ScreenSpace, m_SortOffsetY, m_YSort
+
+### Community 303 - "Serializer<components::UISlider>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::UISlider>, FromToml, kTableName, ToToml
+
+### Community 304 - "Serializer<components::Velocity>"
+Cohesion: 0.40
+Nodes (5): StringView, Serializer<components::Velocity>, FromToml, kTableName, ToToml
+
+### Community 305 - "InspectorResult"
+Cohesion: 0.50
+Nodes (4): InspectorResult, m_Action, m_FieldChanged, EntityAction
+
+### Community 307 - "asge::event::_internal::ToKeycode"
+Cohesion: 0.67
+Nodes (4): asge::event::_internal::ToKeycode(), asge::event::_internal::ToSdlKeycode(), Keycode, SDL_Keycode
 
 ### Community 308 - "ResolveAssetsTest"
 Cohesion: 0.50
 Nodes (3): ResolveAssetsTest, m_Registry, m_Renderer
 
+### Community 309 - "Camera"
+Cohesion: 0.50
+Nodes (4): Camera, m_X, m_Y, m_Zoom
+
 ### Community 310 - "FunctoolsTests.cpp"
-Cohesion: 0.11
-Nodes (10): AccAsDouble(), Base, false_type, true_type, DerivedClass, is_variant, is_variant<std::variant<Ts...>>, MyClass (+2 more)
+Cohesion: 0.15
+Nodes (7): Base, false_type, true_type, DerivedClass, is_variant, is_variant<std::variant<Ts...>>, Unrelated
 
 ### Community 311 - "DrawString (baked glyph atlas text rendering)"
 Cohesion: 1.00
@@ -1621,9 +1646,9 @@ Nodes (3): DrawString (baked glyph atlas text rendering), Font::GetAtlasImage(),
 Cohesion: 0.33
 Nodes (5): For /graphify explain, For /graphify path, graphify reference: query, path, explain, Step 0 — Constrained query expansion (REQUIRED before traversal), Step 1 — Traversal
 
-### Community 313 - "WindowEvent"
-Cohesion: 0.33
-Nodes (6): CommonEvent<SystemEventType::WINDOW>, int32_t, WindowEvent, s_Data1, s_Data2, s_WindowId
+### Community 314 - "is_result_impl"
+Cohesion: 0.67
+Nodes (3): is_result_impl, test, value
 
 ### Community 315 - "ConcatTuples"
 Cohesion: 0.67
@@ -1685,10 +1710,6 @@ Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphif
 Cohesion: 0.67
 Nodes (4): Get(), string, T, Set()
 
-### Community 350 - "asge::game::scene::SceneManager::LoadSceneCommon"
-Cohesion: 0.50
-Nodes (4): asge::game::scene::SceneManager::LoadSceneCommon(), function, RestoreScene, SuspendScene
-
 ## Ambiguous Edges - Review These
 - `Rotation Demo Screenshot` → `Car Sprite (path following demo)`  [AMBIGUOUS]
   examples/path_following_demo/assets/car.png · relation: conceptually_related_to
@@ -1696,9 +1717,9 @@ Nodes (4): asge::game::scene::SceneManager::LoadSceneCommon(), function, Restore
   CMakeLists.txt · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **1274 isolated node(s):** `wsl.exe`, `AGENTMEMORY_URL`, `graphify-mcp`, `vikunja`, `m_MedianNs` (+1269 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3968 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1278 isolated node(s):** `wsl.exe`, `AGENTMEMORY_URL`, `graphify-mcp`, `vikunja`, `m_MedianNs` (+1273 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3986 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **29 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -1707,12 +1728,12 @@ _Questions this graph is uniquely positioned to answer:_
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **What is the exact relationship between `asge CMake project (v0.8.2, C++23)` and `ASGE CHANGELOG`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `Registry` connect `Registry` to `TEST`, `gtest`, `Transform`, `ASGE.hpp`, `RGBA_Color`, `TEST`, `Entity`, `asge::game::scene::SceneSerializer::Load`, `UIDemoState`, `TEST_F`, `AssetManager`, `Errors.hpp`, `IRenderer`, `Components.hpp`, `AssetManagerTests.cpp`, `main`, `TEST`, `CameraFollowDemoState`, `EcsDemoState`, `editor/main.cpp`, `vector`, `ResolveAssetsTest`, `FakeTexture`, `ComponentPool`, `AssetBrowser.cpp`, `PhysicsDemoState`, `PhysicsSystem.cpp`, `TEST`, `RotationDemoState`, `TEST_F`, `TEST`, `TOMLTableView`, `AssetManager.cpp`, `ResourceHolder`, `PathFollowingDemoState`, `EntityAllocator`, `SceneManager.cpp`, `SceneSerializerTest`, `TEST_F`, `Inspector.cpp`, `TOMLBuilder`, `TEST_F`, `SceneManager`, `AudioSource`, `UISystemTests.cpp`, `Result`, `AudioDemoState`, `DestroyEntity`, `AnimationDemoState`, `TEST`, `FileWatcher.hpp`, `algorithm`, `DrawAssetInspectorPanel`?**
-  _High betweenness centrality (0.107) - this node is a cross-community bridge._
-- **Why does `Entity` connect `Entity` to `TEST`, `WaypointEditState`, `Transform`, `ASGE.hpp`, `UIDemoState`, `BoolResult`, `Errors.hpp`, `IRenderer`, `Signal`, `Registry`, `Components.hpp`, `TEST_F`, `main`, `AssetManagerTests.cpp`, `CameraFollowDemoState`, `EcsDemoState`, `LoadContext`, `editor/main.cpp`, `FakeTexture`, `ComponentPool`, `PhysicsDemoState`, `PhysicsSystem.cpp`, `TEST`, `RotationDemoState`, `TOMLTableView`, `TEST`, `PathFollowingDemoState`, `EntityAllocator`, `SceneManager.cpp`, `TEST_F`, `Inspector.cpp`, `SceneDemoState`, `UISystemTests.cpp`, `SceneManager`, `Result`, `AudioDemoState`, `SceneManagerTest`, `AnimationDemoState`, `HitEntry`, `TEST`, `algorithm`, `EntityGroup`, `DrawAssetInspectorPanel`?**
-  _High betweenness centrality (0.048) - this node is a cross-community bridge._
-- **Why does `Image` connect `Image` to `FakeRenderer`, `gtest`, `ASGE.hpp`, `MakeA8Image`, `TEST_F`, `AssetManager`, `Errors.hpp`, `RecordingRenderer`, `AssetManagerTests.cpp`, `RecordingRenderer`, `Font`, `editor/main.cpp`, `SDLUploadBuffer`, `AssetBrowser.cpp`, `ReadImageTest`, `TEST_F`, `ITexture`, `AssetManager.cpp`, `TEST`, `Image.cpp`, `SDLRenderer.cpp`, `FakeRenderer`, `SDLTexture`, `FileWatcher.hpp`, `Font.cpp`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
+- **Why does `Registry` connect `Registry` to `TEST`, `Transform`, `RGBA_Color`, `ASGE.hpp`, `TEST`, `TEST`, `Entity`, `UIDemoState`, `AssetManager`, `IRenderer`, `PhysicsSystem.cpp`, `RenderSystem.cpp`, `Rect`, `TEST`, `CameraFollowDemoState`, `EcsDemoState`, `LoadContext`, `vector`, `AssetResolver.hpp`, `ResolveAssetsTest`, `FakeTexture`, `ComponentPool`, `AssetBrowser.cpp`, `PhysicsDemoState`, `CheckCollision`, `AudioClip`, `RotationDemoState`, `TEST_F`, `TEST`, `TOMLTableView`, `Result`, `PathFollowingDemoState`, `HierarchyTests.cpp`, `EntityAllocator`, `SceneManager.cpp`, `SceneSerializerTest`, `TEST_F`, `Inspector.cpp`, `UILayoutItem`, `Hierarchy`, `TEST_F`, `SceneManager`, `AudioSource`, `UISystem.cpp`, `AudioDevice`, `DestroyEntity`, `SceneManagerTest`, `VfsPanel.cpp`, `AnimationDemoState`, `UISystemTests.cpp`, `TEST`, `memory`, `VirtualFileSystem`?**
+  _High betweenness centrality (0.109) - this node is a cross-community bridge._
+- **Why does `Entity` connect `Entity` to `TEST`, `Transform`, `WaypointEditState`, `TEST`, `ASGE.hpp`, `UIDemoState`, `BoolResult`, `DrawItem`, `IRenderer`, `FileWatcher.hpp`, `Registry`, `PhysicsSystem.cpp`, `TEST_F`, `main`, `RenderSystem.cpp`, `CameraFollowDemoState`, `EcsDemoState`, `LoadContext`, `vector`, `FakeTexture`, `ComponentPool`, `AssetBrowser.cpp`, `PhysicsDemoState`, `CheckCollision`, `RotationDemoState`, `TOMLTableView`, `Result`, `TEST`, `PathFollowingDemoState`, `HierarchyTests.cpp`, `EntityAllocator`, `SceneManager.cpp`, `TEST_F`, `Inspector.cpp`, `SceneDemoState`, `UILayoutItem`, `Hierarchy`, `UISystem.cpp`, `SceneManager`, `AudioDevice`, `SceneManagerTest`, `AnimationDemoState`, `UISystemTests.cpp`, `TEST`, `memory`, `VirtualFileSystem`, `Collider`?**
+  _High betweenness centrality (0.047) - this node is a cross-community bridge._
+- **Why does `Image` connect `Image` to `FakeRenderer`, `gtest`, `ASGE.hpp`, `MakeA8Image`, `TEST_F`, `AssetManager`, `RecordingRenderer`, `RecordingRenderer`, `Font`, `vector`, `AssetBrowser.cpp`, `ReadImageTest`, `NullRenderer`, `Result`, `TEST`, `Image.cpp`, `ITexture`, `SDLTexture`, `memory`, `Font.cpp`, `TEST_F`?**
+  _High betweenness centrality (0.045) - this node is a cross-community bridge._
 - **Are the 10 inferred relationships involving `Registry` (e.g. with `TEST()` and `TEST()`) actually correct?**
   _`Registry` has 10 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 7 inferred relationships involving `Entity` (e.g. with `main()` and `asge::game::scene::SceneManager::RestoreScene()`) actually correct?**
