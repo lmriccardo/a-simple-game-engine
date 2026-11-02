@@ -1,10 +1,10 @@
 #include "Easing.hpp"
 
-#include <algorithm>
+#include "../Scalar.hpp"
 
 float asge::math::Ease( Easing inEasing, float inT ) noexcept
 {
-    float const t = std::clamp( inT, 0.0f, 1.0f );
+    float const t = Saturate( inT );
 
     switch ( inEasing )
     {
