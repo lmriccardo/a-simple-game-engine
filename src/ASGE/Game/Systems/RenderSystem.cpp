@@ -566,9 +566,10 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
 
         auto const& table = animationRef.m_Clip->Get();
         animationRef.m_ElapsedTime += inDeltaTime * animationRef.m_PlaybackSpeed;
+        float const fallbackDuration = EffectiveFrameDuration( animationRef );
         while ( true )
         {
-            float const duration = table.FrameDuration( animationRef.m_CurrentFrame, animationRef.m_FrameDuration );
+            float const duration = table.FrameDuration( animationRef.m_CurrentFrame, fallbackDuration );
             if ( duration <= 0.0f || animationRef.m_ElapsedTime < duration ) break;
 
             animationRef.m_ElapsedTime -= duration;

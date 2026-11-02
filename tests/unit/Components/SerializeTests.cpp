@@ -433,6 +433,40 @@ TEST(AnimationSerializerTest, RoundTrip_NamedClipsPreserved)
     EXPECT_EQ(restored.m_Clips, original.m_Clips);
 }
 
+TEST(AnimationSerializerTest, RoundTrip_ClipFrameDurationsPreserved)
+{
+    TOMLBuilder builder;
+    Animation original{ .m_ClipPath = "clips/idle.toml" };
+    original.m_Clips = { { "idle", "clips/idle.toml" }, { "run", "clips/run.toml" } };
+    original.m_ClipFrameDurations = { { "run", 0.05f } };
+    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_EQ(restored.m_ClipFrameDurations, original.m_ClipFrameDurations);
+}
+
+TEST(AnimationSerializerTest, ToToml_DropsDurationOfRemovedClip)
+{
+    TOMLBuilder builder;
+    Animation original{ .m_ClipPath = "clips/idle.toml" };
+    original.m_Clips = { { "idle", "clips/idle.toml" } };
+    original.m_ClipFrameDurations = { { "idle", 0.2f }, { "gone", 0.9f } };
+    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    ASSERT_EQ(restored.m_ClipFrameDurations.size(), 1u);
+    EXPECT_TRUE(restored.m_ClipFrameDurations.contains("idle"));
+}
+
+TEST(AnimationSerializerTest, FromToml_MissingClipDurationsDefaultsToNoOverrides)
+{
+    TOMLBuilder builder;
+    builder.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml");
+
+    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_TRUE(restored.m_ClipFrameDurations.empty());
+}
+
 TEST(AnimationSerializerTest, FromToml_MissingClipNamesDefaultsToNoNamedClips)
 {
     TOMLBuilder builder;
