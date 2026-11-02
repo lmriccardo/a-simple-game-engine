@@ -26,8 +26,7 @@ SDL3, with OpenGL/Vulkan/DirectX backends being considered for the future.
 ASGE is under active development, worked through a
 [roadmap](docs/roadmap/README.md) split into phases. As of now:
 
-- ✅ Core engine (application loop, logging, timing, math, memory,
-  concurrency, filesystem)
+- ✅ Core engine (application loop, logging, timing, math, memory, concurrency, filesystem)
 - ✅ Rendering primitives (shapes, textures, text)
 - ✅ Entity-Component-System (ECS)
 - ✅ Input system (keyboard, mouse)
@@ -35,7 +34,8 @@ ASGE is under active development, worked through a
 - ✅ Scene management
 - ✅ Physics
 - ✅ Audio
-- 🚧 UI, and more — see
+- ✅ UI
+- 🚧 Rendering tint, additive glow, fade, and more — see
   [docs/roadmap](docs/roadmap/README.md) for the full plan.
 
 Separately, an in-development [level editor](docs/level_editor_roadmap/roadmap.md)
