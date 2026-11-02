@@ -25,6 +25,7 @@
 #include "Components/UI/UIPanel.hpp"
 #include "Components/UI/UILayoutItem.hpp"
 #include "Components/UI/UIProgressBar.hpp"
+#include "Components/UI/UIDebugOverlay.hpp"
 
 namespace asge::game::components
 {

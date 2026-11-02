@@ -37,4 +37,13 @@ void UIInteractionSystem(
  */
 void UILayoutSystem( ecs::Registry& inReg ) noexcept;
 
+/**
+ * @brief Refreshes every UIDebugOverlay label with "FPS: N / Entities: M", reading the frame
+ *        time from TimeSystem (unscaled, so pausing or slow motion doesn't skew the FPS).
+ *
+ * FPS is averaged over each overlay's m_RefreshInterval; the text only changes once per interval.
+ * Call it once per frame from Update().
+ */
+void UIDebugOverlaySystem( ecs::Registry& inReg ) noexcept;
+
 }

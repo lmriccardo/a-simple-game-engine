@@ -8,6 +8,7 @@
 #include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Components/UI/UIProgressBar.hpp>
+#include <ASGE/Game/Components/UI/UIDebugOverlay.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -147,6 +148,15 @@ struct ProgressBarDesc
     std::function<void(float)>       m_OnMaxReached;
 };
 
+struct DebugOverlayDesc
+{
+    str::String          m_Name{ "DebugOverlay" };
+    str::String          m_FontPath;
+    math::Float2         m_Position{ 8.0f, 8.0f };
+    float                m_RefreshInterval{ 0.25f };
+    graphics::RGBA_Color m_Color{ graphics::colors::s_White };
+};
+
 Result<ecs::Entity> CreateLabel( ecs::Registry& inReg, LabelDesc const& inDesc );
 Result<ecs::Entity> CreateButton( ecs::Registry& inReg, ButtonDesc const& inDesc );
 Result<ecs::Entity> CreateCheckbox( ecs::Registry& inReg, CheckboxDesc const& inDesc );
@@ -159,5 +169,8 @@ Result<ecs::Entity> CreatePanel( ecs::Registry& inReg, PanelDesc const& inDesc )
 
 /** @brief Creates a non-interactive progress bar entity (UIRect + UIProgressBar) starting at m_Start, destroying it again if any component fails to attach. */
 Result<ecs::Entity> CreateProgressBar( ecs::Registry& inReg, ProgressBarDesc const& inDesc );
+
+/** @brief Creates a screen-space label (UILabel + UIDebugOverlay) showing FPS and entity count; drive it with systems::UIDebugOverlaySystem. */
+Result<ecs::Entity> CreateDebugOverlay( ecs::Registry& inReg, DebugOverlayDesc const& inDesc );
 
 }

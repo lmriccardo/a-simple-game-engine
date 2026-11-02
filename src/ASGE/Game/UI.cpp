@@ -241,3 +241,23 @@ asge::game::ui::CreateProgressBar( ecs::Registry& inReg, ProgressBarDesc const& 
 
     return entityR;
 }
+
+asge::Result<asge::ecs::Entity>
+asge::game::ui::CreateDebugOverlay( ecs::Registry& inReg, DebugOverlayDesc const& inDesc )
+{
+    auto entityR = CreateLabel( inReg, LabelDesc{
+        .m_Name = inDesc.m_Name, .m_Position = inDesc.m_Position,
+        .m_Text = { .m_Content = "FPS: --\nEntities: --", .m_FontPath = inDesc.m_FontPath,
+                    .m_Align = str::TextAlign::Left, .m_VerticalAlign = components::VerticalAlign::Top,
+                    .m_Color = inDesc.m_Color } } );
+    if ( !entityR ) return entityR;
+
+    if ( auto r = inReg.AddComponent<components::UIDebugOverlay>( entityR.Value(), 
+             components::UIDebugOverlay{ .m_RefreshInterval = inDesc.m_RefreshInterval } ); !r )
+    {
+        auto _ = inReg.DestroyEntity( entityR.Value() );
+        return Result<ecs::Entity>::Err( r.Error() );
+    }
+
+    return entityR;
+}

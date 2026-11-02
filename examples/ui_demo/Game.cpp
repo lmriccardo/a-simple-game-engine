@@ -22,6 +22,8 @@ using asge::game::ui::CreateLabel;
 using asge::game::ui::CreateSlider;
 using asge::game::ui::CreatePanel;
 using asge::game::ui::CreateProgressBar;
+using asge::game::ui::CreateDebugOverlay;
+using asge::game::ui::DebugOverlayDesc;
 using asge::game::ui::LabelDesc;
 using asge::game::ui::PanelDesc;
 using asge::game::ui::ProgressBarDesc;
@@ -346,6 +348,10 @@ void UIDemoState::SpawnEntities()
             .m_FillY = false, .m_AlignY = SlotAlign::Center } );
     }
 
+    // FPS / entity-count readout, refreshed by UIDebugOverlaySystem in Update().
+    auto overlay = CreateDebugOverlay( m_Registry, DebugOverlayDesc{ .m_FontPath = kFontPath } );
+    if ( !overlay ) overlay.LogError();
+
     // A progress bar through CreateProgressBar: Update() steps it every frame,
     // and it logs once when it fills up. The button restarts it.
     auto progressBar = CreateProgressBar( m_Registry, ProgressBarDesc{
@@ -407,6 +413,8 @@ void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer 
 std::optional<asge::game::state::Transition<int>>
 UIDemoState::Update( float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
 {
+    asge::game::systems::UIDebugOverlaySystem( m_Registry );
+
     if ( auto bar = m_Registry.GetComponent<UIProgressBar>( m_ProgressBar ) )
     {
         asge::game::components::Step( bar.Value().get(), kProgressPerSecond * inDeltaTime );

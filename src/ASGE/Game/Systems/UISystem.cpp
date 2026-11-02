@@ -1,6 +1,7 @@
 #include "UISystem.hpp"
 
 #include <algorithm>
+#include <format>
 #include <optional>
 #include <tuple>
 #include <variant>
@@ -14,6 +15,8 @@
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/UILayoutItem.hpp>
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UIDebugOverlay.hpp>
+#include <ASGE/Core/Time/Time.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -343,5 +346,26 @@ void asge::game::systems::UILayoutSystem(ecs::Registry &inReg) noexcept
         }
 
         LayoutChildren( inReg, e );
+    }
+}
+
+void asge::game::systems::UIDebugOverlaySystem( ecs::Registry& inReg ) noexcept
+{
+    float const dt = time::UnscaledDeltaTime();
+
+    for ( auto [ e, overlay ] : inReg.View<components::UIDebugOverlay>() )
+    {
+        auto& o = overlay.get();
+        o.m_Accumulated += dt;
+        ++o.m_Frames;
+        if ( o.m_Accumulated < o.m_RefreshInterval ) continue;
+
+        auto label = inReg.GetComponent<components::UILabel>( e );
+        if ( !label ) continue;
+
+        float const fps = o.m_Accumulated > 0.0f ? static_cast<float>( o.m_Frames ) / o.m_Accumulated : 0.0f;
+        label.Value().get().m_Text = std::format( "FPS: {:.0f}\nEntities: {}", fps, inReg.AllEntities().size() );
+        o.m_Accumulated = 0.0f;
+        o.m_Frames = 0;
     }
 }
