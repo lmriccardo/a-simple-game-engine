@@ -80,7 +80,10 @@ TEST(ScanToolchainsTest, EveryEntryHasAnIdAConfigureArgumentListAndAReasonWhenUn
         EXPECT_FALSE(toolchain.m_Id.empty());
         EXPECT_FALSE(toolchain.m_Name.empty());
         EXPECT_FALSE(toolchain.m_ConfigureArgs.empty());
-        if (!toolchain.m_Usable) EXPECT_FALSE(toolchain.m_Reason.empty());
+        if (!toolchain.m_Usable)
+        {
+            EXPECT_FALSE(toolchain.m_Reason.empty());
+        }
     }
 }
 

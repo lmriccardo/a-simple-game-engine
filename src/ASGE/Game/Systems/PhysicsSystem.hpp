@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <set>
 #include <ASGE/Core/ECS/Entity.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
@@ -17,14 +18,20 @@ namespace asge::game::systems
 components::ColliderShape WorldBounds(
     components::Transform const& inTransform, components::Collider const& inCollider ) noexcept;
 
+/** @brief Which entities of a canonical EntityPair were Triggers when the overlap was recorded (bit 0: m_First, bit 1: m_Second). */
+using TriggerSides = std::uint8_t;
+inline constexpr TriggerSides kFirstIsTrigger  = 1u << 0;
+inline constexpr TriggerSides kSecondIsTrigger = 1u << 1;
+
 /**
- * @brief Cross-frame bookkeeping PhysicsUpdate needs — currently just which
- *        Trigger pairs were overlapping last frame, so CollisionSystem
- *        can tell a new overlap (Enter) from a continuing one (Stay).
+ * @brief Cross-frame bookkeeping PhysicsUpdate needs — which Trigger pairs
+ *        were overlapping last frame (so CollisionSystem can tell Enter from
+ *        Stay) and which side of each was the Trigger (so a per-entity Exit
+ *        still reaches it if its resolution changed mid-overlap).
  */
 struct PhysicsState
 {
-    std::set<ecs::EntityPair> m_PreviousTriggerPairs;
+    std::map<ecs::EntityPair, TriggerSides> m_PreviousTriggerPairs;
 };
 
 /**

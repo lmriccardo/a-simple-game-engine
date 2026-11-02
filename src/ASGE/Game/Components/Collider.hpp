@@ -5,6 +5,7 @@
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
+#include <ASGE/Core/Patterns/Signal.hpp>
 
 namespace asge::game::components
 {
@@ -39,22 +40,29 @@ enum class ResolutionType
  */
 struct Collider
 {
-    ColliderShape  m_LocalBounds{};                       // shape + local offset from the owning entity's Transform
-    ResolutionType m_Resolution{ ResolutionType::Solid };  // Solid (push-out) vs Trigger (sensor) vs Unknown (ignored) — see ResolutionType
-    CollisionLayer m_Layer{1u};                            // which layer(s) this Collider itself occupies — a single bit by convention, but not enforced
-    CollisionLayer m_Mask{ ~CollisionLayer{0} };           // which layer(s) this Collider is willing to collide with — all bits set by default, i.e. "collides with everything"
+    ColliderShape  m_LocalBounds{};                        // shape + local offset from the owning entity's Transform
+    ResolutionType m_Resolution{ ResolutionType::Solid };  // Solid (push-out) vs Trigger (sensor) vs Unknown (ignored)
+    CollisionLayer m_Layer{1u};                            // which layer(s) this Collider itself occupies
+    CollisionLayer m_Mask{ ~CollisionLayer{0} };           // which layer(s) this Collider is willing to collide with
+
+    signals::LazySignal<ecs::Entity> m_OnEnter{};
+    signals::LazySignal<ecs::Entity> m_OnExit{};
+    signals::LazySignal<ecs::Entity> m_OnStay{};
+
+    /**
+     * @brief Signal fired with the *other* entity when something starts overlapping this Trigger.
+     *
+     * Created on first call, so only colliders someone listens to pay for it. Only emitted
+     * while this Collider is a Trigger; the global events::OnCollisionTriggerEnter still fires too.
+     */
+    signals::Signal<ecs::Entity>& OnEnter() noexcept;
+
+    /** @brief Same as OnEnter(), fired when an overlap with this Trigger ends (including when the other entity was destroyed). */
+    signals::Signal<ecs::Entity>& OnExit () noexcept;
+
+    /** @brief Same as OnEnter(), fired every call the overlap with this Trigger continues; created only when requested. */
+    signals::Signal<ecs::Entity>& OnStay () noexcept;
 };
-
-namespace details
-{
-
-/** @brief ResolutionType -> its TOML representation — see Serializer<Collider>::ToToml. */
-str::String ToString( ResolutionType inResolveT ) noexcept;
-
-/** @brief The read-side counterpart to ToString — any string other than "Solid"/"Trigger" maps to Unknown. */
-ResolutionType FromString( str::StringView inSv ) noexcept;
-
-}
 
 /**
  * @brief Whether two Colliders are even willing to collide with each other,
@@ -75,7 +83,7 @@ bool HasUnknownResolution( Collider const& inCollider ) noexcept;
 namespace asge::game::scene
 {
 
-/** @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask) -- Collider carries no runtime-only state beyond them. */
+/** @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask) -- the per-entity trigger signals (m_OnEnter/m_OnExit/m_OnStay) are runtime-only and never serialized. */
 template<>
 struct Serializer<components::Collider>
 {
