@@ -171,7 +171,7 @@ p { color: var(--text); }
 /* ---------- hero ---------- */
 .hero { padding: 48px 0 56px; border-bottom: 2px solid var(--text); }
 .hero .kicker { display: none; }
-.hero h1 { max-width: 14ch; margin: 0 0 18px; }
+.hero-grid h1 { max-width: 14ch; margin: 56px 0 18px; }
 .hero h1 mark { background: linear-gradient(transparent 58%, var(--accent-2) 58%, var(--accent-2) 92%, transparent 92%); color: inherit; padding: 0 0.05em; }
 .hero .lede { max-width: 34rem; margin: 0 0 30px; }
 
@@ -189,7 +189,6 @@ p { color: var(--text); }
 }
 .shot img { width: 100%; height: auto; margin: 0; border: 0; }
 .shot figcaption { padding: 8px 14px; font-size: 0.88rem; color: var(--text-muted); border-top: 2px solid var(--text); background: var(--surface); }
-.hero h1 { margin-top: 56px; }
 
 /* ---------- sections ---------- */
 section { padding: 72px 0; }
@@ -493,8 +492,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .api-prot-private { color: var(--danger); border-color: var(--danger); }
 
 .api-callout {
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  border: 2px solid var(--accent);
   border-radius: 8px;
   padding: 10px 14px;
   margin: 12px 0;
@@ -502,11 +500,11 @@ th { color: var(--text-muted); font-weight: 600; }
   background: var(--surface-2);
 }
 .api-callout-label { font-weight: 600; font-size: 0.88rem; margin-bottom: 4px; color: var(--accent); }
-.api-callout-warning, .api-callout-attention { border-left-color: var(--warn); }
+.api-callout-warning, .api-callout-attention { border-color: var(--warn); }
 .api-callout-warning .api-callout-label, .api-callout-attention .api-callout-label { color: var(--warn); }
-.api-callout-bug, .api-callout-todo { border-left-color: var(--danger); }
+.api-callout-bug, .api-callout-todo { border-color: var(--danger); }
 .api-callout-bug .api-callout-label, .api-callout-todo .api-callout-label { color: var(--danger); }
-.api-callout-return, .api-callout-param { border-left-color: var(--accent-2); }
+.api-callout-return, .api-callout-param { border-color: var(--accent-2); }
 .api-callout-return .api-callout-label, .api-callout-param .api-callout-label { color: var(--accent-2); }
 .api-param-table { width: 100%; margin: 4px 0 0; }
 .api-param-table td { border: none; padding: 4px 8px 4px 0; vertical-align: top; font-size: 0.87rem; }
@@ -585,7 +583,7 @@ th { color: var(--text-muted); font-weight: 600; }
 
 .article { min-width: 0; max-width: none; }
 .article > h1:first-child { margin-top: 0; }
-.article h2 { padding-top: 0.5rem; border-top: 2px solid var(--text); margin-top: 2.5rem; scroll-margin-top: calc(var(--header-h) + 16px); }
+.article h2 { padding-top: 1.25rem; border-top: 2px solid var(--border); margin-top: 2.5rem; scroll-margin-top: calc(var(--header-h) + 16px); }
 .article h3 { margin-top: 1.8rem; scroll-margin-top: calc(var(--header-h) + 16px); }
 .article img { border: 1px solid var(--border); border-radius: var(--radius); margin: 16px 0; }
 .article table { width: 100%; border-collapse: collapse; }
@@ -678,6 +676,7 @@ th { color: var(--text-muted); font-weight: 600; }
 /* Legacy hero/section markup reused inside the docs article */
 .article .container { max-width: none; padding: 0; }
 .article .hero { padding: 0 0 8px; border: 0; background: none; }
+.article .hero h1 { max-width: none; margin: 0 0 12px; font-size: clamp(2rem, 3.6vw, 2.75rem); }
 .article section.alt { background: none; border: 0; }
 .article .example-hero { grid-template-columns: minmax(0, 1fr); }
 .article .example-media { margin-top: 16px; }
@@ -700,3 +699,14 @@ th { color: var(--text-muted); font-weight: 600; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* long-form reading: calmer weight and a comfortable measure */
+.article p, .article li { max-width: 72ch; line-height: 1.7; }
+.article :is(p, li) strong { font-weight: 600; }
+.side-group h4, .toc h4 { font-weight: 600; color: var(--text); font-size: 0.88rem; }
+.article .lede { max-width: 60ch; margin-top: 0; }
+.article .hero .lede { margin-bottom: 0; }
+.btn-row + p { margin-top: 20px; }
+.btn-row[role="group"], .btn-row:has(.btn[aria-pressed]) { margin: 20px 0; }
+/* content modules set inline section padding; the article shell owns vertical rhythm */
+.article section[style] { padding-block: 0 !important; }
