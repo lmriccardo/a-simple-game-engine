@@ -221,4 +221,31 @@ inline void Signal<Args...>::Emit( Args... inArgs )
     }
 }
 
+/**
+ * @brief A Signal that is only allocated on first Get(), for objects most of which never have a listener.
+ *
+ * Copying yields an empty LazySignal (listeners are not duplicated); moving keeps the signal,
+ * so a pooled owner that is moved around keeps its connections.
+ */
+template<typename ... Args>
+class LazySignal
+{
+    std::unique_ptr<Signal<Args...>> m_Sig{nullptr};
+public:
+    LazySignal() = default;
+    LazySignal( LazySignal const& ) noexcept {}
+    LazySignal& operator=( LazySignal const& ) noexcept { m_Sig.reset(); return *this; }
+    LazySignal( LazySignal&& ) noexcept = default;
+    LazySignal& operator=( LazySignal&& ) noexcept = default;
+
+    /** @brief Returns the signal, creating it on first use. */
+    Signal<Args...>& Get() { 
+        if ( !m_Sig ) m_Sig = std::make_unique<Signal<Args...>>(); 
+        return *m_Sig;
+    }
+    
+    /** @brief Returns the signal, or nullptr if nobody has called Get() yet — lets an emitter skip signals nobody listens to. */
+    Signal<Args...>* TryGet() noexcept { return m_Sig.get(); }
+};
+
 };

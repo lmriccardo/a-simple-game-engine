@@ -709,4 +709,235 @@ TEST(PathFollowingSystemTest, ZeroLengthLoopingPath_FinishesInsteadOfProducingNa
     EXPECT_FALSE(std::isnan(transformResult.Value().get().m_LocalRotation));
 }
 
+// ─── CollisionSystem — per-entity trigger signals (Collider::OnEnter/Stay/Exit) ──
+
+namespace
+{
+Collider& ColliderOf( Registry& inRegistry, Entity inEntity )
+{
+    return inRegistry.GetComponent<Collider>( inEntity ).Value().get();
+}
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_TriggerReceivesTheOtherEntity)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    std::vector<Entity> received;
+    ColliderOf( m_Registry, trigger ).OnEnter().Connect( [&]( Entity inOther ) { received.push_back( inOther ); } );
+
+    RunCollisions();
+
+    ASSERT_EQ(received.size(), 1u);
+    EXPECT_EQ(received[0], solid);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_TriggerCreatedAfterSolid_StillReceivesTheOtherEntity)
+{
+    // The broad phase may hand the pair over in either order; the trigger's
+    // signal must fire with the solid regardless.
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    std::vector<Entity> received;
+    ColliderOf( m_Registry, trigger ).OnEnter().Connect( [&]( Entity inOther ) { received.push_back( inOther ); } );
+
+    RunCollisions();
+
+    ASSERT_EQ(received.size(), 1u);
+    EXPECT_EQ(received[0], solid);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_SolidSideSignalIsNeverEmitted)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    int solidCalls = 0;
+    ColliderOf( m_Registry, solid ).OnEnter().Connect( [&]( Entity ) { ++solidCalls; } );
+    (void)trigger;
+
+    RunCollisions();
+
+    EXPECT_EQ(solidCalls, 0);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_UnrelatedTriggerIsNotNotified)
+{
+    MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+    auto farAway = MakeCollider(m_Registry, 500.0f, 500.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    int calls = 0;
+    ColliderOf( m_Registry, farAway ).OnEnter().Connect( [&]( Entity ) { ++calls; } );
+
+    RunCollisions();
+
+    EXPECT_EQ(calls, 0);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_TriggerVsTrigger_EachSideReceivesTheOther)
+{
+    auto t1 = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto t2 = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    std::vector<Entity> seenByT1, seenByT2;
+    ColliderOf( m_Registry, t1 ).OnEnter().Connect( [&]( Entity inOther ) { seenByT1.push_back( inOther ); } );
+    ColliderOf( m_Registry, t2 ).OnEnter().Connect( [&]( Entity inOther ) { seenByT2.push_back( inOther ); } );
+
+    RunCollisions();
+
+    ASSERT_EQ(seenByT1.size(), 1u);
+    ASSERT_EQ(seenByT2.size(), 1u);
+    EXPECT_EQ(seenByT1[0], t2);
+    EXPECT_EQ(seenByT2[0], t1);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityStay_FiresOnSecondCallInsteadOfEnter)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    int enters = 0;
+    std::vector<Entity> stays;
+    ColliderOf( m_Registry, trigger ).OnEnter().Connect( [&]( Entity ) { ++enters; } );
+    ColliderOf( m_Registry, trigger ).OnStay().Connect( [&]( Entity inOther ) { stays.push_back( inOther ); } );
+
+    RunCollisions();
+    RunCollisions();
+
+    EXPECT_EQ(enters, 1);
+    ASSERT_EQ(stays.size(), 1u);
+    EXPECT_EQ(stays[0], solid);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityExit_FiresWhenTheOtherMovesAway)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    std::vector<Entity> exits;
+    ColliderOf( m_Registry, trigger ).OnExit().Connect( [&]( Entity inOther ) { exits.push_back( inOther ); } );
+
+    RunCollisions();
+    m_Registry.GetComponent<Transform>(solid).Value().get().m_WorldCoordinates.x() = 500.0f;
+    RunCollisions();
+
+    ASSERT_EQ(exits.size(), 1u);
+    EXPECT_EQ(exits[0], solid);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityExit_OtherDestroyed_SurvivingTriggerStillNotified)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    std::vector<Entity> exits;
+    ColliderOf( m_Registry, trigger ).OnExit().Connect( [&]( Entity inOther ) { exits.push_back( inOther ); } );
+
+    RunCollisions();
+    ASSERT_TRUE(m_Registry.DestroyEntity(solid).IsOk());
+    RunCollisions();
+
+    ASSERT_EQ(exits.size(), 1u);
+    EXPECT_EQ(exits[0], solid);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityExit_TriggerDestroyed_DoesNotCrashAndNothingIsEmitted)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    int exits = 0;
+    ColliderOf( m_Registry, trigger ).OnExit().Connect( [&]( Entity ) { ++exits; } );
+
+    RunCollisions();
+    ASSERT_TRUE(m_Registry.DestroyEntity(trigger).IsOk());
+    RunCollisions();
+
+    EXPECT_EQ(exits, 0);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_HandlerDestroyingTheTrigger_IsSafe)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    int calls = 0;
+    ColliderOf( m_Registry, trigger ).OnEnter().Connect( [&]( Entity )
+    {
+        ++calls;
+        EXPECT_TRUE(m_Registry.DestroyEntity(trigger).IsOk()); // takes its own signal with it mid-emit
+    } );
+
+    RunCollisions();
+
+    EXPECT_EQ(calls, 1);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityExit_TriggerBecameSolidMidOverlap_StillNotifiesFormerTrigger)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    std::vector<Entity> exits;
+    ColliderOf( m_Registry, trigger ).OnExit().Connect( [&]( Entity inOther ) { exits.push_back( inOther ); } );
+
+    RunCollisions();
+    ColliderOf( m_Registry, trigger ).m_Resolution = ResolutionType::Solid; // now a plain solid pair
+    RunCollisions();
+
+    ASSERT_EQ(exits.size(), 1u);
+    EXPECT_EQ(exits[0], solid);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityExit_SolidSideListenerIsNotNotified)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+    auto solid   = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+    (void)trigger;
+
+    int solidExits = 0;
+    ColliderOf( m_Registry, solid ).OnExit().Connect( [&]( Entity ) { ++solidExits; } );
+
+    RunCollisions();
+    m_Registry.GetComponent<Transform>(solid).Value().get().m_WorldCoordinates.x() = 500.0f;
+    RunCollisions();
+
+    EXPECT_EQ(solidExits, 0);
+}
+
+TEST_F(TriggerCollisionTest, PerEntityEnter_SolidBecameTriggerMidOverlap_FiresEnterOnNewTrigger)
+{
+    auto a = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+    auto b = MakeCollider(m_Registry, 6.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Solid);
+
+    std::vector<Entity> received;
+    ColliderOf( m_Registry, a ).OnEnter().Connect( [&]( Entity inOther ) { received.push_back( inOther ); } );
+
+    RunCollisions();
+    ColliderOf( m_Registry, a ).m_Resolution = ResolutionType::Trigger;
+    RunCollisions();
+
+    ASSERT_EQ(received.size(), 1u);
+    EXPECT_EQ(received[0], b);
+}
+
+TEST_F(TriggerCollisionTest, PerEntitySignals_AreNotCopiedWithTheCollider)
+{
+    auto trigger = MakeCollider(m_Registry, 0.0f, 0.0f, 10.0f, 10.0f, ResolutionType::Trigger);
+
+    int calls = 0;
+    ColliderOf( m_Registry, trigger ).OnEnter().Connect( [&]( Entity ) { ++calls; } );
+
+    Collider copy = ColliderOf( m_Registry, trigger );
+
+    EXPECT_EQ(copy.m_OnEnter.TryGet(), nullptr);          // a duplicate starts without the original's listeners
+    EXPECT_NE(ColliderOf( m_Registry, trigger ).m_OnEnter.TryGet(), nullptr);
+
+    Collider moved = std::move( ColliderOf( m_Registry, trigger ) );
+    EXPECT_NE(moved.m_OnEnter.TryGet(), nullptr);         // a move (pool swap-remove) keeps them
+}
+
 }

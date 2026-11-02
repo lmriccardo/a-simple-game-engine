@@ -179,6 +179,45 @@ struct TriggerContact
     bool   m_Enter;
 };
 
+enum class TriggerEvent { Enter, Stay, Exit };
+
+// Emits inEvent on inTrigger's own per-entity signal, passing inOther. The
+// Collider is looked up fresh each time and never held across the emit, since
+// a handler may destroy entities or reallocate the pool.
+void EmitOnTrigger( Registry& inRegistry, Entity inTrigger, Entity inOther, TriggerEvent inEvent ) noexcept
+{
+    auto collider = inRegistry.GetComponent<Collider>( inTrigger );
+    if ( !collider ) return;
+
+    auto& c = collider.Value().get();
+    // Exit trusts the side recorded when the overlap began (see EmitExit), as the
+    // resolution may have changed since; Enter/Stay use the current one.
+    if ( inEvent != TriggerEvent::Exit && c.m_Resolution != ResolutionType::Trigger ) return;
+
+    auto* signal = 
+        inEvent == TriggerEvent::Enter ? c.m_OnEnter.TryGet() :
+        inEvent == TriggerEvent::Stay  ? c.m_OnStay.TryGet()  : c.m_OnExit.TryGet();
+
+    if ( signal ) signal->Emit( inOther );
+}
+
+// Notifies both sides of a contact; a side that is not a Trigger (or has no
+// listener) is skipped, so a Trigger-vs-Trigger contact reaches each of them.
+void EmitOnBothSides( Registry& inRegistry, Entity inA, Entity inB, TriggerEvent inEvent ) noexcept
+{
+    EmitOnTrigger( inRegistry, inA, inB, inEvent );
+    EmitOnTrigger( inRegistry, inB, inA, inEvent );
+}
+
+// Exit only reaches the sides that were Triggers when the overlap was recorded.
+void EmitExit( Registry& inRegistry, EntityPair const& inPair, asge::game::systems::TriggerSides inSides ) noexcept
+{
+    if ( inSides & asge::game::systems::kFirstIsTrigger )
+        EmitOnTrigger( inRegistry, inPair.m_First, inPair.m_Second, TriggerEvent::Exit );
+    if ( inSides & asge::game::systems::kSecondIsTrigger )
+        EmitOnTrigger( inRegistry, inPair.m_Second, inPair.m_First, TriggerEvent::Exit );
+}
+
 std::optional<Float2> PenetrationVector( Transform const& t1, Collider const& c1,
     Transform const& t2, Collider const& c2) noexcept 
 {
@@ -193,7 +232,7 @@ std::optional<Float2> PenetrationVector( Transform const& t1, Collider const& c1
 
 bool CheckCollision( 
     Registry& inRegistry, Entity inE1, Entity inE2, AppliedCorrections& inCorrections,
-    asge::game::systems::PhysicsState& ioState, std::set<EntityPair>& ioPairs,
+    asge::game::systems::PhysicsState& ioState, std::map<EntityPair, asge::game::systems::TriggerSides>& ioPairs,
     std::vector<TriggerContact>& ioContacts ) noexcept
 {
     auto const& c1 = inRegistry.GetComponent<Collider>( inE1 ).Value().get();
@@ -222,7 +261,13 @@ bool CheckCollision(
     if ( c1Trigger || c2Trigger )
     {
         auto key = MakeCanonicalPair( inE1, inE2 );
-        ioPairs.insert( key );
+
+        // The mask is relative to the canonical order, which may differ from E1/E2.
+        bool const firstIsE1 = key.m_First == inE1;
+        asge::game::systems::TriggerSides sides = 0;
+        if ( firstIsE1 ? c1Trigger : c2Trigger ) sides |= asge::game::systems::kFirstIsTrigger;
+        if ( firstIsE1 ? c2Trigger : c1Trigger ) sides |= asge::game::systems::kSecondIsTrigger;
+        ioPairs.emplace( key, sides );
 
         // A Trigger is always reported as the first entity, whatever order the
         // broad phase produced the pair in.
@@ -292,7 +337,7 @@ void asge::game::systems::CollisionSystem(ecs::Registry &inRegistry, PhysicsStat
     static asge::spatial::QuadTree<asge::ecs::Entity> quadTree( GetArenaSize(), kMaxEntities );
 
     AppliedCorrections corrections;
-    std::set<ecs::EntityPair> triggerPairs;
+    std::map<ecs::EntityPair, TriggerSides> triggerPairs;
     std::vector<TriggerContact> contacts;
 
     // Step 1: Build the collision QuadTree with entities that have both
@@ -337,18 +382,23 @@ void asge::game::systems::CollisionSystem(ecs::Registry &inRegistry, PhysicsStat
     // registry while the tree is being traversed.
     for ( auto const& contact : contacts )
     {
+        auto const event = contact.m_Enter ? TriggerEvent::Enter : TriggerEvent::Stay;
         if ( contact.m_Enter )
             events::OnCollisionTriggerEnter().Emit( contact.m_First, contact.m_Second );
         else
             events::OnCollisionTriggerStay().Emit( contact.m_First, contact.m_Second );
+
+        EmitOnBothSides( inRegistry, contact.m_First, contact.m_Second, event );
     }
 
     // Anything overlapping last frame but absent from this frame's contact
     // list — either it stopped overlapping, or an entity was destroyed.
-    for ( auto const& pair : ioState.m_PreviousTriggerPairs )
+    for ( auto const& [ pair, sides ] : ioState.m_PreviousTriggerPairs )
     {
-        if ( !triggerPairs.contains( pair ) )
-            events::OnCollisionTriggerExit().Emit( pair.m_First, pair.m_Second );
+        if ( triggerPairs.contains( pair ) ) continue;
+
+        events::OnCollisionTriggerExit().Emit( pair.m_First, pair.m_Second );
+        EmitExit( inRegistry, pair, sides );
     }
 
     ioState.m_PreviousTriggerPairs = std::move( triggerPairs );
