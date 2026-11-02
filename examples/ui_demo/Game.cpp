@@ -12,6 +12,7 @@ using asge::game::components::Transform;
 using asge::game::components::UIButton;
 using asge::game::components::UICheckbox;
 using asge::game::components::UILayoutItem;
+using asge::game::components::UIProgressBar;
 using asge::game::components::UIRect;
 using asge::game::components::SlotAlign;
 using asge::game::resources::UIHitList;
@@ -20,8 +21,12 @@ using asge::game::ui::CreateButton;
 using asge::game::ui::CreateLabel;
 using asge::game::ui::CreateSlider;
 using asge::game::ui::CreatePanel;
+using asge::game::ui::CreateProgressBar;
+using asge::game::ui::CreateDebugOverlay;
+using asge::game::ui::DebugOverlayDesc;
 using asge::game::ui::LabelDesc;
 using asge::game::ui::PanelDesc;
+using asge::game::ui::ProgressBarDesc;
 using asge::game::ui::SliderDesc;
 using asge::game::ui::TextDesc;
 
@@ -71,6 +76,13 @@ constexpr float kPanelPadding = 10.0f;
 constexpr float kRow5Y = 670.0f;
 constexpr float kSliderX = 220.0f;
 constexpr float kSliderW = 200.0f, kSliderH = 24.0f;
+
+// A progress bar filling over time, with a button beside it to restart it.
+constexpr float kProgressBarX = 540.0f, kProgressBarY = 620.0f;
+constexpr float kProgressBarW = 200.0f, kProgressBarH = 20.0f;
+constexpr float kProgressResetX = 540.0f, kProgressResetY = 655.0f;
+constexpr float kProgressResetW = 100.0f, kProgressResetH = 30.0f;
+constexpr float kProgressPerSecond = 0.2f; // of the 0..1 range -- full in 5 seconds
 
 // Top band: multi-line text, one label wrapped to its size and one with explicit breaks.
 constexpr float kTextRowY = 40.0f;
@@ -335,6 +347,38 @@ void UIDemoState::SpawnEntities()
         m_Registry.AddComponent<UILayoutItem>( m_Slider, UILayoutItem{
             .m_FillY = false, .m_AlignY = SlotAlign::Center } );
     }
+
+    // FPS / entity-count readout, refreshed by UIDebugOverlaySystem in Update().
+    auto overlay = CreateDebugOverlay( m_Registry, DebugOverlayDesc{ .m_FontPath = kFontPath } );
+    if ( !overlay ) overlay.LogError();
+
+    // A progress bar through CreateProgressBar: Update() steps it every frame,
+    // and it logs once when it fills up. The button restarts it.
+    auto progressBar = CreateProgressBar( m_Registry, ProgressBarDesc{
+        .m_Name = "ProgressBar",
+        .m_Position = { kProgressBarX, kProgressBarY },
+        .m_Size = { kProgressBarW, kProgressBarH },
+        .m_OnMaxReached = []( float inValue ){ LOG_INFO( "Progress bar full: {}", inValue ); },
+    } );
+    if ( !progressBar ) progressBar.LogError();
+    else m_ProgressBar = progressBar.Value();
+
+    auto progressReset = CreateButton( m_Registry, ButtonDesc{
+        .m_Name = "ProgressResetButton",
+        .m_Position = { kProgressResetX, kProgressResetY },
+        .m_Size = { kProgressResetW, kProgressResetH },
+        .m_Text = TextDesc{ .m_Content = "Restart", .m_FontPath = kFontPath, .m_Align = asge::str::TextAlign::Center, .m_Color = asge::graphics::colors::s_Black },
+        .m_OnClick = [this]
+        {
+            if ( auto bar = m_Registry.GetComponent<UIProgressBar>( m_ProgressBar ) )
+            {
+                auto& b = bar.Value().get();
+                b.m_CurrValue = b.m_Start;
+                b.m_IsAtMax = false;
+            }
+        },
+    } );
+    if ( !progressReset ) progressReset.LogError();
 }
 
 void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer ) const
@@ -367,8 +411,15 @@ void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &inRenderer 
 }
 
 std::optional<asge::game::state::Transition<int>>
-UIDemoState::Update([[maybe_unused]] float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
+UIDemoState::Update( float inDeltaTime, [[maybe_unused]] asge::input::InputState const &inInput)
 {
+    asge::game::systems::UIDebugOverlaySystem( m_Registry );
+
+    if ( auto bar = m_Registry.GetComponent<UIProgressBar>( m_ProgressBar ) )
+    {
+        asge::game::components::Step( bar.Value().get(), kProgressPerSecond * inDeltaTime );
+    }
+
     return std::nullopt;
 }
 

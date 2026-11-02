@@ -93,6 +93,7 @@ add_library(ASGE STATIC
     Game/Components/UI/UILabel.cpp
     Game/Components/UI/UICheckbox.cpp
     Game/Components/UI/UISlider.cpp
+    Game/Components/UI/UIProgressBar.cpp
     Game/Components/UI/UIPanel.cpp
     Game/Components/UI/UILayoutItem.cpp
 

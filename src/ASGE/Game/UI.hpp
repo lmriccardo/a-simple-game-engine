@@ -7,6 +7,8 @@
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UIProgressBar.hpp>
+#include <ASGE/Game/Components/UI/UIDebugOverlay.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Strings.hpp>
 #include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
@@ -45,6 +47,7 @@ static constexpr math::Float2 kButtonSize = math::Float2{80.0f, 24.0f};
 static constexpr math::Float2 kCheckboxSize = math::Float2{24.0f, 24.0f};
 static constexpr math::Float2 kPanelSize = math::Float2{200.0f, 120.0f};
 static constexpr math::Float2 kSliderSize = math::Float2{160.0f, 24.0f};
+static constexpr math::Float2 kProgressBarSize = math::Float2{160.0f, 16.0f};
 static constexpr graphics::RGBA_Color kDefaultColor = graphics::colors::s_Black;
 static constexpr components::details::StateColors kStateColor =
     components::details::StateColors{};
@@ -127,6 +130,33 @@ struct PanelDesc
     int                        m_Layer{ -1 };            // behind default-layer widgets
 };
 
+struct ProgressBarDesc
+{
+    str::String                      m_Name;
+    math::Float2                     m_Position{};
+    math::Float2                     m_Size{ consts::kProgressBarSize };
+    components::FillDirection        m_Direction{ components::FillDirection::LeftToRight };
+    float                            m_Min{ 0.0f };
+    float                            m_Max{ 1.0f };
+    float                            m_Start{ 0.0f };
+    float                            m_DefaultStep{ 0.1f };
+    graphics::RGBA_Color             m_BackgroundColor{ graphics::colors::s_DarkGray };
+    graphics::RGBA_Color             m_FillColor{ graphics::colors::s_Magenta };
+    graphics::RGBA_Color             m_BorderColor{ graphics::colors::s_LightGray };
+    bool                             m_ScreenSpace{ true };
+    std::function<void(float)>       m_OnValueChange;
+    std::function<void(float)>       m_OnMaxReached;
+};
+
+struct DebugOverlayDesc
+{
+    str::String          m_Name{ "DebugOverlay" };
+    str::String          m_FontPath;
+    math::Float2         m_Position{ 8.0f, 8.0f };
+    float                m_RefreshInterval{ 0.25f };
+    graphics::RGBA_Color m_Color{ graphics::colors::s_White };
+};
+
 Result<ecs::Entity> CreateLabel( ecs::Registry& inReg, LabelDesc const& inDesc );
 Result<ecs::Entity> CreateButton( ecs::Registry& inReg, ButtonDesc const& inDesc );
 Result<ecs::Entity> CreateCheckbox( ecs::Registry& inReg, CheckboxDesc const& inDesc );
@@ -136,5 +166,11 @@ Result<ecs::Entity> CreateSlider( ecs::Registry& inReg, SliderDesc const& inDesc
 
 /** @brief Creates a non-interactive panel entity (UIRect + UIPanel) drawn as a background, optionally bordered. */
 Result<ecs::Entity> CreatePanel( ecs::Registry& inReg, PanelDesc const& inDesc );
+
+/** @brief Creates a non-interactive progress bar entity (UIRect + UIProgressBar) starting at m_Start, destroying it again if any component fails to attach. */
+Result<ecs::Entity> CreateProgressBar( ecs::Registry& inReg, ProgressBarDesc const& inDesc );
+
+/** @brief Creates a screen-space label (UILabel + UIDebugOverlay) showing FPS and entity count; drive it with systems::UIDebugOverlaySystem. */
+Result<ecs::Entity> CreateDebugOverlay( ecs::Registry& inReg, DebugOverlayDesc const& inDesc );
 
 }

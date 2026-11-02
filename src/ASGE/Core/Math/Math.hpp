@@ -6,3 +6,4 @@
 #include "LinearAlgebra/VectorN.hpp"
 #include "Interpolation/Easing.hpp"
 #include "Interpolation/Tween.hpp"
+#include "Scalar.hpp"

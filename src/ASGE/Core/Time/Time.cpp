@@ -1,6 +1,41 @@
 #include "Time.hpp"
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 using namespace asge::time;
+
+namespace
+{
+
+/**
+ * Sleeps for roughly inDuration. On Windows std::this_thread::sleep_for rounds up to the
+ * ~15.6 ms system timer tick, so a high-resolution waitable timer is used instead.
+ */
+void CoarseSleep( Duration inDuration ) noexcept
+{
+#ifdef _WIN32
+    // ponytail: handle lives for the whole process and is never closed; the OS reclaims it on exit.
+    static HANDLE const timer = CreateWaitableTimerExW(
+        nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS );
+    if ( timer )
+    {
+        LARGE_INTEGER due;
+        due.QuadPart = -std::chrono::duration_cast<std::chrono::nanoseconds>( inDuration ).count() / 100;
+        if ( SetWaitableTimer( timer, &due, 0, nullptr, nullptr, FALSE ) )
+        {
+            WaitForSingleObject( timer, INFINITE );
+            return;
+        }
+    }
+#endif
+    std::this_thread::sleep_for( inDuration );
+}
+
+}
 
 _internal::TimeSystem &asge::time::_internal::TimeSystem::Instance()
 {
@@ -10,8 +45,24 @@ _internal::TimeSystem &asge::time::_internal::TimeSystem::Instance()
 
 void asge::time::_internal::TimeSystem::Tick() noexcept
 {
+    // Frame limiter: wait until one target period has passed since the previous
+    // Tick, so the sleep only covers what's left of the frame budget after the
+    // caller's own Update/Render/Present work.
+    if ( s_TargetFps > 0 && s_FrameIndex > 0 )
+    {
+        const auto deadline = s_Previous + std::chrono::duration_cast<Duration>(
+            std::chrono::duration<double>( 1.0 / static_cast<double>( s_TargetFps ) ) );
+
+        // Sleeping can overshoot by a millisecond or so, so sleep coarsely
+        // and spin the last stretch.
+        constexpr auto kSpinWindow = std::chrono::milliseconds( 2 );
+        if ( const auto coarse = deadline - kSpinWindow; SteadyClock::now() < coarse )
+            CoarseSleep( coarse - SteadyClock::now() );
+        while ( SteadyClock::now() < deadline ) std::this_thread::yield();
+    }
+
     const auto now = SteadyClock::now();
-    
+
     if ( s_FrameIndex > 0 )
     {
         const auto rawDelta = std::chrono::duration_cast<Seconds>(now - s_Previous);
@@ -26,18 +77,6 @@ void asge::time::_internal::TimeSystem::Tick() noexcept
 
     s_Previous = now;
     ++s_FrameIndex;
-
-    if ( s_TargetFps > 0 )
-    {
-        const auto target_d = 1.0 / static_cast<double>(s_TargetFps);
-        const auto target = std::chrono::duration<double>(target_d);
-        const auto elapsed = SteadyClock::now() - now;
-
-        if ( elapsed < target )
-        {
-            std::this_thread::sleep_for(target - elapsed);
-        }
-    }
 }
 
 float asge::time::_internal::TimeSystem::Delta() const noexcept

@@ -1,5 +1,7 @@
 #include "CatmullRomSpline.hpp"
 
+#include "../Scalar.hpp"
+
 float asge::math::BuildArcLengthTable(
     Float2 const &inP0, Float2 const &inP1, Float2 const &inP2,
     Float2 const &inP3, std::size_t inResolution, std::vector<ArcLengthSample> &outTable) noexcept
@@ -61,7 +63,7 @@ asge::math::Float2 asge::math::HermiteDerivative(
 
 std::pair<std::size_t, float> asge::math::CatmullRomSpline::LocateSegment(float inTime) const
 {
-    inTime = std::clamp(inTime, 0.0f, 1.0f);
+    inTime = Saturate( inTime );
 
     // 1. map global t -> (segment index, local t within that segment)
     const std::size_t n = m_Segments.size();
@@ -74,7 +76,7 @@ std::pair<std::size_t, float> asge::math::CatmullRomSpline::LocateSegment(float 
 
 std::pair<std::size_t, float> asge::math::CatmullRomSpline::LocateByDistance(float inDistance) const noexcept
 {
-    inDistance = std::clamp( inDistance, 0.0f, m_TotalLength );
+    inDistance = Clamp( inDistance, 0.0f, m_TotalLength );
 
     // 1. Find the segment containing this distance
     auto segIt = std::upper_bound(

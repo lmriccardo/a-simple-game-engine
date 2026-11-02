@@ -1,6 +1,7 @@
 #include <ASGE/Game/Components.hpp>
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
+#include <ASGE/Game/Components/UI/UIProgressBar.hpp>
 #include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
 
 #include <gtest/gtest.h>
@@ -21,7 +22,7 @@ using asge::config::toml::TOMLBuilder;
 
 TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 21);
+    static_assert(std::tuple_size_v<SerializableComponents> == 22);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -43,6 +44,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UISlider>);
     static_assert(std::is_same_v<std::tuple_element_t<19, SerializableComponents>, UIPanel>);
     static_assert(std::is_same_v<std::tuple_element_t<20, SerializableComponents>, UILayoutItem>);
+    static_assert(std::is_same_v<std::tuple_element_t<21, SerializableComponents>, UIProgressBar>);
     SUCCEED();
 }
 
@@ -70,6 +72,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<UISlider>::kTableName, "UISlider");
     EXPECT_EQ(Serializer<UIPanel>::kTableName, "UIPanel");
     EXPECT_EQ(Serializer<UILayoutItem>::kTableName, "UILayoutItem");
+    EXPECT_EQ(Serializer<UIProgressBar>::kTableName, "UIProgressBar");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -1360,6 +1363,117 @@ TEST(UILayoutItemSerializerTest, FromToml_UnknownAlignName_FallsBackToStart)
 
     UILayoutItem const restored = Serializer<UILayoutItem>::FromToml( builder, asge::game::scene::LoadContext{} );
     EXPECT_EQ(restored.m_AlignX, SlotAlign::Start);
+}
+
+// ─── UIProgressBar ──────────────────────────────────────────────────────────
+
+TEST(UIProgressBarSerializerTest, KTableName_IsUIProgressBar)
+{
+    EXPECT_EQ(Serializer<UIProgressBar>::kTableName, "UIProgressBar");
+}
+
+TEST(UIProgressBarSerializerTest, ToToml_WritesAllFieldsUnderUIProgressBarTable)
+{
+    TOMLBuilder builder;
+    UIProgressBar value{};
+    value.m_Direction = FillDirection::BottomToTop;
+    value.m_Min = -1.0f;
+    value.m_Max = 4.0f;
+    value.m_Start = 2.5f;
+    value.m_DefaultStep = 0.5f;
+    Serializer<UIProgressBar>::ToToml( value, builder, asge::game::scene::SaveContext{} );
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[UIProgressBar]"), std::string::npos);
+    EXPECT_NE(dump.find("m_Direction = \"BottomToTop\""), std::string::npos);
+    EXPECT_NE(dump.find("m_Min = -1.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Max = 4.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_Start = 2.5"), std::string::npos);
+    EXPECT_NE(dump.find("m_DefaultStep = 0.5"), std::string::npos);
+    EXPECT_NE(dump.find("m_BackgroundColor"), std::string::npos);
+    EXPECT_NE(dump.find("m_FillColor"), std::string::npos);
+    EXPECT_NE(dump.find("m_BorderColor"), std::string::npos);
+}
+
+TEST(UIProgressBarSerializerTest, RoundTrips_EveryFillDirection)
+{
+    for ( auto const direction : { FillDirection::LeftToRight, FillDirection::RightToLeft,
+                                   FillDirection::TopToBottom, FillDirection::BottomToTop } )
+    {
+        TOMLBuilder builder;
+        UIProgressBar original{};
+        original.m_Direction = direction;
+        Serializer<UIProgressBar>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+        UIProgressBar const restored = Serializer<UIProgressBar>::FromToml( builder, asge::game::scene::LoadContext{} );
+        EXPECT_EQ(restored.m_Direction, direction);
+    }
+}
+
+TEST(UIProgressBarSerializerTest, RoundTrips_RangeStepAndColors)
+{
+    TOMLBuilder builder;
+    UIProgressBar original{};
+    original.m_Min = -1.0f;
+    original.m_Max = 4.0f;
+    original.m_Start = 2.5f;
+    original.m_DefaultStep = 0.5f;
+    original.m_BackgroundColor = { 1, 2, 3, 4 };
+    original.m_FillColor = { 5, 6, 7, 8 };
+    original.m_BorderColor = { 9, 10, 11, 12 };
+    Serializer<UIProgressBar>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIProgressBar const restored = Serializer<UIProgressBar>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_Min, -1.0f);
+    EXPECT_FLOAT_EQ(restored.m_Max, 4.0f);
+    EXPECT_FLOAT_EQ(restored.m_Start, 2.5f);
+    EXPECT_FLOAT_EQ(restored.m_DefaultStep, 0.5f);
+    EXPECT_EQ(restored.m_BackgroundColor.r, 1);
+    EXPECT_EQ(restored.m_BackgroundColor.a, 4);
+    EXPECT_EQ(restored.m_FillColor.g, 6);
+    EXPECT_EQ(restored.m_FillColor.b, 7);
+    EXPECT_EQ(restored.m_BorderColor.r, 9);
+    EXPECT_EQ(restored.m_BorderColor.a, 12);
+}
+
+TEST(UIProgressBarSerializerTest, FromToml_SeedsCurrentValueFromStartAndLeavesRuntimeStateClear)
+{
+    TOMLBuilder builder;
+    UIProgressBar original{};
+    original.m_Start = 0.75f;
+    original.m_CurrValue = 0.9f;
+    original.m_IsAtMax = true;
+    Serializer<UIProgressBar>::ToToml( original, builder, asge::game::scene::SaveContext{} );
+
+    UIProgressBar const restored = Serializer<UIProgressBar>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_FLOAT_EQ(restored.m_CurrValue, 0.75f);
+    EXPECT_FALSE(restored.m_IsAtMax);
+}
+
+TEST(UIProgressBarSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("UIProgressBar"); // present but empty
+
+    UIProgressBar const restored = Serializer<UIProgressBar>::FromToml( builder, asge::game::scene::LoadContext{} );
+    UIProgressBar const defaults{};
+    EXPECT_EQ(restored.m_Direction, defaults.m_Direction);
+    EXPECT_FLOAT_EQ(restored.m_Min, defaults.m_Min);
+    EXPECT_FLOAT_EQ(restored.m_Max, defaults.m_Max);
+    EXPECT_FLOAT_EQ(restored.m_Start, defaults.m_Start);
+    EXPECT_FLOAT_EQ(restored.m_DefaultStep, defaults.m_DefaultStep);
+    EXPECT_EQ(restored.m_BackgroundColor.r, defaults.m_BackgroundColor.r);
+    EXPECT_EQ(restored.m_FillColor.r, defaults.m_FillColor.r);
+    EXPECT_EQ(restored.m_BorderColor.r, defaults.m_BorderColor.r);
+}
+
+TEST(UIProgressBarSerializerTest, FromToml_UnknownDirectionName_FallsBackToLeftToRight)
+{
+    TOMLBuilder builder;
+    builder.Table("UIProgressBar").Set("m_Direction", std::string("Diagonal"));
+
+    UIProgressBar const restored = Serializer<UIProgressBar>::FromToml( builder, asge::game::scene::LoadContext{} );
+    EXPECT_EQ(restored.m_Direction, FillDirection::LeftToRight);
 }
 
 // ─── RenderInfo ─────────────────────────────────────────────────────────────

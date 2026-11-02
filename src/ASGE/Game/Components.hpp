@@ -24,6 +24,8 @@
 #include "Components/UI/UISlider.hpp"
 #include "Components/UI/UIPanel.hpp"
 #include "Components/UI/UILayoutItem.hpp"
+#include "Components/UI/UIProgressBar.hpp"
+#include "Components/UI/UIDebugOverlay.hpp"
 
 namespace asge::game::components
 {
@@ -42,7 +44,7 @@ using SerializableComponents = std::tuple<
     Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
     AudioSource, Camera, PathFollow, Name, ecs::components::Hierarchy,
     ecs::markers::Disable, UIButton, RenderInfo, UIRect, Interactable,
-    UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem
+    UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem, UIProgressBar
 >;
 
 /** @brief Every component type belonging to the UI subsystem. */

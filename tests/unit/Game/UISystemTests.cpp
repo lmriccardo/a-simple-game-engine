@@ -4,6 +4,7 @@
 #include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <ASGE/Game/UI.hpp>
 #include <ASGE/Game/Components/UI/UILayoutItem.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
@@ -1044,6 +1045,31 @@ TEST(UIInteractionSystemTest, CompletedClickOnSlider_DoesNotFireOnValueChangedOn
     asge::game::systems::UIInteractionSystem( registry, input, kIdentityCamera );
 
     EXPECT_EQ( fired, 0 );
+}
+
+TEST(UIDebugOverlaySystemTest, WritesFpsAndEntityCountIntoTheLabel)
+{
+    Registry registry;
+    auto const overlay = asge::game::ui::CreateDebugOverlay( registry, {
+        .m_FontPath = "fonts/any.ttf", .m_RefreshInterval = 0.0f } ).Value();
+    auto const other = registry.CreateEntity().Value();
+    (void)other;
+
+    asge::game::systems::UIDebugOverlaySystem( registry );
+
+    // No TimeSystem::Tick() ran in a test, so the frame delta is zero -> FPS 0.
+    EXPECT_EQ( registry.GetComponent<UILabel>( overlay ).Value().get().m_Text, "FPS min 0 / avg 0 / max 0 | Entities: 2" );
+}
+
+TEST(UIDebugOverlaySystemTest, LeavesTextAloneUntilTheIntervalElapses)
+{
+    Registry registry;
+    auto const overlay = asge::game::ui::CreateDebugOverlay( registry, {
+        .m_FontPath = "fonts/any.ttf", .m_RefreshInterval = 1000.0f } ).Value();
+
+    asge::game::systems::UIDebugOverlaySystem( registry );
+
+    EXPECT_EQ( registry.GetComponent<UILabel>( overlay ).Value().get().m_Text, "FPS min -- / avg -- / max -- | Entities: --" );
 }
 
 }
