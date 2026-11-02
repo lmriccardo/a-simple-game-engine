@@ -7,6 +7,7 @@
 namespace asge::game::components
 {
 
+/** @brief Direction in which a UIProgressBar's fill grows as its value increases. */
 enum class FillDirection
 {
     LeftToRight,
@@ -15,6 +16,13 @@ enum class FillDirection
     BottomToTop
 };
 
+/**
+ * @brief UI component for a bar that fills between a minimum and a maximum value.
+ *
+ * The serializable fields configure range, start value, step and colors; the
+ * runtime fields track the current value and expose signals for value changes
+ * and for reaching the maximum.
+ */
 struct UIProgressBar
 {
     using Color  = graphics::RGBA_Color;
@@ -38,7 +46,15 @@ struct UIProgressBar
     Signal m_OnMaxReached{};
 };
 
+/**
+ * @brief Advances the bar by @p inStep and emits m_OnValueChange with the new value.
+ *
+ * The value is clamped to [m_Min, m_Max]; nothing happens if it doesn't change or the
+ * maximum was already reached. On reaching m_Max, m_OnMaxReached is emitted instead.
+ */
 void Step( UIProgressBar& inBar, float inStep ) noexcept;
+
+/** @brief Advances the bar by its m_DefaultStep; see the overload taking an explicit step. */
 void Step( UIProgressBar& inBar ) noexcept;
 
 }

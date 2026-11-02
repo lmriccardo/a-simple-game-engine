@@ -1,6 +1,6 @@
 #include "UIProgressBar.hpp"
 
-#include <algorithm>
+#include <ASGE/Core/Math/Scalar.hpp>
 
 namespace
 {
@@ -82,19 +82,16 @@ void asge::game::components::Step(UIProgressBar &inBar, float inStep) noexcept
 {
     if ( inBar.m_IsAtMax ) return;
 
-    float const newVal = inBar.m_CurrValue + inStep;
-    if ( newVal <= inBar.m_Min ) return;
     float const prevVal = inBar.m_CurrValue;
+    float const newVal = math::Clamp( prevVal + inStep, inBar.m_Min, inBar.m_Max );
+    if ( newVal == prevVal ) return;
+
     inBar.m_CurrValue = newVal;
-    
+
     if ( newVal >= inBar.m_Max )
     {
-        if ( prevVal < inBar.m_Max )
-        {
-            inBar.m_OnMaxReached.Emit( inBar.m_Max );
-            inBar.m_IsAtMax = true;
-        }
-
+        inBar.m_OnMaxReached.Emit( inBar.m_Max );
+        inBar.m_IsAtMax = true;
         return;
     }
 

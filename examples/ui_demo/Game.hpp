@@ -42,6 +42,11 @@
  * UIButton, drawing an inset m_CheckColor square on top of the box once
  * m_Checked is toggled true.
  *
+ * A progress bar built with asge::game::ui::CreateProgressBar sits beside
+ * the panel: Update() calls Step() on it every frame so it fills over five
+ * seconds, logging once when it reaches its maximum, and a "Restart" button
+ * resets it.
+ *
  * Hover/held/m_OnClick are entirely engine-driven: SpawnEntities() sets the
  * resources::UIHitList resource once, RenderSystem rebuilds it every frame,
  * and Update() just calls systems::UIInteractionSystem -- this state never
@@ -59,6 +64,7 @@ class UIDemoState final : public asge::game::state::IGameState<int>
     asge::ecs::Entity m_OverlapBack { asge::ecs::Entity::Null() }; // lower layer, shifted -- partly exposed and still clickable
     asge::ecs::Entity m_Checkbox    { asge::ecs::Entity::Null() }; // toggled by click -- see UICheckbox::m_OnToggled
     asge::ecs::Entity m_Slider      { asge::ecs::Entity::Null() }; // dragged -- see UISlider::m_OnValueChanged
+    asge::ecs::Entity m_ProgressBar { asge::ecs::Entity::Null() }; // stepped every frame in Update() -- see UIProgressBar
 
     void SpawnEntities();
     void RenderSpriteButtonOutline( asge::video::IRenderer& inRenderer ) const;

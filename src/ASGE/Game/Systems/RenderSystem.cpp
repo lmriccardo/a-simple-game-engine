@@ -7,6 +7,7 @@
 #include <utility>
 #include <tuple>
 
+#include <ASGE/Core/Math/Scalar.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Events.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
@@ -20,6 +21,7 @@
 #include <ASGE/Game/Components/UI/UICheckbox.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UIProgressBar.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Game/Resources/ScreenSpaceCamera.hpp>
@@ -401,6 +403,35 @@ void Draw(
     }
 }
 
+void Draw(
+    ecs::Registry const& inReg, video::IRenderer& inRenderer,
+    DrawItem const& inItem, UIProgressBar const& inBar )
+{
+    math::Rect const& box = inItem.m_DstRect;
+    float const progress = math::Normalize01( inBar.m_CurrValue, inBar.m_Min, inBar.m_Max );
+
+    // 1. Background: the full box
+    inRenderer.DrawRect( box, inBar.m_BackgroundColor, true );
+
+    // 2. Fill: a sub-rect of the box, sized by progress along the fill direction
+    math::Rect fill = box;
+    float const w = box.m_Width  * progress;
+    float const h = box.m_Height * progress;
+
+    switch ( inBar.m_Direction )
+    {
+    case FillDirection::LeftToRight: fill.m_Width = w; break;
+    case FillDirection::RightToLeft: fill.m_X = box.m_X + box.m_Width - w; fill.m_Width = w; break;
+    case FillDirection::TopToBottom: fill.m_Height = h; break;
+    case FillDirection::BottomToTop: fill.m_Y = box.m_Y + box.m_Height - h; fill.m_Height = h; break;
+    }
+
+    inRenderer.DrawRect( fill, inBar.m_FillColor, true );
+
+    // 3. Border: unfilled outline on top, like UIPanel
+    inRenderer.DrawRect( box, inBar.m_BorderColor, false );
+}
+
 /**
  * @brief Draws a UIRect by dispatching to whichever of UIWidgets it also
  *        carries (UIButton/UICheckbox pick their fill color from a sibling
@@ -411,7 +442,7 @@ void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, [[maybe_unused]] UIRect const& inRect )
 {
-    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox, UISlider, UIPanel>;
+    using UIWidgets = std::tuple<UIButton, UILabel, UICheckbox, UISlider, UIPanel, UIProgressBar>;
     functools::ForEachTupleType<UIWidgets>( [&]<typename T> 
         {
             if ( auto r = inReg.GetComponent<T>( inItem.m_Entity ) )

@@ -7,6 +7,7 @@
 #include <ASGE/Game/Components/UI/UILabel.hpp>
 #include <ASGE/Game/Components/UI/UISlider.hpp>
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
+#include <ASGE/Game/Components/UI/UIProgressBar.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 
@@ -211,6 +212,31 @@ asge::game::ui::CreatePanel( ecs::Registry& inReg, PanelDesc const& inDesc )
              .m_Border = inDesc.m_Border, .m_BorderColor = inDesc.m_BorderColor } ); !r )
     {
         return fail( r.Error() );
+    }
+
+    return entityR;
+}
+
+asge::Result<asge::ecs::Entity>
+asge::game::ui::CreateProgressBar( ecs::Registry& inReg, ProgressBarDesc const& inDesc )
+{
+    auto entityR = CreateUIEntity( inReg, inDesc.m_Name, inDesc.m_Position, inDesc.m_Size, inDesc.m_ScreenSpace );
+    if ( !entityR ) return entityR;
+    ecs::Entity const e = entityR.Value();
+
+    components::UIProgressBar bar{
+        .m_Direction = inDesc.m_Direction, .m_Min = inDesc.m_Min, .m_Max = inDesc.m_Max,
+        .m_Start = inDesc.m_Start, .m_DefaultStep = inDesc.m_DefaultStep,
+        .m_BackgroundColor = inDesc.m_BackgroundColor, .m_FillColor = inDesc.m_FillColor,
+        .m_BorderColor = inDesc.m_BorderColor, .m_CurrValue = inDesc.m_Start
+    };
+    if ( inDesc.m_OnValueChange ) bar.m_OnValueChange.Connect( inDesc.m_OnValueChange );
+    if ( inDesc.m_OnMaxReached ) bar.m_OnMaxReached.Connect( inDesc.m_OnMaxReached );
+
+    if ( auto r = inReg.AddComponent<components::UIProgressBar>( e, std::move( bar ) ); !r )
+    {
+        auto _ = inReg.DestroyEntity( e );
+        return Result<ecs::Entity>::Err( r.Error() );
     }
 
     return entityR;
