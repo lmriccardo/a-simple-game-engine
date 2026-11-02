@@ -207,7 +207,7 @@ def render_page(*, page: Page, body: str, sidebar: str | None = None, raw: bool 
 </main>
 <footer class="site-footer">
   <div class="container">
-    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
     <div class="footer-links">
       <a href="{GITHUB_URL}" target="_blank" rel="noopener">GitHub</a>
       <a href="{GITHUB_URL}/issues" target="_blank" rel="noopener">Issues</a>
