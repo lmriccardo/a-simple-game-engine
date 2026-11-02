@@ -23,6 +23,17 @@ bool asge::game::components::PlayClip( Animation& inAnim, str::StringView inName
     return true;
 }
 
+float asge::game::components::EffectiveFrameDuration( Animation const& inAnim ) noexcept
+{
+    for ( auto const& [name, path] : inAnim.m_Clips )
+    {
+        if ( path != inAnim.m_ClipPath ) continue;
+        auto const it = inAnim.m_ClipFrameDurations.find( name );
+        if ( it != inAnim.m_ClipFrameDurations.end() && it->second > 0.0f ) return it->second;
+    }
+    return inAnim.m_FrameDuration;
+}
+
 void asge::game::components::StopAnimation( Animation& inAnim ) noexcept
 {
     inAnim.m_Playing = false;
@@ -38,7 +49,18 @@ void asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(
         clipPaths.push_back( path );
     }
 
+    // Parallel arrays again; only overrides for a name that still exists in m_Clips are written.
+    std::vector<std::string> durationNames;
+    std::vector<double> durationValues;
+    for ( auto const& [name, seconds] : inValue.m_ClipFrameDurations )
+    {
+        if ( !inValue.m_Clips.contains( name ) ) continue;
+        durationNames.push_back( name );
+        durationValues.push_back( seconds );
+    }
+
     auto table = inTview.Table(std::string(kTableName));
+    if ( !durationNames.empty() ) table.SetArray<std::string>("m_ClipDurationNames", durationNames).SetArray<double>("m_ClipDurationValues", durationValues);
     if ( !clipNames.empty() ) table.SetArray<std::string>("m_ClipNames", clipNames).SetArray<std::string>("m_ClipPaths", clipPaths);
     table.Set<std::string>("m_ClipPath", inValue.m_ClipPath)
            .Set("m_FrameDuration", inValue.m_FrameDuration)
@@ -60,6 +82,13 @@ asge::game::components::Animation asge::game::scene::Serializer<asge::game::comp
     for ( std::size_t i = 0; i < std::min( clipNames.size(), clipPaths.size() ); ++i )
     {
         result.m_Clips[clipNames[i]] = clipPaths[i];
+    }
+
+    auto const durationNames = table.GetArray<std::string>("m_ClipDurationNames");
+    auto const durationValues = table.GetArray<double>("m_ClipDurationValues");
+    for ( std::size_t i = 0; i < std::min( durationNames.size(), durationValues.size() ); ++i )
+    {
+        result.m_ClipFrameDurations[durationNames[i]] = static_cast<float>( durationValues[i] );
     }
 
     result.m_FrameDuration = table.Get("m_FrameDuration", result.m_FrameDuration);

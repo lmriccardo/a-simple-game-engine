@@ -46,6 +46,7 @@ struct Animation
 
     str::String m_ClipPath{}; // Virtual path of the clip's FrameTable TOML meta-file
     std::map<str::String, str::String, std::less<>> m_Clips{}; // Serialized. Named clips (idle/run/...) -> clip path, switched to by PlayClip
+    std::map<str::String, float, std::less<>> m_ClipFrameDurations{}; // Serialized. Optional per-clip frame duration (seconds) keyed by a m_Clips name; see EffectiveFrameDuration
     frame_table m_Clip{};     // Resolved FrameTable asset -- null until AssetManager::ResolveAssets runs
     str::String m_ResolvedClipPath{}; // Runtime-only: the path m_Clip was actually last resolved from
 
@@ -74,6 +75,13 @@ void PlayAnimation( Animation& inAnim, bool inLoop = true ) noexcept;
  */
 bool PlayClip( Animation& inAnim, str::StringView inName, bool inLoop = true ) noexcept;
 
+/**
+ * @brief The fallback seconds-per-frame for inAnim's current clip: the m_ClipFrameDurations override of a
+ *        named clip whose path is m_ClipPath if it has a positive one, else m_FrameDuration. A per-frame
+ *        entry in the clip's FrameTable still takes precedence over this.
+ */
+[[nodiscard]] float EffectiveFrameDuration( Animation const& inAnim ) noexcept;
+
 /** @brief Pauses playback in place; AnimationSystem stops advancing this Animation until PlayAnimation is called again. */
 void StopAnimation( Animation& inAnim ) noexcept;
 
@@ -83,7 +91,7 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_ClipPath, m_Clips, m_FrameDuration, m_PlaybackSpeed, m_Loop and
+ * @brief Round-trips m_ClipPath, m_Clips, m_ClipFrameDurations, m_FrameDuration, m_PlaybackSpeed, m_Loop and
  *        m_StartPlaying — which clip to play, the named clips it can switch
  *        to, how fast, whether it loops and whether it starts playing, not
  *        the live playback progress. FromToml seeds m_Playing

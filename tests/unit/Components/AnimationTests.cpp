@@ -6,6 +6,7 @@ namespace
 {
 
 using asge::game::components::Animation;
+using asge::game::components::EffectiveFrameDuration;
 using asge::game::components::PlayClip;
 using asge::game::components::StopAnimation;
 
@@ -14,6 +15,45 @@ Animation MakeAnimation()
     Animation anim{ .m_ClipPath = "clips/idle.toml" };
     anim.m_Clips = { { "idle", "clips/idle.toml" }, { "run", "clips/run.toml" } };
     return anim;
+}
+
+// ─── EffectiveFrameDuration ──────────────────────────────────────────────────
+
+TEST(EffectiveFrameDurationTest, NoOverride_UsesComponentFrameDuration)
+{
+    auto anim = MakeAnimation();
+    anim.m_FrameDuration = 0.25f;
+    EXPECT_FLOAT_EQ(EffectiveFrameDuration(anim), 0.25f);
+}
+
+TEST(EffectiveFrameDurationTest, OverrideOfCurrentClip_WinsOverComponentValue)
+{
+    auto anim = MakeAnimation();
+    anim.m_ClipFrameDurations["idle"] = 0.5f;
+    EXPECT_FLOAT_EQ(EffectiveFrameDuration(anim), 0.5f);
+}
+
+TEST(EffectiveFrameDurationTest, OverrideOfOtherClip_IsIgnored)
+{
+    auto anim = MakeAnimation();
+    anim.m_ClipFrameDurations["run"] = 0.05f;
+    EXPECT_FLOAT_EQ(EffectiveFrameDuration(anim), anim.m_FrameDuration);
+}
+
+TEST(EffectiveFrameDurationTest, SwitchingClipSwitchesDuration)
+{
+    auto anim = MakeAnimation();
+    anim.m_ClipFrameDurations = { { "idle", 0.5f }, { "run", 0.05f } };
+    EXPECT_FLOAT_EQ(EffectiveFrameDuration(anim), 0.5f);
+    ASSERT_TRUE(PlayClip(anim, "run"));
+    EXPECT_FLOAT_EQ(EffectiveFrameDuration(anim), 0.05f);
+}
+
+TEST(EffectiveFrameDurationTest, NonPositiveOverride_FallsBackToComponentValue)
+{
+    auto anim = MakeAnimation();
+    anim.m_ClipFrameDurations["idle"] = 0.0f;
+    EXPECT_FLOAT_EQ(EffectiveFrameDuration(anim), anim.m_FrameDuration);
 }
 
 // ─── PlayClip ────────────────────────────────────────────────────────────────
