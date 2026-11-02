@@ -488,9 +488,8 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
 }
 
 // Lists inAnimation.m_Clips (name, Play to switch to it, Remove, and a path
-// dropdown) plus a name field to register another clip, pointed at the current
-// m_ClipPath until its dropdown is changed. A name is fixed once added --
-// remove and re-add to rename, since it's the map key. Returns true when a
+// dropdown) plus a picker that registers another known animation as a clip named after
+// it. A name is fixed once added -- remove and re-add to rename, since it's the map key. Returns true when a
 // clip was added, removed, repointed or played, i.e. m_ClipPath may have
 // changed and AssetManager::ResolveAssets needs re-running.
 bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
@@ -520,18 +519,25 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
         changed = true;
     }
 
-    static std::string s_NewClipName;
-    ImGui::SetNextItemWidth( ImGui::GetContentRegionAvail().x - 80.0f ); // leave room for Add Clip on the same line
-    ImGui::InputTextWithHint( "##newclip", "Clip name", &s_NewClipName );
-    ImGui::SameLine();
-    ImGui::BeginDisabled( s_NewClipName.empty() || inAnimation.m_Clips.contains( s_NewClipName ) );
-    if ( ImGui::Button( "Add Clip" ) )
+    // Picking an animation registers it at once under its own name (ClipNameFromPath), so the
+    // name is never typed a second time. Animations already registered by that name are skipped.
+    ImGui::SetNextItemWidth( -FLT_MIN );
+    if ( ImGui::BeginCombo( "##addclip", "Add clip from animation..." ) )
     {
-        inAnimation.m_Clips[s_NewClipName] = inAnimation.m_ClipPath;
-        s_NewClipName.clear();
-        changed = true;
+        for ( auto const& path : inKnownAnimations )
+        {
+            auto const name = ClipNameFromPath( path );
+            if ( inAnimation.m_Clips.contains( name ) ) continue;
+            ImGui::PushID( path.c_str() ); // two animations can share a name
+            if ( ImGui::Selectable( name.c_str() ) )
+            {
+                inAnimation.m_Clips[name] = path;
+                changed = true;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
     }
-    ImGui::EndDisabled();
 
     ImGui::TreePop();
     return changed;
