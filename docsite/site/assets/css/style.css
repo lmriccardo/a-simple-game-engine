@@ -487,7 +487,7 @@ th { color: var(--text-muted); font-weight: 600; }
 .api-member-note { font-size: 0.85rem; margin-top: 6px; }
 .api-location-line { font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; }
 .api-location { font-family: var(--font-mono); }
-.api-kind-tag { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+.api-kind-tag { margin-left: 12px; font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
 .api-prot-protected { color: var(--warn); border-color: var(--warn); }
 .api-prot-private { color: var(--danger); border-color: var(--danger); }
 
@@ -710,3 +710,5 @@ th { color: var(--text-muted); font-weight: 600; }
 .btn-row[role="group"], .btn-row:has(.btn[aria-pressed]) { margin: 20px 0; }
 /* content modules set inline section padding; the article shell owns vertical rhythm */
 .article section[style] { padding-block: 0 !important; }
+.article .kicker { display: block; margin-bottom: 4px; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
+.api-title { font-size: clamp(1.75rem, 3vw, 2.5rem); }
