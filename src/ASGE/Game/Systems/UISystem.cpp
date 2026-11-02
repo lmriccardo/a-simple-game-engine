@@ -358,14 +358,23 @@ void asge::game::systems::UIDebugOverlaySystem( ecs::Registry& inReg ) noexcept
         auto& o = overlay.get();
         o.m_Accumulated += dt;
         ++o.m_Frames;
+        if ( dt > 0.0f )
+        {
+            o.m_MinDelta = o.m_MinDelta > 0.0f ? std::min( o.m_MinDelta, dt ) : dt;
+            o.m_MaxDelta = std::max( o.m_MaxDelta, dt );
+        }
         if ( o.m_Accumulated < o.m_RefreshInterval ) continue;
 
         auto label = inReg.GetComponent<components::UILabel>( e );
         if ( !label ) continue;
 
-        float const fps = o.m_Accumulated > 0.0f ? static_cast<float>( o.m_Frames ) / o.m_Accumulated : 0.0f;
-        label.Value().get().m_Text = std::format( "FPS: {:.0f}\nEntities: {}", fps, inReg.AllEntities().size() );
+        auto const toFps = []( float inDelta ) { return inDelta > 0.0f ? 1.0f / inDelta : 0.0f; };
+        float const avg = o.m_Accumulated > 0.0f ? static_cast<float>( o.m_Frames ) / o.m_Accumulated : 0.0f;
+        label.Value().get().m_Text = std::format( "FPS min {:.0f} / avg {:.0f} / max {:.0f} | Entities: {}",
+            toFps( o.m_MaxDelta ), avg, toFps( o.m_MinDelta ), inReg.AllEntities().size() );
         o.m_Accumulated = 0.0f;
+        o.m_MinDelta = 0.0f;
+        o.m_MaxDelta = 0.0f;
         o.m_Frames = 0;
     }
 }

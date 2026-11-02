@@ -1058,7 +1058,7 @@ TEST(UIDebugOverlaySystemTest, WritesFpsAndEntityCountIntoTheLabel)
     asge::game::systems::UIDebugOverlaySystem( registry );
 
     // No TimeSystem::Tick() ran in a test, so the frame delta is zero -> FPS 0.
-    EXPECT_EQ( registry.GetComponent<UILabel>( overlay ).Value().get().m_Text, "FPS: 0\nEntities: 2" );
+    EXPECT_EQ( registry.GetComponent<UILabel>( overlay ).Value().get().m_Text, "FPS min 0 / avg 0 / max 0 | Entities: 2" );
 }
 
 TEST(UIDebugOverlaySystemTest, LeavesTextAloneUntilTheIntervalElapses)
@@ -1069,7 +1069,7 @@ TEST(UIDebugOverlaySystemTest, LeavesTextAloneUntilTheIntervalElapses)
 
     asge::game::systems::UIDebugOverlaySystem( registry );
 
-    EXPECT_EQ( registry.GetComponent<UILabel>( overlay ).Value().get().m_Text, "FPS: --\nEntities: --" );
+    EXPECT_EQ( registry.GetComponent<UILabel>( overlay ).Value().get().m_Text, "FPS min -- / avg -- / max -- | Entities: --" );
 }
 
 }

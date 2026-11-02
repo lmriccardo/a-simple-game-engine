@@ -247,7 +247,7 @@ asge::game::ui::CreateDebugOverlay( ecs::Registry& inReg, DebugOverlayDesc const
 {
     auto entityR = CreateLabel( inReg, LabelDesc{
         .m_Name = inDesc.m_Name, .m_Position = inDesc.m_Position,
-        .m_Text = { .m_Content = "FPS: --\nEntities: --", .m_FontPath = inDesc.m_FontPath,
+        .m_Text = { .m_Content = "FPS min -- / avg -- / max -- | Entities: --", .m_FontPath = inDesc.m_FontPath,
                     .m_Align = str::TextAlign::Left, .m_VerticalAlign = components::VerticalAlign::Top,
                     .m_Color = inDesc.m_Color } } );
     if ( !entityR ) return entityR;
