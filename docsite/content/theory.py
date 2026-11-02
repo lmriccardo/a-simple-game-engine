@@ -7,6 +7,7 @@ are checked against src/ASGE.
 import html
 
 from _shared import Page, code_card, register, render_page
+from content.diagrams import ECS as ECS_DIAGRAM, EVENTS as EVENTS_DIAGRAM, GAME_LOOP, LAYERS
 from content.theory_systems import PAGES as SYSTEM_PAGES
 from content.theory_systems import src
 
@@ -59,6 +60,7 @@ systems instead of living in one class, and removing an entity while iterating n
 (the player controller, say) plain code is often clearer; the ECS earns its keep for the many similar things in a scene.</p>
 
 <h2>How ASGE does it</h2>
+""" + ECS_DIAGRAM + """
 <h3>Generational entity handles</h3>
 <p>An <code>asge::ecs::Entity</code> is an index plus a generation counter. When an entity is destroyed its
 slot is recycled and its generation is bumped, so any stale handle still held elsewhere fails
@@ -144,6 +146,7 @@ more deterministic.</p>
 input state), <strong>update</strong> (advance the simulation), <strong>render</strong> (draw the result) and
 <strong>present</strong> (swap the finished image onto the screen). Doing input first means the update sees the freshest
 state; presenting last is what makes a frame visible at all.</p>
+""" + GAME_LOOP + """
 <h3>Delta time</h3>
 <p>Without delta time, <code>x += 5</code> each frame moves twice as far at 120 FPS as at 60 FPS. Multiplying by the
 seconds since the last frame, <code>x += speed * dt</code>, makes motion depend on <em>time</em> and not on frame rate. A
@@ -244,6 +247,7 @@ and the next emit calls into freed memory. Any signal design therefore needs a w
 automatically when the listener goes away.</p>
 
 <h2>How ASGE does it</h2>
+""" + EVENTS_DIAGRAM + """
 <h3>System events</h3>
 <p>SDL events are translated once, in <code>event::_internal::ProcessEvent</code>, into
 <code>asge::event::SystemEvent</code>: a <code>std::variant</code> over <code>QuitEvent</code>,
@@ -336,6 +340,7 @@ INDEX = """
 <h1>Engine theory</h1>
 <p class="lede">What the main parts of a game engine do, and how ASGE implements each one.
 Every page first explains the concept, then shows the ASGE types that realise it, with a short snippet.</p>
+""" + LAYERS + """
 <div class="grid">
 """ + "\n".join(
     f'<a class="card" href="{slug}.html"><h3>{html.escape(title)}</h3><p>{html.escape(summary)}</p></a>'

@@ -6,6 +6,7 @@ Type and function names are checked against src/ASGE. Each entry of PAGES is
 import html
 
 from _shared import GITHUB_URL, code_card
+from content.diagrams import PHYSICS as PHYSICS_DIAGRAM, SCENES as SCENES_DIAGRAM, RENDERING as RENDERING_DIAGRAM, ASSETS as ASSETS_DIAGRAM, INPUT as INPUT_DIAGRAM, AUDIO as AUDIO_DIAGRAM
 
 SRC = f"{GITHUB_URL}/blob/main/src/ASGE"
 
@@ -40,6 +41,7 @@ several small motions in one frame are lost.</p>
 expressed in key codes; remapping then means changing a binding instead of rewriting logic.</p>
 
 <h2>How ASGE does it</h2>
+""" + INPUT_DIAGRAM + """
 <p><code>asge::input::InputSystem</code> is owned by <code>Application</code> and mirrors <code>VideoSystem</code>'s shape.
 Every frame the loop calls <code>NewFrame()</code> to roll the current snapshot into the previous one, then feeds each
 polled <code>SystemEvent</code> through <code>ProcessEvent()</code> (see <a href="events-signals.html">Events &amp; signals</a>).
@@ -96,6 +98,7 @@ window, and the inverse maps a mouse click back into the world. The same transfo
 the visible area (<em>culling</em>), which saves draw calls in large levels.</p>
 
 <h2>How ASGE does it</h2>
+""" + RENDERING_DIAGRAM + """
 <h3>Video system and backends</h3>
 <p><code>asge::video::VideoSystem</code> brings up a window and a renderer for a chosen <code>GraphicsBackend</code>
 through a factory and hands them out as <code>IWindow&amp;</code> and <code>IRenderer&amp;</code>. Only
@@ -153,6 +156,7 @@ in a scene, edited in a tool and driven by the same systems as everything else. 
 details of starting and stopping streams.</p>
 
 <h2>How ASGE does it</h2>
+""" + AUDIO_DIAGRAM + """
 <h3>AudioDevice and AudioStream</h3>
 <p><code>asge::audio::AudioDevice</code> owns SDL's audio subsystem, one physical playback device and a fixed pool
 of <strong>32</strong> <code>AudioStream</code>s. <code>Initialize()</code> opens the default device;
@@ -259,6 +263,7 @@ well-chosen moments (between levels, behind a loading screen) or in the backgrou
 as a font's pixel size, must be part of the cache key, since the same file at two sizes is two different assets.</p>
 
 <h2>How ASGE does it</h2>
+""" + ASSETS_DIAGRAM + """
 <h3>AssetManager and AssetPool</h3>
 <p><code>asset::AssetManager</code> is the one entry point. It is built over a
 <a href="filesystem.html">VirtualFileSystem</a> and owns a path-keyed <code>AssetPool</code> per asset type, each a cache of
@@ -313,6 +318,7 @@ scenes in memory so returning is instant at the cost of RAM. Which is right depe
 players move between them.</p>
 
 <h2>How ASGE does it</h2>
+""" + SCENES_DIAGRAM + """
 <h3>SceneSerializer</h3>
 <p><code>SceneSerializer</code> writes every alive entity of a <code>Registry</code> to a TOML scene file
 (<code>.asgescene</code>) and populates a registry from one. Each component type has its own
@@ -380,6 +386,7 @@ because inserts are cheap.</p>
 </ol>
 
 <h3>Collision pipeline</h3>
+""" + PHYSICS_DIAGRAM + """
 <ol>
   <li><strong>Build the broad phase.</strong> Every frame, <code>CollisionSystem</code> computes the rect enclosing all colliders, <code>Reset</code>s a <code>spatial::QuadTree&lt;Entity&gt;</code> to that area and <code>Insert</code>s each entity with its world-space bounds. A circle is inserted as its bounding rect, so the tree only ever deals in rectangles.</li>
   <li><strong>Find candidate pairs.</strong> <code>QuadTree::ForEachPair</code> reports each unordered pair of overlapping bounding rects exactly once, never an element with itself.</li>

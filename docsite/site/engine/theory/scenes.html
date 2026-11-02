@@ -72,6 +72,20 @@ scenes in memory so returning is instant at the cost of RAM. Which is right depe
 players move between them.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 216" role="img" aria-labelledby="sc-title sc-desc" style="min-width:640px">
+<title id="sc-title">How ASGE loads, saves and switches scenes</title>
+<desc id="sc-desc">A scene file is read by the SceneSerializer into the single active Registry. Switching scenes stores the active registry as an in-memory snapshot and restores it later without re-reading the file.</desc>
+<defs>
+<marker id="sc-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="sc-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="8" y="56" width="124" height="72" rx="6" class="d-node"/><text x="70" y="88" text-anchor="middle" class="d-name">Scene file</text><text x="70" y="108" text-anchor="middle" class="d-sub">.asgescene</text><rect x="220" y="56" width="124" height="72" rx="6" class="d-node"/><text x="282" y="88" text-anchor="middle" class="d-name">Serializer</text><text x="282" y="108" text-anchor="middle" class="d-sub">SceneSerializer</text><rect x="432" y="56" width="124" height="72" rx="6" class="d-node d-focal"/><text x="494" y="88" text-anchor="middle" class="d-name">Registry</text><text x="494" y="108" text-anchor="middle" class="d-sub">active scene</text><rect x="644" y="56" width="108" height="72" rx="6" class="d-node"/><text x="698" y="88" text-anchor="middle" class="d-name">Snapshots</text><text x="698" y="108" text-anchor="middle" class="d-sub">in memory</text><path class="d-arrow" d="M132 80H220" marker-end="url(#sc-arrow)"/><path class="d-arrow d-b d-dash" d="M220 104H132" marker-end="url(#sc-arrow-b)"/><path class="d-arrow" d="M344 80H432" marker-end="url(#sc-arrow)"/><path class="d-arrow d-b d-dash" d="M432 104H344" marker-end="url(#sc-arrow-b)"/><path class="d-arrow" d="M556 80H644" marker-end="url(#sc-arrow)"/><path class="d-arrow d-b d-dash" d="M644 104H556" marker-end="url(#sc-arrow-b)"/><text x="176" y="68" text-anchor="middle" class="d-sub">LoadScene</text><text x="176" y="124" text-anchor="middle" class="d-sub">SaveScene</text><text x="388" y="68" text-anchor="middle" class="d-sub">populate</text><text x="388" y="124" text-anchor="middle" class="d-sub">write</text><text x="600" y="68" text-anchor="middle" class="d-sub">snapshot</text><text x="600" y="124" text-anchor="middle" class="d-sub">restore</text><rect x="14" y="176" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="188" class="d-sub">the one live Registry</text><path class="d-arrow d-dash d-b" d="M300 183H336"/><text x="346" y="188" class="d-sub">going back</text>
+</svg>
+</div>
+<figcaption><code>SceneManager</code> owns the live registry and the snapshots, so switching back to a visited scene is instant.</figcaption>
+</figure>
 <h3 id="sceneserializer">SceneSerializer</h3>
 <p><code>SceneSerializer</code> writes every alive entity of a <code>Registry</code> to a TOML scene file
 (<code>.asgescene</code>) and populates a registry from one. Each component type has its own

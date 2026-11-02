@@ -52,6 +52,45 @@
 <h1>Engine theory</h1>
 <p class="lede">What the main parts of a game engine do, and how ASGE implements each one.
 Every page first explains the concept, then shows the ASGE types that realise it, with a short snippet.</p>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 420" role="img" aria-labelledby="ly-title ly-desc" style="min-width:640px">
+<title id="ly-title">ASGE engine layers</title>
+<desc id="ly-desc">Four layers stacked top to bottom: Application, Game, a row of subsystems (Video, Input, Audio, Events) and Core. Each layer uses the ones below it.</desc>
+<defs>
+<marker id="ly-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+</defs>
+<path class="d-arrow" d="M30 36V348" marker-end="url(#ly-arrow)"/>
+<rect x="6" y="176" width="48" height="20" class="d-mask"/>
+<text x="30" y="190" text-anchor="middle" class="d-sub">uses</text>
+<rect x="64" y="24" width="684" height="336" rx="10" class="d-node"/>
+<rect x="66" y="110" width="680" height="80" class="d-node d-focal"/>
+<path class="d-rule" d="M66 108H746M66 192H746M66 276H746"/>
+<text x="82" y="71" class="d-sub">L4</text>
+<text x="120" y="72" class="d-name d-lg">Application</text>
+<text x="732" y="71" text-anchor="end" class="d-sub">Application&lt;TGame&gt;::Run()</text>
+<text x="82" y="155" class="d-sub">L3</text>
+<text x="120" y="156" class="d-name d-lg">Game</text>
+<text x="732" y="155" text-anchor="end" class="d-sub">states, scenes, systems, assets</text>
+<text x="82" y="239" class="d-sub">L2</text>
+<text x="120" y="240" class="d-name d-lg">Subsystems</text>
+<rect x="250" y="212" width="92" height="44" rx="6" class="d-node"/>
+<text x="296" y="239" text-anchor="middle" class="d-name">Video</text>
+<rect x="354" y="212" width="92" height="44" rx="6" class="d-node"/>
+<text x="400" y="239" text-anchor="middle" class="d-name">Input</text>
+<rect x="458" y="212" width="92" height="44" rx="6" class="d-node"/>
+<text x="504" y="239" text-anchor="middle" class="d-name">Audio</text>
+<rect x="562" y="212" width="92" height="44" rx="6" class="d-node"/>
+<text x="608" y="239" text-anchor="middle" class="d-name">Events</text>
+<text x="82" y="323" class="d-sub">L1</text>
+<text x="120" y="324" class="d-name d-lg">Core</text>
+<text x="732" y="323" text-anchor="end" class="d-sub">ECS, math, memory, filesystem, time</text>
+<rect x="64" y="380" width="14" height="14" rx="2" class="d-node d-focal"/>
+<text x="86" y="392" class="d-sub">where your game code lives</text>
+</svg>
+</div>
+<figcaption>Application sits on Game, Game builds on the subsystems, and everything rests on Core. Folders under <code>src/ASGE/</code>.</figcaption>
+</figure>
 <div class="grid">
 <a class="card" href="ecs.html"><h3 id="entity-component-system">Entity-Component-System</h3><p>Why a game object is split into identity, data and behaviour, and how ASGE&#x27;s Registry stores entities and components, iterates them through views, and runs systems over them each frame.</p></a>
 <a class="card" href="game-loop.html"><h3 id="game-loop-timing">Game loop &amp; timing</h3><p>How the main loop reads input, updates the simulation with a delta time and renders, the order in which systems run every frame, and how game states, the clock and the profiler fit around it.</p></a>

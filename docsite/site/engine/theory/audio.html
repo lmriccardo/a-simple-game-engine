@@ -72,6 +72,20 @@ in a scene, edited in a tool and driven by the same systems as everything else. 
 details of starting and stopping streams.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 184" role="img" aria-labelledby="au-title au-desc" style="min-width:640px">
+<title id="au-title">How a sound gets played</title>
+<desc id="au-desc">Your code sets an AudioSource component to playing. The AudioSystem, last in the frame, starts it on an AudioStream taken from the AudioDevice's pool.</desc>
+<defs>
+<marker id="au-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="au-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="14" y="40" width="124" height="72" rx="6" class="d-node"/><text x="76" y="72" text-anchor="middle" class="d-name">Your code</text><text x="76" y="92" text-anchor="middle" class="d-sub">PlayAudioSource</text><path class="d-arrow" d="M138 76H166" marker-end="url(#au-arrow)"/><rect x="166" y="40" width="124" height="72" rx="6" class="d-node"/><text x="228" y="72" text-anchor="middle" class="d-name">AudioSource</text><text x="228" y="92" text-anchor="middle" class="d-sub">component</text><path class="d-arrow" d="M290 76H318" marker-end="url(#au-arrow)"/><rect x="318" y="40" width="124" height="72" rx="6" class="d-node d-focal"/><text x="380" y="72" text-anchor="middle" class="d-name">AudioSystem</text><text x="380" y="92" text-anchor="middle" class="d-sub">last system</text><path class="d-arrow" d="M442 76H470" marker-end="url(#au-arrow)"/><rect x="470" y="40" width="124" height="72" rx="6" class="d-node"/><text x="532" y="72" text-anchor="middle" class="d-name">AudioStream</text><text x="532" y="92" text-anchor="middle" class="d-sub">PutData()</text><path class="d-arrow" d="M594 76H622" marker-end="url(#au-arrow)"/><rect x="622" y="40" width="124" height="72" rx="6" class="d-node"/><text x="684" y="72" text-anchor="middle" class="d-name">AudioDevice</text><text x="684" y="92" text-anchor="middle" class="d-sub">32 streams</text><rect x="14" y="148" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="160" class="d-sub">runs once per frame</text>
+</svg>
+</div>
+<figcaption>A source keeps the same stream for its whole lifetime, so replaying it never creates a new one.</figcaption>
+</figure>
 <h3 id="audiodevice-and-audiostream">AudioDevice and AudioStream</h3>
 <p><code>asge::audio::AudioDevice</code> owns SDL's audio subsystem, one physical playback device and a fixed pool
 of <strong>32</strong> <code>AudioStream</code>s. <code>Initialize()</code> opens the default device;

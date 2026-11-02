@@ -712,3 +712,23 @@ th { color: var(--text-muted); font-weight: 600; }
 .article section[style] { padding-block: 0 !important; }
 .article .kicker { display: block; margin-bottom: 4px; font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
 .api-title { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+
+/* ---------- diagrams: inline SVG coloured by the site tokens, so they follow the theme toggle ---------- */
+.diagram { margin: 28px 0; }
+.diagram-scroll { overflow-x: auto; border: 2px solid var(--text); border-radius: var(--radius); background: var(--surface); padding: 12px; }
+.diagram svg { display: block; width: 100%; height: auto; }
+.diagram figcaption { margin-top: 10px; font-size: 0.92rem; color: var(--text-muted); }
+.diagram .d-node { fill: var(--surface); stroke: var(--text); stroke-width: 2; }
+.diagram .d-focal { fill: color-mix(in srgb, var(--accent) 14%, var(--surface)); stroke: var(--accent); }
+.diagram .d-ghost { stroke: var(--text-muted); stroke-dasharray: 6 5; }
+.diagram .d-arrow { fill: none; stroke: var(--text-muted); stroke-width: 2; }
+.diagram .d-arrow.d-b { stroke: var(--accent-2); }
+.diagram .d-dash { stroke-dasharray: 6 5; }
+.diagram .d-head { fill: var(--text-muted); }
+.diagram .d-head-b { fill: var(--accent-2); }
+.diagram .d-rule { fill: none; stroke: var(--border); stroke-width: 2; }
+.diagram .d-mask { fill: var(--surface); stroke: none; }
+.diagram .d-name { fill: var(--text); font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+.diagram .d-name.d-lg { font-size: 18px; }
+.diagram .d-lane { fill: var(--text-muted); font-family: var(--font-display); font-weight: 600; font-size: 14px; }
+.diagram .d-sub { fill: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }

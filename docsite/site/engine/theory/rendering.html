@@ -74,6 +74,20 @@ window, and the inverse maps a mouse click back into the world. The same transfo
 the visible area (<em>culling</em>), which saves draw calls in large levels.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 300" role="img" aria-labelledby="rd-title rd-desc" style="min-width:640px">
+<title id="rd-title">How a frame reaches the screen</title>
+<desc id="rd-desc">Game::Render runs the render pipeline, which draws through the IRenderer interface. The only backend today is SDL; OpenGL, Vulkan and DirectX are possible future backends. The Camera transforms every draw call.</desc>
+<defs>
+<marker id="rd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="rd-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="398" y="12" width="140" height="56" rx="6" class="d-node"/><text x="468" y="36" text-anchor="middle" class="d-name">Camera</text><text x="468" y="56" text-anchor="middle" class="d-sub">SetCamera()</text><path class="d-arrow" d="M468 68V96" marker-end="url(#rd-arrow)"/><rect x="14" y="96" width="140" height="72" rx="6" class="d-node"/><text x="84" y="128" text-anchor="middle" class="d-name">Game::Render</text><text x="84" y="148" text-anchor="middle" class="d-sub">once per frame</text><path class="d-arrow" d="M154 132H206" marker-end="url(#rd-arrow)"/><rect x="206" y="96" width="140" height="72" rx="6" class="d-node"/><text x="276" y="128" text-anchor="middle" class="d-name">Render pipeline</text><text x="276" y="148" text-anchor="middle" class="d-sub">sprites, Y-sort</text><path class="d-arrow" d="M346 132H398" marker-end="url(#rd-arrow)"/><rect x="398" y="96" width="140" height="72" rx="6" class="d-node d-focal"/><text x="468" y="128" text-anchor="middle" class="d-name">IRenderer</text><text x="468" y="148" text-anchor="middle" class="d-sub">Clear, Draw*</text><path class="d-arrow" d="M538 132H590" marker-end="url(#rd-arrow)"/><rect x="590" y="96" width="140" height="72" rx="6" class="d-node"/><text x="660" y="128" text-anchor="middle" class="d-name">SDL backend</text><text x="660" y="148" text-anchor="middle" class="d-sub">the only one yet</text><path class="d-arrow d-b d-dash" d="M468 168V224Q468 232 476 232H590" marker-end="url(#rd-arrow-b)"/><rect x="590" y="204" width="140" height="56" rx="6" class="d-node d-ghost"/><text x="660" y="228" text-anchor="middle" class="d-name">Future backends</text><text x="660" y="248" text-anchor="middle" class="d-sub">OpenGL, Vulkan</text><rect x="14" y="276" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="288" class="d-sub">the interface everything uses</text><path class="d-arrow d-dash d-b" d="M300 283H336"/><text x="346" y="288" class="d-sub">possible later</text>
+</svg>
+</div>
+<figcaption>Everything above <code>IRenderer</code> talks to the interface, so a new backend would not touch game code.</figcaption>
+</figure>
 <h3 id="video-system-and-backends">Video system and backends</h3>
 <p><code>asge::video::VideoSystem</code> brings up a window and a renderer for a chosen <code>GraphicsBackend</code>
 through a factory and hands them out as <code>IWindow&amp;</code> and <code>IRenderer&amp;</code>. Only
