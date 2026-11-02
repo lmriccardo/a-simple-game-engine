@@ -478,15 +478,24 @@ def render_sections(cdef: ET.Element) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Mermaid diagrams from <inheritancegraph>/<collaborationgraph>
+# Static SVG diagrams from <inheritancegraph>/<collaborationgraph>
+#
+# Doxygen emits tiny graphs (2 to 8 nodes), so a layered layout is enough: bases
+# and owners sit above, derived classes and members below, edges are orthogonal
+# elbows. Colours come from the `.diagram .d-*` classes in style.css, so the
+# figures follow the light/dark toggle and need no JavaScript.
 # ---------------------------------------------------------------------------
 
+_GRAPH_NODE_H = 44
+_GRAPH_GAP_X = 32
+_GRAPH_GAP_Y = 72
+_GRAPH_PAD = 16
 
-def sanitize_mermaid_label(label: str) -> str:
-    """Strips <template, args> from a compound label for Mermaid node text --
-    bracket-depth aware, since a naive `re.sub(r"<.*", "", label)` deletes
-    everything after the FIRST '<' including any trailing "::Nested" name
-    that comes after the template argument list closes."""
+
+def sanitize_label(label: str) -> str:
+    """Strips <template, args> from a compound label -- bracket-depth aware, since a
+    naive `re.sub(r"<.*", "", label)` deletes everything after the FIRST '<',
+    including any trailing "::Nested" name after the argument list closes."""
     out = []
     depth = 0
     for ch in label:
@@ -497,48 +506,176 @@ def sanitize_mermaid_label(label: str) -> str:
                 depth -= 1
         elif depth == 0:
             out.append(ch)
-    return "".join(out).strip().replace('"', "'")
+    return "".join(out).strip()
 
 
-def render_graph_mermaid(graph_elem: ET.Element | None) -> str:
+def _short_label(label: str) -> str:
+    """The unqualified class name: the namespace is already in the page title."""
+    full = sanitize_label(label)
+    return full.rsplit("::", 1)[-1] or full
+
+
+def _rounded_path(points: list[tuple[float, float]], r: float = 8) -> str:
+    """SVG path through orthogonal points, with rounded corners of radius up to r."""
+    pts = [points[0]]
+    for p in points[1:]:
+        if p != pts[-1]:
+            pts.append(p)
+    d = f"M{pts[0][0]:g} {pts[0][1]:g}"
+    for i in range(1, len(pts) - 1):
+        (px, py), (cx, cy), (nx, ny) = pts[i - 1], pts[i], pts[i + 1]
+        din = abs(cx - px) + abs(cy - py)
+        dout = abs(nx - cx) + abs(ny - cy)
+        rr = min(r, din / 2, dout / 2)
+        ex = cx + (px - cx) / din * rr if px != cx else cx
+        ey = cy + (py - cy) / din * rr if py != cy else cy
+        fx = cx + (nx - cx) / dout * rr if nx != cx else cx
+        fy = cy + (ny - cy) / dout * rr if ny != cy else cy
+        d += f"L{ex:g} {ey:g}Q{cx:g} {cy:g} {fx:g} {fy:g}"
+    return d + f"L{pts[-1][0]:g} {pts[-1][1]:g}"
+
+
+def render_graph_svg(graph_elem: ET.Element | None, focal_refid: str, uid: str, heading: str) -> str:
     if graph_elem is None:
         return ""
     nodes = list(graph_elem.findall("node"))
     if len(nodes) < 2:
         return ""
-    id_map = {n.get("id"): f"N{n.get('id')}" for n in nodes}
-    lines = ["classDiagram"]
-    clicks = []
+    ids = [n.get("id") for n in nodes]
+    info = {}
     for n in nodes:
-        nid = id_map[n.get("id")]
-        label = sanitize_mermaid_label(n.findtext("label") or "")
-        lines.append(f'    class {nid}["{label}"]')
         link = n.find("link")
-        if link is not None:
-            url = resolve_ref(link.get("refid"))
-            if url:
-                clicks.append(f'    click {nid} href "{url}"')
-    has_edge = False
+        refid = link.get("refid") if link is not None else None
+        label = _short_label(n.findtext("label") or "")
+        info[n.get("id")] = {
+            "label": label,
+            "full": sanitize_label(n.findtext("label") or ""),
+            "url": resolve_ref(refid) if refid else None,
+            "focal": refid == focal_refid,
+        }
+    if not any(v["focal"] for v in info.values()):
+        info[ids[0]]["focal"] = True
+
+    # (upper, lower, kind, label): bases and owners are "upper"
+    edges = []
     for n in nodes:
-        src = id_map[n.get("id")]
         for child in n.findall("childnode"):
-            dst = id_map.get(child.get("refid"))
-            if not dst:
+            c = child.get("refid")
+            if c not in info:
                 continue
-            relation = child.get("relation")
-            edgelabel = child.findtext("edgelabel")
-            if relation == "public-inheritance":
-                lines.append(f"    {dst} <|-- {src}")
-            elif relation in ("protected-inheritance", "private-inheritance"):
-                lines.append(f"    {dst} <|-- {src}")
+            if (child.get("relation") or "").endswith("inheritance"):
+                edges.append((c, n.get("id"), "inherit", ""))
             else:
-                label_part = f" : {esc(edgelabel)}" if edgelabel else ""
-                lines.append(f"    {src} --> {dst}{label_part}")
-            has_edge = True
-    if not has_edge:
+                labels = ", ".join(e.text for e in child.findall("edgelabel") if e.text)
+                edges.append((n.get("id"), c, "use", labels))
+    if not edges:
         return ""
-    lines.extend(clicks)
-    return '<pre class="mermaid">\n' + "\n".join(lines) + "\n</pre>"
+
+    layer = {i: 0 for i in ids}
+    for _ in range(len(ids)):
+        for up, low, _kind, _label in edges:
+            layer[low] = max(layer[low], layer[up] + 1)
+    nlayers = max(layer.values()) + 1
+
+    for i in ids:
+        info[i]["w"] = max(112, int(8.3 * len(info[i]["label"])) + 32) // 4 * 4
+    rows = [[i for i in ids if layer[i] == k] for k in range(nlayers)]
+    row_w = [sum(info[i]["w"] for i in r) + _GRAPH_GAP_X * (len(r) - 1) for r in rows]
+    width = max(max(row_w) + 2 * _GRAPH_PAD, 240)
+    # each outgoing edge of one box gets its own horizontal level, so the gap grows with the fan-out
+    max_out = max(sum(1 for e in edges if e[0] == i) for i in ids)
+    gap_y = max(_GRAPH_GAP_Y, 44 + 12 * max_out)
+    height = 2 * _GRAPH_PAD + nlayers * _GRAPH_NODE_H + (nlayers - 1) * gap_y
+    for k, r in enumerate(rows):
+        x = (width - row_w[k]) / 2
+        for i in r:
+            info[i]["x"] = round(x)
+            info[i]["y"] = _GRAPH_PAD + k * (_GRAPH_NODE_H + gap_y)
+            x += info[i]["w"] + _GRAPH_GAP_X
+
+    def cx(i):
+        return info[i]["x"] + info[i]["w"] / 2
+
+    # fan attach points: each edge on a box edge gets its own x, ordered left to right
+    out_edges = {i: sorted((e for e in edges if e[0] == i), key=lambda e: cx(e[1])) for i in ids}
+    in_edges = {i: sorted((e for e in edges if e[1] == i), key=lambda e: cx(e[0])) for i in ids}
+
+    def attach(i, group, e):
+        k, n = group.index(e), len(group)
+        return round(info[i]["x"] + info[i]["w"] * (k + 1) / (n + 1))
+
+    # Horizontal levels that cannot cross: right-going edges stack with the rightmost
+    # attach point highest, left-going edges mirror that, so no edge crosses a sibling's drop.
+    level = {}
+    for i, outs in out_edges.items():
+        sxs = {e: attach(i, outs, e) for e in outs}
+        txs = {e: attach(e[1], in_edges[e[1]], e) for e in outs}
+        left = sorted((e for e in outs if txs[e] < sxs[e]), key=lambda e: sxs[e])
+        right = sorted((e for e in outs if txs[e] > sxs[e]), key=lambda e: -sxs[e])
+        for n_, e in enumerate(left):
+            level[e] = n_
+        for n_, e in enumerate(right):
+            level[e] = n_
+        for e in outs:
+            level.setdefault(e, 0)
+
+    paths, labels_svg, desc = [], [], []
+    min_x, max_x = 0, width
+    for up, low, kind, label in edges:
+        sx = attach(up, out_edges[up], (up, low, kind, label))
+        tx = attach(low, in_edges[low], (up, low, kind, label))
+        y1 = info[up]["y"] + _GRAPH_NODE_H
+        y2 = info[low]["y"]
+        ymid = y1 + 20 + level[(up, low, kind, label)] * 12
+        if layer[low] > layer[up] + 1:  # skips a layer: detour around the left margin
+            pts = [(sx, y1), (sx, ymid), (_GRAPH_PAD / 2, ymid), (_GRAPH_PAD / 2, y2 - 28), (tx, y2 - 28), (tx, y2)]
+        else:
+            pts = [(sx, y1), (sx, ymid), (tx, ymid), (tx, y2)]
+        if kind == "inherit":
+            pts.reverse()  # the arrowhead sits on the base class
+            cls, marker = "d-arrow", f"{uid}-open"
+            desc.append(f"{info[low]['label']} inherits from {info[up]['label']}")
+        else:
+            cls, marker = "d-arrow", f"{uid}-arrow"
+            desc.append(f"{info[up]['label']} uses {info[low]['label']}" + (f" as {label}" if label else ""))
+        paths.append(f'<path class="{cls}" d="{_rounded_path(pts)}" marker-end="url(#{marker})"/>')
+        if label:
+            text_w = 6.6 * len(label)
+            # with several edges into one box, the leftmost label goes left of its arrow, the rest right
+            left = len(in_edges[low]) > 1 and in_edges[low].index((up, low, kind, label)) == 0
+            if left:
+                labels_svg.append(f'<text x="{tx - 8}" y="{y2 - 6}" text-anchor="end" class="d-edge">{esc(label)}</text>')
+                min_x = min(min_x, tx - 8 - text_w - _GRAPH_PAD)
+            else:
+                labels_svg.append(f'<text x="{tx + 8}" y="{y2 - 6}" class="d-edge">{esc(label)}</text>')
+                max_x = max(max_x, tx + 8 + text_w + _GRAPH_PAD)
+    width = int(max_x - min_x)
+
+    boxes = []
+    for i in ids:
+        v = info[i]
+        cls = "d-node d-focal" if v["focal"] else "d-node"
+        cxx, cyy = v["x"] + v["w"] / 2, v["y"] + _GRAPH_NODE_H / 2
+        g = (f'<rect x="{v["x"]}" y="{v["y"]}" width="{v["w"]}" height="{_GRAPH_NODE_H}" rx="6" class="{cls}"/>'
+             f'<text x="{cxx:g}" y="{cyy + 5:g}" text-anchor="middle" class="d-name">{esc(v["label"])}</text>')
+        if v["url"] and not v["focal"]:
+            g = f'<a href="{v["url"]}"><title>{esc(v["full"])}</title>{g}</a>'
+        else:
+            g = f'<g><title>{esc(v["full"])}</title>{g}</g>'
+        boxes.append(g)
+
+    return (
+        f'<figure class="diagram api-diagram"><h4>{heading}</h4><div class="diagram-scroll">'
+        f'<svg viewBox="{int(min_x)} 0 {width} {height}" style="width:{width}px;max-width:100%" role="img" '
+        f'aria-labelledby="{uid}-t {uid}-d"><title id="{uid}-t">{heading} graph</title>'
+        f'<desc id="{uid}-d">{esc("; ".join(desc))}.</desc>'
+        f'<defs><marker id="{uid}-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">'
+        f'<path d="M0 0L10 5L0 10z" class="d-head"/></marker>'
+        f'<marker id="{uid}-open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto">'
+        f'<path d="M1 1L11 6L1 11z" class="d-head-open"/></marker></defs>'
+        + "".join(paths) + "".join(boxes) + "".join(labels_svg)
+        + "</svg></div></figure>"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -589,13 +726,10 @@ def render_compound_page(refid: str) -> str:
             links.append(f'<a href="{url}">{label}</a>' if url else label)
         deriveds_html = f'<p class="api-inherits">Inherited by {", ".join(links)}.</p>'
 
-    inheritance_mermaid = render_graph_mermaid(cdef.find("inheritancegraph"))
-    collab_mermaid = render_graph_mermaid(cdef.find("collaborationgraph"))
-    diagrams_html = ""
-    if inheritance_mermaid:
-        diagrams_html += f'<div class="api-diagram"><h4>Inheritance</h4>{inheritance_mermaid}</div>'
-    if collab_mermaid:
-        diagrams_html += f'<div class="api-diagram"><h4>Collaboration</h4>{collab_mermaid}</div>'
+    diagrams_html = (
+        render_graph_svg(cdef.find("inheritancegraph"), refid, "inh", "Inheritance")
+        + render_graph_svg(cdef.find("collaborationgraph"), refid, "col", "Collaboration")
+    )
 
     brief_html = render_desc(cdef.find("briefdescription"))
     detailed_html = render_desc(cdef.find("detaileddescription"))
@@ -619,7 +753,6 @@ def render_compound_page(refid: str) -> str:
     return render_page(
         page=api_page(refid, name, strip_tags(brief_html) or f"{kicker} {name} — ASGE API reference."),
         body=body, sidebar=SIDEBAR_HTML,
-        extra_scripts=MERMAID_SCRIPT if (inheritance_mermaid or collab_mermaid) else "",
     )
 
 
@@ -674,16 +807,6 @@ def render_namespace_page(refid: str) -> str:
 def strip_tags(s: str) -> str:
     return re.sub(r"<[^>]+>", "", s or "").strip()[:200]
 
-
-MERMAID_SCRIPT = (
-    '<script type="module">\n'
-    "  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';\n"
-    "  mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', "
-    "theme: document.documentElement.getAttribute('data-theme') === 'dark' "
-    "|| (!document.documentElement.hasAttribute('data-theme') "
-    "&& window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'default' });\n"
-    "</script>"
-)
 
 def api_page(refid: str, title: str, summary: str) -> Page:
     """The (unregistered) Page for one generated API file; its sidebar is the namespace tree."""

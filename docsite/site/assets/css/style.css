@@ -445,14 +445,6 @@ th { color: var(--text-muted); font-weight: 600; }
 
 .api-diagram { margin: 20px 0; }
 .api-diagram h4 { margin: 0 0 10px; font-size: 0.95rem; color: var(--text-muted); }
-.api-diagram pre.mermaid {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
-  overflow-x: auto;
-  text-align: center;
-}
 
 .api-section-title { margin-top: 32px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 
@@ -725,6 +717,8 @@ th { color: var(--text-muted); font-weight: 600; }
 .diagram .d-arrow.d-b { stroke: var(--accent-2); }
 .diagram .d-dash { stroke-dasharray: 6 5; }
 .diagram .d-head { fill: var(--text-muted); }
+.diagram .d-head-open { fill: var(--surface); stroke: var(--text-muted); stroke-width: 1.5; }
+.diagram .d-edge { fill: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .diagram .d-head-b { fill: var(--accent-2); }
 .diagram .d-rule { fill: none; stroke: var(--border); stroke-width: 2; }
 .diagram .d-mask { fill: var(--surface); stroke: none; }
@@ -732,3 +726,5 @@ th { color: var(--text-muted); font-weight: 600; }
 .diagram .d-name.d-lg { font-size: 18px; }
 .diagram .d-lane { fill: var(--text-muted); font-family: var(--font-display); font-weight: 600; font-size: 14px; }
 .diagram .d-sub { fill: var(--text-muted); font-family: var(--font-mono); font-size: 12px; }
+
+.api-diagram svg { margin: 0 auto; }
