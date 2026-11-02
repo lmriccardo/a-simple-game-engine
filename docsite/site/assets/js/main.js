@@ -104,6 +104,35 @@
     });
   }
 
+  // The API sidebar is static HTML rebuilt on every page load: restore the groups
+  // the reader had open, then open the ones holding the current page.
+  function initApiTree() {
+    var tree = document.querySelector(".api-tree");
+    if (!tree) return;
+    var KEY = "asge-api-tree";
+    var groups = tree.querySelectorAll("details");
+    var id = function (d) { return d.querySelector("summary a").getAttribute("href"); };
+    var saved = [];
+    try { saved = JSON.parse(sessionStorage.getItem(KEY) || "[]"); } catch (e) {}
+    groups.forEach(function (d) { if (saved.indexOf(id(d)) !== -1) d.open = true; });
+
+    var here = location.pathname.split("/").pop();
+    tree.querySelectorAll("a").forEach(function (a) {
+      if (a.getAttribute("href").split("#")[0].split("/").pop() !== here) return;
+      a.classList.add("active");
+      a.setAttribute("aria-current", "page");
+      for (var d = a.closest("details"); d; d = d.parentElement.closest("details")) d.open = true;
+    });
+
+    groups.forEach(function (d) {
+      d.addEventListener("toggle", function () {
+        var open = [];
+        groups.forEach(function (g) { if (g.open) open.push(id(g)); });
+        try { sessionStorage.setItem(KEY, JSON.stringify(open)); } catch (e) {}
+      });
+    });
+  }
+
   function highlightCode() {
     if (window.hljs) {
       document.querySelectorAll("pre code").forEach(function (block) {
@@ -118,6 +147,7 @@
     initTocSpy();
     initCopyButtons();
     initTabs();
+    initApiTree();
     highlightCode();
   });
 })();

@@ -72,6 +72,20 @@ well-chosen moments (between levels, behind a loading screen) or in the backgrou
 as a font's pixel size, must be part of the cache key, since the same file at two sizes is two different assets.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 64 760 226" role="img" aria-labelledby="as-title as-desc" style="min-width:640px">
+<title id="as-title">How the AssetManager loads an asset</title>
+<desc id="as-desc">Your code asks the AssetPool for a virtual path. On a cache hit the pool returns the existing asset. On a miss the path is resolved through the VirtualFileSystem, decoded, stored in the pool and returned.</desc>
+<defs>
+<marker id="as-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="as-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="14" y="96" width="140" height="72" rx="6" class="d-node"/><text x="84" y="128" text-anchor="middle" class="d-name">Your code</text><text x="84" y="148" text-anchor="middle" class="d-sub">GetImage(path)</text><path class="d-arrow" d="M154 132H250" marker-end="url(#as-arrow)"/><rect x="250" y="96" width="140" height="72" rx="6" class="d-node d-focal"/><text x="320" y="128" text-anchor="middle" class="d-name">AssetPool</text><text x="320" y="148" text-anchor="middle" class="d-sub">path-keyed cache</text><path class="d-arrow" d="M390 132H506" marker-end="url(#as-arrow)"/><text x="448" y="122" text-anchor="middle" class="d-sub">hit</text><rect x="506" y="96" width="140" height="72" rx="6" class="d-node"/><text x="576" y="128" text-anchor="middle" class="d-name">Asset</text><text x="576" y="148" text-anchor="middle" class="d-sub">Asset&lt;Image&gt;</text><path class="d-arrow d-b d-dash" d="M320 168V204" marker-end="url(#as-arrow-b)"/><text x="332" y="190" class="d-sub">miss</text><rect x="240" y="204" width="160" height="48" rx="6" class="d-node"/><text x="320" y="233" text-anchor="middle" class="d-name">VirtualFileSystem</text><path class="d-arrow d-b d-dash" d="M400 228H506" marker-end="url(#as-arrow-b)"/><text x="453" y="220" text-anchor="middle" class="d-sub">real path</text><rect x="506" y="204" width="140" height="48" rx="6" class="d-node"/><text x="576" y="233" text-anchor="middle" class="d-name">Decode</text><path class="d-arrow d-b d-dash" d="M576 204V172" marker-end="url(#as-arrow-b)"/><text x="588" y="192" class="d-sub">cached</text><rect x="14" y="268" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="280" class="d-sub">loaded once per path</text><path class="d-arrow d-dash d-b" d="M300 275H336"/><text x="346" y="280" class="d-sub">only on a miss</text>
+</svg>
+</div>
+<figcaption>A second <code>GetImage</code> for the same path returns the cached asset without decoding again.</figcaption>
+</figure>
 <h3 id="assetmanager-and-assetpool">AssetManager and AssetPool</h3>
 <p><code>asset::AssetManager</code> is the one entry point. It is built over a
 <a href="filesystem.html">VirtualFileSystem</a> and owns a path-keyed <code>AssetPool</code> per asset type, each a cache of
@@ -109,7 +123,7 @@ display time.</p>
 </main>
 <footer class="site-footer">
   <div class="container">
-    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
     <div class="footer-links">
       <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>

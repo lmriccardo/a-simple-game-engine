@@ -74,6 +74,20 @@ several small motions in one frame are lost.</p>
 expressed in key codes; remapping then means changing a binding instead of rewriting logic.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 312" role="img" aria-labelledby="in-title in-desc" style="min-width:640px">
+<title id="in-title">How input reaches your game state</title>
+<desc id="in-desc">Each polled SystemEvent goes to the InputSystem, which updates the InputState that your state's Update receives as a read-only reference. The same event also reaches Game::OnSystemEvent.</desc>
+<defs>
+<marker id="in-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="in-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="14" y="60" width="148" height="72" rx="6" class="d-node"/><text x="88" y="92" text-anchor="middle" class="d-name">SystemEvent</text><text x="88" y="112" text-anchor="middle" class="d-sub">from the poll loop</text><path class="d-arrow" d="M162 96H208" marker-end="url(#in-arrow)"/><rect x="208" y="60" width="148" height="72" rx="6" class="d-node d-focal"/><text x="282" y="92" text-anchor="middle" class="d-name">InputSystem</text><text x="282" y="112" text-anchor="middle" class="d-sub">ProcessEvent()</text><path class="d-arrow" d="M356 96H402" marker-end="url(#in-arrow)"/><rect x="402" y="60" width="148" height="72" rx="6" class="d-node"/><text x="476" y="92" text-anchor="middle" class="d-name">InputState</text><text x="476" y="112" text-anchor="middle" class="d-sub">read-only snapshot</text><path class="d-arrow" d="M550 96H596" marker-end="url(#in-arrow)"/><rect x="596" y="60" width="148" height="72" rx="6" class="d-node"/><text x="670" y="92" text-anchor="middle" class="d-name">State::Update</text><text x="670" y="112" text-anchor="middle" class="d-sub">Update(dt, input)</text><path class="d-arrow d-b d-dash" d="M88 132V190" marker-end="url(#in-arrow-b)"/><text x="100" y="166" class="d-sub">same event</text><rect x="14" y="190" width="148" height="72" rx="6" class="d-node"/><text x="88" y="222" text-anchor="middle" class="d-name">OnSystemEvent</text><text x="88" y="242" text-anchor="middle" class="d-sub">raw events</text><rect x="14" y="284" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="296" class="d-sub">where input is tracked</text><path class="d-arrow d-dash d-b" d="M300 291H336"/><text x="346" y="296" class="d-sub">the other consumer</text>
+</svg>
+</div>
+<figcaption><code>NewFrame()</code> rolls the current snapshot into the previous one before the events are fed in, which is what makes IsKeyPressed true for a single frame.</figcaption>
+</figure>
 <p><code>asge::input::InputSystem</code> is owned by <code>Application</code> and mirrors <code>VideoSystem</code>'s shape.
 Every frame the loop calls <code>NewFrame()</code> to roll the current snapshot into the previous one, then feeds each
 polled <code>SystemEvent</code> through <code>ProcessEvent()</code> (see <a href="events-signals.html">Events &amp; signals</a>).
@@ -111,7 +125,7 @@ It is not a second event source: <code>InputState</code> simply consumes the sam
 </main>
 <footer class="site-footer">
   <div class="container">
-    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
     <div class="footer-links">
       <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>

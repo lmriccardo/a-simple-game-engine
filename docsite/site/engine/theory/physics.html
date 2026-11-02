@@ -90,6 +90,20 @@ because inserts are cheap.</p>
 </ol>
 
 <h3 id="collision-pipeline">Collision pipeline</h3>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 236" role="img" aria-labelledby="ph-title ph-desc" style="min-width:640px">
+<title id="ph-title">The ASGE collision pipeline</title>
+<desc id="ph-desc">Each frame the QuadTree broad phase finds candidate pairs, the narrow phase tests them exactly, and the result splits into solid pairs that are pushed apart and trigger pairs that fire events after the walk.</desc>
+<defs>
+<marker id="ph-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="ph-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="14" y="56" width="136" height="72" rx="6" class="d-node d-focal"/><text x="82" y="88" text-anchor="middle" class="d-name">Broad phase</text><text x="82" y="108" text-anchor="middle" class="d-sub">QuadTree</text><path class="d-arrow" d="M150 92H170" marker-end="url(#ph-arrow)"/><rect x="170" y="56" width="136" height="72" rx="6" class="d-node"/><text x="238" y="88" text-anchor="middle" class="d-name">Find pairs</text><text x="238" y="108" text-anchor="middle" class="d-sub">ForEachPair</text><path class="d-arrow" d="M306 92H326" marker-end="url(#ph-arrow)"/><rect x="326" y="56" width="136" height="72" rx="6" class="d-node"/><text x="394" y="88" text-anchor="middle" class="d-name">Narrow phase</text><text x="394" y="108" text-anchor="middle" class="d-sub">PenetrationVector</text><path class="d-arrow" d="M462 80H482Q490 80 490 72V68Q490 60 498 60H514" marker-end="url(#ph-arrow)"/><path class="d-arrow" d="M462 104H482Q490 104 490 112V140Q490 148 498 148H514" marker-end="url(#ph-arrow)"/><rect x="514" y="28" width="232" height="64" rx="6" class="d-node"/><text x="630" y="56" text-anchor="middle" class="d-name">Push apart</text><text x="630" y="76" text-anchor="middle" class="d-sub">Solid: mass-weighted</text><rect x="514" y="116" width="232" height="64" rx="6" class="d-node"/><text x="630" y="144" text-anchor="middle" class="d-name">Trigger events</text><text x="630" y="164" text-anchor="middle" class="d-sub">Enter/Stay/Exit after the walk</text><rect x="14" y="204" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="216" class="d-sub">rebuilt every frame</text>
+</svg>
+</div>
+<figcaption>Gravity and movement run first. Pairs whose layer and mask do not match, or whose resolution is Unknown, are skipped in the narrow phase.</figcaption>
+</figure>
 <ol>
   <li><strong>Build the broad phase.</strong> Every frame, <code>CollisionSystem</code> computes the rect enclosing all colliders, <code>Reset</code>s a <code>spatial::QuadTree&lt;Entity&gt;</code> to that area and <code>Insert</code>s each entity with its world-space bounds. A circle is inserted as its bounding rect, so the tree only ever deals in rectangles.</li>
   <li><strong>Find candidate pairs.</strong> <code>QuadTree::ForEachPair</code> reports each unordered pair of overlapping bounding rects exactly once, never an element with itself.</li>
@@ -118,7 +132,7 @@ collider.m_Mask       = 0b10;                      // ...and only care about lay
 </main>
 <footer class="site-footer">
   <div class="container">
-    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
     <div class="footer-links">
       <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>

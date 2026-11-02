@@ -74,6 +74,20 @@ and the next emit calls into freed memory. Any signal design therefore needs a w
 automatically when the listener goes away.</p>
 
 <h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 0 760 324" role="img" aria-labelledby="ev-title ev-desc" style="min-width:640px">
+<title id="ev-title">System events and signals in ASGE</title>
+<desc id="ev-desc">Top lane: an SDL event is translated once into a SystemEvent, then forwarded to the input system and to Game::OnSystemEvent. Bottom lane: a gameplay system emits a Signal, which calls every connected slot.</desc>
+<defs>
+<marker id="ev-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="ev-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<text x="14" y="26" class="d-lane">From the OS</text><rect x="14" y="68" width="120" height="64" rx="6" class="d-node"/><text x="74" y="105" text-anchor="middle" class="d-name">SDL event</text><path class="d-arrow" d="M134 100H170" marker-end="url(#ev-arrow)"/><rect x="170" y="68" width="140" height="64" rx="6" class="d-node d-focal"/><text x="240" y="96" text-anchor="middle" class="d-name">SystemEvent</text><text x="240" y="116" text-anchor="middle" class="d-sub">std::variant</text><path class="d-arrow" d="M310 84H370Q378 84 378 76V72Q378 64 386 64H420" marker-end="url(#ev-arrow)"/><path class="d-arrow" d="M310 116H370Q378 116 378 124V128Q378 136 386 136H420" marker-end="url(#ev-arrow)"/><rect x="420" y="36" width="326" height="56" rx="6" class="d-node"/><text x="583" y="60" text-anchor="middle" class="d-name">Input system</text><text x="583" y="80" text-anchor="middle" class="d-sub">gets each event first</text><rect x="420" y="108" width="326" height="56" rx="6" class="d-node"/><text x="583" y="132" text-anchor="middle" class="d-name">Game::OnSystemEvent</text><text x="583" y="152" text-anchor="middle" class="d-sub">TryGet&lt;KeyboardEvent&gt;()</text><path class="d-rule" d="M14 188H746"/><text x="14" y="214" class="d-lane">Your own code</text><rect x="14" y="232" width="160" height="64" rx="6" class="d-node"/><text x="94" y="260" text-anchor="middle" class="d-name">Gameplay system</text><text x="94" y="280" text-anchor="middle" class="d-sub">Emit(10)</text><path class="d-arrow" d="M174 264H250" marker-end="url(#ev-arrow)"/><rect x="250" y="232" width="160" height="64" rx="6" class="d-node"/><text x="330" y="260" text-anchor="middle" class="d-name">Signal&lt;int&gt;</text><text x="330" y="280" text-anchor="middle" class="d-sub">Connect()</text><path class="d-arrow" d="M410 264H486" marker-end="url(#ev-arrow)"/><rect x="486" y="232" width="260" height="64" rx="6" class="d-node"/><text x="616" y="260" text-anchor="middle" class="d-name">Slot</text><text x="616" y="280" text-anchor="middle" class="d-sub">void(int), for example the HUD</text><rect x="14" y="304" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="316" class="d-sub">where SDL types stop</text>
+</svg>
+</div>
+<figcaption>System events carry what the OS reports; signals are for your own code to announce things.</figcaption>
+</figure>
 <h3 id="system-events">System events</h3>
 <p>SDL events are translated once, in <code>event::_internal::ProcessEvent</code>, into
 <code>asge::event::SystemEvent</code>: a <code>std::variant</code> over <code>QuitEvent</code>,
@@ -121,7 +135,7 @@ announcing a score change to the HUD.</p>
 </main>
 <footer class="site-footer">
   <div class="container">
-    <div>&#169; ASGE — A Simple Game Engine. MIT Licensed.</div>
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
     <div class="footer-links">
       <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
       <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
