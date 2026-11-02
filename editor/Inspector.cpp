@@ -487,41 +487,91 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
     return DrawAssetPathCombo( "Clip Path", inAudioSource.m_VirtualClipPath, inKnownAudio );
 }
 
-// Lists inAnimation.m_Clips (name, Play to switch to it, Remove, and a path
-// dropdown) plus a picker that registers another known animation as a clip named after
-// it. A name is fixed once added -- remove and re-add to rename, since it's the map key. Returns true when a
-// clip was added, removed, repointed or played, i.e. m_ClipPath may have
-// changed and AssetManager::ResolveAssets needs re-running.
+// A button that opens the "Named Clips" modal: every inAnimation.m_Clips entry in a list on
+// the left, and on the right the selected clip's animation (a path dropdown), its frame
+// duration override (Animation::m_ClipFrameDurations, off = use the component's own
+// m_FrameDuration), Play and Remove. Below the list a picker registers another known animation
+// as a clip named after it. A name is fixed once added -- remove and re-add to rename, since
+// it's the map key. Returns true when a clip was added, removed, repointed, played or had its
+// duration changed, i.e. m_ClipPath may have changed and AssetManager::ResolveAssets needs
+// re-running (and the scene is dirty).
 bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
 {
-    bool changed = false;
-    if ( !ImGui::TreeNode( "Named Clips" ) ) return false;
+    constexpr char const* kPopup = "Named Clips";
+    static std::string s_Selected;
 
-    std::string toRemove;
-    int row = 0;
-    for ( auto& [name, path] : inAnimation.m_Clips )
+    if ( ImGui::Button( ( "Edit Clips... (" + std::to_string( inAnimation.m_Clips.size() ) + ")" ).c_str() ) )
     {
-        ImGui::PushID( row++ );
-        // Name and buttons first, the dropdown on its own full-width line below: all on one
-        // line, Play and X ended up past the inspector's right edge, out of reach.
-        ImGui::TextUnformatted( name.c_str() );
-        ImGui::SameLine();
-        if ( ImGui::SmallButton( "Play" ) ) changed |= PlayClip( inAnimation, name );
-        ImGui::SameLine();
-        if ( ImGui::SmallButton( "Remove" ) ) toRemove = name;
+        s_Selected = inAnimation.m_Clips.empty() ? std::string{} : inAnimation.m_Clips.begin()->first;
+        ImGui::OpenPopup( kPopup );
+    }
+
+    if ( !ImGui::BeginPopupModal( kPopup, nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) return false;
+    bool changed = false;
+
+    if ( !inAnimation.m_Clips.contains( s_Selected ) )
+    {
+        s_Selected = inAnimation.m_Clips.empty() ? std::string{} : inAnimation.m_Clips.begin()->first;
+    }
+
+    ImGui::BeginChild( "##clips", ImVec2( 180.0f, 240.0f ), ImGuiChildFlags_Borders );
+    for ( auto const& [name, path] : inAnimation.m_Clips )
+    {
+        if ( ImGui::Selectable( name.c_str(), name == s_Selected ) ) s_Selected = name;
+    }
+    ImGui::EndChild();
+    ImGui::SameLine();
+
+    ImGui::BeginGroup();
+    ImGui::BeginChild( "##clipdetail", ImVec2( 320.0f, 240.0f ), ImGuiChildFlags_Borders );
+    auto const it = inAnimation.m_Clips.find( s_Selected );
+    if ( it == inAnimation.m_Clips.end() )
+    {
+        ImGui::TextDisabled( "No clips yet. Add one below." );
+    }
+    else
+    {
+        ImGui::TextUnformatted( it->first.c_str() );
         ImGui::SetNextItemWidth( -FLT_MIN );
-        if ( DrawClipCombo( "##path", path, inKnownAnimations ) ) changed = true;
-        ImGui::PopID();
+        if ( DrawClipCombo( "##path", it->second, inKnownAnimations ) ) changed = true;
+
+        // Overriding is opt-in: off, the clip plays at the component's own Frame Duration.
+        auto durationIt = inAnimation.m_ClipFrameDurations.find( it->first );
+        bool overridden = durationIt != inAnimation.m_ClipFrameDurations.end();
+        if ( ImGui::Checkbox( "Own frame duration", &overridden ) )
+        {
+            if ( overridden ) inAnimation.m_ClipFrameDurations[it->first] = inAnimation.m_FrameDuration;
+            else inAnimation.m_ClipFrameDurations.erase( it->first );
+            changed = true;
+        }
+        if ( overridden )
+        {
+            ImGui::SetNextItemWidth( -FLT_MIN );
+            if ( ImGui::DragFloat( "##duration", &inAnimation.m_ClipFrameDurations[it->first], 0.01f, 0.001f, 10.0f, "%.3f s" ) )
+            {
+                changed = true;
+            }
+        }
+        else
+        {
+            ImGui::TextDisabled( "Uses the component's %.3f s", inAnimation.m_FrameDuration );
+        }
+
+        if ( ImGui::Button( "Play" ) ) changed |= PlayClip( inAnimation, it->first );
+        ImGui::SameLine();
+        if ( ImGui::Button( "Remove" ) )
+        {
+            inAnimation.m_ClipFrameDurations.erase( it->first );
+            inAnimation.m_Clips.erase( it );
+            changed = true;
+        }
     }
-    if ( !toRemove.empty() )
-    {
-        inAnimation.m_Clips.erase( toRemove );
-        changed = true;
-    }
+    ImGui::EndChild();
+    ImGui::EndGroup();
 
     // Picking an animation registers it at once under its own name (ClipNameFromPath), so the
     // name is never typed a second time. Animations already registered by that name are skipped.
-    ImGui::SetNextItemWidth( -FLT_MIN );
+    ImGui::SetNextItemWidth( 180.0f );
     if ( ImGui::BeginCombo( "##addclip", "Add clip from animation..." ) )
     {
         for ( auto const& path : inKnownAnimations )
@@ -532,6 +582,7 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
             if ( ImGui::Selectable( name.c_str() ) )
             {
                 inAnimation.m_Clips[name] = path;
+                s_Selected = name;
                 changed = true;
             }
             ImGui::PopID();
@@ -539,7 +590,9 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
         ImGui::EndCombo();
     }
 
-    ImGui::TreePop();
+    ImGui::SameLine( ImGui::GetContentRegionMax().x - 60.0f );
+    if ( ImGui::Button( "Close" ) ) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
     return changed;
 }
 
