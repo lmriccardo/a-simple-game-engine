@@ -22,7 +22,10 @@ namespace asge::game::systems
  * scaled by m_PlaybackSpeed (a large inDeltaTime can
  * step multiple frames in one call). At the last frame, either wraps to 0
  * (m_Loop true) or clamps there and clears m_Playing (m_Loop false), emitting
- * events::OnAnimationFinished once for the entity. A
+ * events::OnAnimationFinished once for the entity. The Sprite's own crop is
+ * then restored on the next run, unless Animation::m_FinishBehavior is
+ * HoldLastFrame, in which case the last frame stays until another clip
+ * starts or the clip path is cleared. A
  * non-positive duration or m_PlaybackSpeed is treated as "not animating" rather than
  * risking an infinite advance loop.
  */

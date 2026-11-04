@@ -567,11 +567,14 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
         auto& spriteRef = sprite.get();
 
         // Stopped, or its clip cleared: hand the Sprite its own crop back, so an Animation that isn't playing a clip shows nothing of its own.
+        // A finished HoldLastFrame clip is the exception while its clip is still set: its last frame stays put.
+        bool const holding = animationRef.m_HoldingLastFrame && !animationRef.m_ClipPath.empty() && animationRef.m_Clip;
         if ( animationRef.m_OwnsSourceRect
-             && ( !animationRef.m_Playing || animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) )
+             && ( ( !animationRef.m_Playing && !holding ) || animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) )
         {
             spriteRef.m_SourceRect = animationRef.m_RestRect;
             animationRef.m_OwnsSourceRect = false;
+            animationRef.m_HoldingLastFrame = false;
             continue;
         }
 
@@ -585,11 +588,13 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
             continue;
         }
 
+        // Only saved when ownership is first taken: a held last frame must never become the rest crop.
         if ( !animationRef.m_OwnsSourceRect )
         {
             animationRef.m_RestRect = spriteRef.m_SourceRect;
             animationRef.m_OwnsSourceRect = true;
         }
+        animationRef.m_HoldingLastFrame = false;
 
         bool finished = false;
         auto const nofFrames = frames.size();
@@ -611,6 +616,7 @@ void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDel
                 if ( !animationRef.m_Loop )
                 {
                     animationRef.m_Playing = false;
+                    animationRef.m_HoldingLastFrame = animationRef.m_FinishBehavior == components::FinishBehavior::HoldLastFrame;
                     finished = true;
                     break;
                 }
