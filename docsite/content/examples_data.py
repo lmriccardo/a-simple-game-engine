@@ -200,14 +200,14 @@ EXAMPLES = [
         slug="path_following_demo", title="Path Following", tagline="A car driving a closed, curved street",
         tags=["Physics", "ECS", "Assets", "Rendering"], kind="window", playable=False,
         description=[
-            "End-to-end showcase for <code>components::PathFollow</code> and "
+            "End-to-end showcase for <code>components::Path</code>, <code>components::PathFollow</code> and "
             "<code>systems::PathFollowingSystem</code>: a car drives a closed, curved street "
-            "loop built from <code>math::CatmullRomSpline</code> — 13 waypoints (the first "
+            "loop built from <code>math::CatmullRomSpline</code> — a route entity holds the <code>Path</code> and the car is its child with a <code>PathFollow</code> — 13 waypoints (the first "
             "repeated at the end, since a Catmull-Rom chain doesn't wrap on its own) resolved "
             "once at spawn time, then walked every frame at a player-adjustable speed, with the "
             "car oriented to face the road's tangent direction as it turns.",
             "The street itself is drawn straight from the car's own resolved "
-            "<code>PathFollow::m_Path</code> — <code>IRenderer</code> has no curve/polygon-fill "
+            "<code>Path::m_Path</code> — <code>IRenderer</code> has no curve/polygon-fill "
             "primitive, so it's painted as a dense trail of overlapping filled circles (via "
             "<code>PointAtDistance</code>) with a dashed centerline, rather than needing a "
             "second, separately-authored road asset.",
@@ -217,6 +217,20 @@ EXAMPLES = [
             ("SPACE", "Pause/resume"),
             ("R", "Reset to the start of the loop"),
         ],
+        source_files=["Game.hpp", "Game.cpp"],
+    ),
+    dict(
+        slug="ui_demo", title="UI", tagline="Buttons, labels, checkboxes, sliders, progress bars and a debug overlay",
+        tags=["UI", "ECS", "Input"], kind="window", playable=False,
+        description=[
+            "A tour of the UI framework: buttons with hover and pressed colours, overlapping buttons "
+            "resolved back to front by <code>UIInteractionSystem</code>, auto-sized and word-wrapped "
+            "<code>UILabel</code>s, a checkbox, a slider, and panels that lay out their children.",
+            "A <code>UIProgressBar</code> fills over time with a button beside it to restart it, and "
+            "<code>CreateDebugOverlay</code> adds a live FPS and entity-count readout "
+            "kept up to date by <code>UIDebugOverlaySystem</code>.",
+        ],
+        controls=[("Mouse", "Hover, click and drag the widgets")],
         source_files=["Game.hpp", "Game.cpp"],
     ),
     dict(

@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>UI · ASGE</title>
+<meta name="description" content="Buttons, labels, checkboxes, sliders, progress bars and a debug overlay"/>
+<meta property="og:title" content="UI · ASGE"/>
+<meta property="og:description" content="Buttons, labels, checkboxes, sliders, progress bars and a debug overlay"/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/ui_demo.html" aria-current="page">UI</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animation_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/ui_demo.html" aria-current="page">UI</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<section style="padding-top:36px;padding-bottom:20px;">
+  <div class="container">
+    <a class="back-link" href="index.html">&larr; All examples</a>
+    <div class="example-hero">
+      <div>
+        <span class="kicker">UI &middot; ECS &middot; Input</span>
+        <h1>UI</h1>
+        <p class="lede">Buttons, labels, checkboxes, sliders, progress bars and a debug overlay</p>
+        <p>A tour of the UI framework: buttons with hover and pressed colours, overlapping buttons resolved back to front by <code>UIInteractionSystem</code>, auto-sized and word-wrapped <code>UILabel</code>s, a checkbox, a slider, and panels that lay out their children.</p>
+<p>A <code>UIProgressBar</code> fills over time with a button beside it to restart it, and <code>CreateDebugOverlay</code> adds a live FPS and entity-count readout kept up to date by <code>UIDebugOverlaySystem</code>.</p>
+        <h3 id="controls">Controls</h3><ul class="controls-list"><li><kbd>Mouse</kbd> <span>Hover, click and drag the widgets</span></li></ul>
+        
+        <div class="tags" style="margin-top:16px;"><span class="tag">UI</span><span class="tag">ECS</span><span class="tag">Input</span></div>
+      </div>
+      <div class="example-media"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);">screenshot pending</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="container">
+    <h2 id="run-it-yourself">Run it yourself</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>build just this example</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-bash">cmake --build --preset windows-debug --target ui_demo
+# binary lands under bin/ (e.g. bin/Debug/ui_demo.exe on Windows)</code></pre>
+</div>
+    <p class="lede">See <a href="../getting-started.html">Installation</a> for the full build setup.</p>
+  </div>
+</section>
+<section>
+  <div class="container">
+    <h2 id="source">Source</h2>
+    <div class="code-card">
+  <div class="code-card-head"><span>examples/ui_demo/Game.hpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#pragma once
+
+#include &lt;ASGE/ASGE.hpp&gt;
+
+/**
+ * @brief Showcases a &quot;Button&quot; -- UIRect (footprint) + UIButton (fill
+ *        colors + click signal) + Interactable (hover/held/click state) --
+ *        the only UI widget RenderSystem draws so far.
+ *
+ * Two buttons sit side by side up top. The left one carries no Sprite, so
+ * RenderSystem draws its UIRect as a flat rect, switching between
+ * UIButton::m_Colors&#x27; m_Color/m_HoverColor/m_PressedColor by the sibling
+ * Interactable&#x27;s m_Hovered/m_Held. The right one also carries a Sprite, so
+ * RenderSystem draws *that* instead of the button rect (see
+ * RenderSystem.cpp&#x27;s ShouldExclude) -- this demo draws its own hover/press
+ * outline around it to show the click is still tracked even though the
+ * sprite itself never changes color.
+ *
+ * Below them, a second pair overlaps: m_OverlapFront sits on a higher
+ * RenderInfo::m_Layer directly on top of m_OverlapBack, which is offset
+ * just far enough that part of it still pokes out from underneath.
+ * UIInteractionSystem walks resources::UIHitList back to front (see its own doc
+ * comment), so clicking the overlap resolves to the front button, while
+ * clicking the exposed sliver still resolves to the back one.
+ *
+ * A third row, built through asge::game::ui::CreateLabel/CreateButton
+ * instead of hand-wiring components like the four buttons above, adds
+ * UILabel to the mix: a standalone label with no explicit size (UILabel::
+ * m_AutoSize -- LabelDesc::m_Size left as nullopt), a button sized to
+ * comfortably fit its own caption, and a button too small for its caption
+ * -- button labels never auto-size, and DrawString doesn&#x27;t clip yet, so
+ * that one&#x27;s text just overflows past the button&#x27;s edges.
+ *
+ * A band along the top shows multi-line text: a fixed-size label with
+ * TextDesc::m_WordWrap, and an auto-sized one whose content has explicit
+ * newlines, each line centered on its own.
+ *
+ * A fourth row adds a &quot;Checkbox&quot; -- UIRect (footprint) + UICheckbox (box/
+ * check-mark fill colors + m_OnToggled signal) + Interactable, hand-wired
+ * like the first four buttons since asge::game::ui has no CreateCheckbox
+ * factory yet. RenderSystem&#x27;s Draw(UIRect) picks it up the same way it does
+ * UIButton, drawing an inset m_CheckColor square on top of the box once
+ * m_Checked is toggled true.
+ *
+ * A progress bar built with asge::game::ui::CreateProgressBar sits beside
+ * the panel: Update() calls Step() on it every frame so it fills over five
+ * seconds, logging once when it reaches its maximum, and a &quot;Restart&quot; button
+ * resets it.
+ *
+ * Hover/held/m_OnClick are entirely engine-driven: SpawnEntities() sets the
+ * resources::UIHitList resource once, RenderSystem rebuilds it every frame,
+ * and Update() just calls systems::UIInteractionSystem -- this state never
+ * touches InputState&#x27;s mouse queries or a button&#x27;s rect itself. Clicks are
+ * logged to the console.
+ */
+class UIDemoState final : public asge::game::state::IGameState&lt;int&gt;
+{
+    asge::ecs::Registry&amp;             m_Registry;
+    asge::game::asset::AssetManager&amp; m_Assets;
+
+    asge::ecs::Entity m_PlainButton { asge::ecs::Entity::Null() }; // no Sprite -- drawn as a colored rect
+    asge::ecs::Entity m_SpriteButton{ asge::ecs::Entity::Null() }; // has a Sprite -- drawn as the texture instead
+    asge::ecs::Entity m_OverlapFront{ asge::ecs::Entity::Null() }; // higher layer -- sits on top of m_OverlapBack
+    asge::ecs::Entity m_OverlapBack { asge::ecs::Entity::Null() }; // lower layer, shifted -- partly exposed and still clickable
+    asge::ecs::Entity m_Checkbox    { asge::ecs::Entity::Null() }; // toggled by click -- see UICheckbox::m_OnToggled
+    asge::ecs::Entity m_Slider      { asge::ecs::Entity::Null() }; // dragged -- see UISlider::m_OnValueChanged
+    asge::ecs::Entity m_ProgressBar { asge::ecs::Entity::Null() }; // stepped every frame in Update() -- see UIProgressBar
+
+    void SpawnEntities();
+    void RenderSpriteButtonOutline( asge::video::IRenderer&amp; inRenderer ) const;
+
+public:
+    UIDemoState(asge::ecs::Registry&amp; inRegistry, asge::game::asset::AssetManager&amp; inAssets);
+
+    [[nodiscard]] std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+    Update(float inDeltaTime, asge::input::InputState const&amp; inInput) override;
+    void Render(asge::video::IRenderer&amp; inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 24, 26, 30, 255 }; }
+    void OnSystemEvent(asge::event::SystemEvent const&amp; inSysEvent) override;
+};
+
+class UIDemoGame final : public asge::game::Game&lt;int&gt;
+{
+public:
+    explicit UIDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev);
+
+protected:
+    [[nodiscard]] std::unique_ptr&lt;StateType&gt; CreateState(int inId) override;
+};
+</code></pre>
+</div>
+<div class="code-card">
+  <div class="code-card-head"><span>examples/ui_demo/Game.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">#include &quot;Game.hpp&quot;
+
+#include &lt;ASGE/Core/ECS/Hierarchy.hpp&gt;
+#include &lt;ASGE/Game/UI.hpp&gt;
+
+namespace
+{
+using asge::game::components::Interactable;
+using asge::game::components::RenderInfo;
+using asge::game::components::Sprite;
+using asge::game::components::Transform;
+using asge::game::components::UIButton;
+using asge::game::components::UICheckbox;
+using asge::game::components::UILayoutItem;
+using asge::game::components::UIProgressBar;
+using asge::game::components::UIRect;
+using asge::game::components::SlotAlign;
+using asge::game::resources::UIHitList;
+using asge::game::ui::ButtonDesc;
+using asge::game::ui::CreateButton;
+using asge::game::ui::CreateLabel;
+using asge::game::ui::CreateSlider;
+using asge::game::ui::CreatePanel;
+using asge::game::ui::CreateProgressBar;
+using asge::game::ui::CreateDebugOverlay;
+using asge::game::ui::DebugOverlayDesc;
+using asge::game::ui::LabelDesc;
+using asge::game::ui::PanelDesc;
+using asge::game::ui::ProgressBarDesc;
+using asge::game::ui::SliderDesc;
+using asge::game::ui::TextDesc;
+
+constexpr char const* kSpriteTexturePath = &quot;textures/checker.bmp&quot;;
+constexpr char const* kFontPath = &quot;fonts/PTSans-Regular.ttf&quot;;
+
+// asge::math::Float2 has no constexpr constructor (see Vec2&#x27;s variadic ctor),
+// so positions/sizes are kept as plain floats and assembled at point of use.
+constexpr float kPlainButtonX = 220.0f, kPlainButtonY = 275.0f;
+constexpr float kPlainButtonW = 160.0f, kPlainButtonH = 50.0f;
+
+constexpr float kSpriteButtonX = 480.0f, kSpriteButtonY = 275.0f;
+constexpr float kSpriteButtonScale = 5.0f; // checker.bmp is 32x32, scaled 5x -- 160x160 on screen
+constexpr float kSpriteTextureSize = 32.0f;
+
+constexpr float kOverlapW = 160.0f, kOverlapH = 50.0f;
+constexpr float kOverlapFrontX = 220.0f, kOverlapFrontY = 420.0f;
+// Shifted just enough that a kOverlapShift-wide/tall sliver along the
+// bottom and right edges stays outside m_OverlapFront&#x27;s rect -- click there.
+constexpr float kOverlapShift = 30.0f;
+constexpr float kOverlapBackX = kOverlapFrontX + kOverlapShift, kOverlapBackY = kOverlapFrontY + kOverlapShift;
+
+// Third row: built through asge::game::ui&#x27;s CreateLabel/CreateButton
+// instead of hand-wiring components one at a time, unlike everything above.
+constexpr float kRow3Y = 530.0f;
+constexpr float kAutoLabelX = 60.0f;
+
+constexpr float kFittingButtonX = 320.0f;
+constexpr float kFittingButtonW = 150.0f, kFittingButtonH = 40.0f;
+
+constexpr float kCroppedButtonX = 560.0f;
+constexpr float kCroppedButtonW = 70.0f, kCroppedButtonH = 24.0f; // too small for its own label
+
+// Fourth row: a hand-wired &quot;Checkbox&quot; -- UICheckbox has no asge::game::ui
+// factory yet, unlike the label/button pair above.
+constexpr float kRow4Y = 620.0f;
+constexpr float kCheckboxX = 220.0f;
+constexpr float kCheckboxSize = 24.0f;
+constexpr float kCheckboxLabelX = kCheckboxX + kCheckboxSize + 12.0f;
+
+// A panel framing the checkbox and slider rows.
+constexpr float kPanelX = 200.0f, kPanelY = 600.0f;
+constexpr float kPanelW = 300.0f, kPanelH = 110.0f;
+constexpr float kPanelPadding = 10.0f;
+
+// Fifth row: a slider built through asge::game::ui::CreateSlider.
+constexpr float kRow5Y = 670.0f;
+constexpr float kSliderX = 220.0f;
+constexpr float kSliderW = 200.0f, kSliderH = 24.0f;
+
+// A progress bar filling over time, with a button beside it to restart it.
+constexpr float kProgressBarX = 540.0f, kProgressBarY = 620.0f;
+constexpr float kProgressBarW = 200.0f, kProgressBarH = 20.0f;
+constexpr float kProgressResetX = 540.0f, kProgressResetY = 655.0f;
+constexpr float kProgressResetW = 100.0f, kProgressResetH = 30.0f;
+constexpr float kProgressPerSecond = 0.2f; // of the 0..1 range -- full in 5 seconds
+
+// Top band: multi-line text, one label wrapped to its size and one with explicit breaks.
+constexpr float kTextRowY = 40.0f;
+constexpr float kWrappedLabelX = 60.0f;
+constexpr float kNewlineLabelX = 440.0f;
+constexpr float kTextLabelW = 300.0f, kTextLabelH = 120.0f;
+}
+
+UIDemoState::UIDemoState(
+    asge::ecs::Registry&amp; inRegistry, asge::game::asset::AssetManager&amp; inAssets
+)
+: m_Registry(inRegistry), m_Assets(inAssets)
+{
+    SpawnEntities();
+}
+
+void UIDemoState::SpawnEntities()
+{
+    // Opts this registry into hit-testing at all -- RenderSystem only
+    // rebuilds UIHitList once this resource exists (see its own doc
+    // comment), and UIInteractionSystem no-ops entirely without it.
+    m_Registry.SetResource( UIHitList{} );
+
+    // Both buttons draw in screen space -- ordinary UI convention, and what
+    // keeps their position pixel-stable regardless of any world camera.
+    auto plain = m_Registry.CreateEntity();
+    if ( !plain ) { plain.LogError(); return; }
+    m_PlainButton = plain.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_PlainButton, Transform{
+        .m_WorldCoordinates = { kPlainButtonX, kPlainButtonY }
+    } );
+    m_Registry.AddComponent&lt;UIRect&gt;( m_PlainButton, UIRect{ .m_Size = { kPlainButtonW, kPlainButtonH } } );
+    m_Registry.AddComponent&lt;UIButton&gt;( m_PlainButton, UIButton{} );
+    m_Registry.AddComponent&lt;Interactable&gt;( m_PlainButton, Interactable{} );
+    m_Registry.AddComponent&lt;RenderInfo&gt;( m_PlainButton, RenderInfo{ .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent&lt;UIButton&gt;( m_PlainButton ) )
+    {
+        result.Value().get().m_OnClick.Connect( []{ LOG_INFO( &quot;Plain button clicked!&quot; ); } );
+    }
+
+    // Also carries a Sprite -- RenderSystem&#x27;s ShouldExclude&lt;UIRect&gt; then
+    // skips this entity&#x27;s button rect entirely and draws the Sprite instead
+    // (see RenderSystem.cpp), so UIRect&#x27;s own size is never read for
+    // drawing here; its footprint comes from the texture and scale below.
+    // It&#x27;s still hit-tested (CollectHitList only needs UIRect+Interactable,
+    // not what actually got drawn), which is what RenderSpriteButtonOutline
+    // relies on below. UIRect::m_Size is in the same *pre-scale* units as a
+    // Sprite&#x27;s native texture size (see RectFromSize/SpriteGetDstRect, both
+    // of which multiply by Transform::m_WorldScale themselves) -- passing
+    // the already-scaled 160x160 here double-applies m_WorldScale and blows
+    // the hit rect out to 800x800.
+    auto sprited = m_Registry.CreateEntity();
+    if ( !sprited ) { sprited.LogError(); return; }
+    m_SpriteButton = sprited.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_SpriteButton, Transform{
+        .m_WorldCoordinates = { kSpriteButtonX, kSpriteButtonY },
+        .m_WorldScale = { kSpriteButtonScale, kSpriteButtonScale }
+    } );
+    // m_Texture stays null until Render()&#x27;s AssetManager::ResolveAssets call.
+    m_Registry.AddComponent&lt;Sprite&gt;( m_SpriteButton, Sprite{ .m_VirtualPath = kSpriteTexturePath } );
+    m_Registry.AddComponent&lt;UIRect&gt;( m_SpriteButton, UIRect{
+        .m_Size = { kSpriteTextureSize, kSpriteTextureSize }
+    } );
+    m_Registry.AddComponent&lt;UIButton&gt;( m_SpriteButton, UIButton{} );
+    m_Registry.AddComponent&lt;Interactable&gt;( m_SpriteButton, Interactable{} );
+    m_Registry.AddComponent&lt;RenderInfo&gt;( m_SpriteButton, RenderInfo{ .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent&lt;UIButton&gt;( m_SpriteButton ) )
+    {
+        result.Value().get().m_OnClick.Connect( []{ LOG_INFO( &quot;Sprite button clicked!&quot; ); } );
+    }
+
+    // m_OverlapBack first, so it also ends up behind in entity-index order --
+    // m_Layer is what actually decides draw/hit order here, though, not this.
+    auto back = m_Registry.CreateEntity();
+    if ( !back ) { back.LogError(); return; }
+    m_OverlapBack = back.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_OverlapBack, Transform{
+        .m_WorldCoordinates = { kOverlapBackX, kOverlapBackY }
+    } );
+    m_Registry.AddComponent&lt;UIRect&gt;( m_OverlapBack, UIRect{ .m_Size = { kOverlapW, kOverlapH } } );
+    m_Registry.AddComponent&lt;UIButton&gt;( m_OverlapBack, UIButton{ .m_Colors = {
+        .m_Color = asge::graphics::colors::s_ButtonDark,
+        .m_HoverColor = asge::graphics::colors::s_ButtonDarkHover,
+        .m_PressedColor = asge::graphics::colors::s_ButtonDarkPressed,
+    } } );
+    m_Registry.AddComponent&lt;Interactable&gt;( m_OverlapBack, Interactable{} );
+    m_Registry.AddComponent&lt;RenderInfo&gt;( m_OverlapBack, RenderInfo{ .m_Layer = 0, .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent&lt;UIButton&gt;( m_OverlapBack ) )
+    {
+        result.Value().get().m_OnClick.Connect( []{ LOG_INFO( &quot;Back button (B2) clicked!&quot; ); } );
+    }
+
+    auto front = m_Registry.CreateEntity();
+    if ( !front ) { front.LogError(); return; }
+    m_OverlapFront = front.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_OverlapFront, Transform{
+        .m_WorldCoordinates = { kOverlapFrontX, kOverlapFrontY }
+    } );
+    m_Registry.AddComponent&lt;UIRect&gt;( m_OverlapFront, UIRect{ .m_Size = { kOverlapW, kOverlapH } } );
+    m_Registry.AddComponent&lt;UIButton&gt;( m_OverlapFront, UIButton{ .m_Colors = {
+        .m_Color = asge::graphics::colors::s_ButtonAccent,
+        .m_HoverColor = asge::graphics::colors::s_ButtonAccentHover,
+        .m_PressedColor = asge::graphics::colors::s_ButtonAccentPressed,
+    } } );
+    m_Registry.AddComponent&lt;Interactable&gt;( m_OverlapFront, Interactable{} );
+    // Higher layer than m_OverlapBack -- both draws *and* hit-tests on top of
+    // it (RenderSystem sorts by layer, CollectHitList keeps that same order,
+    // and UIInteractionSystem walks the hit list back to front).
+    m_Registry.AddComponent&lt;RenderInfo&gt;( m_OverlapFront, RenderInfo{ .m_Layer = 1, .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent&lt;UIButton&gt;( m_OverlapFront ) )
+    {
+        result.Value().get().m_OnClick.Connect( []{ LOG_INFO( &quot;Front button (B1) clicked!&quot; ); } );
+    }
+
+    // A standalone label with no explicit UIRect size -- asge::game::ui::
+    // LabelDesc::m_Size left as nullopt means &quot;fit the text&quot; (UILabel::
+    // m_AutoSize = true), the auto-sizing counterpart to the two buttons
+    // below, whose labels always take the button&#x27;s own fixed size instead.
+    auto autoLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = &quot;AutoLabel&quot;,
+        .m_Position = { kAutoLabelX, kRow3Y },
+        .m_Text = TextDesc{
+            .m_Content = &quot;Autosizable label!&quot;,
+            .m_FontPath = kFontPath,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !autoLabel ) autoLabel.LogError();
+
+    // Sized generously for its short caption -- the label fits comfortably
+    // inside the button with room to spare.
+    auto fittingButton = CreateButton( m_Registry, ButtonDesc{
+        .m_Name = &quot;FittingButton&quot;,
+        .m_Position = { kFittingButtonX, kRow3Y - 5.0f },
+        .m_Size = { kFittingButtonW, kFittingButtonH },
+        .m_Text = TextDesc{ .m_Content = &quot;OK&quot;, .m_FontPath = kFontPath, .m_Align = asge::str::TextAlign::Center, .m_Color = asge::graphics::colors::s_Black },
+        .m_OnClick = []{ LOG_INFO( &quot;Fitting button clicked!&quot; ); },
+    } );
+    if ( !fittingButton ) fittingButton.LogError();
+
+    // A small button with a long caption -- button labels never auto-size
+    // (see asge::game::ui::CreateButton), and RenderSystem&#x27;s DrawString has
+    // no clipping yet, so the text simply overflows past the button&#x27;s edges
+    // instead of being cut off at them.
+    auto croppedButton = CreateButton( m_Registry, ButtonDesc{
+        .m_Name = &quot;CroppedButton&quot;,
+        .m_Position = { kCroppedButtonX, kRow3Y },
+        .m_Size = { kCroppedButtonW, kCroppedButtonH },
+        .m_Text = TextDesc{
+            .m_Content = &quot;Way too long for this button&quot;,
+            .m_FontPath = kFontPath,
+            .m_FontPixelHeight = 14,
+            .m_Color = asge::graphics::colors::s_Black,
+        },
+        .m_OnClick = []{ LOG_INFO( &quot;Cropped button clicked!&quot; ); },
+    } );
+    if ( !croppedButton ) croppedButton.LogError();
+
+    // Fixed-size label with m_WordWrap: the long sentence breaks at spaces
+    // to fit kTextLabelW instead of running off as a single line.
+    auto wrappedLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = &quot;WrappedLabel&quot;,
+        .m_Position = { kWrappedLabelX, kTextRowY },
+        .m_Size = asge::math::Float2{ kTextLabelW, kTextLabelH },
+        .m_Text = TextDesc{
+            .m_Content = &quot;This label is word-wrapped: its text breaks at spaces to fit the width of the label.&quot;,
+            .m_FontPath = kFontPath,
+            .m_VerticalAlign = asge::game::components::VerticalAlign::Top,
+            .m_WordWrap = true,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !wrappedLabel ) wrappedLabel.LogError();
+
+    // Auto-sized label whose content carries explicit line breaks; each line
+    // is centered on its own.
+    auto newlineLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = &quot;NewlineLabel&quot;,
+        .m_Position = { kNewlineLabelX, kTextRowY },
+        .m_Text = TextDesc{
+            .m_Content = &quot;Line one\nA longer second line\nThree&quot;,
+            .m_FontPath = kFontPath,
+            .m_Align = asge::str::TextAlign::Center,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !newlineLabel ) newlineLabel.LogError();
+
+    // Hand-wired like the first four buttons -- UICheckbox + Interactable +
+    // UIRect, no asge::game::ui factory for it yet.
+    auto checkbox = m_Registry.CreateEntity();
+    if ( !checkbox ) { checkbox.LogError(); return; }
+    m_Checkbox = checkbox.Value();
+    m_Registry.AddComponent&lt;Transform&gt;( m_Checkbox, Transform{
+        .m_WorldCoordinates = { kCheckboxX, kRow4Y }
+    } );
+    m_Registry.AddComponent&lt;UIRect&gt;( m_Checkbox, UIRect{ .m_Size = { kCheckboxSize, kCheckboxSize } } );
+    m_Registry.AddComponent&lt;UICheckbox&gt;( m_Checkbox, UICheckbox{} );
+    m_Registry.AddComponent&lt;Interactable&gt;( m_Checkbox, Interactable{} );
+    m_Registry.AddComponent&lt;RenderInfo&gt;( m_Checkbox, RenderInfo{ .m_ScreenSpace = true } );
+
+    if ( auto result = m_Registry.GetComponent&lt;UICheckbox&gt;( m_Checkbox ) )
+    {
+        result.Value().get().m_OnToggled.Connect( []( bool inChecked )
+        {
+            LOG_INFO( &quot;Checkbox toggled: {}&quot;, inChecked ? &quot;checked&quot; : &quot;unchecked&quot; );
+        } );
+    }
+
+    // Caption beside it -- auto-sized, same as the standalone label in row 3.
+    auto checkboxLabel = CreateLabel( m_Registry, LabelDesc{
+        .m_Name = &quot;CheckboxLabel&quot;,
+        .m_Position = { kCheckboxLabelX, kRow4Y },
+        .m_Text = TextDesc{
+            .m_Content = &quot;Enable something&quot;,
+            .m_FontPath = kFontPath,
+            .m_Color = asge::graphics::colors::s_White,
+        },
+    } );
+    if ( !checkboxLabel ) checkboxLabel.LogError();
+
+    // A bordered 2x2 grid panel behind rows 4-5 (its default layer is behind
+    // widgets&#x27;). Its children are attached below, once they all exist.
+    auto panel = CreatePanel( m_Registry, PanelDesc{
+        .m_Name = &quot;Panel&quot;,
+        .m_Position = { kPanelX, kPanelY },
+        .m_Size = { kPanelW, kPanelH },
+        .m_Layout = asge::game::components::LayoutGrid{ .m_Rows = 2, .m_Cols = 2 },
+        .m_Padding = { kPanelPadding, kPanelPadding },
+        .m_Spacing = { kPanelPadding, kPanelPadding },
+        .m_Border = true,
+    } );
+    if ( !panel ) panel.LogError();
+
+    // Fifth row: a slider through CreateSlider, starting at 0.4 of 0..1.
+    auto slider = CreateSlider( m_Registry, SliderDesc{
+        .m_Name = &quot;Slider&quot;,
+        .m_Position = { kSliderX, kRow5Y },
+        .m_Size = { kSliderW, kSliderH },
+        .m_Value = 0.4f,
+        .m_OnValueChanged = []( float inValue ){ LOG_INFO( &quot;Slider value: {:.2f}&quot;, inValue ); },
+    } );
+    if ( !slider ) slider.LogError();
+    else m_Slider = slider.Value();
+
+    // Grid cells fill in sibling order: checkbox | its label / slider | (empty).
+    if ( panel &amp;&amp; checkboxLabel &amp;&amp; slider )
+    {
+        using asge::ecs::components::AttachChild;
+        AttachChild( m_Registry, panel.Value(), m_Checkbox );
+        AttachChild( m_Registry, panel.Value(), checkboxLabel.Value() );
+        AttachChild( m_Registry, panel.Value(), m_Slider );
+
+        // The checkbox keeps its square size, centered in its cell; the slider
+        // stretches across its cell&#x27;s width but keeps its height, centered.
+        m_Registry.AddComponent&lt;UILayoutItem&gt;( m_Checkbox, UILayoutItem{
+            .m_FillX = false, .m_FillY = false, .m_AlignX = SlotAlign::Center, .m_AlignY = SlotAlign::Center } );
+        m_Registry.AddComponent&lt;UILayoutItem&gt;( m_Slider, UILayoutItem{
+            .m_FillY = false, .m_AlignY = SlotAlign::Center } );
+    }
+
+    // FPS / entity-count readout, refreshed by UIDebugOverlaySystem in Update().
+    auto overlay = CreateDebugOverlay( m_Registry, DebugOverlayDesc{ .m_FontPath = kFontPath } );
+    if ( !overlay ) overlay.LogError();
+
+    // A progress bar through CreateProgressBar: Update() steps it every frame,
+    // and it logs once when it fills up. The button restarts it.
+    auto progressBar = CreateProgressBar( m_Registry, ProgressBarDesc{
+        .m_Name = &quot;ProgressBar&quot;,
+        .m_Position = { kProgressBarX, kProgressBarY },
+        .m_Size = { kProgressBarW, kProgressBarH },
+        .m_OnMaxReached = []( float inValue ){ LOG_INFO( &quot;Progress bar full: {}&quot;, inValue ); },
+    } );
+    if ( !progressBar ) progressBar.LogError();
+    else m_ProgressBar = progressBar.Value();
+
+    auto progressReset = CreateButton( m_Registry, ButtonDesc{
+        .m_Name = &quot;ProgressResetButton&quot;,
+        .m_Position = { kProgressResetX, kProgressResetY },
+        .m_Size = { kProgressResetW, kProgressResetH },
+        .m_Text = TextDesc{ .m_Content = &quot;Restart&quot;, .m_FontPath = kFontPath, .m_Align = asge::str::TextAlign::Center, .m_Color = asge::graphics::colors::s_Black },
+        .m_OnClick = [this]
+        {
+            if ( auto bar = m_Registry.GetComponent&lt;UIProgressBar&gt;( m_ProgressBar ) )
+            {
+                auto&amp; b = bar.Value().get();
+                b.m_CurrValue = b.m_Start;
+                b.m_IsAtMax = false;
+            }
+        },
+    } );
+    if ( !progressReset ) progressReset.LogError();
+}
+
+void UIDemoState::RenderSpriteButtonOutline( asge::video::IRenderer &amp;inRenderer ) const
+{
+    auto tResult = m_Registry.GetComponent&lt;Transform&gt;( m_SpriteButton );
+    auto rResult = m_Registry.GetComponent&lt;UIRect&gt;( m_SpriteButton );
+    auto iResult = m_Registry.GetComponent&lt;Interactable&gt;( m_SpriteButton );
+    if ( !tResult || !rResult || !iResult ) return;
+
+    auto const&amp; transform = tResult.Value().get();
+    auto const&amp; rect = rResult.Value().get();
+    auto const&amp; interactable = iResult.Value().get();
+
+    // RenderSystem never draws this button&#x27;s own colors (see SpawnEntities),
+    // so this is the only visible sign it&#x27;s interactive at all.
+    asge::graphics::RGBA_Color const outline = interactable.m_Held    ? asge::graphics::colors::s_ButtonAccentPressed
+                                              : interactable.m_Hovered ? asge::graphics::colors::s_ButtonAccentHover
+                                                                       : asge::graphics::colors::s_Gray;
+
+    // rect.m_Size is native (pre-scale) size -- scale it up the same way
+    // RectFromSize/SpriteGetDstRect do, so the outline actually hugs the
+    // sprite&#x27;s real on-screen footprint instead of its unscaled one.
+    float const width  = rect.m_Size.x() * transform.m_WorldScale.x();
+    float const height = rect.m_Size.y() * transform.m_WorldScale.y();
+    asge::math::Rect const outlineRect{
+        transform.m_WorldCoordinates.x() - 4.0f, transform.m_WorldCoordinates.y() - 4.0f,
+        width + 8.0f, height + 8.0f
+    };
+    inRenderer.DrawRect( outlineRect, outline, false );
+}
+
+std::optional&lt;asge::game::state::Transition&lt;int&gt;&gt;
+UIDemoState::Update( float inDeltaTime, [[maybe_unused]] asge::input::InputState const &amp;inInput)
+{
+    asge::game::systems::UIDebugOverlaySystem( m_Registry );
+
+    if ( auto bar = m_Registry.GetComponent&lt;UIProgressBar&gt;( m_ProgressBar ) )
+    {
+        asge::game::components::Step( bar.Value().get(), kProgressPerSecond * inDeltaTime );
+    }
+
+    return std::nullopt;
+}
+
+void UIDemoState::Render(asge::video::IRenderer &amp;inRenderer)
+{
+    RenderSpriteButtonOutline( inRenderer );
+}
+
+void UIDemoState::OnSystemEvent([[maybe_unused]] asge::event::SystemEvent const &amp;inSysEvent)
+{
+}
+
+UIDemoGame::UIDemoGame(asge::video::IRenderer&amp; inRenderer, asge::audio::AudioDevice&amp; inAudioDev)
+: Game(inRenderer, inAudioDev)
+{
+    // ASGE_UI_DEMO_ASSET_DIR is injected by CMakeLists.txt; mounted twice
+    // (same directory, two virtual prefixes) so the sprite button&#x27;s texture
+    // and the labels&#x27; font both load by virtual path rather than a
+    // hardcoded OS path baked into this demo.
+    auto mountResult = m_Vfs.Mount(&quot;textures&quot;, ASGE_UI_DEMO_ASSET_DIR);
+    if ( !mountResult ) mountResult.LogError();
+    auto fontsMountResult = m_Vfs.Mount(&quot;fonts&quot;, ASGE_UI_DEMO_ASSET_DIR);
+    if ( !fontsMountResult ) fontsMountResult.LogError();
+
+    SetInitialState(0);
+}
+
+std::unique_ptr&lt;UIDemoGame::StateType&gt; UIDemoGame::CreateState([[maybe_unused]] int inId)
+{
+    return std::make_unique&lt;UIDemoState&gt;( m_SceneManager.GetRegistry(), m_Assets );
+}
+</code></pre>
+</div>
+    <p><a href="https://github.com/lmriccardo/a-simple-game-engine/tree/main/examples/ui_demo" target="_blank" rel="noopener">Browse the full example on GitHub →</a></p>
+  </div>
+</section>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l3"><a href="#controls">Controls</a></li><li class="l2"><a href="#run-it-yourself">Run it yourself</a></li><li class="l2"><a href="#source">Source</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

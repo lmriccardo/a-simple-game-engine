@@ -54,10 +54,12 @@
   <li>Add an <code>Animation</code> component to an entity, choose the clip path and frame duration, and press <strong>Play</strong>.</li>
 </ol>
 <img src="../assets/img/editor/animation-clip-preview.png" alt="The animation clip preview cycling through frames" loading="lazy"/>
+<h2 id="named-clips">Named clips</h2>
+<p>An Animation can hold several named clips. Click <strong>Edit Clips</strong> in its Inspector section to open a modal: every clip is listed on the left, and for the selected one you choose its animation, then <strong>Play</strong> or <strong>Remove</strong> it. New clips can be added straight from an animation picker. Tick the frame-duration option to give that clip its own speed; left off, it uses the component's own Frame Duration.</p>
 <p>A clip records which texture it slices (<code>m_OriginAsset</code>), so once one exists the texture's button becomes <strong>Open Clip</strong> and jumps straight to it. Importing a <code>.toml</code> by hand via Load Asset... that doesn't identify its own texture this way is rejected rather than imported half-configured.</p>
 <p>Previous: <a href="add-a-collider.html">Add a collider</a> &middot; Next: <a href="follow-a-path.html">Make an entity follow a path</a>.</p>
 </article>
-<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#steps">Steps</a></li></ul></nav></aside>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#steps">Steps</a></li><li class="l2"><a href="#named-clips">Named clips</a></li></ul></nav></aside>
 </div>
 </main>
 <footer class="site-footer">

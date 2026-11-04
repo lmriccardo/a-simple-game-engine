@@ -434,10 +434,10 @@ than the world, so they stay put when the camera moves.</p>
 <h2>How ASGE does it</h2>
 <h3>Widgets</h3>
 <p>Each widget is a bundle of components over a <code>UIRect</code>: <code>UIButton</code>, <code>UILabel</code>,
-<code>UICheckbox</code>, <code>UISlider</code> and <code>UIPanel</code>. You do not assemble these by hand; the
+<code>UICheckbox</code>, <code>UISlider</code>, <code>UIProgressBar</code> and <code>UIPanel</code>. You do not assemble these by hand; the
 <code>asge::game::ui::Create*</code> functions take a descriptor and return a <code>Result&lt;ecs::Entity&gt;</code>:
-<code>CreateLabel</code>, <code>CreateButton</code>, <code>CreateCheckbox</code>, <code>CreateSlider</code> and
-<code>CreatePanel</code>. The editor uses the same functions, so what it builds is what a game gets.</p>
+<code>CreateLabel</code>, <code>CreateButton</code>, <code>CreateCheckbox</code>, <code>CreateSlider</code>,
+<code>CreateProgressBar</code> and <code>CreatePanel</code>. The editor uses the same functions, so what it builds is what a game gets.</p>
 """ + code_card("ui.cpp", "cpp", """asge::game::ui::ButtonDesc desc;
 desc.m_Name     = "Play";
 desc.m_Position = asge::math::Float2{ 16.0f, 16.0f };
@@ -450,11 +450,16 @@ auto button = asge::game::ui::CreateButton( registry, desc );   // Result<ecs::E
   <li><code>UILayoutSystem</code> places each panel's children. A panel's layout is <code>Absolute</code> (children keep their position), <code>Grid</code> (rows and columns), <code>VStack</code> or <code>HStack</code>; a child may carry a <code>UILayoutItem</code> to choose whether it fills its slot and how it aligns.</li>
   <li>Widgets are children of panels through the normal entity <code>Hierarchy</code>; a screen-space flag keeps HUD elements fixed while the camera moves.</li>
 </ul>
+<h3>Progress bars and the debug overlay</h3>
+<ul>
+  <li><code>UIProgressBar</code> fills between <code>m_Min</code> and <code>m_Max</code> in a <code>FillDirection</code>. Call <code>Step(bar)</code> (or <code>Step(bar, amount)</code>) to advance it: the value is clamped, <code>m_OnValueChange</code> fires with the new value, and <code>m_OnMaxReached</code> fires once it is full.</li>
+  <li><code>CreateDebugOverlay</code> makes a label that shows min/avg/max FPS and the entity count on one line. <code>UIDebugOverlaySystem</code> refreshes it every <code>m_RefreshInterval</code> seconds (0.25 by default) from unscaled time, so pausing the game does not freeze it. It is runtime-only and never saved to a scene.</li>
+</ul>
 <p>Text uses a baked <code>Font</code> loaded through the <a href="assets.html">asset manager</a>; a label with text but no
 font path is rejected with <code>UIWidgetError::TextWithNoFont</code>.</p>
 
 <h2>See also</h2>
-<p>Source: """ + src("Game/UI.hpp") + ", " + src("Game/Systems/UISystem.hpp") + ", " + src("Game/Components/UI/UIPanel.hpp") + """.
+<p>Source: """ + src("Game/UI.hpp") + ", " + src("Game/Systems/UISystem.hpp") + ", " + src("Game/Components/UI/UIPanel.hpp") + ", " + src("Game/Components/UI/UIProgressBar.hpp") + """.
 <a href="../../editor/arrange-the-ui.html">Arrange the UI in the editor</a></p>
 """
 
@@ -499,6 +504,7 @@ second. <a href="physics.html">Physics</a> is built on these.</p>
 
 <h3>Interpolation</h3>
 <ul>
+  <li>Scalar helpers in <code>Scalar.hpp</code>: <code>Clamp</code>, <code>Lerp</code>, <code>Normalize01</code> and <code>Remap</code> (map a value from one range to another).</li>
   <li><code>Easing</code> and <code>Ease(easing, t)</code>: <code>Linear</code>, <code>InQuad</code>, <code>OutQuad</code>, <code>InOutQuad</code>, <code>OutCubic</code>; the input is clamped to [0, 1].</li>
   <li><code>Tween&lt;T&gt;</code>: moves a float, <code>Float2</code> or similar from one value to another over a duration; call <code>Update(dt)</code> each frame and read <code>Value()</code>.</li>
   <li><code>CatmullRomSpline</code>: a smooth curve through waypoints, with arc-length sampling so motion along it is at constant speed. <code>PathFollowingSystem</code> and the editor's path preview use it.</li>

@@ -133,8 +133,9 @@ TASKS = [
     ("Collider", "Rect or circle shape, drawable on the viewport: <a href='add-a-collider.html'>Add a collider</a>."),
     ("Camera", "Zoom and follow-smoothing; previewed live in the viewport."),
     ("AudioSource", "Clip path (picked from known audio), volume, loop."),
-    ("Animation", "Clip path, frame duration and a Play/Stop button. It starts stopped so nothing auto-plays when added."),
-    ("PathFollow", "Waypoints authored on the viewport: <a href='follow-a-path.html'>Make an entity follow a path</a>."),
+    ("Animation", "Clip path, frame duration, named clips (<strong>Edit Clips</strong>, see <a href='animate-a-sprite.html'>Animate a sprite</a>) and a Play/Stop button. It starts stopped so nothing auto-plays when added."),
+    ("Path", "A route's waypoints, loop flag and resolution, authored on the viewport: <a href='follow-a-path.html'>Make an entity follow a path</a>."),
+    ("PathFollow", "Speed, H/V offset and align-rotation for an entity that rides its parent's Path."),
     ("Velocity / Rigidbody", "Plain physics data: linear velocity, mass and drag."),
     ("RenderInfo", "Layer, Y-sort, screen space and sort inheritance. Added automatically, once, whenever a Sprite is."),
     ("UI components", "UIRect, UIButton, UILabel, UICheckbox, UISlider, UIPanel and UILayoutItem."),
@@ -247,30 +248,39 @@ TASKS = [
   <li>Add an <code>Animation</code> component to an entity, choose the clip path and frame duration, and press <strong>Play</strong>.</li>
 </ol>
 {shot("animation-clip-preview.png", "The animation clip preview cycling through frames")}
+<h2>Named clips</h2>
+<p>An Animation can hold several named clips. Click <strong>Edit Clips</strong> in its Inspector section to open a modal: every clip is listed on the left, and for the selected one you choose its animation, then <strong>Play</strong> or <strong>Remove</strong> it. New clips can be added straight from an animation picker. Tick the frame-duration option to give that clip its own speed; left off, it uses the component's own Frame Duration.</p>
 <p>A clip records which texture it slices (<code>m_OriginAsset</code>), so once one exists the texture's button becomes <strong>Open Clip</strong> and jumps straight to it. Importing a <code>.toml</code> by hand via Load Asset... that doesn't identify its own texture this way is rejected rather than imported half-configured.</p>
 <p>Previous: <a href="add-a-collider.html">Add a collider</a> &middot; Next: <a href="follow-a-path.html">Make an entity follow a path</a>.</p>
 """),
     ("follow-a-path", "Make an entity follow a path",
-     "Author PathFollow waypoints by clicking on the viewport and preview the spline.",
+     "Author a Path's waypoints on the viewport and make a child entity ride it.",
      f"""
 <h1>Make an entity follow a path</h1>
-<p class="lede">A PathFollow's waypoints are placed on the viewport rather than typed as numbers.</p>
+<p class="lede">A route and its follower are two entities: a <code>Path</code> holds the waypoints, and a <code>PathFollow</code> child rides it. Waypoints are placed on the viewport rather than typed as numbers.</p>
 {shot("pathfollow-waypoints.png", "Waypoints placed on the viewport")}
 <h2>Steps</h2>
 <ol>
-  <li>Add a <code>PathFollow</code> component to the entity.</li>
-  <li>Click <strong>Select Waypoints</strong> in its Inspector section. The viewport becomes a click-to-place surface.</li>
+  <li>Click <strong>Create Path</strong> in the Entities panel. It makes a route entity with two default waypoints.</li>
+  <li>Create the mover (for example a sprite entity) and drag its row onto the route in the Entities tree. It snaps to the path start and its progress resets. Add a <code>PathFollow</code> component if it does not have one.</li>
+  <li>Select the route and click <strong>Select Waypoints</strong> in its Path section. The viewport becomes a click-to-place surface.</li>
   <li>Edit the path with the mouse, then click <strong>End Selection</strong> to commit and leave the mode.</li>
 </ol>
+<p>The follower finds its path through its parent, so there are no entity references to wire up. If the parent is missing or has no Path, the PathFollow section shows a warning.</p>
 {kv_table([
     ("Click", "Append a waypoint at the cursor's world position."),
     ("Drag a point", "Move it (a fixed screen-pixel pick radius, so it is grabbable at any zoom)."),
-    ("Right-click a point", "Remove it."),
+    ("Right-click a point", "Remove it. Waypoint 0 is locked to the route origin and cannot be moved or removed."),
+    ("<kbd>Shift</kbd>", "Axis-lock: the point snaps to the previous point's X or Y, whichever is closer to the cursor."),
+    ("Snap to grid", "Persistent toggle that reuses the world grid spacing."),
     ("<kbd>Esc</kbd>", "Discard everything placed this session, restoring what was there before."),
     ("End Selection", "Commit and exit the mode."),
 ], ("Input", "Effect"))}
+<p>Waypoints can also be selected from a list in the Inspector, and the selected one has a numeric <em>Position</em> field. Points are stored local to the route's Transform, so moving the route moves the whole path.</p>
 {shot("pathfollow-spline.png", "The Catmull-Rom spline overlay")}
-<p>Waypoints stay visible as pin markers after selection ends. Outside edit mode, a real Catmull-Rom curve, the same interpolation <code>PathFollowingSystem</code> uses at runtime, overlays the straight point-to-point lines, sampled at the component's own <em>Resolution</em>, so it previews the path the entity will actually follow.</p>
+<p>Waypoints stay visible as pin markers after selection ends. Outside edit mode, a real Catmull-Rom curve, the same interpolation <code>PathFollowingSystem</code> uses at runtime, overlays the straight point-to-point lines, sampled at the Path's own <em>Resolution</em>.</p>
+<h2>Preview the follower</h2>
+<p>Selecting a route draws a translucent ghost of every child follower's sprite at the path start and at a <strong>Preview</strong> slider position, using the sprite's real size, source rect, offsets and tangent rotation, so you can check the visible body against the line. A PathFollow has <em>Speed</em>, an H/V offset from the line, and <em>Align Rotation</em>: turn it off to move along the path without turning the sprite to the tangent.</p>
 <p>Previous: <a href="animate-a-sprite.html">Animate a sprite</a>.</p>
 """),
 ]

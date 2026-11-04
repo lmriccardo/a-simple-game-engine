@@ -30,7 +30,7 @@ ROADMAP = [
     ("Tier 2: Makes it feel like a game", [
         ("Physics", "done", "phase-1/07.1-physics-system.md"),
         ("Audio", "done", "phase-1/08.1-audio-system.md"),
-        ("UI Framework", "progress", "phase-1/09.1-ui-framework.md"),
+        ("UI Framework", "done", "phase-1/09.1-ui-framework.md"),
     ]),
     ("Tier 3: Revisit once Tier 1-2 exist", [
         ("Rendering System (2D camera, compositing)", "progress", "phase-1/10.1-rendering-system.md"),
