@@ -433,6 +433,8 @@ void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float i
         auto& pathFollow = pf.get();
         auto& transform = t.get();
 
+        if ( pathFollow.m_Paused ) continue; // see PathFollowPause: stays exactly where it is
+
         // Path follow component only works if the current entity is a children of 
         // a parent entity that holds a Path component, which drives the position.
         auto hResult = inRegistry.GetComponent<ecs::components::Hierarchy>(e);

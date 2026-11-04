@@ -80,7 +80,8 @@ void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDe
  * Also writes the path tangent into PathFollow::m_Heading every frame it
  * moves, even with m_AlignRotation off. Emits events::OnPathFinished once
  * when a follower on a non-looping Path reaches its end. Warns once per
- * follower if the parent has no Path.
+ * follower if the parent has no Path. Followers paused with
+ * components::PathFollowPause are skipped entirely.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

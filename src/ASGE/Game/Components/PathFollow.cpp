@@ -1,5 +1,23 @@
 #include "PathFollow.hpp"
 
+bool asge::game::components::PathFollowPause( ecs::Registry& inRegistry, ecs::Entity inEntity ) noexcept
+{
+    auto follow = inRegistry.GetComponent<PathFollow>( inEntity );
+    if ( !follow ) return false;
+
+    follow.Value().get().m_Paused = true;
+    return true;
+}
+
+bool asge::game::components::PathFollowResume( ecs::Registry& inRegistry, ecs::Entity inEntity ) noexcept
+{
+    auto follow = inRegistry.GetComponent<PathFollow>( inEntity );
+    if ( !follow ) return false;
+
+    follow.Value().get().m_Paused = false;
+    return true;
+}
+
 void asge::game::scene::Serializer<asge::game::components::PathFollow>::ToToml(
     T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
