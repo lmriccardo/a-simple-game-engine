@@ -1,50 +1,28 @@
 #pragma once
 
-#include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
 
 namespace asge::game::components
 {
 
 /**
- * @brief An entity's authored path (as Catmull-Rom waypoints) plus its
- *        runtime progress along it.
+ * @brief Moves its entity along the Path of its parent entity.
  *
- * m_Waypoints/m_Speed/m_Loop/m_Resolution are what a scene file describes;
- * asset::AssetManager::ResolveAssets (via asset::Resolver<PathFollow>)
- * builds m_Path — a math::CatmullRomSpline through m_Waypoints, sampled at
- * m_Resolution arc-length steps per segment — the first time it sees a
- * non-empty m_Waypoints with no path built yet, same deferred-resolve shape
- * as Sprite::m_Texture/Animation::m_Clip. m_Traveled/m_Finished are plain
- * runtime state for whatever advances an entity along m_Path each frame.
+ * The follower must be a child (via Hierarchy) of an entity holding a Path;
+ * PathFollowingSystem samples that Path and writes the point, plus the
+ * offset, into this entity's local Transform. No entity reference is stored.
  */
 struct PathFollow
 {
-    std::vector<math::Float2> m_Waypoints;      // Authored control points the path passes through, in order
-    float                     m_Speed{ 1.0f };  // Units travelled per second along m_Path
-    bool                      m_Loop{ false };  // Whether reaching the end wraps back to the start instead of stopping
-    std::size_t               m_Resolution{32}; // Arc-length samples per segment, passed straight to CatmullRomSpline's constructor
+    // Serializable values
+    float m_Speed   { 1.0f }; // Units travelled per second along the parent's Path
+    float m_OffsetH { 0.0f }; // Horizontal offset added to the sampled point
+    float m_OffsetV { 0.0f }; // Vertical offset added to the sampled point
 
-    // Runtime-only parameters — never round-tripped through TOML, always reset to these defaults by FromToml
-    math::CatmullRomSpline m_Path;            // Built from m_Waypoints by asset::Resolver<PathFollow> once resolved; no segments until then
-    float                  m_Traveled{0.0f};  // Distance travelled along m_Path so far
-    bool                   m_Finished{false}; // Whether a non-looping path has reached its end
+    // Runtime values only
+    float m_Traveled { 0.0f };  // Distance travelled along the Path so far
+    bool  m_Finished { false }; // Whether a non-looping Path has been fully walked
 };
-
-/**
- * @brief Rebuilds inPathFollow.m_Path from its current m_Waypoints/
- *        m_Resolution and resets m_Traveled/m_Finished back to their
- *        defaults.
- *
- * asset::Resolver<PathFollow> only ever builds m_Path once (see its own doc
- * comment) — correct for a component that's just been loaded from a scene
- * file, but wrong the moment something mutates m_Waypoints/m_Resolution
- * afterward (the level editor's viewport waypoint editing, say), which
- * would otherwise leave m_Path silently pointing at the old shape. Call
- * this any time you mutate either field directly instead of relying on
- * ResolveAssets to notice.
- */
-void RebuildPath( PathFollow& inPathFollow ) noexcept;
 
 }
 
@@ -52,11 +30,8 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_Waypoints/m_Speed/m_Loop/m_Resolution only — see
- *        AudioSource's Serializer doc comment for why a scene file
- *        describes what an entity's path is, not where a previous run left
- *        it. FromToml leaves m_Path/m_Traveled/m_Finished at PathFollow's
- *        in-code defaults, resolved later by asset::Resolver<PathFollow>.
+ * @brief Round-trips m_Speed/m_OffsetH/m_OffsetV only; FromToml leaves
+ *        m_Traveled/m_Finished at their defaults.
  */
 template<>
 struct Serializer<components::PathFollow>

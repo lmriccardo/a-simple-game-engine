@@ -142,7 +142,7 @@ public:
      * component types (nothing to load), and an actual resolve for the
      * ones that do own an asset (`Sprite`, `Animation`, `AudioSource` —
      * re-resolved whenever their virtual path changes, released back to
-     * null when it's cleared to empty; `PathFollow` builds its path once
+     * null when it's cleared to empty; `Path` builds its spline once
      * — see their own `Resolver<T>` specializations in AssetResolver.hpp
      * for exactly what each one does).
      *

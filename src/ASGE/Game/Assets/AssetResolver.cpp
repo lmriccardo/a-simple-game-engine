@@ -64,15 +64,15 @@ void asge::game::asset::Resolver<asge::game::components::AudioSource>::operator(
     inAudioSource.m_ResolvedVirtualClipPath = inAudioSource.m_VirtualClipPath;
 }
 
-void asge::game::asset::Resolver<asge::game::components::PathFollow>::operator()(
+void asge::game::asset::Resolver<asge::game::components::Path>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
-    video::IRenderer &inRenderer, C &inPathFollow) const noexcept
+    video::IRenderer &inRenderer, C &inPath) const noexcept
 {
-    if ( inPathFollow.m_Path.HasSegments() || inPathFollow.m_Waypoints.empty() ) return;
-    math::CatmullRomSpline spline( inPathFollow.m_Waypoints, inPathFollow.m_Resolution );
+    if ( inPath.m_Path.HasSegments() || inPath.m_Waypoints.empty() ) return;
+    math::CatmullRomSpline spline( inPath.m_Waypoints, inPath.m_Resolution );
     if ( !spline.HasSegments() ) return;
-    inPathFollow.m_Path = std::move( spline );
-    inPathFollow.m_Waypoints = inPathFollow.m_Path.Waypoints();
+    inPath.m_Path = std::move( spline );
+    inPath.m_Waypoints = inPath.m_Path.Waypoints();
 }
 
 void asge::game::asset::Resolver<asge::game::components::UILabel>::operator()(

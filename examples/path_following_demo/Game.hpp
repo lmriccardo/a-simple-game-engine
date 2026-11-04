@@ -3,15 +3,16 @@
 #include <ASGE/ASGE.hpp>
 
 /**
- * @brief A car (Sprite + components::PathFollow) driving a closed, curved
- *        street loop -- the end-to-end showcase for PathFollow/
+ * @brief A car (Sprite + components::PathFollow, child of a route entity
+ *        holding components::Path) driving a closed, curved street loop --
+ *        the end-to-end showcase for Path/PathFollow/
  *        PathFollowingSystem: waypoints resolved once into a
  *        math::CatmullRomSpline at spawn time, then walked every frame at a
  *        player-adjustable speed via systems::PathFollowingSystem, wrapping
  *        back to the start on every lap.
  *
- * The street itself is drawn straight from the car's own resolved
- * PathFollow::m_Path -- IRenderer has no curve/polygon-fill primitive, so
+ * The street itself is drawn straight from the route's resolved
+ * Path::m_Path -- IRenderer has no curve/polygon-fill primitive, so
  * RenderRoad() paints it as a dense trail of overlapping filled circles
  * with a dashed centerline. UP/DOWN adjust the car's speed while held,
  * SPACE pauses/resumes, R resets it to the start of the loop.
@@ -21,6 +22,7 @@ class PathFollowingDemoState final : public asge::game::state::IGameState<int>
     asge::ecs::Registry&             m_Registry;
     asge::game::asset::AssetManager& m_Assets;
 
+    asge::ecs::Entity m_Route{ asge::ecs::Entity::Null() }; // Holds the Path; the car is its child
     asge::ecs::Entity m_Car{ asge::ecs::Entity::Null() };
 
     float    m_Speed{ 0.0f }; // current units/second, UP/DOWN-adjustable -- set to kBaseSpeed by Reset()

@@ -9,6 +9,7 @@ using asge::math::Float2;
 using asge::math::Int2;
 using asge::math::Rect;
 using asge::graphics::RGBA_Color;
+using asge::game::components::Path;
 using asge::game::components::PathFollow;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
@@ -45,9 +46,15 @@ PathFollowingDemoState::PathFollowingDemoState(
 
 void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
 {
+    auto route = m_Registry.CreateEntity();
+    if ( !route ) { route.LogError(); return; }
+    m_Route = route.Value();
+
     auto entity = m_Registry.CreateEntity();
     if ( !entity ) { entity.LogError(); return; }
     m_Car = entity.Value();
+
+    m_Registry.AddComponent<Transform>( m_Route, Transform{} );
 
     m_Registry.AddComponent<Transform>( m_Car, Transform{
         .m_LocalScale = {kCarScale, kCarScale}, .m_WorldScale = {kCarScale, kCarScale}
@@ -55,8 +62,8 @@ void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
     // m_Texture stays null until ResolveAssets below.
     m_Registry.AddComponent<Sprite>( m_Car, Sprite{ .m_VirtualPath = kCarTexturePath } );
 
-    PathFollow pathFollow;
-    pathFollow.m_Waypoints = {
+    Path path;
+    path.m_Waypoints = {
         { 660.0f, 340.0f }, { 658.7f, 437.7f }, { 530.0f, 487.2f }, { 400.0f, 484.7f },
         { 270.0f, 487.2f }, { 141.3f, 437.7f }, { 140.0f, 340.0f }, { 208.3f, 267.7f },
         { 270.0f, 192.8f }, { 400.0f, 144.7f }, { 530.0f, 192.8f }, { 591.7f, 267.7f },
@@ -65,13 +72,17 @@ void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
                             // m_Traveled), so closing the loop needs the
                             // start point stitched back on as the last one.
     };
-    for ( auto& waypoint : pathFollow.m_Waypoints )
+    for ( auto& waypoint : path.m_Waypoints )
     {
         waypoint.x() -= kCarHalfW;
         waypoint.y() -= kCarHalfH;
     }
-    pathFollow.m_Loop = true;
-    m_Registry.AddComponent<PathFollow>( m_Car, pathFollow );
+    path.m_Loop = true;
+    m_Registry.AddComponent<Path>( m_Route, path );
+
+    // The car follows the Path of its parent, so it is attached to the route.
+    m_Registry.AddComponent<PathFollow>( m_Car, PathFollow{} );
+    asge::game::components::AttachChild( m_Registry, m_Route, m_Car );
 
     // Resolved once, right here at spawn time -- this demo's equivalent of
     // Game::LoadScene()'s one-time ResolveAssets call, not something to
@@ -83,14 +94,14 @@ void PathFollowingDemoState::SpawnCar(asge::video::IRenderer& inRenderer)
 
 void PathFollowingDemoState::UpdateCar()
 {
-    auto pathResult = m_Registry.GetComponent<PathFollow>( m_Car );
-    if ( !pathResult ) return;
-    auto& path = pathResult.Value().get();
+    auto followResult = m_Registry.GetComponent<PathFollow>( m_Car );
+    if ( !followResult ) return;
+    auto& follow = followResult.Value().get();
 
-    if ( path.m_Traveled < m_PreviousTraveled ) ++m_Laps; // wrapped back past the finish line
-    m_PreviousTraveled = path.m_Traveled;
+    if ( follow.m_Traveled < m_PreviousTraveled ) ++m_Laps; // wrapped back past the finish line
+    m_PreviousTraveled = follow.m_Traveled;
 
-    path.m_Speed = m_Paused ? 0.0f : m_Speed;
+    follow.m_Speed = m_Paused ? 0.0f : m_Speed;
 }
 
 void PathFollowingDemoState::Reset()
@@ -99,12 +110,14 @@ void PathFollowingDemoState::Reset()
     m_Speed = kBaseSpeed;
     m_Laps = 0;
 
-    auto pathResult = m_Registry.GetComponent<PathFollow>( m_Car );
-    if ( !pathResult ) return;
+    auto followResult = m_Registry.GetComponent<PathFollow>( m_Car );
+    auto pathResult = m_Registry.GetComponent<Path>( m_Route );
+    if ( !followResult || !pathResult ) return;
+    auto& follow = followResult.Value().get();
     auto& path = pathResult.Value().get();
-    path.m_Speed = m_Speed;
-    path.m_Traveled = 0.0f;
-    path.m_Finished = false;
+    follow.m_Speed = m_Speed;
+    follow.m_Traveled = 0.0f;
+    follow.m_Finished = false;
     m_PreviousTraveled = 0.0f;
 
     if ( path.m_Path.HasSegments() )
@@ -122,7 +135,7 @@ void PathFollowingDemoState::Reset()
 
 void PathFollowingDemoState::RenderRoad(asge::video::IRenderer& inRenderer) const
 {
-    auto pathResult = m_Registry.GetComponent<PathFollow>( m_Car );
+    auto pathResult = m_Registry.GetComponent<Path>( m_Route );
     if ( !pathResult ) return;
     auto const& path = pathResult.Value().get().m_Path;
 
@@ -173,11 +186,12 @@ void PathFollowingDemoState::RenderHud(asge::video::IRenderer& inRenderer) const
     Rect const lapTrack{ 20.0f, 70.0f, 160.0f, 14.0f };
     inRenderer.DrawRect( lapTrack, RGBA_Color{ 90, 90, 100, 255 }, false );
     float lapFrac = 0.0f;
-    if ( auto pathResult = m_Registry.GetComponent<PathFollow>( m_Car ) )
+    auto followResult = m_Registry.GetComponent<PathFollow>( m_Car );
+    auto pathResult = m_Registry.GetComponent<Path>( m_Route );
+    if ( followResult && pathResult )
     {
-        auto const& path = pathResult.Value().get();
-        float const length = path.m_Path.Length();
-        if ( length > 0.0f ) lapFrac = path.m_Traveled / length;
+        float const length = pathResult.Value().get().m_Path.Length();
+        if ( length > 0.0f ) lapFrac = followResult.Value().get().m_Traveled / length;
     }
     inRenderer.DrawRect(
         Rect{ lapTrack.m_X, lapTrack.m_Y, lapTrack.m_Width * lapFrac, lapTrack.m_Height },

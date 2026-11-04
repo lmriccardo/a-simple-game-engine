@@ -4,7 +4,7 @@
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
-#include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Path.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Video/Graphics/Rendering/RenderError.hpp>
 #include <ASGE/Core/Errors.hpp>
@@ -730,54 +730,54 @@ TEST_F(ResolveAssetsTest, AudioSourceWithEmptyVirtualClipPathIsSkipped)
     EXPECT_EQ(audioResult.Value().get().m_Clip, nullptr);
 }
 
-TEST_F(ResolveAssetsTest, PathFollowWithWaypointsGetsPathBuilt)
+TEST_F(ResolveAssetsTest, PathWithWaypointsGetsPathBuilt)
 {
     AssetManager mgr(m_Vfs);
     auto entity = m_Registry.CreateEntity();
-    asge::game::components::PathFollow pathFollow;
-    pathFollow.m_Waypoints = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, { 10.0f, 10.0f } };
-    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), pathFollow ).IsOk());
+    asge::game::components::Path route;
+    route.m_Waypoints = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, { 10.0f, 10.0f } };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), route ).IsOk());
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    auto pathResult = m_Registry.GetComponent<asge::game::components::Path>(entity.Value());
     auto const& path = pathResult.Value().get();
     EXPECT_TRUE(path.m_Path.HasSegments());
     EXPECT_GT(path.m_Path.Length(), 0.0f);
 }
 
-TEST_F(ResolveAssetsTest, PathFollowWithEmptyWaypointsIsSkipped)
+TEST_F(ResolveAssetsTest, PathWithEmptyWaypointsIsSkipped)
 {
     AssetManager mgr(m_Vfs);
     auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::PathFollow>(entity.Value(), {}).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Path>(entity.Value(), {}).IsOk());
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    auto pathResult = m_Registry.GetComponent<asge::game::components::Path>(entity.Value());
     EXPECT_FALSE(pathResult.Value().get().m_Path.HasSegments());
 }
 
-TEST_F(ResolveAssetsTest, PathFollowWithOnlyOneWaypointLeavesPathWithoutSegments)
+TEST_F(ResolveAssetsTest, PathWithOnlyOneWaypointLeavesPathWithoutSegments)
 {
     // CatmullRomSpline itself declines to build any segments for fewer than
     // two waypoints -- distinct code path from the empty-vector skip above,
     // both landing on the same "no segments" outcome.
     AssetManager mgr(m_Vfs);
     auto entity = m_Registry.CreateEntity();
-    asge::game::components::PathFollow pathFollow;
-    pathFollow.m_Waypoints = { { 5.0f, 5.0f } };
-    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), pathFollow ).IsOk());
+    asge::game::components::Path route;
+    route.m_Waypoints = { { 5.0f, 5.0f } };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), route ).IsOk());
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    auto pathResult = m_Registry.GetComponent<asge::game::components::Path>(entity.Value());
     EXPECT_FALSE(pathResult.Value().get().m_Path.HasSegments());
 }
 
-TEST_F(ResolveAssetsTest, PathFollowAlreadyHavingAPathIsLeftUntouched)
+TEST_F(ResolveAssetsTest, PathAlreadyHavingAPathIsLeftUntouched)
 {
-    // Regression guard: Resolver<PathFollow> used to rebuild the spline --
+    // Regression guard: Resolver<Path> used to rebuild the spline --
     // recomputing every segment's arc-length table -- on every single
     // ResolveAssets call rather than just the first, unlike every other
     // resolver here, which skips an entity that's already resolved. Since
@@ -786,22 +786,22 @@ TEST_F(ResolveAssetsTest, PathFollowAlreadyHavingAPathIsLeftUntouched)
     // every path-following entity.
     AssetManager mgr(m_Vfs);
     auto entity = m_Registry.CreateEntity();
-    asge::game::components::PathFollow pathFollow;
-    pathFollow.m_Waypoints = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, { 10.0f, 10.0f } };
-    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), pathFollow ).IsOk());
+    asge::game::components::Path route;
+    route.m_Waypoints = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, { 10.0f, 10.0f } };
+    ASSERT_TRUE(m_Registry.AddComponent( entity.Value(), route ).IsOk());
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
     float const lengthAfterFirstResolve =
-        m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value()).Value().get().m_Path.Length();
+        m_Registry.GetComponent<asge::game::components::Path>(entity.Value()).Value().get().m_Path.Length();
 
     // If it were to rebuild, the spline would now run through these very
     // different waypoints and its Length() would change accordingly.
-    m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value()).Value().get().m_Waypoints =
+    m_Registry.GetComponent<asge::game::components::Path>(entity.Value()).Value().get().m_Waypoints =
         { { 0.0f, 0.0f }, { 100.0f, 0.0f }, { 100.0f, 100.0f } };
 
     mgr.ResolveAssets(m_Registry, m_Renderer);
 
-    auto pathResult = m_Registry.GetComponent<asge::game::components::PathFollow>(entity.Value());
+    auto pathResult = m_Registry.GetComponent<asge::game::components::Path>(entity.Value());
     EXPECT_FLOAT_EQ(pathResult.Value().get().m_Path.Length(), lengthAfterFirstResolve);
 }
 

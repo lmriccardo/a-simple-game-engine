@@ -85,6 +85,7 @@ add_library(ASGE STATIC
     Game/Components/Animation.cpp
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp
+    Game/Components/Path.cpp
     Game/Components/PathFollow.cpp
     Game/Components/Name.cpp
     Game/Components/RenderInfo.cpp
