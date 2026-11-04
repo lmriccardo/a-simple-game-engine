@@ -12,6 +12,21 @@ namespace asge::game::components
 {
 
 /**
+ * @brief What a non-looping clip does to the Sprite's crop once it finishes.
+ *
+ * RestoreSprite hands the Sprite its own crop back (the default, right for a
+ * walking/picking character). HoldLastFrame leaves the clip's last frame on
+ * the Sprite until another clip starts or m_ClipPath is cleared (right for
+ * an object like a lifting bar that must stay open). Looping clips never
+ * finish, so this has no effect on them.
+ */
+enum class FinishBehavior
+{
+    RestoreSprite, // Show the Sprite's own crop again after the clip ends
+    HoldLastFrame  // Keep the clip's last frame on the Sprite after it ends
+};
+
+/**
  * @brief Frame-by-frame playback state for a spritesheet — see
  *        systems::AnimationSystem, which steps m_CurrentFrame and writes
  *        the current frame of m_Clip's FrameTable into the owning entity's
@@ -36,7 +51,11 @@ namespace asge::game::components
  * playback starts, overwrites m_SourceRect every frame, and puts m_RestRect
  * back once m_Playing goes false (one system run later, so a finished
  * non-looping clip's last frame is shown for that run) or m_ClipPath is
- * cleared. Removing the Animation mid-playback is the caller's job: the
+ * cleared — except that a clip finishing under m_FinishBehavior ==
+ * HoldLastFrame keeps ownership (m_HoldingLastFrame) and its last frame
+ * stays on the Sprite until the next clip starts or m_ClipPath is cleared.
+ * m_RestRect is only saved when ownership is first taken, so a held frame
+ * is never mistaken for the Sprite's own crop. Removing the Animation mid-playback is the caller's job: the
  * Sprite keeps the last frame's rect unless m_RestRect is written back first
  * (the level editor's Remove handler does).
  */
@@ -55,10 +74,12 @@ struct Animation
     std::size_t m_CurrentFrame{0};     // Not serialized -- index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
     float       m_ElapsedTime{0.0f};   // Not serialized -- seconds accumulated toward the next frame advance
     bool        m_Loop{true};          // Serialized. Wrap to frame 0 at the end instead of stopping there
+    FinishBehavior m_FinishBehavior{FinishBehavior::RestoreSprite}; // Serialized. What a finished non-looping clip leaves on the Sprite
     bool        m_StartPlaying{true};  // Serialized. Initial m_Playing on load -- a scene can start this Animation paused
     bool        m_Playing{true};       // Not serialized -- whether AnimationSystem advances this Animation at all (live state, seeded from m_StartPlaying on load)
     std::optional<math::Rect> m_RestRect{}; // Not serialized -- the Sprite's own m_SourceRect, saved while this Animation owns it
     bool        m_OwnsSourceRect{false};    // Not serialized -- true between playback starting and the Sprite's crop being restored
+    bool        m_HoldingLastFrame{false};  // Not serialized -- true while a finished HoldLastFrame clip's last frame is kept on the Sprite
 };
 
 /**
@@ -91,16 +112,17 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_ClipPath, m_Clips, m_ClipFrameDurations, m_FrameDuration, m_PlaybackSpeed, m_Loop and
- *        m_StartPlaying — which clip to play, the named clips it can switch
- *        to, how fast, whether it loops and whether it starts playing, not
+ * @brief Round-trips m_ClipPath, m_Clips, m_ClipFrameDurations, m_FrameDuration, m_PlaybackSpeed, m_Loop,
+ *        m_FinishBehavior and m_StartPlaying — which clip to play, the named clips it can switch
+ *        to, how fast, whether it loops, what a finished clip leaves behind and whether it starts playing, not
  *        the live playback progress. FromToml seeds m_Playing
  *        from m_StartPlaying, leaves m_Clip null and m_ResolvedClipPath empty
  *        (both resolved later by AssetManager::ResolveAssets, same as
  *        Sprite::m_Texture) and m_CurrentFrame/m_ElapsedTime at zero; a
  *        scene file describes what an entity's animation is, not where a
  *        previous run happened to leave it. Missing m_Loop/m_StartPlaying
- *        keys default to true, m_PlaybackSpeed to 1, so older scene files load as before.
+ *        keys default to true, m_PlaybackSpeed to 1 and a missing or unknown m_FinishBehavior to
+ *        RestoreSprite, so older scene files load as before.
  */
 template<>
 struct Serializer<components::Animation>

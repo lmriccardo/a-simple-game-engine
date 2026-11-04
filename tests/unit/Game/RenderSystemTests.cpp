@@ -2254,6 +2254,115 @@ TEST(AnimationSystemTest, ClearingTheClipPathWhilePlayingRestoresTheSpritesOwnSo
     EXPECT_FALSE(sprite.m_SourceRect.has_value());
 }
 
+// A 2-frame non-looping Animation on a Sprite whose own crop is `idle`, with the given finish behavior.
+Entity SpawnFinishingAnimation(Registry& inRegistry, FakeTexture* inTexture, asge::math::Rect inIdle,
+                               asge::game::components::FinishBehavior inBehavior)
+{
+    auto entity = inRegistry.CreateEntity();
+    EXPECT_TRUE(entity.IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Sprite{ .m_Texture = inTexture, .m_SourceRect = inIdle }).IsOk());
+    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Animation{
+        .m_ClipPath = "test/clip.toml",
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
+        .m_FrameDuration = 0.1f,
+        .m_Loop = false,
+        .m_FinishBehavior = inBehavior
+    }).IsOk());
+    return entity.Value();
+}
+
+TEST(AnimationSystemTest, FinishedClipRestoresTheSpriteCropByDefault)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
+    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::RestoreSprite);
+    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
+
+    asge::game::systems::AnimationSystem(registry, 0.5f); // finishes, last frame shown
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f);
+    asge::game::systems::AnimationSystem(registry, 0.1f); // next run hands the crop back
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f);
+}
+
+TEST(AnimationSystemTest, HoldLastFrameKeepsTheLastFrameAfterTheClipFinishes)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
+    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::HoldLastFrame);
+    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
+    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+
+    int finished = 0;
+    auto conn = asge::game::events::OnAnimationFinished().Connect([&finished](Entity) { ++finished; });
+    for ( int i = 0; i < 4; ++i ) asge::game::systems::AnimationSystem(registry, 0.5f);
+    conn.Disconnect();
+
+    EXPECT_FALSE(anim.m_Playing); // Still reports finished...
+    EXPECT_EQ(finished, 1);       // ...and the signal still fires exactly once...
+    ASSERT_TRUE(sprite.m_SourceRect.has_value());
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f); // ...but the last frame stays on the Sprite.
+}
+
+TEST(AnimationSystemTest, HeldFrameIsNotSavedAsTheRestCropWhenTheNextClipStarts)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
+    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::HoldLastFrame);
+    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
+    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+
+    asge::game::systems::AnimationSystem(registry, 0.5f);
+    asge::game::systems::AnimationSystem(registry, 0.1f); // held
+
+    // Start a second clip, as PlayClip would once its FrameTable is resolved.
+    anim.m_ClipPath = "test/other.toml";
+    anim.m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 8.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 8.0f, 8.0f, 8.0f } });
+    anim.m_CurrentFrame = 0;
+    anim.m_ElapsedTime = 0.0f;
+    anim.m_Playing = true;
+    asge::game::systems::AnimationSystem(registry, 0.05f);
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_Y, 8.0f); // The new clip drives the crop.
+
+    anim.m_ClipPath.clear(); // Clearing the clip restores the scene crop, not the held frame.
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    ASSERT_TRUE(sprite.m_SourceRect.has_value());
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f);
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_Y, 16.0f);
+}
+
+TEST(AnimationSystemTest, ClearingTheClipPathReleasesAHeldFrame)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
+    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::HoldLastFrame);
+    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
+    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+
+    asge::game::systems::AnimationSystem(registry, 0.5f);
+    anim.m_ClipPath.clear();
+    asge::game::systems::AnimationSystem(registry, 0.1f);
+    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f);
+    EXPECT_FALSE(anim.m_HoldingLastFrame);
+}
+
+TEST(AnimationSystemTest, HoldLastFrameDoesNotAffectLoopingClips)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    Entity entity = SpawnFinishingAnimation(registry, &texture, asge::math::Rect{ 16.0f, 16.0f, 8.0f, 8.0f },
+                                            asge::game::components::FinishBehavior::HoldLastFrame);
+    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+    anim.m_Loop = true;
+
+    asge::game::systems::AnimationSystem(registry, 0.5f);
+    EXPECT_TRUE(anim.m_Playing);
+    EXPECT_FALSE(anim.m_HoldingLastFrame);
+}
+
 TEST(AnimationSystemTest, EmptyFramesListIsSkippedRatherThanCrashing)
 {
     Registry registry;
