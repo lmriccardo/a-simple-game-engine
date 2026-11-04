@@ -356,8 +356,20 @@ errors or cross-scene bleed.
       waypoint (viewport click or list row, red ring) has a `Position` X/Y
       field, disabled for waypoint 0. Both are only available while "Select
       Waypoints" is active; snaps use world axes, so a rotated route's
-      "horizontal" is the screen's. The follower ghost preview and
-      snap-to-start on reparent are not built yet.
+      "horizontal" is the screen's.
+
+- [x] Follower ghost preview and snap-to-start. With a route selected, each
+      child that has a `PathFollow` and a resolved `Sprite` is drawn as a
+      translucent ghost (`DrawPathFollowerGhosts`) at the path start (green)
+      and at a "Preview" slider position (white, 0..1 of the path length,
+      kept across waypoint-mode sessions), using the sprite's real size and
+      source rect, the follower's offsets and the tangent rotation when
+      aligned, all through the route's `Transform`, so the body can be
+      checked against the line. `SamplePathPose` mirrors what
+      `PathFollowingSystem` writes. Reparenting a follower under a route in
+      the Entities tree snaps its `Transform` onto the path start and resets
+      its progress. Adding `PathFollow` to an entity that is already a child
+      does not snap it.
 
 - [x] `CTRL+S` saves the current open scene, `CTRL+P` saves the current
       ASGE project — `saveActiveSceneNow`/`saveProjectNow` lambdas shared
