@@ -74,21 +74,10 @@ void GravitySystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDeltaTime ) noexcept;
 
 /**
- * @brief Advances every PathFollow entity's Transform along its resolved
- *        components::PathFollow::m_Path, at m_Speed units/second.
+ * @brief Moves each PathFollow entity along its parent's components::Path,
+ *        applying offsets and optional tangent alignment.
  *
- * Skips an entity whose path has already finished (m_Finished) or whose
- * PathFollow hasn't been resolved into a built path yet (no segments —
- * see asset::Resolver<PathFollow>). Once m_Traveled reaches the path's
- * length, a looping path wraps back to the start; a non-looping one clamps
- * there and sets m_Finished so it's left alone from then on (a zero-length
- * path, e.g. coincident waypoints, always finishes rather than looping,
- * since there's nothing to wrap around). Also orients Transform::
- * m_LocalRotation to face the path's tangent direction at the new position,
- * except on a degenerate (zero-tangent) segment, where m_LocalRotation is
- * left as it was rather than set to NaN. Writes Transform's Local fields and
- * marks it m_Dirty, same as MovementSystem -- see TransformPropagationSystem
- * for how that reaches m_WorldCoordinates.
+ * Warns once per follower if the parent has no Path.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

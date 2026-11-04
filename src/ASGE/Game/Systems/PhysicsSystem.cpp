@@ -5,6 +5,7 @@
 #include "../Components/Collider.hpp"
 #include "../Components/Rigidbody.hpp"
 #include "../Components/PathFollow.hpp"
+#include "../Components/Path.hpp"
 #include "../Components/Hierarchy.hpp"
 #include "../Events.hpp"
 
@@ -426,33 +427,65 @@ void asge::game::systems::PhysicsUpdate(
 
 void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
 {
-    for ( auto [ e, t, p ] 
+    for ( auto [ e, t, pf ] 
         : inRegistry.View<components::Transform, components::PathFollow>() )
     {
-        auto& path = p.get();
+        auto& pathFollow = pf.get();
         auto& transform = t.get();
 
-        if ( path.m_Finished || !path.m_Path.HasSegments() ) continue;
-        path.m_Traveled += path.m_Speed * inDeltaTime;
+        // Path follow component only works if the current entity is a children of 
+        // a parent entity that holds a Path component, which drives the position.
+        auto hResult = inRegistry.GetComponent<ecs::components::Hierarchy>(e);
+        bool const hasParent = hResult && hResult.Value().get().m_Parent != ecs::Entity::Null();
+
+        // Take the parent entity and check if it has an associated path component
+        components::Path* pathPtr = nullptr;
+        if ( hasParent )
+        {
+            if ( auto pathResult = inRegistry.GetComponent<components::Path>( hResult.Value().get().m_Parent ) )
+            {
+                pathPtr = &pathResult.Value().get();
+            }
+        }
+        if ( !pathPtr )
+        {
+            if ( !pathFollow.m_WarnedNoPath )
+            {
+                pathFollow.m_WarnedNoPath = true;
+                LOG_WARNING( "PathFollowingSystem: entity ", e.m_Index,
+                    hasParent ? " has a parent without a Path component" : " has no parent holding a Path component",
+                    ", it will not move" );
+            }
+            continue;
+        }
+        pathFollow.m_WarnedNoPath = false; // re-arms the warning if the Path is later removed
+
+        auto& path = *pathPtr;
+
+        if ( pathFollow.m_Finished || !path.m_Path.HasSegments() ) continue;
+        pathFollow.m_Traveled += pathFollow.m_Speed * inDeltaTime;
         const float length = path.m_Path.Length();
-        if ( path.m_Traveled >= length )
+        if ( pathFollow.m_Traveled >= length )
         {
             // length > 0.0f guards fmod: a degenerate path (all waypoints
             // coincide) has nothing to wrap around, so treat it as finished
             // even when m_Loop is set, rather than fmod-by-zero producing NaN.
-            if ( path.m_Loop && length > 0.0f ) path.m_Traveled = std::fmod( path.m_Traveled, length );
+            if ( path.m_Loop && length > 0.0f ) 
+                pathFollow.m_Traveled = std::fmod( pathFollow.m_Traveled, length );
             else
             {
-                path.m_Traveled = length;
-                path.m_Finished = true;
+                pathFollow.m_Traveled = length;
+                pathFollow.m_Finished = true;
             }
         }
 
-        math::Float2 pos = path.m_Path.PointAtDistance( path.m_Traveled );
-        transform.m_LocalCoordinates = pos;
+        math::Float2 pos = path.m_Path.PointAtDistance( pathFollow.m_Traveled );
+        transform.m_LocalCoordinates = pos + math::Float2{ pathFollow.m_OffsetH, pathFollow.m_OffsetV };
         transform.m_Dirty = true;
 
-        float time = path.m_Path.TimeAtDistance( path.m_Traveled );
+        if ( !pathFollow.m_AlignRotation ) continue;
+
+        float time = path.m_Path.TimeAtDistance( pathFollow.m_Traveled );
         math::Float2 tangent = path.m_Path.TangentAt( time );
 
         // A degenerate segment (coincident control points) normalizes to a

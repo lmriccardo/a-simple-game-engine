@@ -8,6 +8,7 @@
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Path.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
@@ -24,6 +25,7 @@
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -632,45 +634,112 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
     return clipChanged || clipsChanged;
 }
 
-// Waypoints are authored by clicking the viewport (Phase 12's "Select
-// Waypoints" mode), not typed here -- see main.cpp's WaypointEditState
-// handling for the actual click-to-add/ESC-to-cancel logic and the overlay
-// that shows points as they're placed. This just owns the toggle button and
-// the snapshot taken when entering the mode, so cancelling can restore it.
-bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Entity inEntity, WaypointEditState& ioWaypointEdit ) noexcept
+// Waypoints are authored by clicking the viewport ("Select Waypoints" mode),
+// not typed here -- see main.cpp's WaypointEditState handling for the actual
+// click-to-add/ESC-to-cancel logic and the overlay that shows points as
+// they're placed. This just owns the toggle button and the snapshot taken
+// when entering the mode, so cancelling can restore it. Waypoint 0 is always
+// the route entity's own origin, so it is created here if missing.
+bool DrawInspector( Path& inPath, asge::ecs::Entity inEntity, WaypointEditState& ioWaypointEdit ) noexcept
 {
-    ImGui::Text( "Waypoints: %zu", inPathFollow.m_Waypoints.size() );
+    ImGui::Text( "Waypoints: %zu", inPath.m_Waypoints.size() );
 
+    bool changed = false;
     bool const editingThis = ioWaypointEdit.m_Active && ioWaypointEdit.m_Entity == inEntity;
     if ( ImGui::Button( editingThis ? "End Selection" : "Select Waypoints" ) )
     {
         if ( editingThis )
         {
-            ioWaypointEdit = WaypointEditState{}; // commit -- keep whatever was placed
+            ioWaypointEdit.Reset(); // commit -- keep whatever was placed
         }
         else
         {
             ioWaypointEdit.m_Active = true;
             ioWaypointEdit.m_Entity = inEntity;
-            ioWaypointEdit.m_Snapshot = inPathFollow.m_Waypoints;
+            ioWaypointEdit.m_Snapshot = inPath.m_Waypoints;
+            if ( inPath.m_Waypoints.empty() )
+            {
+                inPath.m_Waypoints.push_back( asge::math::Float2{ 0.0f, 0.0f } );
+                RebuildPath( inPath );
+                changed = true;
+            }
         }
     }
     if ( editingThis )
     {
         ImGui::SameLine();
         ImGui::TextDisabled( "(click the viewport to add; ESC to cancel)" );
+
+        ImGui::Checkbox( "Snap to grid", &ioWaypointEdit.m_SnapToGrid );
+        ImGui::TextDisabled( "Hold Shift to lock to the previous point's X or Y." );
+
+        // Numeric editing of one waypoint, picked by clicking it in the
+        // viewport or in this list. Waypoint 0 is locked to the origin.
+        if ( ImGui::BeginListBox( "##waypoints", ImVec2( -FLT_MIN, 5 * ImGui::GetTextLineHeightWithSpacing() ) ) )
+        {
+            for ( std::size_t i = 0; i < inPath.m_Waypoints.size(); ++i )
+            {
+                char label[64];
+                std::snprintf( label, sizeof( label ), "#%zu (%.1f, %.1f)%s", i,
+                    inPath.m_Waypoints[i].x(), inPath.m_Waypoints[i].y(), i == 0 ? " [origin]" : "" );
+                bool const selected = ioWaypointEdit.m_SelectedIndex == static_cast<int>( i );
+                if ( ImGui::Selectable( label, selected ) ) ioWaypointEdit.m_SelectedIndex = static_cast<int>( i );
+            }
+            ImGui::EndListBox();
+        }
+        int const selectedIndex = ioWaypointEdit.m_SelectedIndex;
+        if ( selectedIndex >= 0 && selectedIndex < static_cast<int>( inPath.m_Waypoints.size() ) )
+        {
+            auto& waypoint = inPath.m_Waypoints[static_cast<std::size_t>( selectedIndex )];
+            float xy[2]{ waypoint.x(), waypoint.y() };
+            ImGui::BeginDisabled( selectedIndex == 0 );
+            if ( ImGui::DragFloat2( "Position", xy ) )
+            {
+                waypoint = asge::math::Float2{ xy[0], xy[1] };
+                RebuildPath( inPath );
+                changed = true;
+            }
+            ImGui::EndDisabled();
+        }
+    }
+
+    if ( ImGui::Checkbox( "Loop", &inPath.m_Loop ) ) changed = true;
+    ImGui::SliderFloat( "Preview", &ioWaypointEdit.m_PreviewProgress, 0.0f, 1.0f ); // ghosts of child followers, see DrawPathFollowerGhosts
+
+    int resolution = static_cast<int>( inPath.m_Resolution );
+    if ( ImGui::DragInt( "Resolution", &resolution, 1.0f, 1, 256 ) )
+    {
+        inPath.m_Resolution = static_cast<std::size_t>( resolution );
+        RebuildPath( inPath ); // m_Path's sampling density depends on this, unlike Loop
+        changed = true;
+    }
+    return changed;
+}
+
+// The follower's Transform is driven by PathFollowingSystem from its
+// parent's Path, so the section only edits how it follows, and warns when
+// the parent link that makes it work is missing.
+bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+{
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inEntity );
+    auto const parent = hierarchy ? hierarchy.Value().get().m_Parent : asge::ecs::Entity::Null();
+    if ( parent == asge::ecs::Entity::Null() )
+    {
+        ImGui::TextColored( ImVec4( 1.0f, 0.7f, 0.2f, 1.0f ), "No parent: drag this entity under a Path entity." );
+    }
+    else if ( !inRegistry.HasComponent<Path>( parent ) )
+    {
+        ImGui::TextColored( ImVec4( 1.0f, 0.7f, 0.2f, 1.0f ), "Parent has no Path component." );
+    }
+    else
+    {
+        ImGui::TextDisabled( "Transform is driven by the parent's Path." );
     }
 
     bool changed = ImGui::DragFloat( "Speed", &inPathFollow.m_Speed );
-    if ( ImGui::Checkbox( "Loop", &inPathFollow.m_Loop ) ) changed = true;
-
-    int resolution = static_cast<int>( inPathFollow.m_Resolution );
-    if ( ImGui::DragInt( "Resolution", &resolution, 1.0f, 1, 256 ) )
-    {
-        inPathFollow.m_Resolution = static_cast<std::size_t>( resolution );
-        RebuildPath( inPathFollow ); // m_Path's sampling density depends on this, unlike Speed/Loop
-        changed = true;
-    }
+    if ( ImGui::DragFloat( "Offset H", &inPathFollow.m_OffsetH ) ) changed = true;
+    if ( ImGui::DragFloat( "Offset V", &inPathFollow.m_OffsetV ) ) changed = true;
+    if ( ImGui::Checkbox( "Align Rotation", &inPathFollow.m_AlignRotation ) ) changed = true;
     return changed;
 }
 
@@ -954,6 +1023,7 @@ ComponentEntry const kComponentEntries[]{
     MakeComponentEntry<Camera>( "Camera" ),
     MakeComponentEntry<AudioSource>( "AudioSource" ),
     MakeComponentEntry<Animation>( "Animation" ),
+    MakeComponentEntry<Path>( "Path" ),
     MakeComponentEntry<PathFollow>( "PathFollow" ),
     MakeComponentEntry<UILayoutItem>( "UILayoutItem" ),
 };
@@ -1493,6 +1563,8 @@ EntityListResult DrawEntityListPanel(
     // not here -- this panel only reports the click, same division of labor
     // as "Create Entity" itself.
     result.m_CreateUIElementClicked = ImGui::Button( "Create UI Element" );
+    result.m_CreatePathClicked = ImGui::Button( "Create Path" );
+    ImGui::SameLine();
     bool const createGroupClicked = ImGui::Button( "Create Group" );
     if ( !inHasProject ) ImGui::EndDisabled();
     ImGui::Separator();
@@ -1728,7 +1800,9 @@ InspectorResult DrawInspectorPanel(
     componentsChanged |= audioChanged; fieldChanged |= audioChanged;
     bool const animationChanged = DrawSection<Animation>( inRegistry, inSelected, "Animation", inKnownAnimations );
     componentsChanged |= animationChanged; fieldChanged |= animationChanged;
-    bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow", inSelected, ioWaypointEdit );
+    bool const pathChanged = DrawSection<Path>( inRegistry, inSelected, "Path", inSelected, ioWaypointEdit );
+    fieldChanged |= pathChanged;
+    bool const pathFollowChanged = DrawSection<PathFollow>( inRegistry, inSelected, "PathFollow", inRegistry, inSelected );
     fieldChanged |= pathFollowChanged;
 
     // Phase 16: UIRect/Interactable/UIButton/UILabel -- view/edit-only, see

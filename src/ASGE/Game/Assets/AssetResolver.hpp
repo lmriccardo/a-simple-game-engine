@@ -104,19 +104,19 @@ struct Resolver<components::AudioSource>
 };
 
 /**
- * @brief Builds PathFollow::m_Path from m_Waypoints via math::
+ * @brief Builds Path::m_Path from m_Waypoints via math::
  *        CatmullRomSpline, once — skipped if m_Waypoints is empty or a
  *        path with segments already exists.
  */
 template<>
-struct Resolver<components::PathFollow>
+struct Resolver<components::Path>
 {
-    using C = components::PathFollow;
+    using C = components::Path;
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
         [[maybe_unused]] video::IRenderer&  inRenderer,
-                         C&                 inPathFollow
+                         C&                 inPath
     ) const noexcept;
 };
 

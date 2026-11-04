@@ -22,6 +22,11 @@ building and running them (see the "verify" section — never skip it).
   a `.cpp`'s anonymous namespace (their only declaration site *is* the `.cpp`,
   so they get the doc comment there — see `NormalizeVirtualPath` in
   `VirtualFileSystem.cpp`).
+- **Rule of thumb: every data member of a struct/class gets a short trailing
+  `//` comment on its own line** (what it holds / its unit), grouped under
+  `// Serializable values` / `// Runtime values only` headers when the type
+  is a component (see `Path.hpp`, `PathFollow.hpp`). The type itself still
+  gets a Doxygen block.
 - Plain struct/class data members get a short trailing `//` comment instead of
   a Doxygen block, one per line (see `Image.hpp`'s `m_Width`/`m_Height`, or
   `VirtualFileSystem.hpp`'s `MountInfo` fields) — don't Doxygen-block a field.

@@ -337,6 +337,40 @@ errors or cross-scene bleed.
       real bug where `asset::Resolver<PathFollow>`'s build-once `m_Path`
       went stale the moment the editor changed waypoints after load.
 
+- [x] Waypoint authoring ported to the engine's `Path` + `PathFollow` split.
+      "Create Path" (Entities panel) makes a route entity with a `Transform`
+      and a `Path` (waypoints `(0,0)`/`(100,0)`); "Select Waypoints" now edits
+      that `Path`. Waypoints are stored local to the route's `Transform` and
+      drawn/picked in world space through it (`PathLocalToWorld`/
+      `PathWorldToLocal`, rotation and scale included); waypoint 0 is locked
+      to the route origin (ringed, not draggable or removable); dragging
+      follows the cursor in world space instead of accumulating deltas;
+      `RebuildPath` runs on every edit. The `PathFollow` section edits speed,
+      offsets and align-rotation and warns when the parent is missing or has
+      no `Path`.
+
+- [x] Waypoint snapping and numeric edit: holding `Shift` while placing/
+      dragging locks the point to the previous point's X or Y (whichever is
+      closer to the cursor); a "Snap to grid" checkbox (kept across
+      sessions of the mode) snaps to the grid spacing first. The selected
+      waypoint (viewport click or list row, red ring) has a `Position` X/Y
+      field, disabled for waypoint 0. Both are only available while "Select
+      Waypoints" is active; snaps use world axes, so a rotated route's
+      "horizontal" is the screen's.
+
+- [x] Follower ghost preview and snap-to-start. With a route selected, each
+      child that has a `PathFollow` and a resolved `Sprite` is drawn as a
+      translucent ghost (`DrawPathFollowerGhosts`) at the path start (green)
+      and at a "Preview" slider position (white, 0..1 of the path length,
+      kept across waypoint-mode sessions), using the sprite's real size and
+      source rect, the follower's offsets and the tangent rotation when
+      aligned, all through the route's `Transform`, so the body can be
+      checked against the line. `SamplePathPose` mirrors what
+      `PathFollowingSystem` writes. Reparenting a follower under a route in
+      the Entities tree snaps its `Transform` onto the path start and resets
+      its progress. Adding `PathFollow` to an entity that is already a child
+      does not snap it.
+
 - [x] `CTRL+S` saves the current open scene, `CTRL+P` saves the current
       ASGE project — `saveActiveSceneNow`/`saveProjectNow` lambdas shared
       between the keyboard shortcuts and the File menu's existing

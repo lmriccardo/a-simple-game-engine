@@ -33,7 +33,7 @@ char g_NewMountNameBuf[64] = "";
 // Every distinct, non-empty virtual root the current scene's asset-owning
 // components reference. Sprite/Animation/AudioSource are the only
 // SerializableComponents types with a virtual-path field (see
-// AssetResolver.hpp) -- PathFollow builds its own runtime path from
+// AssetResolver.hpp) -- Path builds its own runtime path from
 // waypoints, nothing else owns an asset.
 std::set<std::string> ReferencedRoots( asge::ecs::Registry& inRegistry ) noexcept
 {

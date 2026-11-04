@@ -3,7 +3,10 @@
 #include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
+#include <ASGE/Game/Components/Path.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
 
+#include <optional>
 #include <vector>
 
 struct ImDrawList;
@@ -80,21 +83,57 @@ void DrawCameraOverlays(
     asge::video::IRenderer const& inRenderer, asge::ecs::Registry& inRegistry, ImDrawList* inDrawList,
     int inTargetWidth, int inTargetHeight ) noexcept;
 
+/** @brief Maps a point local to inRoute's Transform (scale, then rotation, then translation) into world space. */
+asge::math::Float2 PathLocalToWorld( asge::game::components::Transform const& inRoute, asge::math::Float2 inLocal ) noexcept;
+
+/** @brief Inverse of PathLocalToWorld; a zero scale axis maps that axis to 0 rather than dividing by zero. */
+asge::math::Float2 PathWorldToLocal( asge::game::components::Transform const& inRoute, asge::math::Float2 inWorld ) noexcept;
+
 /**
  * @brief World-anchored (but fixed screen-pixel-sized, so they don't grow/
  *        shrink with zoom) drop/pin markers plus straight connecting lines,
- *        in placement order, for a PathFollow's waypoints -- drawn for the
- *        selected entity whenever it has one, brighter while Phase 12's
- *        "Select Waypoints" mode is actively editing it and more
- *        translucent otherwise. Outside that mode, also overlays the actual
- *        Catmull-Rom curve those waypoints interpolate (sampled at
- *        inResolution per segment, matching PathFollow::m_Resolution so
- *        it's the same curve the entity will actually follow) on top of the
- *        straight lines. A no-op for an empty inWaypoints.
+ *        in placement order, for a Path's waypoints. Waypoints are stored
+ *        local to the route entity's Transform and are drawn here in world
+ *        space through it. Drawn for the selected entity whenever it has a
+ *        Path, brighter while "Select Waypoints" mode is actively editing
+ *        it. Outside that mode, also overlays the Catmull-Rom curve (sampled
+ *        at Path::m_Resolution per segment) on top of the straight lines.
+ *        Waypoint 0 gets a ring marking it as locked to the route origin,
+ *        and inSelectedIndex (if valid) is drawn larger and white.
+ *        A no-op for a Path with no waypoints.
  */
-void DrawPathFollowWaypointOverlay(
+void DrawPathWaypointOverlay(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
-    std::vector<asge::math::Float2> const& inWaypoints, bool inActive, std::size_t inResolution ) noexcept;
+    asge::game::components::Transform const& inRoute, asge::game::components::Path const& inPath,
+    bool inActive, int inSelectedIndex = -1 ) noexcept;
+
+/** @brief Where a PathFollow sits on its Path: local position (offsets included) and, if aligned and defined, local rotation. */
+struct PathPose
+{
+    asge::math::Float2   m_Position;
+    std::optional<float> m_Rotation; // path tangent angle in radians; nullopt when m_AlignRotation is off or the tangent is degenerate
+};
+
+/**
+ * @brief The pose a follower with inFollow's offsets/align flag has at
+ *        inDistance along inPath, in the route's local space -- the same
+ *        values PathFollowingSystem writes. Builds a temporary spline when
+ *        m_Path isn't built yet; nullopt if the Path has fewer than 2 points.
+ */
+std::optional<PathPose> SamplePathPose(
+    asge::game::components::Path const& inPath, asge::game::components::PathFollow const& inFollow,
+    float inDistance ) noexcept;
+
+/**
+ * @brief Draws a translucent copy of every child of inRoute that has a
+ *        PathFollow, Transform and a resolved Sprite, placed on inRoute's
+ *        Path at its start and at inProgress (0..1) of the path length, so
+ *        the sprite's real extent against the line can be checked.
+ *        inProgress == 0 draws only the start ghost.
+ */
+void DrawPathFollowerGhosts(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inRoute, float inProgress ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };

@@ -49,6 +49,9 @@ single-line `/** ... */` for something trivial. **4-6 lines max**
 `@param`/`@return`/`@tparam` breakdowns unless the signature alone doesn't
 make them obvious.
 
+Every struct/class data member gets a short trailing `//` comment (what it
+holds); don't Doxygen-block a field.
+
 ## Commit messages
 
 This repo follows **gitmoji + Conventional Commits**:

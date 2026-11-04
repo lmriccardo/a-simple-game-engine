@@ -5,6 +5,7 @@
 #include <ASGE/Game/Utils/SpriteGeometry.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
+#include <ASGE/Core/ECS/Hierarchy.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Core/Math/Interpolation/CatmullRomSpline.hpp>
 
@@ -348,72 +349,170 @@ void DrawCameraOverlays(
     }
 }
 
-void DrawPathFollowWaypointOverlay(
-    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
-    std::vector<asge::math::Float2> const& inWaypoints, bool inActive, std::size_t inResolution ) noexcept
+asge::math::Float2 PathLocalToWorld( asge::game::components::Transform const& inRoute, asge::math::Float2 inLocal ) noexcept
 {
-    if ( inWaypoints.empty() ) return;
+    float const c = std::cos( inRoute.m_WorldRotation );
+    float const s = std::sin( inRoute.m_WorldRotation );
+    float const x = inLocal.x() * inRoute.m_WorldScale.x();
+    float const y = inLocal.y() * inRoute.m_WorldScale.y();
+    return { inRoute.m_WorldCoordinates.x() + x * c - y * s, inRoute.m_WorldCoordinates.y() + x * s + y * c };
+}
+
+asge::math::Float2 PathWorldToLocal( asge::game::components::Transform const& inRoute, asge::math::Float2 inWorld ) noexcept
+{
+    float const c = std::cos( inRoute.m_WorldRotation );
+    float const s = std::sin( inRoute.m_WorldRotation );
+    float const dx = inWorld.x() - inRoute.m_WorldCoordinates.x();
+    float const dy = inWorld.y() - inRoute.m_WorldCoordinates.y();
+    float const x = dx * c + dy * s;
+    float const y = -dx * s + dy * c;
+    float const sx = inRoute.m_WorldScale.x();
+    float const sy = inRoute.m_WorldScale.y();
+    return { sx != 0.0f ? x / sx : 0.0f, sy != 0.0f ? y / sy : 0.0f };
+}
+
+void DrawPathWaypointOverlay(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
+    asge::game::components::Transform const& inRoute, asge::game::components::Path const& inPath,
+    bool inActive, int inSelectedIndex ) noexcept
+{
+    auto const& waypoints = inPath.m_Waypoints;
+    if ( waypoints.empty() ) return;
 
     auto const& camera = inRenderer.GetCamera();
     auto const& viewport = inRenderer.GetViewport();
+    auto const toScreen = [&]( asge::math::Float2 inLocal ) noexcept
+    { return ToImVec2( asge::video::WorldToScreen( camera, viewport, PathLocalToWorld( inRoute, inLocal ) ) ); };
+
     ImU32 const kFillColor = inActive ? IM_COL32( 255, 220, 70, 230 ) : IM_COL32( 255, 210, 60, 130 );
     ImU32 const kLineColor = inActive ? IM_COL32( 255, 220, 70, 200 ) : IM_COL32( 255, 210, 60, 90 );
     float const r = inActive ? 9.0f : 6.0f; // fixed screen pixels -- not scaled by camera.m_Zoom, so markers stay the same size at any zoom
 
-    // The classic straight connect-the-dots, always drawn.
-    for ( std::size_t i = 1; i < inWaypoints.size(); ++i )
+    for ( std::size_t i = 1; i < waypoints.size(); ++i )
     {
-        auto const a = ToImVec2( asge::video::WorldToScreen( camera, viewport, inWaypoints[i - 1] ) );
-        auto const b = ToImVec2( asge::video::WorldToScreen( camera, viewport, inWaypoints[i] ) );
-        inDrawList->AddLine( a, b, kLineColor, 2.0f );
+        inDrawList->AddLine( toScreen( waypoints[i - 1] ), toScreen( waypoints[i] ), kLineColor, 2.0f );
     }
 
-    // Outside "Select Waypoints" mode, also overlay the actual interpolated
-    // curve on top -- rebuilt fresh from inWaypoints every call rather than
-    // trusting the entity's own PathFollow::m_Path, which
-    // asset::Resolver<PathFollow> only ever builds once (see its own doc
-    // comment) and would otherwise go stale the moment a waypoint's added/
-    // moved/removed here.
-    if ( !inActive && inWaypoints.size() >= 2 )
+    if ( !inActive && waypoints.size() >= 2 )
     {
         constexpr ImU32 kSplineColor = IM_COL32( 90, 190, 255, 200 );
-        asge::math::CatmullRomSpline const spline( inWaypoints, inResolution );
+        asge::math::CatmullRomSpline const spline( waypoints, inPath.m_Resolution );
         if ( spline.HasSegments() )
         {
-            // PointAt() evaluates the Hermite curve directly at a
-            // normalized, segment-distributed parameter -- the curve's
-            // actual shape never depends on inResolution (that only feeds
-            // the arc-length table PointAtDistance/TimeAtDistance use for
-            // constant-speed movement). So inResolution is applied here
-            // instead, as the sample count per segment -- the same density
-            // each segment's own arc-length table is built at -- giving a
-            // visibly chunkier/smoother preview as it's dragged, same as it
-            // visibly changes how finely PathFollowingSystem can resolve
-            // distance along the curve at runtime.
             int const samples = std::max(
-                2, static_cast<int>( spline.Segments().size() ) * static_cast<int>( inResolution ) );
-            auto previous = ToImVec2( asge::video::WorldToScreen( camera, viewport, spline.PointAt( 0.0f ) ) );
+                2, static_cast<int>( spline.Segments().size() ) * static_cast<int>( inPath.m_Resolution ) );
+            auto previous = toScreen( spline.PointAt( 0.0f ) );
             for ( int i = 1; i <= samples; ++i )
             {
                 float const t = static_cast<float>( i ) / static_cast<float>( samples );
-                auto const curr = ToImVec2( asge::video::WorldToScreen( camera, viewport, spline.PointAt( t ) ) );
+                auto const curr = toScreen( spline.PointAt( t ) );
                 inDrawList->AddLine( previous, curr, kSplineColor, 2.5f );
                 previous = curr;
             }
         }
     }
 
-    for ( auto const& waypoint : inWaypoints )
+    for ( std::size_t i = 0; i < waypoints.size(); ++i )
     {
-        // A map-pin/drop shape, its point sitting exactly on the waypoint's
-        // world position -- a circular head plus a triangle closing it down
-        // to that point, overlapping so the silhouette reads as one shape.
-        auto const tip = ToImVec2( asge::video::WorldToScreen( camera, viewport, waypoint ) );
+        auto const tip = toScreen( waypoints[i] );
         ImVec2 const head{ tip.x, tip.y - r * 1.4f };
         inDrawList->AddCircleFilled( head, r, kFillColor );
         ImVec2 const left{ head.x - r * 0.85f, head.y + r * 0.55f };
         ImVec2 const right{ head.x + r * 0.85f, head.y + r * 0.55f };
         inDrawList->AddTriangleFilled( left, right, tip, kFillColor );
+        if ( static_cast<int>( i ) == inSelectedIndex ) inDrawList->AddCircle( head, r + 2.0f, IM_COL32( 255, 80, 80, 255 ), 0, 3.0f );
+        if ( i == 0 ) inDrawList->AddCircle( head, r + 3.0f, IM_COL32( 255, 255, 255, 220 ), 0, 2.0f ); // locked to the route origin
+    }
+}
+
+std::optional<PathPose> SamplePathPose(
+    asge::game::components::Path const& inPath, asge::game::components::PathFollow const& inFollow,
+    float inDistance ) noexcept
+{
+    asge::math::CatmullRomSpline built;
+    asge::math::CatmullRomSpline const* spline = &inPath.m_Path;
+    if ( !spline->HasSegments() )
+    {
+        built = asge::math::CatmullRomSpline( inPath.m_Waypoints, inPath.m_Resolution );
+        spline = &built;
+    }
+    if ( !spline->HasSegments() ) return std::nullopt;
+
+    PathPose pose;
+    auto const point = spline->PointAtDistance( inDistance );
+    pose.m_Position = { point.x() + inFollow.m_OffsetH, point.y() + inFollow.m_OffsetV };
+    if ( inFollow.m_AlignRotation )
+    {
+        auto const tangent = spline->TangentAt( spline->TimeAtDistance( inDistance ) );
+        if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
+        {
+            pose.m_Rotation = std::atan2( tangent.y(), tangent.x() );
+        }
+    }
+    return pose;
+}
+
+void DrawPathFollowerGhosts(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inRoute, float inProgress ) noexcept
+{
+    using namespace asge::game::components;
+    auto const route = inRegistry.GetComponent<Transform>( inRoute );
+    auto const path = inRegistry.GetComponent<Path>( inRoute );
+    if ( !route || !path ) return;
+
+    auto const& camera = inRenderer.GetCamera();
+    auto const& viewport = inRenderer.GetViewport();
+    auto const toScreen = [&]( asge::math::Float2 inWorld ) noexcept
+    { return ToImVec2( asge::video::WorldToScreen( camera, viewport, inWorld ) ); };
+
+    float const length = path.Value().get().m_Path.Length();
+
+    std::vector<asge::ecs::Entity> followers;
+    asge::ecs::components::ForEachChild( inRegistry, inRoute, [&]( asge::ecs::Entity inChild )
+    { followers.push_back( inChild ); } );
+
+    for ( auto const follower : followers )
+    {
+        auto const follow = inRegistry.GetComponent<PathFollow>( follower );
+        auto const sprite = inRegistry.GetComponent<Sprite>( follower );
+        auto const transform = inRegistry.GetComponent<Transform>( follower );
+        if ( !follow || !sprite || !transform || !sprite.Value().get().m_Texture ) continue;
+
+        auto const& spr = sprite.Value().get();
+        auto const localRect = asge::game::utils::SpriteGetLocalRect( spr, transform.Value().get() );
+        if ( !localRect ) continue;
+
+        auto const texSize = spr.m_Texture->Size();
+        auto const src = spr.m_SourceRect.value_or(
+            asge::math::Rect{ 0.0f, 0.0f, static_cast<float>( texSize.x() ), static_cast<float>( texSize.y() ) } );
+        ImVec2 const uv0{ src.m_X / static_cast<float>( texSize.x() ), src.m_Y / static_cast<float>( texSize.y() ) };
+        ImVec2 const uv1{ ( src.m_X + src.m_Width ) / static_cast<float>( texSize.x() ),
+                          ( src.m_Y + src.m_Height ) / static_cast<float>( texSize.y() ) };
+
+        auto const drawGhost = [&]( float inDistance, ImU32 inTint )
+        {
+            auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), inDistance );
+            if ( !pose ) return;
+            auto const origin = PathLocalToWorld( route.Value().get(), pose->m_Position );
+            float const rotation = route.Value().get().m_WorldRotation
+                + pose->m_Rotation.value_or( transform.Value().get().m_LocalRotation );
+            asge::math::Rect const dst{
+                origin.x(), origin.y(),
+                localRect->m_Width * route.Value().get().m_WorldScale.x(),
+                localRect->m_Height * route.Value().get().m_WorldScale.y() };
+            auto const corners = asge::game::components::SpriteGetDrawCorners( dst, rotation );
+            asge::math::Float2 const br{
+                corners.m_Right.x() + corners.m_Down.x() - corners.m_Origin.x(),
+                corners.m_Right.y() + corners.m_Down.y() - corners.m_Origin.y() };
+            inDrawList->AddImageQuad(
+                spr.m_Texture->NativeHandle(), toScreen( corners.m_Origin ), toScreen( corners.m_Right ),
+                toScreen( br ), toScreen( corners.m_Down ), uv0, ImVec2( uv1.x, uv0.y ), uv1,
+                ImVec2( uv0.x, uv1.y ), inTint );
+        };
+
+        drawGhost( 0.0f, IM_COL32( 120, 255, 140, 150 ) );
+        if ( inProgress > 0.0f ) drawGhost( std::clamp( inProgress, 0.0f, 1.0f ) * length, IM_COL32( 255, 255, 255, 150 ) );
     }
 }
 
