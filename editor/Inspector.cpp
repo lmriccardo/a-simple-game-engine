@@ -759,6 +759,13 @@ bool DrawInspector( PathFollow& inPathFollow, asge::ecs::Registry& inRegistry, a
     if ( ImGui::DragFloat( "Offset H", &inPathFollow.m_OffsetH ) ) changed = true;
     if ( ImGui::DragFloat( "Offset V", &inPathFollow.m_OffsetV ) ) changed = true;
     if ( ImGui::Checkbox( "Align Rotation", &inPathFollow.m_AlignRotation ) ) changed = true;
+
+    // Runtime-only (never saved to the scene): written by PathFollowingSystem, so it only moves while that system runs, not while editing.
+    ImGui::TextDisabled( "Heading: (%.2f, %.2f)", inPathFollow.m_Heading.x(), inPathFollow.m_Heading.y() );
+    if ( ImGui::IsItemHovered() )
+    {
+        ImGui::SetTooltip( "Runtime only: the path tangent PathFollowingSystem last wrote for this follower.\nNot saved to the scene." );
+    }
     return changed;
 }
 

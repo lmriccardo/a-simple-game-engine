@@ -441,15 +441,92 @@ std::optional<PathPose> SamplePathPose(
     PathPose pose;
     auto const point = spline->PointAtDistance( inDistance );
     pose.m_Position = { point.x() + inFollow.m_OffsetH, point.y() + inFollow.m_OffsetV };
-    if ( inFollow.m_AlignRotation )
+    auto const tangent = spline->TangentAt( spline->TimeAtDistance( inDistance ) );
+    if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
     {
-        auto const tangent = spline->TangentAt( spline->TimeAtDistance( inDistance ) );
-        if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
-        {
-            pose.m_Rotation = std::atan2( tangent.y(), tangent.x() );
-        }
+        pose.m_Heading = tangent;
+        if ( inFollow.m_AlignRotation ) pose.m_Rotation = std::atan2( tangent.y(), tangent.x() );
     }
     return pose;
+}
+
+void DrawPathFollowerHeading(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inFollower, float inProgress ) noexcept
+{
+    using namespace asge::game::components;
+    auto const follow = inRegistry.GetComponent<PathFollow>( inFollower );
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inFollower );
+    if ( !follow || !hierarchy ) return;
+
+    auto const routeEntity = hierarchy.Value().get().m_Parent;
+    if ( routeEntity == asge::ecs::Entity::Null() ) return;
+    auto const route = inRegistry.GetComponent<Transform>( routeEntity );
+    auto const path = inRegistry.GetComponent<Path>( routeEntity );
+    if ( !route || !path ) return;
+
+    // At the preview progress when one is set (same point as the ghost), else at the follower's own m_Traveled,
+    // so it matches what PathFollowingSystem would write there.
+    float distance = follow.Value().get().m_Traveled;
+    if ( inProgress > 0.0f )
+    {
+        auto const& built = path.Value().get().m_Path;
+        float const length = built.HasSegments()
+            ? built.Length()
+            : asge::math::CatmullRomSpline( path.Value().get().m_Waypoints, path.Value().get().m_Resolution ).Length();
+        distance = std::clamp( inProgress, 0.0f, 1.0f ) * length;
+    }
+    auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), distance );
+    if ( !pose || !pose->m_Heading ) return;
+
+    auto const& camera = inRenderer.GetCamera();
+    auto const& viewport = inRenderer.GetViewport();
+    auto const toScreen = [&]( asge::math::Float2 inWorld ) noexcept
+    { return ToImVec2( asge::video::WorldToScreen( camera, viewport, inWorld ) ); };
+
+    // Two points through the route's transform, so its rotation and scale carry over to the direction.
+    auto const& routeTransform = route.Value().get();
+    auto const originWorld = PathLocalToWorld( routeTransform, pose->m_Position );
+    ImVec2 const originScreen = toScreen( originWorld );
+    ImVec2 const to = toScreen( PathLocalToWorld( routeTransform, pose->m_Position + *pose->m_Heading ) );
+    float const dx = to.x - originScreen.x;
+    float const dy = to.y - originScreen.y;
+    float const len = std::sqrt( dx * dx + dy * dy );
+    if ( len < 1e-4f ) return;
+
+    // The Transform is the sprite's top-left corner: anchor at the sprite's visual center instead, drawn the
+    // same way as the ghosts (route scale and rotation applied). Falls back to the corner without a Sprite.
+    ImVec2 from = originScreen;
+    auto const sprite = inRegistry.GetComponent<Sprite>( inFollower );
+    auto const transform = inRegistry.GetComponent<Transform>( inFollower );
+    if ( sprite && transform )
+    {
+        if ( auto const localRect = asge::game::utils::SpriteGetLocalRect( sprite.Value().get(), transform.Value().get() ) )
+        {
+            asge::math::Rect const dst{
+                originWorld.x(), originWorld.y(),
+                localRect->m_Width * routeTransform.m_WorldScale.x(),
+                localRect->m_Height * routeTransform.m_WorldScale.y() };
+            float const rotation = routeTransform.m_WorldRotation
+                + pose->m_Rotation.value_or( transform.Value().get().m_LocalRotation );
+            auto const corners = SpriteGetDrawCorners( dst, rotation );
+            // origin + half of both edge vectors = the middle of the quad
+            from = toScreen( asge::math::Float2{
+                corners.m_Origin.x() + ( corners.m_Right.x() - corners.m_Origin.x() + corners.m_Down.x() - corners.m_Origin.x() ) * 0.5f,
+                corners.m_Origin.y() + ( corners.m_Right.y() - corners.m_Origin.y() + corners.m_Down.y() - corners.m_Origin.y() ) * 0.5f } );
+        }
+    }
+
+    constexpr float kArrowLength = 48.0f; // screen pixels, so it reads the same at any zoom
+    constexpr float kHeadSize = 10.0f;
+    ImU32 const color = IM_COL32( 255, 200, 60, 255 );
+    ImVec2 const dir{ dx / len, dy / len };
+    ImVec2 const tip{ from.x + dir.x * kArrowLength, from.y + dir.y * kArrowLength };
+    ImVec2 const base{ tip.x - dir.x * kHeadSize, tip.y - dir.y * kHeadSize };
+    ImVec2 const side{ -dir.y * kHeadSize * 0.5f, dir.x * kHeadSize * 0.5f };
+    inDrawList->AddLine( from, base, color, 2.5f );
+    inDrawList->AddTriangleFilled( tip, ImVec2( base.x + side.x, base.y + side.y ), ImVec2( base.x - side.x, base.y - side.y ), color );
+    inDrawList->AddCircleFilled( from, 3.5f, color );
 }
 
 void DrawPathFollowerGhosts(
@@ -474,6 +551,8 @@ void DrawPathFollowerGhosts(
 
     for ( auto const follower : followers )
     {
+        DrawPathFollowerHeading( inRenderer, inDrawList, inRegistry, follower, inProgress ); // tracks the ghost, even for a follower without a Sprite
+
         auto const follow = inRegistry.GetComponent<PathFollow>( follower );
         auto const sprite = inRegistry.GetComponent<Sprite>( follower );
         auto const transform = inRegistry.GetComponent<Transform>( follower );

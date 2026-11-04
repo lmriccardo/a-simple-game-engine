@@ -77,7 +77,10 @@ void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDe
  * @brief Moves each PathFollow entity along its parent's components::Path,
  *        applying offsets and optional tangent alignment.
  *
- * Warns once per follower if the parent has no Path.
+ * Also writes the path tangent into PathFollow::m_Heading every frame it
+ * moves, even with m_AlignRotation off. Emits events::OnPathFinished once
+ * when a follower on a non-looping Path reaches its end. Warns once per
+ * follower if the parent has no Path.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

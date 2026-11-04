@@ -699,6 +699,89 @@ TEST(PathFollowingSystemTest, FinishedPath_NoLongerAdvancesOnSubsequentCalls)
     EXPECT_TRUE(pathResult.Value().get().m_Finished);
 }
 
+TEST(PathFollowingSystemTest, Heading_IsTheUnitTangentEvenWithAlignRotationOff)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {0.0f, 10.0f}}, 5.0f); // straight down +Y
+    registry.GetComponent<PathFollow>(scene.m_Follower).Value().get().m_AlignRotation = false;
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+
+    auto const& heading = registry.GetComponent<PathFollow>(scene.m_Follower).Value().get().m_Heading;
+    EXPECT_NEAR(heading.x(), 0.0f, 1e-3f);
+    EXPECT_NEAR(heading.y(), 1.0f, 1e-3f);
+    EXPECT_FLOAT_EQ(registry.GetComponent<Transform>(scene.m_Follower).Value().get().m_LocalRotation, 0.0f); // rotation untouched
+}
+
+TEST(PathFollowingSystemTest, Heading_FollowsTheTangentAsTheRouteTurns)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}, {10.0f, 10.0f}}, 1.0f);
+    auto const length = registry.GetComponent<Path>(scene.m_Route).Value().get().m_Path.Length();
+    auto& follow = registry.GetComponent<PathFollow>(scene.m_Follower).Value().get();
+
+    asge::game::systems::PathFollowingSystem(registry, 0.05f * length); // start of the route: heading east-ish
+    auto const early = follow.m_Heading;
+    asge::game::systems::PathFollowingSystem(registry, 0.9f * length);  // end of the route: heading south-ish
+    auto const late = follow.m_Heading;
+
+    EXPECT_GT(early.x(), early.y());
+    EXPECT_GT(late.y(), late.x());
+    EXPECT_NEAR(std::hypot(late.x(), late.y()), 1.0f, 1e-3f);
+}
+
+TEST(PathFollowingSystemTest, Heading_KeepsTheLastValidValueOnADegenerateSegment)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {0.0f, 0.0f}}, 5.0f); // coincident points: NaN tangent
+    auto& follow = registry.GetComponent<PathFollow>(scene.m_Follower).Value().get();
+    follow.m_Heading = { 0.0f, -1.0f };
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+
+    EXPECT_TRUE(std::isfinite(follow.m_Heading.x()) && std::isfinite(follow.m_Heading.y()));
+    EXPECT_FLOAT_EQ(follow.m_Heading.x(), 0.0f);
+    EXPECT_FLOAT_EQ(follow.m_Heading.y(), -1.0f);
+}
+
+TEST(PathFollowingSystemTest, OnPathFinished_FiresOncePerRunWithTheFollower)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    std::vector<Entity> finished;
+    auto conn = asge::game::events::OnPathFinished().Connect([&finished](Entity inEntity) { finished.push_back(inEntity); });
+
+    asge::game::systems::PathFollowingSystem(registry, 0.5f);   // mid-route: not yet
+    EXPECT_TRUE(finished.empty());
+    asge::game::systems::PathFollowingSystem(registry, 100.0f); // reaches the end
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);   // already finished: must not re-emit
+    ASSERT_EQ(finished.size(), 1u);
+    EXPECT_EQ(finished[0], scene.m_Follower);
+
+    // Resetting the run lets it fire again.
+    auto& follow = registry.GetComponent<PathFollow>(scene.m_Follower).Value().get();
+    follow.m_Finished = false;
+    follow.m_Traveled = 0.0f;
+    asge::game::systems::PathFollowingSystem(registry, 100.0f);
+    conn.Disconnect();
+
+    EXPECT_EQ(finished.size(), 2u);
+}
+
+TEST(PathFollowingSystemTest, OnPathFinished_NeverFiresForALoopingPath)
+{
+    Registry registry;
+    MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f, /*inLoop=*/true);
+
+    int count = 0;
+    auto conn = asge::game::events::OnPathFinished().Connect([&count](Entity) { ++count; });
+    for ( int i = 0; i < 5; ++i ) asge::game::systems::PathFollowingSystem(registry, 3.0f);
+    conn.Disconnect();
+
+    EXPECT_EQ(count, 0);
+}
+
 TEST(PathFollowingSystemTest, UnresolvedPath_SkippedNotCrashed)
 {
     Registry registry;

@@ -483,16 +483,19 @@ void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float i
         transform.m_LocalCoordinates = pos + math::Float2{ pathFollow.m_OffsetH, pathFollow.m_OffsetV };
         transform.m_Dirty = true;
 
-        if ( !pathFollow.m_AlignRotation ) continue;
-
         float time = path.m_Path.TimeAtDistance( pathFollow.m_Traveled );
         math::Float2 tangent = path.m_Path.TangentAt( time );
 
         // A degenerate segment (coincident control points) normalizes to a
-        // NaN tangent -- leave m_LocalRotation as it was rather than corrupting it.
+        // NaN tangent -- keep the previous m_Heading and m_LocalRotation
+        // rather than corrupting them.
         if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
         {
-            transform.m_LocalRotation = std::atan2( tangent.y(), tangent.x() );
+            pathFollow.m_Heading = tangent; // always, so a game can read it even with m_AlignRotation off
+            if ( pathFollow.m_AlignRotation ) transform.m_LocalRotation = std::atan2( tangent.y(), tangent.x() );
         }
+
+        // A finished follower is skipped by the early-out above, so m_Finished being set here means it flipped this frame: once per run.
+        if ( pathFollow.m_Finished ) events::OnPathFinished().Emit( e );
     }
 }

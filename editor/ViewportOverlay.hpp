@@ -112,6 +112,7 @@ struct PathPose
 {
     asge::math::Float2   m_Position;
     std::optional<float> m_Rotation; // path tangent angle in radians; nullopt when m_AlignRotation is off or the tangent is degenerate
+    std::optional<asge::math::Float2> m_Heading; // unit path tangent regardless of m_AlignRotation; nullopt when the tangent is degenerate
 };
 
 /**
@@ -129,11 +130,28 @@ std::optional<PathPose> SamplePathPose(
  *        PathFollow, Transform and a resolved Sprite, placed on inRoute's
  *        Path at its start and at inProgress (0..1) of the path length, so
  *        the sprite's real extent against the line can be checked.
- *        inProgress == 0 draws only the start ghost.
+ *        inProgress == 0 draws only the start ghost. Each follower also gets
+ *        its heading arrow (see DrawPathFollowerHeading) at the same point.
  */
 void DrawPathFollowerGhosts(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
     asge::ecs::Entity inRoute, float inProgress ) noexcept;
+
+/**
+ * @brief Draws an arrow showing the path heading of a PathFollow entity.
+ *
+ * Anchored at the middle of the follower's sprite (its corner if it has no
+ * Sprite) at its place on its parent's Path (at its current
+ * PathFollow::m_Traveled, or at inProgress (0..1) of the path length when
+ * that is above 0, the same point the ghosts use) and pointing along the
+ * path tangent, carried through the parent's transform. A fixed screen-space
+ * length, so it reads the same at any zoom. A no-op if inFollower has no
+ * PathFollow or its parent has no Path, or if the tangent is degenerate there.
+ * DrawPathFollowerGhosts calls it for every follower of the route it draws.
+ */
+void DrawPathFollowerHeading(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inFollower, float inProgress = 0.0f ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };
