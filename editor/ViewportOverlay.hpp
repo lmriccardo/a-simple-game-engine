@@ -4,7 +4,9 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Path.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
 
+#include <optional>
 #include <vector>
 
 struct ImDrawList;
@@ -104,6 +106,34 @@ void DrawPathWaypointOverlay(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
     asge::game::components::Transform const& inRoute, asge::game::components::Path const& inPath,
     bool inActive, int inSelectedIndex = -1 ) noexcept;
+
+/** @brief Where a PathFollow sits on its Path: local position (offsets included) and, if aligned and defined, local rotation. */
+struct PathPose
+{
+    asge::math::Float2   m_Position;
+    std::optional<float> m_Rotation; // path tangent angle in radians; nullopt when m_AlignRotation is off or the tangent is degenerate
+};
+
+/**
+ * @brief The pose a follower with inFollow's offsets/align flag has at
+ *        inDistance along inPath, in the route's local space -- the same
+ *        values PathFollowingSystem writes. Builds a temporary spline when
+ *        m_Path isn't built yet; nullopt if the Path has fewer than 2 points.
+ */
+std::optional<PathPose> SamplePathPose(
+    asge::game::components::Path const& inPath, asge::game::components::PathFollow const& inFollow,
+    float inDistance ) noexcept;
+
+/**
+ * @brief Draws a translucent copy of every child of inRoute that has a
+ *        PathFollow, Transform and a resolved Sprite, placed on inRoute's
+ *        Path at its start and at inProgress (0..1) of the path length, so
+ *        the sprite's real extent against the line can be checked.
+ *        inProgress == 0 draws only the start ghost.
+ */
+void DrawPathFollowerGhosts(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inRoute, float inProgress ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };

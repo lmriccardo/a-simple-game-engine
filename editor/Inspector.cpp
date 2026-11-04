@@ -704,6 +704,7 @@ bool DrawInspector( Path& inPath, asge::ecs::Entity inEntity, WaypointEditState&
     }
 
     if ( ImGui::Checkbox( "Loop", &inPath.m_Loop ) ) changed = true;
+    ImGui::SliderFloat( "Preview", &ioWaypointEdit.m_PreviewProgress, 0.0f, 1.0f ); // ghosts of child followers, see DrawPathFollowerGhosts
 
     int resolution = static_cast<int>( inPath.m_Resolution );
     if ( ImGui::DragInt( "Resolution", &resolution, 1.0f, 1, 256 ) )

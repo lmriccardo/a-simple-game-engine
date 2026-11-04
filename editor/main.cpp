@@ -17,6 +17,7 @@
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Name.hpp>
 #include <ASGE/Game/Components/Path.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components.hpp>
@@ -58,6 +59,7 @@ namespace
 {
 using asge::game::components::Transform;
 using asge::game::components::Path;
+using asge::game::components::PathFollow;
 using asge::game::components::Collider;
 using asge::game::components::Animation;
 using asge::game::components::StopAnimation;
@@ -193,6 +195,33 @@ asge::math::Float2 SnapWaypointWorld(
         else            inWorld.y() = inPreviousWorld->y();
     }
     return inWorld;
+}
+
+/**
+ * @brief If inFollower has a PathFollow and its parent a Path, moves the
+ *        follower's local Transform onto the Path's start (plus the
+ *        follower's offsets, rotated to the tangent when aligned) and resets
+ *        its progress -- the same pose PathFollowingSystem would write on
+ *        its first tick, so a freshly reparented follower shows on the route.
+ */
+void SnapFollowerToPathStart( asge::ecs::Registry& inRegistry, asge::ecs::Entity inFollower ) noexcept
+{
+    auto follow = inRegistry.GetComponent<PathFollow>( inFollower );
+    auto transform = inRegistry.GetComponent<Transform>( inFollower );
+    auto hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inFollower );
+    if ( !follow || !transform || !hierarchy ) return;
+
+    auto path = inRegistry.GetComponent<Path>( hierarchy.Value().get().m_Parent );
+    if ( !path ) return;
+
+    auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), 0.0f );
+    if ( !pose ) return;
+
+    transform.Value().get().m_LocalCoordinates = pose->m_Position;
+    if ( pose->m_Rotation ) transform.Value().get().m_LocalRotation = *pose->m_Rotation;
+    transform.Value().get().m_Dirty = true;
+    follow.Value().get().m_Traveled = 0.0f;
+    follow.Value().get().m_Finished = false;
 }
 
 /**
@@ -2635,6 +2664,7 @@ int main(int, char**)
         }
         case HierarchyAction::Reparent:
             AttachChild(sceneManager.GetRegistry(), entityListResult.m_NewParent, entityListResult.m_Target);
+            SnapFollowerToPathStart(sceneManager.GetRegistry(), entityListResult.m_Target);
             MarkActiveSceneDirty(currentProject);
             break;
         case HierarchyAction::None:
@@ -2778,6 +2808,9 @@ int main(int, char**)
         {
             if (auto route = sceneManager.GetRegistry().GetComponent<Transform>(selectedEntity))
             {
+                DrawPathFollowerGhosts(
+                    videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), sceneManager.GetRegistry(),
+                    selectedEntity, waypointEdit.m_PreviewProgress);
                 DrawPathWaypointOverlay(
                     videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), route.Value().get(),
                     path.Value().get(), waypointEdit.m_Active,

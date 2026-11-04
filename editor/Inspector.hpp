@@ -146,9 +146,10 @@ struct WaypointEditState
     std::vector<asge::math::Float2>  m_Snapshot;
     int                              m_SelectedIndex = -1;    // Waypoint highlighted in the viewport and edited numerically, or -1
     bool                             m_SnapToGrid    = false; // Snap placed/dragged waypoints to the world grid; survives Reset()
+    float                            m_PreviewProgress = 0.0f; // 0..1 along the Path where followers' ghosts are drawn; survives Reset()
 
-    /** @brief Back to the inactive default, keeping the user's grid-snap preference. */
-    void Reset() noexcept { *this = WaypointEditState{ .m_SnapToGrid = m_SnapToGrid }; }
+    /** @brief Back to the inactive default, keeping the user's grid-snap and preview-progress settings. */
+    void Reset() noexcept { *this = WaypointEditState{ .m_SnapToGrid = m_SnapToGrid, .m_PreviewProgress = m_PreviewProgress }; }
 };
 
 /**
