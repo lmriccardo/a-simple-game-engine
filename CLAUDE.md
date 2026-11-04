@@ -42,15 +42,14 @@ consume ASGE from another C++ project, are in [README.md](README.md).
 ## Code documentation
 
 Every function — public API or internal `_internal`/SDL-translation helper —
-gets a short doc comment on its **declaration** (the header, not a repeated
-one on an out-of-line `.cpp` definition): a Doxygen `/** @brief ... */`, or a
-single-line `/** ... */` for something trivial. **4-6 lines max** 
-— one or two sentences describing what it does, not an essay. Skip
-`@param`/`@return`/`@tparam` breakdowns unless the signature alone doesn't
-make them obvious.
+gets a Doxygen block on its **declaration** (the header, not a repeated one on
+an out-of-line `.cpp` definition): a small one-line `@brief`, a blank ` *`
+line, then ~4-5 lines of description (what it does, notable behavior/edge
+cases). Skip `@param`/`@return`/`@tparam` breakdowns unless the signature
+alone doesn't make them obvious.
 
-Every struct/class data member gets a short trailing `//` comment (what it
-holds); don't Doxygen-block a field.
+Every struct/class data member gets a small trailing `//` comment beside it
+(what it holds, a few words); don't Doxygen-block a field.
 
 ## Commit messages
 

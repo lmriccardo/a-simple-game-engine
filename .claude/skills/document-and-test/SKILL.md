@@ -10,25 +10,26 @@ building and running them (see the "verify" section — never skip it).
 
 ## Doc comments
 
-- One short Doxygen block per function/method **on its declaration** (header),
-  never repeated on an out-of-line `.cpp` definition. `/** @brief ... */`,
-  4-6 lines max. Skip `@param`/`@return` unless the signature alone doesn't
-  make them obvious (e.g. `Mount(str::StringCRef inMntPoint, str::StringCRef
-  inRealPath)` doesn't need it; a bool-returning method with a non-obvious
-  "what does true mean" case might).
+- One Doxygen block per function/method **on its declaration** (header),
+  never repeated on an out-of-line `.cpp` definition: a small one-line
+  `@brief`, a blank ` *` line, then ~4-5 lines of description (what it does,
+  notable behavior/edge cases). Skip `@param`/`@return` unless the signature
+  alone doesn't make them obvious (e.g. `Mount(str::StringCRef inMntPoint,
+  str::StringCRef inRealPath)` doesn't need it; a bool-returning method with a
+  non-obvious "what does true mean" case might).
 - This applies to **every** function, including private nested types/structs
   (a one-liner is enough, e.g. `/** @brief One virtual-root-to-real-directory
   binding in the mount table. */`) and free helper functions declared only in
   a `.cpp`'s anonymous namespace (their only declaration site *is* the `.cpp`,
   so they get the doc comment there — see `NormalizeVirtualPath` in
   `VirtualFileSystem.cpp`).
-- **Rule of thumb: every data member of a struct/class gets a short trailing
-  `//` comment on its own line** (what it holds / its unit), grouped under
-  `// Serializable values` / `// Runtime values only` headers when the type
-  is a component (see `Path.hpp`, `PathFollow.hpp`). The type itself still
-  gets a Doxygen block.
+- **Rule of thumb: every data member of a struct/class gets a small trailing
+  `//` comment beside it** (what it holds / its unit; keep it to a few words),
+  grouped under `// Serializable values` / `// Runtime values only` headers
+  when the type is a component (see `Path.hpp`, `PathFollow.hpp`). The type
+  itself still gets a Doxygen block.
 - Plain struct/class data members get a short trailing `//` comment instead of
-  a Doxygen block, one per line (see `Image.hpp`'s `m_Width`/`m_Height`, or
+  a Doxygen block (see `Image.hpp`'s `m_Width`/`m_Height`, or
   `VirtualFileSystem.hpp`'s `MountInfo` fields) — don't Doxygen-block a field.
 - Don't invent behavior the code doesn't have. If you're not sure what a
   branch does, read the `.cpp` before writing the comment — a doc comment
