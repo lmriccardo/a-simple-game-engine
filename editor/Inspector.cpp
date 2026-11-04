@@ -25,6 +25,7 @@
 #include <imgui_stdlib.h>
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <cstdint>
@@ -649,7 +650,7 @@ bool DrawInspector( Path& inPath, asge::ecs::Entity inEntity, WaypointEditState&
     {
         if ( editingThis )
         {
-            ioWaypointEdit = WaypointEditState{}; // commit -- keep whatever was placed
+            ioWaypointEdit.Reset(); // commit -- keep whatever was placed
         }
         else
         {
@@ -668,6 +669,38 @@ bool DrawInspector( Path& inPath, asge::ecs::Entity inEntity, WaypointEditState&
     {
         ImGui::SameLine();
         ImGui::TextDisabled( "(click the viewport to add; ESC to cancel)" );
+
+        ImGui::Checkbox( "Snap to grid", &ioWaypointEdit.m_SnapToGrid );
+        ImGui::TextDisabled( "Hold Shift to lock to the previous point's X or Y." );
+
+        // Numeric editing of one waypoint, picked by clicking it in the
+        // viewport or in this list. Waypoint 0 is locked to the origin.
+        if ( ImGui::BeginListBox( "##waypoints", ImVec2( -FLT_MIN, 5 * ImGui::GetTextLineHeightWithSpacing() ) ) )
+        {
+            for ( std::size_t i = 0; i < inPath.m_Waypoints.size(); ++i )
+            {
+                char label[64];
+                std::snprintf( label, sizeof( label ), "#%zu (%.1f, %.1f)%s", i,
+                    inPath.m_Waypoints[i].x(), inPath.m_Waypoints[i].y(), i == 0 ? " [origin]" : "" );
+                bool const selected = ioWaypointEdit.m_SelectedIndex == static_cast<int>( i );
+                if ( ImGui::Selectable( label, selected ) ) ioWaypointEdit.m_SelectedIndex = static_cast<int>( i );
+            }
+            ImGui::EndListBox();
+        }
+        int const selectedIndex = ioWaypointEdit.m_SelectedIndex;
+        if ( selectedIndex >= 0 && selectedIndex < static_cast<int>( inPath.m_Waypoints.size() ) )
+        {
+            auto& waypoint = inPath.m_Waypoints[static_cast<std::size_t>( selectedIndex )];
+            float xy[2]{ waypoint.x(), waypoint.y() };
+            ImGui::BeginDisabled( selectedIndex == 0 );
+            if ( ImGui::DragFloat2( "Position", xy ) )
+            {
+                waypoint = asge::math::Float2{ xy[0], xy[1] };
+                RebuildPath( inPath );
+                changed = true;
+            }
+            ImGui::EndDisabled();
+        }
     }
 
     if ( ImGui::Checkbox( "Loop", &inPath.m_Loop ) ) changed = true;

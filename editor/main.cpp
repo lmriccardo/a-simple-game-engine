@@ -170,6 +170,32 @@ int PickWaypointAt(
 }
 
 /**
+ * @brief Applies the waypoint-authoring snaps to a cursor position in world
+ *        space: grid snap first (if inSnapToGrid), then, when inShift is
+ *        held and inPreviousWorld is given, the axis closest to the cursor
+ *        is locked to inPreviousWorld's X or Y so the segment stays
+ *        horizontal or vertical.
+ */
+asge::math::Float2 SnapWaypointWorld(
+    asge::math::Float2 inWorld, std::optional<asge::math::Float2> inPreviousWorld,
+    bool inShift, bool inSnapToGrid, float inGridSpacing ) noexcept
+{
+    if ( inSnapToGrid && inGridSpacing > 0.0f )
+    {
+        inWorld = { std::round( inWorld.x() / inGridSpacing ) * inGridSpacing,
+                    std::round( inWorld.y() / inGridSpacing ) * inGridSpacing };
+    }
+    if ( inShift && inPreviousWorld )
+    {
+        float const dx = std::abs( inWorld.x() - inPreviousWorld->x() );
+        float const dy = std::abs( inWorld.y() - inPreviousWorld->y() );
+        if ( dx <= dy ) inWorld.x() = inPreviousWorld->x(); // closer to the previous X: keep that X
+        else            inWorld.y() = inPreviousWorld->y();
+    }
+    return inWorld;
+}
+
+/**
  * @brief Copies every serializable component inSource has onto a freshly
  *        created entity, tagged with inScenePath's SceneId so it's included
  *        in ActiveEntities()/SaveScene() alongside everything else -- the
@@ -922,7 +948,7 @@ int main(int, char**)
         if (waypointEdit.m_Active
          && !sceneManager.GetRegistry().HasComponent<Path>(waypointEdit.m_Entity))
         {
-            waypointEdit = WaypointEditState{};
+            waypointEdit.Reset();
             draggingWaypointIndex = -1;
         }
         if (colliderDraw.m_Active
@@ -951,7 +977,7 @@ int main(int, char**)
                     pf.Value().get().m_Waypoints = waypointEdit.m_Snapshot;
                     RebuildPath(pf.Value().get());
                 }
-                waypointEdit = WaypointEditState{};
+                waypointEdit.Reset();
                 draggingWaypointIndex = -1;
             }
             else if (event.type == SDL_EVENT_KEY_DOWN
@@ -1036,6 +1062,7 @@ int main(int, char**)
                     if (hitIndex > 0) // waypoint 0 is locked to the route origin, never removed
                     {
                         waypoints.erase(waypoints.begin() + hitIndex);
+                        waypointEdit.m_SelectedIndex = -1;
                         if (draggingWaypointIndex == hitIndex) draggingWaypointIndex = -1;
                         else if (draggingWaypointIndex > hitIndex) --draggingWaypointIndex;
                         RebuildPath(pf.Value().get());
@@ -1064,16 +1091,25 @@ int main(int, char**)
                         if (hitIndex > 0)
                         {
                             draggingWaypointIndex = hitIndex; // waypoint 0 is locked, so never grabbed
+                            waypointEdit.m_SelectedIndex = hitIndex;
                         }
                         else if (hitIndex == 0)
                         {
                             // Clicking the locked origin neither drags nor adds a point on top of it.
+                            waypointEdit.m_SelectedIndex = 0;
                         }
                         else
                         {
                             auto const worldPos = asge::video::ScreenToWorld(
                                 videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
-                            waypoints.push_back(PathWorldToLocal(route.Value().get(), worldPos));
+                            auto const previousWorld = waypoints.empty()
+                                ? std::optional<asge::math::Float2>{}
+                                : std::optional<asge::math::Float2>{PathLocalToWorld(route.Value().get(), waypoints.back())};
+                            auto const snapped = SnapWaypointWorld(
+                                worldPos, previousWorld, (SDL_GetModState() & SDL_KMOD_SHIFT) != 0,
+                                waypointEdit.m_SnapToGrid, gridSpacing);
+                            waypoints.push_back(PathWorldToLocal(route.Value().get(), snapped));
+                            waypointEdit.m_SelectedIndex = static_cast<int>(waypoints.size()) - 1;
                             RebuildPath(pf.Value().get());
                             MarkActiveSceneDirty(currentProject);
                         }
@@ -1176,7 +1212,12 @@ int main(int, char**)
                         auto const worldPos = asge::video::ScreenToWorld(
                             videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(),
                             asge::math::Float2{event.motion.x, event.motion.y});
-                        waypoints[static_cast<std::size_t>(draggingWaypointIndex)] = PathWorldToLocal(route.Value().get(), worldPos);
+                        auto const previousWorld = PathLocalToWorld(
+                            route.Value().get(), waypoints[static_cast<std::size_t>(draggingWaypointIndex) - 1]);
+                        auto const snapped = SnapWaypointWorld(
+                            worldPos, previousWorld, (SDL_GetModState() & SDL_KMOD_SHIFT) != 0,
+                            waypointEdit.m_SnapToGrid, gridSpacing);
+                        waypoints[static_cast<std::size_t>(draggingWaypointIndex)] = PathWorldToLocal(route.Value().get(), snapped);
                         RebuildPath(pf.Value().get());
                         MarkActiveSceneDirty(currentProject);
                     }
@@ -2739,7 +2780,8 @@ int main(int, char**)
             {
                 DrawPathWaypointOverlay(
                     videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), route.Value().get(),
-                    path.Value().get(), waypointEdit.m_Active);
+                    path.Value().get(), waypointEdit.m_Active,
+                    waypointEdit.m_Active && waypointEdit.m_Entity == selectedEntity ? waypointEdit.m_SelectedIndex : -1);
             }
         }
 

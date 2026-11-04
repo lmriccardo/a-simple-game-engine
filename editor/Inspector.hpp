@@ -135,13 +135,20 @@ struct InspectorResult
  *        overlay showing points as they're placed), toggled by Path's own
  *        DrawInspector section, whose button flips m_Active and snapshots
  *        the pre-edit m_Waypoints into m_Snapshot so an ESC-cancel can
- *        restore them. m_Entity is the route entity holding the Path.
+ *        restore them. m_Entity is the route entity holding the Path. Holding
+ *        Shift while placing/dragging constrains a point to the previous
+ *        point's X or Y; m_SnapToGrid snaps it to the world grid.
  */
 struct WaypointEditState
 {
     bool                             m_Active = false;
     asge::ecs::Entity                m_Entity = asge::ecs::Entity::Null();
     std::vector<asge::math::Float2>  m_Snapshot;
+    int                              m_SelectedIndex = -1;    // Waypoint highlighted in the viewport and edited numerically, or -1
+    bool                             m_SnapToGrid    = false; // Snap placed/dragged waypoints to the world grid; survives Reset()
+
+    /** @brief Back to the inactive default, keeping the user's grid-snap preference. */
+    void Reset() noexcept { *this = WaypointEditState{ .m_SnapToGrid = m_SnapToGrid }; }
 };
 
 /**

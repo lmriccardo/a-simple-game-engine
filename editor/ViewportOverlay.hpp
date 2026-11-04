@@ -96,13 +96,14 @@ asge::math::Float2 PathWorldToLocal( asge::game::components::Transform const& in
  *        Path, brighter while "Select Waypoints" mode is actively editing
  *        it. Outside that mode, also overlays the Catmull-Rom curve (sampled
  *        at Path::m_Resolution per segment) on top of the straight lines.
- *        Waypoint 0 gets a ring marking it as locked to the route origin.
+ *        Waypoint 0 gets a ring marking it as locked to the route origin,
+ *        and inSelectedIndex (if valid) is drawn larger and white.
  *        A no-op for a Path with no waypoints.
  */
 void DrawPathWaypointOverlay(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
     asge::game::components::Transform const& inRoute, asge::game::components::Path const& inPath,
-    bool inActive ) noexcept;
+    bool inActive, int inSelectedIndex = -1 ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };

@@ -373,7 +373,7 @@ asge::math::Float2 PathWorldToLocal( asge::game::components::Transform const& in
 void DrawPathWaypointOverlay(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList,
     asge::game::components::Transform const& inRoute, asge::game::components::Path const& inPath,
-    bool inActive ) noexcept
+    bool inActive, int inSelectedIndex ) noexcept
 {
     auto const& waypoints = inPath.m_Waypoints;
     if ( waypoints.empty() ) return;
@@ -419,6 +419,7 @@ void DrawPathWaypointOverlay(
         ImVec2 const left{ head.x - r * 0.85f, head.y + r * 0.55f };
         ImVec2 const right{ head.x + r * 0.85f, head.y + r * 0.55f };
         inDrawList->AddTriangleFilled( left, right, tip, kFillColor );
+        if ( static_cast<int>( i ) == inSelectedIndex ) inDrawList->AddCircle( head, r + 2.0f, IM_COL32( 255, 80, 80, 255 ), 0, 3.0f );
         if ( i == 0 ) inDrawList->AddCircle( head, r + 3.0f, IM_COL32( 255, 255, 255, 220 ), 0, 2.0f ); // locked to the route origin
     }
 }
