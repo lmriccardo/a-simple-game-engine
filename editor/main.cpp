@@ -2818,6 +2818,13 @@ int main(int, char**)
             }
         }
 
+        // The selected follower's heading arrow, hidden while it is disabled like the other overlays.
+        if (!sceneManager.GetRegistry().IsDisabled(selectedEntity))
+        {
+            DrawPathFollowerHeading(
+                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), sceneManager.GetRegistry(), selectedEntity);
+        }
+
         ImGui::Render();
 
         // The editor hijacks IRenderer's camera for its own free-roam pan/

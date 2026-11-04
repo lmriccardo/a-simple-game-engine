@@ -112,6 +112,7 @@ struct PathPose
 {
     asge::math::Float2   m_Position;
     std::optional<float> m_Rotation; // path tangent angle in radians; nullopt when m_AlignRotation is off or the tangent is degenerate
+    std::optional<asge::math::Float2> m_Heading; // unit path tangent regardless of m_AlignRotation; nullopt when the tangent is degenerate
 };
 
 /**
@@ -134,6 +135,19 @@ std::optional<PathPose> SamplePathPose(
 void DrawPathFollowerGhosts(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
     asge::ecs::Entity inRoute, float inProgress ) noexcept;
+
+/**
+ * @brief Draws an arrow showing the path heading of a PathFollow entity.
+ *
+ * Anchored at the follower's place on its parent's Path (at its current
+ * PathFollow::m_Traveled) and pointing along the path tangent, carried
+ * through the parent's transform. A fixed screen-space length, so it reads
+ * the same at any zoom. A no-op if inFollower has no PathFollow or its
+ * parent has no Path, or if the tangent is degenerate at that point.
+ */
+void DrawPathFollowerHeading(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inFollower ) noexcept;
 
 /** @brief Which translate-gizmo handle (if any) a hit-test landed on -- see HitTestGizmo. */
 enum class GizmoAxis { None, X, Y };

@@ -441,15 +441,58 @@ std::optional<PathPose> SamplePathPose(
     PathPose pose;
     auto const point = spline->PointAtDistance( inDistance );
     pose.m_Position = { point.x() + inFollow.m_OffsetH, point.y() + inFollow.m_OffsetV };
-    if ( inFollow.m_AlignRotation )
+    auto const tangent = spline->TangentAt( spline->TimeAtDistance( inDistance ) );
+    if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
     {
-        auto const tangent = spline->TangentAt( spline->TimeAtDistance( inDistance ) );
-        if ( std::isfinite( tangent.x() ) && std::isfinite( tangent.y() ) )
-        {
-            pose.m_Rotation = std::atan2( tangent.y(), tangent.x() );
-        }
+        pose.m_Heading = tangent;
+        if ( inFollow.m_AlignRotation ) pose.m_Rotation = std::atan2( tangent.y(), tangent.x() );
     }
     return pose;
+}
+
+void DrawPathFollowerHeading(
+    asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
+    asge::ecs::Entity inFollower ) noexcept
+{
+    using namespace asge::game::components;
+    auto const follow = inRegistry.GetComponent<PathFollow>( inFollower );
+    auto const hierarchy = inRegistry.GetComponent<asge::ecs::components::Hierarchy>( inFollower );
+    if ( !follow || !hierarchy ) return;
+
+    auto const routeEntity = hierarchy.Value().get().m_Parent;
+    if ( routeEntity == asge::ecs::Entity::Null() ) return;
+    auto const route = inRegistry.GetComponent<Transform>( routeEntity );
+    auto const path = inRegistry.GetComponent<Path>( routeEntity );
+    if ( !route || !path ) return;
+
+    // Sampled at the follower's own progress, so it matches what PathFollowingSystem would write there.
+    auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), follow.Value().get().m_Traveled );
+    if ( !pose || !pose->m_Heading ) return;
+
+    auto const& camera = inRenderer.GetCamera();
+    auto const& viewport = inRenderer.GetViewport();
+    auto const toScreen = [&]( asge::math::Float2 inWorld ) noexcept
+    { return ToImVec2( asge::video::WorldToScreen( camera, viewport, inWorld ) ); };
+
+    // Two points through the route's transform, so its rotation and scale carry over to the direction.
+    auto const& routeTransform = route.Value().get();
+    ImVec2 const from = toScreen( PathLocalToWorld( routeTransform, pose->m_Position ) );
+    ImVec2 const to = toScreen( PathLocalToWorld( routeTransform, pose->m_Position + *pose->m_Heading ) );
+    float const dx = to.x - from.x;
+    float const dy = to.y - from.y;
+    float const len = std::sqrt( dx * dx + dy * dy );
+    if ( len < 1e-4f ) return;
+
+    constexpr float kArrowLength = 48.0f; // screen pixels, so it reads the same at any zoom
+    constexpr float kHeadSize = 10.0f;
+    ImU32 const color = IM_COL32( 255, 200, 60, 255 );
+    ImVec2 const dir{ dx / len, dy / len };
+    ImVec2 const tip{ from.x + dir.x * kArrowLength, from.y + dir.y * kArrowLength };
+    ImVec2 const base{ tip.x - dir.x * kHeadSize, tip.y - dir.y * kHeadSize };
+    ImVec2 const side{ -dir.y * kHeadSize * 0.5f, dir.x * kHeadSize * 0.5f };
+    inDrawList->AddLine( from, base, color, 2.5f );
+    inDrawList->AddTriangleFilled( tip, ImVec2( base.x + side.x, base.y + side.y ), ImVec2( base.x - side.x, base.y - side.y ), color );
+    inDrawList->AddCircleFilled( from, 3.5f, color );
 }
 
 void DrawPathFollowerGhosts(
