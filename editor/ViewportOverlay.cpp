@@ -476,12 +476,36 @@ void DrawPathFollowerHeading(
 
     // Two points through the route's transform, so its rotation and scale carry over to the direction.
     auto const& routeTransform = route.Value().get();
-    ImVec2 const from = toScreen( PathLocalToWorld( routeTransform, pose->m_Position ) );
+    auto const originWorld = PathLocalToWorld( routeTransform, pose->m_Position );
+    ImVec2 const originScreen = toScreen( originWorld );
     ImVec2 const to = toScreen( PathLocalToWorld( routeTransform, pose->m_Position + *pose->m_Heading ) );
-    float const dx = to.x - from.x;
-    float const dy = to.y - from.y;
+    float const dx = to.x - originScreen.x;
+    float const dy = to.y - originScreen.y;
     float const len = std::sqrt( dx * dx + dy * dy );
     if ( len < 1e-4f ) return;
+
+    // The Transform is the sprite's top-left corner: anchor at the sprite's visual center instead, drawn the
+    // same way as the ghosts (route scale and rotation applied). Falls back to the corner without a Sprite.
+    ImVec2 from = originScreen;
+    auto const sprite = inRegistry.GetComponent<Sprite>( inFollower );
+    auto const transform = inRegistry.GetComponent<Transform>( inFollower );
+    if ( sprite && transform )
+    {
+        if ( auto const localRect = asge::game::utils::SpriteGetLocalRect( sprite.Value().get(), transform.Value().get() ) )
+        {
+            asge::math::Rect const dst{
+                originWorld.x(), originWorld.y(),
+                localRect->m_Width * routeTransform.m_WorldScale.x(),
+                localRect->m_Height * routeTransform.m_WorldScale.y() };
+            float const rotation = routeTransform.m_WorldRotation
+                + pose->m_Rotation.value_or( transform.Value().get().m_LocalRotation );
+            auto const corners = SpriteGetDrawCorners( dst, rotation );
+            // origin + half of both edge vectors = the middle of the quad
+            from = toScreen( asge::math::Float2{
+                corners.m_Origin.x() + ( corners.m_Right.x() - corners.m_Origin.x() + corners.m_Down.x() - corners.m_Origin.x() ) * 0.5f,
+                corners.m_Origin.y() + ( corners.m_Right.y() - corners.m_Origin.y() + corners.m_Down.y() - corners.m_Origin.y() ) * 0.5f } );
+        }
+    }
 
     constexpr float kArrowLength = 48.0f; // screen pixels, so it reads the same at any zoom
     constexpr float kHeadSize = 10.0f;

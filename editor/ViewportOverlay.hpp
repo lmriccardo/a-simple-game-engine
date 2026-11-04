@@ -139,7 +139,8 @@ void DrawPathFollowerGhosts(
 /**
  * @brief Draws an arrow showing the path heading of a PathFollow entity.
  *
- * Anchored at the follower's place on its parent's Path (at its current
+ * Anchored at the middle of the follower's sprite (its corner if it has no
+ * Sprite) at its place on its parent's Path (at its current
  * PathFollow::m_Traveled) and pointing along the path tangent, carried
  * through the parent's transform. A fixed screen-space length, so it reads
  * the same at any zoom. A no-op if inFollower has no PathFollow or its
