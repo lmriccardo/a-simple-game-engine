@@ -598,7 +598,7 @@ bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inK
     return changed;
 }
 
-// m_ClipPath/m_FrameDuration/m_PlaybackSpeed/m_Loop/m_StartPlaying round-trip (see
+// m_ClipPath/m_FrameDuration/m_PlaybackSpeed/m_Loop/m_FinishBehavior/m_StartPlaying round-trip (see
 // Serializer<Animation>'s doc comment) -- playback progress is runtime-only. m_ClipPath is a
 // dropdown restricted to inKnownAnimations (Phase 10); the return reports
 // only whether that selection changed, not a m_FrameDuration edit, since
@@ -613,6 +613,20 @@ bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKn
     ImGui::DragFloat( "Playback Speed", &inAnimation.m_PlaybackSpeed, 0.05f, 0.0f, 10.0f );
     bool const clipsChanged = DrawNamedClips( inAnimation, inKnownAnimations );
     ImGui::Checkbox( "Loop", &inAnimation.m_Loop );
+
+    // Only meaningful for a non-looping clip, but kept editable either way so it can be set before Loop is turned off.
+    int finish = static_cast<int>( inAnimation.m_FinishBehavior );
+    if ( ImGui::Combo( "On Finish", &finish, "Restore sprite\0Hold last frame\0" ) )
+    {
+        inAnimation.m_FinishBehavior = static_cast<FinishBehavior>( finish );
+    }
+    if ( ImGui::IsItemHovered() )
+    {
+        ImGui::SetTooltip( "What a finished non-looping clip leaves on the Sprite:\n"
+                           "Restore sprite: snaps back to the Sprite's own crop.\n"
+                           "Hold last frame: stays on the clip's last frame until another clip starts." );
+    }
+
     ImGui::Checkbox( "Start Playing", &inAnimation.m_StartPlaying );
 
     // Added components start stopped (see MakeComponentEntry's Add lambda
@@ -998,6 +1012,9 @@ constexpr ComponentEntry MakeComponentEntry( char const* inName ) noexcept
             // with its current frame -- removing it doesn't undo that, so put
             // back the crop it saved when playback started. A stopped one
             // already handed the crop back, so there is nothing to restore.
+            // A clip held on its last frame (FinishBehavior::HoldLastFrame)
+            // still owns the crop and m_RestRect still holds the scene crop
+            // (never the held frame), so it takes this same path.
             if constexpr ( std::is_same_v<T, Animation> )
             {
                 auto anim = inRegistry.GetComponent<Animation>( inEntity );
