@@ -38,4 +38,15 @@ signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerStay() noexcept;
  */
 signals::Signal<ecs::Entity>& OnAnimationFinished() noexcept;
 
+/**
+ * @brief Fires when a non-looping PathFollow reaches the end of its Path
+ *        (PathFollow::m_Finished flips to true), with the follower entity.
+ *
+ * A process-wide signal fired synchronously from systems::PathFollowingSystem,
+ * exactly once per run: it fires on the frame m_Finished becomes true, and
+ * again only if m_Finished is later reset and the end is reached again.
+ * Followers on a looping Path never finish, so they never emit it.
+ */
+signals::Signal<ecs::Entity>& OnPathFinished() noexcept;
+
 }

@@ -494,5 +494,8 @@ void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float i
             pathFollow.m_Heading = tangent; // always, so a game can read it even with m_AlignRotation off
             if ( pathFollow.m_AlignRotation ) transform.m_LocalRotation = std::atan2( tangent.y(), tangent.x() );
         }
+
+        // A finished follower is skipped by the early-out above, so m_Finished being set here means it flipped this frame: once per run.
+        if ( pathFollow.m_Finished ) events::OnPathFinished().Emit( e );
     }
 }
