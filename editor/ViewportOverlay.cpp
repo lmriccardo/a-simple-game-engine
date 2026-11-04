@@ -452,7 +452,7 @@ std::optional<PathPose> SamplePathPose(
 
 void DrawPathFollowerHeading(
     asge::video::IRenderer const& inRenderer, ImDrawList* inDrawList, asge::ecs::Registry& inRegistry,
-    asge::ecs::Entity inFollower ) noexcept
+    asge::ecs::Entity inFollower, float inProgress ) noexcept
 {
     using namespace asge::game::components;
     auto const follow = inRegistry.GetComponent<PathFollow>( inFollower );
@@ -465,8 +465,18 @@ void DrawPathFollowerHeading(
     auto const path = inRegistry.GetComponent<Path>( routeEntity );
     if ( !route || !path ) return;
 
-    // Sampled at the follower's own progress, so it matches what PathFollowingSystem would write there.
-    auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), follow.Value().get().m_Traveled );
+    // At the preview progress when one is set (same point as the ghost), else at the follower's own m_Traveled,
+    // so it matches what PathFollowingSystem would write there.
+    float distance = follow.Value().get().m_Traveled;
+    if ( inProgress > 0.0f )
+    {
+        auto const& built = path.Value().get().m_Path;
+        float const length = built.HasSegments()
+            ? built.Length()
+            : asge::math::CatmullRomSpline( path.Value().get().m_Waypoints, path.Value().get().m_Resolution ).Length();
+        distance = std::clamp( inProgress, 0.0f, 1.0f ) * length;
+    }
+    auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), distance );
     if ( !pose || !pose->m_Heading ) return;
 
     auto const& camera = inRenderer.GetCamera();
@@ -541,6 +551,8 @@ void DrawPathFollowerGhosts(
 
     for ( auto const follower : followers )
     {
+        DrawPathFollowerHeading( inRenderer, inDrawList, inRegistry, follower, inProgress ); // tracks the ghost, even for a follower without a Sprite
+
         auto const follow = inRegistry.GetComponent<PathFollow>( follower );
         auto const sprite = inRegistry.GetComponent<Sprite>( follower );
         auto const transform = inRegistry.GetComponent<Transform>( follower );

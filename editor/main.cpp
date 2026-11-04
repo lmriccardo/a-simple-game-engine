@@ -2822,7 +2822,8 @@ int main(int, char**)
         if (!sceneManager.GetRegistry().IsDisabled(selectedEntity))
         {
             DrawPathFollowerHeading(
-                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), sceneManager.GetRegistry(), selectedEntity);
+                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), sceneManager.GetRegistry(), selectedEntity,
+                waypointEdit.m_PreviewProgress);
         }
 
         ImGui::Render();
