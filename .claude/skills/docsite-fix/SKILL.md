@@ -34,6 +34,19 @@ Doxygen theme or generated output, rebuild locally and check it visually
 the original docsite build and its follow-up fixes — don't spin up Docker or
 another VM for this, it's unnecessary) before pushing anything.
 
+### Creating site pages, layouts or diagrams
+
+When the change *creates* docsite pages or sections, or builds/restyles their
+visual design, you **must** invoke both skills before writing the content:
+
+- **`hallmark`** for the page design, layout and styling (the owner has named it
+  explicitly for the docsite, so it applies even to pages added to the existing
+  design).
+- **`diagram-design`** for every diagram, chart or figure on those pages
+  (architecture, flow, class, sequence, etc.), instead of hand-drawing SVG.
+
+Plain text/content edits to an existing page don't need them.
+
 ## 3. Commit and push to refactor/docsite
 
 Follow `CLAUDE.md`'s gitmoji + Conventional Commits format. Push straight to
