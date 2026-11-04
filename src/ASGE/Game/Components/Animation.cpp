@@ -66,6 +66,7 @@ void asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(
            .Set("m_FrameDuration", inValue.m_FrameDuration)
            .Set("m_PlaybackSpeed", inValue.m_PlaybackSpeed)
            .Set("m_Loop", inValue.m_Loop)
+           .Set<std::string>("m_FinishBehavior", inValue.m_FinishBehavior == components::FinishBehavior::HoldLastFrame ? "HoldLastFrame" : "RestoreSprite")
            .Set("m_StartPlaying", inValue.m_StartPlaying);
 }
 
@@ -94,6 +95,11 @@ asge::game::components::Animation asge::game::scene::Serializer<asge::game::comp
     result.m_FrameDuration = table.Get("m_FrameDuration", result.m_FrameDuration);
     result.m_PlaybackSpeed = table.Get("m_PlaybackSpeed", result.m_PlaybackSpeed);
     result.m_Loop          = table.Get("m_Loop", result.m_Loop);
+    if ( table.Get<std::string>("m_FinishBehavior", std::string{}) == "HoldLastFrame" )
+    {
+        result.m_FinishBehavior = components::FinishBehavior::HoldLastFrame;
+    }
+
     result.m_StartPlaying  = table.Get("m_StartPlaying", result.m_StartPlaying);
     result.m_Playing       = result.m_StartPlaying;
     return result;
