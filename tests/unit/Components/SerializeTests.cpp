@@ -401,6 +401,34 @@ TEST(AnimationSerializerTest, RoundTrip_LoopAndStartPlayingPreserved)
     EXPECT_FALSE(restored.m_Playing); // seeded from m_StartPlaying
 }
 
+TEST(AnimationSerializerTest, RoundTrip_FinishBehaviorPreserved)
+{
+    using asge::game::components::FinishBehavior;
+    for ( auto const behavior : { FinishBehavior::RestoreSprite, FinishBehavior::HoldLastFrame } )
+    {
+        TOMLBuilder builder;
+        Animation const original{ .m_ClipPath = "clips/up.toml", .m_Loop = false, .m_FinishBehavior = behavior };
+        Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
+
+        Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
+        EXPECT_EQ(restored.m_FinishBehavior, behavior);
+    }
+}
+
+TEST(AnimationSerializerTest, FromToml_MissingOrUnknownFinishBehaviorDefaultsToRestoreSprite)
+{
+    using asge::game::components::FinishBehavior;
+    TOMLBuilder missing;
+    missing.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml");
+    EXPECT_EQ(Serializer<Animation>::FromToml(missing, asge::game::scene::LoadContext{}).m_FinishBehavior,
+              FinishBehavior::RestoreSprite);
+
+    TOMLBuilder unknown;
+    unknown.Table("Animation").Set<std::string>("m_FinishBehavior", "Bogus");
+    EXPECT_EQ(Serializer<Animation>::FromToml(unknown, asge::game::scene::LoadContext{}).m_FinishBehavior,
+              FinishBehavior::RestoreSprite);
+}
+
 TEST(AnimationSerializerTest, ToToml_SavesStartPlayingNotLiveMPlaying)
 {
     // The editor stops animations on load; saving the live m_Playing would
