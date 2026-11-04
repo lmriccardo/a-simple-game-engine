@@ -782,6 +782,63 @@ TEST(PathFollowingSystemTest, OnPathFinished_NeverFiresForALoopingPath)
     EXPECT_EQ(count, 0);
 }
 
+TEST(PathFollowingSystemTest, PathFollowPause_StopsAdvancingAndLeavesTheTransformAlone)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f); // 5 units in
+    ASSERT_TRUE(asge::game::components::PathFollowPause(registry, scene.m_Follower));
+    auto const pausedAt = registry.GetComponent<Transform>(scene.m_Follower).Value().get().m_LocalCoordinates;
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+    asge::game::systems::PathFollowingSystem(registry, 100.0f);
+
+    auto const& follow = registry.GetComponent<PathFollow>(scene.m_Follower).Value().get();
+    EXPECT_NEAR(follow.m_Traveled, 5.0f, 1e-3f);
+    EXPECT_FALSE(follow.m_Finished); // a long paused stretch must not run it off the end
+    auto const& t = registry.GetComponent<Transform>(scene.m_Follower).Value().get();
+    EXPECT_FLOAT_EQ(t.m_LocalCoordinates.x(), pausedAt.x());
+    EXPECT_FLOAT_EQ(t.m_LocalCoordinates.y(), pausedAt.y());
+}
+
+TEST(PathFollowingSystemTest, PathFollowResume_ContinuesFromWhereItStopped)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    asge::game::systems::PathFollowingSystem(registry, 0.5f); // 2.5 units in
+    asge::game::components::PathFollowPause(registry, scene.m_Follower);
+    asge::game::systems::PathFollowingSystem(registry, 10.0f);
+    ASSERT_TRUE(asge::game::components::PathFollowResume(registry, scene.m_Follower));
+    asge::game::systems::PathFollowingSystem(registry, 0.5f); // another 2.5 units
+
+    EXPECT_NEAR(registry.GetComponent<PathFollow>(scene.m_Follower).Value().get().m_Traveled, 5.0f, 1e-3f);
+}
+
+TEST(PathFollowingSystemTest, PathFollowPause_OnlyAffectsThatEntity)
+{
+    Registry registry;
+    auto first = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+    auto second = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    asge::game::components::PathFollowPause(registry, first.m_Follower);
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+
+    EXPECT_FLOAT_EQ(registry.GetComponent<PathFollow>(first.m_Follower).Value().get().m_Traveled, 0.0f);
+    EXPECT_NEAR(registry.GetComponent<PathFollow>(second.m_Follower).Value().get().m_Traveled, 5.0f, 1e-3f);
+}
+
+TEST(PathFollowingSystemTest, PathFollowPause_ReturnsFalseWithoutAPathFollow)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {10.0f, 0.0f}}, 5.0f);
+
+    EXPECT_FALSE(asge::game::components::PathFollowPause(registry, scene.m_Route)); // has a Path, not a PathFollow
+    EXPECT_FALSE(asge::game::components::PathFollowResume(registry, scene.m_Route));
+    EXPECT_FALSE(asge::game::components::PathFollowPause(registry, Entity::Null()));
+}
+
 TEST(PathFollowingSystemTest, UnresolvedPath_SkippedNotCrashed)
 {
     Registry registry;
