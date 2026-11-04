@@ -18,6 +18,7 @@ struct PathFollow
     float m_Speed   { 1.0f }; // Units travelled per second along the parent's Path
     float m_OffsetH { 0.0f }; // Horizontal offset added to the sampled point
     float m_OffsetV { 0.0f }; // Vertical offset added to the sampled point
+    bool  m_AlignRotation { true }; // Whether the local rotation is forced to face the path tangent
 
     // Runtime values only
     float m_Traveled { 0.0f };  // Distance travelled along the Path so far
@@ -30,7 +31,7 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_Speed/m_OffsetH/m_OffsetV only; FromToml leaves
+ * @brief Round-trips m_Speed/m_OffsetH/m_OffsetV/m_AlignRotation only; FromToml leaves
  *        m_Traveled/m_Finished at their defaults.
  */
 template<>

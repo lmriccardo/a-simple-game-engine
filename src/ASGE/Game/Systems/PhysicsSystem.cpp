@@ -469,6 +469,8 @@ void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float i
         transform.m_LocalCoordinates = pos + math::Float2{ pathFollow.m_OffsetH, pathFollow.m_OffsetV };
         transform.m_Dirty = true;
 
+        if ( !pathFollow.m_AlignRotation ) continue;
+
         float time = path.m_Path.TimeAtDistance( pathFollow.m_Traveled );
         math::Float2 tangent = path.m_Path.TangentAt( time );
 

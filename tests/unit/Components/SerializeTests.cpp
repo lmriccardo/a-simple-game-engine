@@ -684,6 +684,7 @@ TEST(PathFollowSerializerTest, ToToml_WritesSpeedAndOffsetsUnderPathFollowTable)
     value.m_Speed = 4.5f;
     value.m_OffsetH = 3.0f;
     value.m_OffsetV = -2.0f;
+    value.m_AlignRotation = false;
     Serializer<PathFollow>::ToToml(value, builder, asge::game::scene::SaveContext{});
 
     auto const dump = builder.ToString();
@@ -691,6 +692,7 @@ TEST(PathFollowSerializerTest, ToToml_WritesSpeedAndOffsetsUnderPathFollowTable)
     EXPECT_NE(dump.find("m_Speed = 4.5"), std::string::npos);
     EXPECT_NE(dump.find("m_OffsetH = 3"), std::string::npos);
     EXPECT_NE(dump.find("m_OffsetV = -2"), std::string::npos);
+    EXPECT_NE(dump.find("m_AlignRotation = false"), std::string::npos);
 }
 
 TEST(PathFollowSerializerTest, RoundTripsSpeedAndOffsets)
@@ -700,12 +702,14 @@ TEST(PathFollowSerializerTest, RoundTripsSpeedAndOffsets)
     original.m_Speed = 4.5f;
     original.m_OffsetH = 3.0f;
     original.m_OffsetV = -2.0f;
+    original.m_AlignRotation = false;
     Serializer<PathFollow>::ToToml(original, builder, asge::game::scene::SaveContext{});
 
     PathFollow const restored = Serializer<PathFollow>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_FLOAT_EQ(restored.m_Speed, 4.5f);
     EXPECT_FLOAT_EQ(restored.m_OffsetH, 3.0f);
     EXPECT_FLOAT_EQ(restored.m_OffsetV, -2.0f);
+    EXPECT_FALSE(restored.m_AlignRotation);
 }
 
 TEST(PathFollowSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
@@ -717,6 +721,7 @@ TEST(PathFollowSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
     EXPECT_FLOAT_EQ(restored.m_Speed, 1.0f);
     EXPECT_FLOAT_EQ(restored.m_OffsetH, 0.0f);
     EXPECT_FLOAT_EQ(restored.m_OffsetV, 0.0f);
+    EXPECT_TRUE(restored.m_AlignRotation);
 }
 
 TEST(PathFollowSerializerTest, FromToml_RuntimeOnlyFieldsAlwaysResetToStructDefaults)

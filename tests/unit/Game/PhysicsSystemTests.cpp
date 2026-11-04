@@ -634,6 +634,20 @@ TEST(PathFollowingSystemTest, OrientsRotationToFaceTheTravelDirection)
     EXPECT_NEAR(transformResult.Value().get().m_LocalRotation, 0.0f, 1e-2f);
 }
 
+TEST(PathFollowingSystemTest, AlignRotationDisabled_LeavesRotationUntouched)
+{
+    Registry registry;
+    auto scene = MakePathFollower(registry, {{0.0f, 0.0f}, {0.0f, 10.0f}}, 5.0f);
+    registry.GetComponent<PathFollow>(scene.m_Follower).Value().get().m_AlignRotation = false;
+    registry.GetComponent<Transform>(scene.m_Follower).Value().get().m_LocalRotation = 0.5f;
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+
+    auto const& t = registry.GetComponent<Transform>(scene.m_Follower).Value().get();
+    EXPECT_FLOAT_EQ(t.m_LocalRotation, 0.5f);
+    EXPECT_NEAR(t.m_LocalCoordinates.y(), 5.0f, 1e-1f); // still moves
+}
+
 TEST(PathFollowingSystemTest, NonLoopingPath_ClampsAtTheEndAndMarksFinished)
 {
     Registry registry;

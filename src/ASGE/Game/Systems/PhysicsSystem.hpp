@@ -80,8 +80,8 @@ void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDe
  * Skips followers with no parent, a parent without a Path, a Path not yet
  * resolved into segments, or already m_Finished. The sampled point plus
  * m_OffsetH/m_OffsetV becomes the follower's local position (relative to
- * the route entity), and its local rotation faces the path tangent unless
- * the segment is degenerate. At the end a looping Path wraps; otherwise
+ * the route entity), and, when m_AlignRotation is set, its local rotation faces the
+ * path tangent unless the segment is degenerate. At the end a looping Path wraps; otherwise
  * m_Traveled clamps and m_Finished is set. Marks the Transform m_Dirty.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
