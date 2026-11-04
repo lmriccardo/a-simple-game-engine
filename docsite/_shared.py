@@ -43,7 +43,7 @@ SECTIONS = [
 
 
 # Sidebar group order within a section; unknown groups follow in registration order.
-GROUP_ORDER = ["Start", "Guide", "Theory", "Reference", "Examples"]
+GROUP_ORDER = ["Start", "Guide", "Theory", "Components", "Reference", "Examples"]
 
 
 def register(page: Page) -> Page:
