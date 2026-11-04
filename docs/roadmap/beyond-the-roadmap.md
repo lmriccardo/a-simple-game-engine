@@ -51,7 +51,7 @@ ignore the player"). `Collider`+`Rigidbody` exist now; a sensor/trigger
 concept and layer filtering are usually the very next thing reached for once
 solid-body collision works, and neither is on any list yet.
 
-## 4. A visual editor
+## 4. A visual editor - 🚧 Work In Progress
 
 [00-overview](00-overview.md) states "Editor integration" as a **Main
 Priority** — and no phase file, anywhere, ever picks it up. The only
@@ -110,7 +110,7 @@ order. Related to #7 above but distinct — that's filtering *within* one
 `Registry`, this is ordering *across* several. Reported as
 [#65](https://github.com/lmriccardo/a-simple-game-engine/issues/65).
 
-## 9. Broad-phase collision detection - 🚧 Work In Progress
+## 9. Broad-phase collision detection - ✅ complete
 
 [07-Physics Phase 1](phase-1/07.1-physics-system.md) is the one item here
 that *is* named in a roadmap doc, but only to explicitly punt on it:
