@@ -23,6 +23,7 @@ struct PathFollow
     // Runtime values only
     float m_Traveled { 0.0f };  // Distance travelled along the Path so far
     bool  m_Finished { false }; // Whether a non-looping Path has been fully walked
+    bool  m_WarnedNoPath { false }; // Whether the "no Path parent" warning was already logged for this follower
 };
 
 }

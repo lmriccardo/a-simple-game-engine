@@ -77,7 +77,8 @@ void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDe
  * @brief Moves every PathFollow entity along the components::Path of its
  *        parent (via Hierarchy), at m_Speed units/second.
  *
- * Skips followers with no parent, a parent without a Path, a Path not yet
+ * Skips followers with no parent or a parent without a Path (logging a
+ * warning once per follower, re-armed when a Path appears), a Path not yet
  * resolved into segments, or already m_Finished. The sampled point plus
  * m_OffsetH/m_OffsetV becomes the follower's local position (relative to
  * the route entity), and, when m_AlignRotation is set, its local rotation faces the

@@ -436,17 +436,31 @@ void asge::game::systems::PathFollowingSystem(ecs::Registry &inRegistry, float i
         // Path follow component only works if the current entity is a children of 
         // a parent entity that holds a Path component, which drives the position.
         auto hResult = inRegistry.GetComponent<ecs::components::Hierarchy>(e);
-        if ( !hResult || hResult.Value().get().m_Parent == ecs::Entity::Null() )
-        {
-            continue;
-        }
+        bool const hasParent = hResult && hResult.Value().get().m_Parent != ecs::Entity::Null();
 
         // Take the parent entity and check if it has an associated path component
-        auto pathEntity = hResult.Value().get().m_Parent;
-        auto pathResult = inRegistry.GetComponent<components::Path>(pathEntity);
-        if ( !pathResult ) continue;
+        components::Path* pathPtr = nullptr;
+        if ( hasParent )
+        {
+            if ( auto pathResult = inRegistry.GetComponent<components::Path>( hResult.Value().get().m_Parent ) )
+            {
+                pathPtr = &pathResult.Value().get();
+            }
+        }
+        if ( !pathPtr )
+        {
+            if ( !pathFollow.m_WarnedNoPath )
+            {
+                pathFollow.m_WarnedNoPath = true;
+                LOG_WARNING( "PathFollowingSystem: entity ", e.m_Index,
+                    hasParent ? " has a parent without a Path component" : " has no parent holding a Path component",
+                    ", it will not move" );
+            }
+            continue;
+        }
+        pathFollow.m_WarnedNoPath = false; // re-arms the warning if the Path is later removed
 
-        auto& path = pathResult.Value().get();
+        auto& path = *pathPtr;
 
         if ( pathFollow.m_Finished || !path.m_Path.HasSegments() ) continue;
         pathFollow.m_Traveled += pathFollow.m_Speed * inDeltaTime;

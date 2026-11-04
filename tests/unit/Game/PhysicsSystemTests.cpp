@@ -725,6 +725,32 @@ TEST(PathFollowingSystemTest, FollowerWithoutParent_IsSkipped)
     EXPECT_FLOAT_EQ(registry.GetComponent<PathFollow>(entity.Value()).Value().get().m_Traveled, 0.0f);
 }
 
+TEST(PathFollowingSystemTest, FollowerWithoutPathParent_WarnsOnlyOnceAndRearmsWhenPathReturns)
+{
+    Registry registry;
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), PathFollow{}).IsOk());
+    auto const warned = [&]() { return registry.GetComponent<PathFollow>(entity.Value()).Value().get().m_WarnedNoPath; };
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+    EXPECT_TRUE(warned()); // logged on the first skipped frame, flagged so later frames stay silent
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+    EXPECT_TRUE(warned());
+
+    auto route = registry.CreateEntity();
+    ASSERT_TRUE(route.IsOk());
+    Path path;
+    path.m_Path = asge::math::CatmullRomSpline(std::vector<asge::math::Float2>{{0.0f, 0.0f}, {10.0f, 0.0f}});
+    ASSERT_TRUE(registry.AddComponent(route.Value(), path).IsOk());
+    asge::game::components::AttachChild(registry, route.Value(), entity.Value());
+
+    asge::game::systems::PathFollowingSystem(registry, 1.0f);
+    EXPECT_FALSE(warned()); // a valid Path re-arms the warning
+}
+
 TEST(PathFollowingSystemTest, ParentWithoutPath_IsSkipped)
 {
     Registry registry;
