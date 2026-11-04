@@ -53,6 +53,11 @@ namespace
 std::unordered_map<asge::ecs::Entity, std::uint32_t> g_EntityDisplayIds;
 std::uint32_t g_NextEntityDisplayId = 0;
 
+// Entity rows that have children and are currently expanded in the Entities panel. Kept here (not
+// only in ImGui's own tree state) so "Collapse All" can also reset rows hidden inside a closed group
+// or row, which ImGui isn't drawing and so can't be told to close.
+std::unordered_set<asge::ecs::Entity> g_ExpandedEntityNodes;
+
 std::uint32_t GetOrAssignDisplayId( asge::ecs::Entity inEntity ) noexcept
 {
     auto const [it, inserted] = g_EntityDisplayIds.try_emplace( inEntity, g_NextEntityDisplayId );
@@ -1295,7 +1300,15 @@ void DrawEntityTreeNode(
     // entities share the same (or default, unnamed) display label -- the
     // same class of collision DrawSection's PushID guards against.
     std::string const label = GetEntityLabel( inRegistry, inEntity ) + "##" + std::to_string( inEntity.m_Index );
+    // Same pattern DrawGroupNode uses: the open state lives on our side, forced each frame, and the
+    // click's result read back, so "Collapse All" can change it without the row being drawn.
+    if ( hasChildren ) ImGui::SetNextItemOpen( g_ExpandedEntityNodes.contains( inEntity ), ImGuiCond_Always );
     bool const open = ImGui::TreeNodeEx( label.c_str(), flags );
+    if ( hasChildren )
+    {
+        if ( open ) g_ExpandedEntityNodes.insert( inEntity );
+        else g_ExpandedEntityNodes.erase( inEntity );
+    }
 
     // Phase 15: shown for this row's own Disable marker, or any descendant's
     // -- so a disabled entity N levels deep still surfaces up through every
@@ -1584,6 +1597,13 @@ EntityListResult DrawEntityListPanel(
     ImGui::SameLine();
     bool const createGroupClicked = ImGui::Button( "Create Group" );
     if ( !inHasProject ) ImGui::EndDisabled();
+
+    // Closes every group folder and every expanded entity row, including ones hidden inside a closed parent.
+    if ( ImGui::Button( "Collapse All" ) )
+    {
+        g_ExpandedEntityNodes.clear();
+        for ( auto& group : ioGroups ) group.m_Open = false;
+    }
     ImGui::Separator();
 
     // Root entities only (no Hierarchy, or one with no parent) -- every
