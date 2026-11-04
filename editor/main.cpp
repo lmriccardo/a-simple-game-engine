@@ -15,7 +15,8 @@
 #include "CppProject.hpp"
 #include "Toolchain.hpp"
 #include <ASGE/Game/Components/Transform.hpp>
-#include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Name.hpp>
+#include <ASGE/Game/Components/Path.hpp>
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
 #include <ASGE/Game/Components.hpp>
@@ -56,7 +57,7 @@
 namespace
 {
 using asge::game::components::Transform;
-using asge::game::components::PathFollow;
+using asge::game::components::Path;
 using asge::game::components::Collider;
 using asge::game::components::Animation;
 using asge::game::components::StopAnimation;
@@ -135,16 +136,17 @@ asge::ecs::Entity PickEntityAt( asge::ecs::Registry& inRegistry, asge::math::Flo
 }
 
 /**
- * @brief Index of inWaypoints' closest point within a fixed screen-space
- *        pick radius of inScreenPos, or -1 if none are close enough.
+ * @brief Index of inWaypoints' (local to inRoute's Transform) closest point
+ *        within a fixed screen-space pick radius of inScreenPos, or -1 if
+ *        none are close enough.
  *
  * Fixed-pixel radius (not a world-space one) so a waypoint stays equally
  * grabbable at any zoom level, same idea as the translate gizmo's own arm
  * hit-testing (ViewportOverlay.cpp's OnArm).
  */
 int PickWaypointAt(
-    asge::video::IRenderer const& inRenderer, std::vector<asge::math::Float2> const& inWaypoints,
-    asge::math::Float2 inScreenPos ) noexcept
+    asge::video::IRenderer const& inRenderer, Transform const& inRoute,
+    std::vector<asge::math::Float2> const& inWaypoints, asge::math::Float2 inScreenPos ) noexcept
 {
     constexpr float kPickRadius = 10.0f;
     auto const& camera = inRenderer.GetCamera();
@@ -154,7 +156,7 @@ int PickWaypointAt(
     float closestDistSq = kPickRadius * kPickRadius;
     for ( std::size_t i = 0; i < inWaypoints.size(); ++i )
     {
-        auto const screen = asge::video::WorldToScreen( camera, viewport, inWaypoints[i] );
+        auto const screen = asge::video::WorldToScreen( camera, viewport, PathLocalToWorld( inRoute, inWaypoints[i] ) );
         float const dx = screen.x() - inScreenPos.x();
         float const dy = screen.y() - inScreenPos.y();
         float const distSq = dx * dx + dy * dy;
@@ -616,7 +618,7 @@ int main(int, char**)
     AssetPick selectedAsset; // last entry clicked in the Assets panel, kept across frames for the Asset Inspector to show
     float gridSpacing = 50.0f; // world units between grid lines; editor-configurable, see the View menu's Grid modal
 
-    // Phase 12: PathFollow's "Select Waypoints" viewport mode -- see
+    // Phase 12: Path's "Select Waypoints" viewport mode -- see
     // WaypointEditState's own doc comment. Self-healing rather than reset at
     // every place its target entity could become invalid (deleted, scene
     // switched/evicted): checked once per frame below, right before it's
@@ -918,7 +920,7 @@ int main(int, char**)
         // place its target entity could become invalid (Delete, a scene
         // switch/evict) -- one guard here covers all of them.
         if (waypointEdit.m_Active
-         && !sceneManager.GetRegistry().HasComponent<PathFollow>(waypointEdit.m_Entity))
+         && !sceneManager.GetRegistry().HasComponent<Path>(waypointEdit.m_Entity))
         {
             waypointEdit = WaypointEditState{};
             draggingWaypointIndex = -1;
@@ -944,7 +946,7 @@ int main(int, char**)
             {
                 // Cancel -- restore whatever the entity's waypoints were
                 // before this mode started.
-                if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                if (auto pf = sceneManager.GetRegistry().GetComponent<Path>(waypointEdit.m_Entity))
                 {
                     pf.Value().get().m_Waypoints = waypointEdit.m_Snapshot;
                     RebuildPath(pf.Value().get());
@@ -1026,11 +1028,12 @@ int main(int, char**)
             {
                 // Right-click removes the waypoint under the cursor, if any.
                 asge::math::Float2 const screenPos{ event.button.x, event.button.y };
-                if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                auto route = sceneManager.GetRegistry().GetComponent<Transform>(waypointEdit.m_Entity);
+                if (auto pf = sceneManager.GetRegistry().GetComponent<Path>(waypointEdit.m_Entity); pf && route)
                 {
                     auto& waypoints = pf.Value().get().m_Waypoints;
-                    int const hitIndex = PickWaypointAt(videoSys.GetRenderer(), waypoints, screenPos);
-                    if (hitIndex >= 0)
+                    int const hitIndex = PickWaypointAt(videoSys.GetRenderer(), route.Value().get(), waypoints, screenPos);
+                    if (hitIndex > 0) // waypoint 0 is locked to the route origin, never removed
                     {
                         waypoints.erase(waypoints.begin() + hitIndex);
                         if (draggingWaypointIndex == hitIndex) draggingWaypointIndex = -1;
@@ -1053,19 +1056,24 @@ int main(int, char**)
                     // appends a new one -- the target stays fixed for the
                     // whole mode, so this never touches selectedEntity/
                     // draggingEntity.
-                    if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                    auto route = sceneManager.GetRegistry().GetComponent<Transform>(waypointEdit.m_Entity);
+                    if (auto pf = sceneManager.GetRegistry().GetComponent<Path>(waypointEdit.m_Entity); pf && route)
                     {
                         auto& waypoints = pf.Value().get().m_Waypoints;
-                        int const hitIndex = PickWaypointAt(videoSys.GetRenderer(), waypoints, screenPos);
-                        if (hitIndex >= 0)
+                        int const hitIndex = PickWaypointAt(videoSys.GetRenderer(), route.Value().get(), waypoints, screenPos);
+                        if (hitIndex > 0)
                         {
-                            draggingWaypointIndex = hitIndex;
+                            draggingWaypointIndex = hitIndex; // waypoint 0 is locked, so never grabbed
+                        }
+                        else if (hitIndex == 0)
+                        {
+                            // Clicking the locked origin neither drags nor adds a point on top of it.
                         }
                         else
                         {
                             auto const worldPos = asge::video::ScreenToWorld(
                                 videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(), screenPos);
-                            waypoints.push_back(worldPos);
+                            waypoints.push_back(PathWorldToLocal(route.Value().get(), worldPos));
                             RebuildPath(pf.Value().get());
                             MarkActiveSceneDirty(currentProject);
                         }
@@ -1158,16 +1166,17 @@ int main(int, char**)
             }
             else if (event.type == SDL_EVENT_MOUSE_MOTION && draggingWaypointIndex >= 0)
             {
-                if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(waypointEdit.m_Entity))
+                auto route = sceneManager.GetRegistry().GetComponent<Transform>(waypointEdit.m_Entity);
+                if (auto pf = sceneManager.GetRegistry().GetComponent<Path>(waypointEdit.m_Entity); pf && route)
                 {
                     auto& waypoints = pf.Value().get().m_Waypoints;
-                    if (draggingWaypointIndex < static_cast<int>(waypoints.size()))
+                    if (draggingWaypointIndex > 0 && draggingWaypointIndex < static_cast<int>(waypoints.size()))
                     {
-                        // Same xrel/yrel/zoom delta as the entity free-drag above.
-                        float const zoom = videoSys.GetRenderer().GetCamera().m_Zoom;
-                        auto& waypoint = waypoints[static_cast<std::size_t>(draggingWaypointIndex)];
-                        waypoint.x() += event.motion.xrel / zoom;
-                        waypoint.y() += event.motion.yrel / zoom;
+                        // Follows the cursor in world space, stored back in the route's local space.
+                        auto const worldPos = asge::video::ScreenToWorld(
+                            videoSys.GetRenderer().GetCamera(), videoSys.GetRenderer().GetViewport(),
+                            asge::math::Float2{event.motion.x, event.motion.y});
+                        waypoints[static_cast<std::size_t>(draggingWaypointIndex)] = PathWorldToLocal(route.Value().get(), worldPos);
                         RebuildPath(pf.Value().get());
                         MarkActiveSceneDirty(currentProject);
                     }
@@ -2182,6 +2191,32 @@ int main(int, char**)
             else created.LogError();
         }
 
+        if (entityListResult.m_CreatePathClicked)
+        {
+            // A route entity: a Transform plus a Path whose waypoint 0 sits
+            // on the entity's own origin, with a second point so the spline
+            // exists straight away. Followers are dragged under it later.
+            auto created = sceneManager.GetRegistry().CreateEntity();
+            if (created)
+            {
+                auto& registry = sceneManager.GetRegistry();
+                registry.AddComponent<Transform>(created.Value(), Transform{});
+                registry.AddComponent<asge::game::components::Name>(created.Value(), asge::game::components::Name{"Path"});
+                Path path;
+                path.m_Waypoints = { asge::math::Float2{0.0f, 0.0f}, asge::math::Float2{100.0f, 0.0f} };
+                RebuildPath(path);
+                registry.AddComponent<Path>(created.Value(), path);
+                if (auto const& scenePath = sceneManager.CurrentScenePath())
+                {
+                    registry.AddComponent<asge::game::scene::SceneId>(
+                        created.Value(), asge::game::scene::SceneId{*scenePath});
+                }
+                selectedEntity = created.Value();
+                MarkActiveSceneDirty(currentProject);
+            }
+            else created.LogError();
+        }
+
         // Phase 16: Create UI Element -- Type Selection -> Creation, with a
         // Back button on the latter returning to the former. Every OpenPopup
         // call below sits at this same top-level ID-stack depth (never
@@ -2693,16 +2728,19 @@ int main(int, char**)
         DrawCameraOverlays(
             videoSys.GetRenderer(), sceneManager.GetRegistry(), ImGui::GetBackgroundDrawList(),
             targetGameWidth, targetGameHeight);
-        // Shown for the selected entity's PathFollow regardless of whether
+        // Shown for the selected entity's Path regardless of whether
         // "Select Waypoints" mode is active, so placed waypoints stay
         // visible once selection ends, not just while adding them -- unless
         // the entity is disabled, same as the Collider/Camera overlays.
-        if (auto pf = sceneManager.GetRegistry().GetComponent<PathFollow>(selectedEntity);
-            pf && !sceneManager.GetRegistry().IsDisabled(selectedEntity))
+        if (auto path = sceneManager.GetRegistry().GetComponent<Path>(selectedEntity);
+            path && !sceneManager.GetRegistry().IsDisabled(selectedEntity))
         {
-            DrawPathFollowWaypointOverlay(
-                videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), pf.Value().get().m_Waypoints,
-                waypointEdit.m_Active, pf.Value().get().m_Resolution);
+            if (auto route = sceneManager.GetRegistry().GetComponent<Transform>(selectedEntity))
+            {
+                DrawPathWaypointOverlay(
+                    videoSys.GetRenderer(), ImGui::GetBackgroundDrawList(), route.Value().get(),
+                    path.Value().get(), waypointEdit.m_Active);
+            }
         }
 
         ImGui::Render();

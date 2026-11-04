@@ -59,6 +59,7 @@ bool DrawClipCombo(
 /**
  * @brief DrawEntityListPanel's full per-frame report. m_CreateClicked is
  *        the pre-Phase-13 "Create Entity" button signal, unchanged;
+ *        m_CreatePathClicked is its "Create Path" sibling;
  *        m_CreateUIElementClicked (Phase 16) is its "Create UI Element"
  *        sibling button; m_Action (Phase 13) is mutually exclusive with
  *        either in practice (one user gesture per frame) but reported
@@ -68,6 +69,7 @@ struct EntityListResult
 {
     bool              m_CreateClicked           = false;
     bool              m_CreateUIElementClicked  = false;
+    bool              m_CreatePathClicked       = false; // "Create Path" -- a route entity with a Path, see main.cpp
     bool              m_GroupsChanged           = false; // a group was created, renamed, deleted or had members moved -- the scene should be saved again
     HierarchyAction   m_Action        = HierarchyAction::None;
     asge::ecs::Entity m_Target        = asge::ecs::Entity::Null(); // entity m_Action applies to (the dragged entity, for Reparent)
@@ -128,12 +130,12 @@ struct InspectorResult
 };
 
 /**
- * @brief Cross-cutting state for a PathFollow's "Select Waypoints" viewport
- *        mode (Phase 12): owned and driven by main.cpp (viewport clicks,
- *        ESC-cancel, the overlay showing points as they're placed), toggled
- *        by PathFollow's own DrawInspector section, whose button flips
- *        m_Active and snapshots the pre-edit m_Waypoints into m_Snapshot so
- *        an ESC-cancel can restore them.
+ * @brief Cross-cutting state for a Path's "Select Waypoints" viewport mode:
+ *        owned and driven by main.cpp (viewport clicks, ESC-cancel, the
+ *        overlay showing points as they're placed), toggled by Path's own
+ *        DrawInspector section, whose button flips m_Active and snapshots
+ *        the pre-edit m_Waypoints into m_Snapshot so an ESC-cancel can
+ *        restore them. m_Entity is the route entity holding the Path.
  */
 struct WaypointEditState
 {
