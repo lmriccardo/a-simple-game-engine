@@ -134,7 +134,7 @@ TASKS = [
     ("Camera", "Zoom and follow-smoothing; previewed live in the viewport."),
     ("AudioSource", "Clip path (picked from known audio), volume, loop."),
     ("Animation", "Clip path, frame duration, named clips (<strong>Edit Clips</strong>, see <a href='animate-a-sprite.html'>Animate a sprite</a>) and a Play/Stop button. It starts stopped so nothing auto-plays when added."),
-    ("Path", "A route's waypoints, loop flag and resolution, authored on the viewport: <a href='follow-a-path.html'>Make an entity follow a path</a>."),
+    ("Path", "A route's waypoints, loop flag, <em>Linear</em> checkbox and resolution, authored on the viewport: <a href='follow-a-path.html'>Make an entity follow a path</a>."),
     ("PathFollow", "Speed, H/V offset and align-rotation for an entity that rides its parent's Path."),
     ("Velocity / Rigidbody", "Plain physics data: linear velocity, mass and drag."),
     ("RenderInfo", "Layer, Y-sort, screen space and sort inheritance. Added automatically, once, whenever a Sprite is."),
@@ -282,9 +282,10 @@ TASKS = [
 ], ("Input", "Effect"))}
 <p>Waypoints can also be selected from a list in the Inspector, and the selected one has a numeric <em>Position</em> field. Points are stored local to the route's Transform, so moving the route moves the whole path.</p>
 {shot("pathfollow-spline.png", "The Catmull-Rom spline overlay")}
+<p>Tick <strong>Linear</strong> in the Path section for straight segments with sharp corners instead of a curve; the overlay then draws the polyline itself and <em>Resolution</em> no longer applies.</p>
 <p>Waypoints stay visible as pin markers after selection ends. Outside edit mode, a real Catmull-Rom curve, the same interpolation <code>PathFollowingSystem</code> uses at runtime, overlays the straight point-to-point lines, sampled at the Path's own <em>Resolution</em>.</p>
 <h2>Preview the follower</h2>
-<p>Selecting a route draws a translucent ghost of every child follower's sprite at the path start and at a <strong>Preview</strong> slider position, using the sprite's real size, source rect, offsets and tangent rotation, so you can check the visible body against the line. A PathFollow has <em>Speed</em>, an H/V offset from the line, and <em>Align Rotation</em>: turn it off to move along the path without turning the sprite to the tangent.</p>
+<p>Selecting a route draws a translucent ghost of every child follower's sprite at the path start and at a <strong>Preview</strong> slider position, using the sprite's real size, source rect, offsets and tangent rotation, so you can check the visible body against the line. In code, <code>PathFollowPause</code> / <code>PathFollowResume</code> stop and restart a follower in place, and <code>PathFollow::m_Heading</code> exposes the path tangent so a game can choose a facing. A PathFollow has <em>Speed</em>, an H/V offset from the line, and <em>Align Rotation</em>: turn it off to move along the path without turning the sprite to the tangent.</p>
 <p>Previous: <a href="animate-a-sprite.html">Animate a sprite</a>.</p>
 """),
 ]

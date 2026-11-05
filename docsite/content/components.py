@@ -97,9 +97,10 @@ CATEGORIES = [
     ("path", "Path components", "Path and PathFollow.",
      "A route and a follower are two entities. The Path lives on the route entity; the follower is its child and finds the Path through its parent, so the scene file needs no entity references. Authoring: <a href='../../editor/follow-a-path.html'>Make an entity follow a path</a>.", [
         dict(name="Path", header="Game/Components/Path.hpp", toml="Path", systems="asset::Resolver&lt;Path&gt;",
-             text="A Catmull-Rom route through its waypoints, local to the route entity's Transform.",
+             text="A route through its waypoints, local to the route entity's Transform: a smooth Catmull-Rom curve, or straight segments with sharp corners when <code>m_Linear</code> is set.",
              fields=[("m_Waypoints", "empty", "Control points, in order, local to the entity."),
-                     ("m_Resolution", "32", "Arc-length samples per segment."),
+                     ("m_Resolution", "32", "Arc-length samples per segment. Unused when <code>m_Linear</code> is set."),
+                     ("m_Linear", "false", "Straight segments between waypoints instead of a curve."),
                      ("m_Loop", "false", "Wrap a follower to the start at the end instead of stopping."),
                      ("m_Path", "built", "The <code>CatmullRomSpline</code> built from the waypoints. Runtime only.")]),
         dict(name="PathFollow", header="Game/Components/PathFollow.hpp", toml="PathFollow", systems="PathFollowingSystem",
@@ -107,7 +108,9 @@ CATEGORIES = [
              fields=[("m_Speed", "1", "Units per second along the path."),
                      ("m_OffsetH / m_OffsetV", "0", "Offset added to the sampled point."),
                      ("m_AlignRotation", "true", "Turn to face the path tangent; off leaves rotation alone."),
-                     ("m_Traveled / m_Finished", "runtime", "Distance walked and whether a non-looping path ended. Not saved.")]),
+                     ("m_Traveled / m_Finished", "runtime", "Distance walked and whether a non-looping path ended. Not saved."),
+                     ("m_Heading", "(1, 0)", "Unit path tangent in the parent's space, updated every frame it moves (also when <code>m_AlignRotation</code> is off), e.g. to pick an animation clip. Changes abruptly at corners in linear mode. Not saved."),
+                     ("m_Paused", "false", "Set by <code>PathFollowPause</code> and cleared by <code>PathFollowResume</code>; the system skips the follower and it resumes from the same distance. Not saved.")]),
     ]),
     ("ui", "UI components", "UIRect, Interactable, UIButton, UILabel, UICheckbox, UISlider, UIProgressBar, UIPanel, UILayoutItem, UIDebugOverlay.",
      "A UI widget is an ordinary entity: a <code>UIRect</code> footprint plus the components for what it does. Build them with the <code>asge::game::ui::Create*</code> functions rather than by hand. See the <a href='../theory/ui.html'>UI theory page</a> and <a href='../../editor/arrange-the-ui.html'>Arrange the UI</a>.", [
