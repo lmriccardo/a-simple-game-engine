@@ -97,33 +97,40 @@ void LogNowUnresolvable( asge::filesystem::VirtualFileSystem const& inVfs, asge:
     }
 }
 
-// A small "x" at the right edge of whatever bullet line was just drawn --
-// same SameLine-to-fixed-offset pattern editor/Inspector.cpp's DrawSection
-// uses for its own per-component remove button.
-void DrawUnmountButton(
+constexpr float kRowHeight = 30.0f; // every mountpoint row is this tall, so the list reads as evenly spaced
+
+// The right-click menu of a mounted root: one "Unmount" per real directory
+// mapped to it (the same root can map to several -- see AddMount).
+void DrawMountContextMenu(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
-    std::string const& inRoot, std::string const& inDir ) noexcept
+    std::string const& inRoot, std::vector<std::string> const& inDirs ) noexcept
 {
-    ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-    if ( ImGui::SmallButton( "x" ) )
+    if ( !ImGui::BeginPopupContextItem() ) return;
+
+    for ( auto const& dir : inDirs )
     {
-        if ( auto const r = inVfs.Unmount( inRoot, inDir ); !r ) r.LogError();
-        else
+        std::string const label = "Unmount " + dir;
+        if ( ImGui::MenuItem( label.c_str() ) )
         {
-            LOG_INFO( "Unmounted \"", inRoot, "\" -> ", inDir );
-            LogNowUnresolvable( inVfs, inRegistry );
+            if ( auto const r = inVfs.Unmount( inRoot, dir ); !r ) r.LogError();
+            else
+            {
+                LOG_INFO( "Unmounted \"", inRoot, "\" -> ", dir );
+                LogNowUnresolvable( inVfs, inRegistry );
+            }
         }
     }
+    ImGui::EndPopup();
 }
 }
 
-void DrawVfsContents(
+void DrawMountList(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    SDL_Window* inWindow, bool inHasProject ) noexcept
+    SDL_Window* inWindow, bool inHasProject, AssetExplorerState& ioState ) noexcept
 {
     // Drained before drawing -- whichever mount name was pending (from the
-    // generic Add row or a Missing row's "Set...") gets bound to whatever
+    // "Add mount" popup or a Missing row's "Set...") gets bound to whatever
     // real directory the user just picked.
     {
         std::string chosenDir;
@@ -135,76 +142,84 @@ void DrawVfsContents(
         }
     }
 
-    ImGui::TextUnformatted( "Mounted:" );
+    // Grouped by virtual root, not one row per (name, dir) pair -- the same
+    // root can legitimately map to several real directories (see AddMount's
+    // own comment), and showing "assets -> X" / "assets -> Y" as two
+    // unrelated-looking rows reads as a mistake rather than the overlay it is.
+    std::vector<std::string> order; // first-seen order, for stable display
+    std::map<std::string, std::vector<std::string>> byRoot;
+    for ( auto const& mount : inVfs.ListMounts() )
     {
-        // Grouped by virtual root, not one line per (name, dir) pair -- the
-        // same root can legitimately map to several real directories (see
-        // AddMount's own comment), and showing "assets -> X" / "assets -> Y"
-        // as two unrelated-looking top-level entries reads as a mistake
-        // rather than the overlay it actually is.
-        std::vector<std::string> order; // first-seen order, for stable display
-        std::map<std::string, std::vector<std::string>> byRoot;
-        for ( auto const& mount : inVfs.ListMounts() )
-        {
-            auto const [it, inserted] = byRoot.try_emplace( mount.m_VirtualRoot );
-            if ( inserted ) order.push_back( mount.m_VirtualRoot );
-            it->second.push_back( mount.m_RealDirectory.string() );
-        }
-
-        for ( auto const& root : order )
-        {
-            auto const& dirs = byRoot[root];
-            if ( dirs.size() == 1 )
-            {
-                ImGui::PushID( dirs[0].c_str() );
-                ImGui::BulletText( "%s -> %s", root.c_str(), dirs[0].c_str() );
-                DrawUnmountButton( inVfs, inRegistry, root, dirs[0] );
-                ImGui::PopID();
-                continue;
-            }
-
-            ImGui::BulletText( "%s", root.c_str() );
-            ImGui::Indent();
-            for ( auto const& dir : dirs )
-            {
-                ImGui::PushID( dir.c_str() );
-                ImGui::BulletText( "%s", dir.c_str() );
-                DrawUnmountButton( inVfs, inRegistry, root, dir );
-                ImGui::PopID();
-            }
-            ImGui::Unindent();
-        }
+        auto const [it, inserted] = byRoot.try_emplace( mount.m_VirtualRoot );
+        if ( inserted ) order.push_back( mount.m_VirtualRoot );
+        it->second.push_back( mount.m_RealDirectory.string() );
     }
 
+    // Roots this scene's assets use that nothing mounts: shown after the
+    // mounted ones, flagged, and bound to a folder with "Set...".
     std::set<std::string> missing;
     for ( auto const& root : ReferencedRoots( inRegistry ) )
     {
         if ( !inVfs.IsMounted( root ) ) missing.insert( root );
     }
 
-    if ( !missing.empty() )
+    // The selected root can vanish (unmounted, or a different project): fall
+    // back to the first one, or to none.
+    if ( !byRoot.contains( ioState.m_Root ) )
     {
-        ImGui::Separator();
-        ImGui::TextColored( ImVec4( 1.0f, 0.8f, 0.2f, 1.0f ), "Missing (used by this scene, not mounted):" );
-        for ( auto const& root : missing )
-        {
-            ImGui::PushID( root.c_str() );
-            ImGui::BulletText( "%s", root.c_str() );
-            ImGui::SameLine();
-            if ( ImGui::SmallButton( "Set..." ) ) RequestMountFolder( root, inWindow );
-            ImGui::PopID();
-        }
+        ioState.m_Root = order.empty() ? std::string{} : order.front();
+        ioState.m_Folder.clear();
     }
 
-    ImGui::Separator();
-    ImGui::TextUnformatted( "Add mount:" );
-    if ( !inHasProject ) ImGui::BeginDisabled();
-    ImGui::SetNextItemWidth( 120.0f );
-    ImGui::InputText( "##MountName", g_NewMountNameBuf, sizeof( g_NewMountNameBuf ) );
-    ImGui::SameLine();
-    if ( ImGui::Button( "Browse..." ) && g_NewMountNameBuf[0] != '\0' )
+    ImGui::BeginChild( "##mountRows", ImVec2( 0.0f, -ImGui::GetFrameHeightWithSpacing() ) );
+    for ( auto const& root : order )
     {
-        RequestMountFolder( g_NewMountNameBuf, inWindow );
+        ImGui::PushID( root.c_str() );
+        bool const selected = root == ioState.m_Root;
+        if ( ImGui::Selectable( root.c_str(), selected, 0, ImVec2( 0.0f, kRowHeight ) ) && !selected )
+        {
+            ioState.m_Root = root;
+            ioState.m_Folder.clear();
+        }
+        if ( ImGui::IsItemHovered() )
+        {
+            std::string dirs;
+            for ( auto const& dir : byRoot[root] ) dirs += ( dirs.empty() ? "" : "\n" ) + dir;
+            ImGui::SetTooltip( "%s", dirs.c_str() );
+        }
+        DrawMountContextMenu( inVfs, inRegistry, root, byRoot[root] );
+        ImGui::PopID();
     }
+
+    for ( auto const& root : missing )
+    {
+        ImGui::PushID( root.c_str() );
+        ImGui::PushStyleColor( ImGuiCol_Text, ImVec4( 1.0f, 0.8f, 0.2f, 1.0f ) );
+        ImGui::Selectable( root.c_str(), false, ImGuiSelectableFlags_Disabled, ImVec2( 0.0f, kRowHeight ) );
+        ImGui::PopStyleColor();
+        // A disabled Selectable swallows hover/click, so the "Set..." button sits on the row's right.
+        ImGui::SameLine( ImGui::GetWindowWidth() - 70.0f );
+        if ( ImGui::SmallButton( "Set..." ) ) RequestMountFolder( root, inWindow );
+        if ( ImGui::IsItemHovered() ) ImGui::SetTooltip( "Used by this scene but not mounted. Pick its folder." );
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+
+    if ( !inHasProject ) ImGui::BeginDisabled();
+    if ( ImGui::Button( "+ Add mount" ) ) ImGui::OpenPopup( "##addMount" );
     if ( !inHasProject ) ImGui::EndDisabled();
+
+    if ( ImGui::BeginPopup( "##addMount" ) )
+    {
+        ImGui::TextDisabled( "Mount name:" );
+        ImGui::SetNextItemWidth( 160.0f );
+        ImGui::InputText( "##MountName", g_NewMountNameBuf, sizeof( g_NewMountNameBuf ) );
+        ImGui::SameLine();
+        if ( ImGui::Button( "Browse..." ) && g_NewMountNameBuf[0] != '\0' )
+        {
+            RequestMountFolder( g_NewMountNameBuf, inWindow );
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }

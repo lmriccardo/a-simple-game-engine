@@ -17,6 +17,7 @@ bool g_Minimized = false;
 float g_Height = 240.0f;       // last user-dragged height, kept so the forced anchor below doesn't undo a drag
 float g_MountsWidth = 280.0f;  // VFS column
 float g_AssetsWidth = 380.0f;  // asset browser column; the Log gets the rest
+AssetExplorerState g_Explorer; // selected mountpoint and open folder, shared by the mounts and asset columns
 
 // A thin vertical grip between two columns: dragging it changes ioWidth
 // (the column to its left) within [kMinColumnWidth, inMaxWidth].
@@ -94,7 +95,7 @@ AssetBrowserResult DrawBottomPanel(
 
         if ( ImGui::BeginChild( "##mounts", ImVec2( g_MountsWidth, columnsHeight ), ImGuiChildFlags_Borders ) )
         {
-            DrawVfsContents( inVfs, inRegistry, inAssets, inRenderer, inWindow, inHasProject );
+            DrawMountList( inVfs, inRegistry, inAssets, inRenderer, inWindow, inHasProject, g_Explorer );
         }
         ImGui::EndChild();
 

@@ -35,6 +35,17 @@ struct AssetPick
 enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadTexture };
 
 /**
+ * @brief Where the bottom panel's explorer is looking: which mountpoint is
+ *        selected in the mount list, and which folder below it is open.
+ *        Shared by the mount list (which sets m_Root) and the explorer.
+ */
+struct AssetExplorerState
+{
+    std::string m_Root;   // selected virtual root; empty if nothing is mounted
+    std::string m_Folder; // open folder below m_Root, no leading/trailing slash; empty is the root itself
+};
+
+/**
  * @brief DrawAssetBrowserContents's full per-frame report. m_Pick is the
  *        pre-Phase-14 "clicked an entry to preview it" signal, unchanged;
  *        m_OpenCreateClip and m_ContextAction/m_ContextKind/m_ContextPath/
