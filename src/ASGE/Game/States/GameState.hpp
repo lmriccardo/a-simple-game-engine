@@ -90,6 +90,7 @@ public:
      * Does nothing by default.
      */
     virtual void OnEnter() {}
+
     /**
      * @brief Called once when this state stops being topmost via Pop/Replace.
      *
@@ -103,6 +104,7 @@ public:
      * True by default; override with false for a pause overlay.
      */
     [[nodiscard]] virtual bool BlocksUpdateBelow() const noexcept { return true; }
+
     /**
      * @brief True if this state is drawn over whatever is below it rather than covering it.
      *

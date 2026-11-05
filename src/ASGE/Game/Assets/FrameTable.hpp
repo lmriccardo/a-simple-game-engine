@@ -117,14 +117,12 @@ struct FrameTable
 };
 
 /**
- * @brief Builds inSpec.m_Count sub-rects (in texture pixels) across a regular
- *        grid spritesheet, for use as FrameTable::m_Frames.
+ * @brief Builds inSpec.m_Count sub-rects across a regular grid spritesheet.
  *
- * Cell indices run from m_First to m_First + m_Count - 1. In RowMajor order
- * index i sits at column (i % m_Columns), row (i / m_Columns); in ColumnMajor
- * order at column (i / m_Rows), row (i % m_Rows). Adjacent cells are
- * m_Spacing pixels apart. Returns an empty vector if m_Count is 0 or the
- * wrap length for the order (m_Columns / m_Rows) is 0.
+ * The rects are in texture pixels, for use as FrameTable::m_Frames. Indices run
+ * from m_First; RowMajor puts index i at column (i % m_Columns), ColumnMajor at
+ * row (i % m_Rows). Cells are m_Spacing pixels apart. Empty if m_Count or the
+ * wrap length is 0.
  */
 std::vector<math::Rect> MakeGridFrames( GridSpec const& inSpec ) noexcept;
     

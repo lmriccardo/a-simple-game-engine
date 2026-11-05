@@ -34,16 +34,24 @@ constexpr float         kGravity    = 980.0f; // pixel/s^2
 constexpr std::size_t   kNodeBytes  = 72;
 constexpr std::size_t   kBlockBytes = 16 + 16 * (16 + sizeof(asge::ecs::Entity));
 
+/**
+ * @brief Size in bytes of the broad-phase QuadTree arena.
+ *
+ * Scaled from kMaxEntities and the node and block sizes, plus 64 KiB of slack.
+ */
 constexpr std::size_t GetArenaSize() noexcept
 {
     return ( kMaxEntities / 6 ) * ( kNodeBytes + kBlockBytes ) * 2 + 64 * 1024;
 }
 
-// Applies a positional correction and zeroes velocity on whichever axis moved.
-// Updates both Local and World coordinates together (rather than just Local +
-// m_Dirty) since collision resolution runs after TransformPropagationSystem
-// in PhysicsUpdate -- deferring to next frame's propagation would leave this
-// frame's rendering one step stale.
+/**
+ * @brief Applies a positional correction and zeroes velocity on whichever axis moved.
+ *
+ * Updates both Local and World coordinates together (rather than just Local +
+ * m_Dirty) since collision resolution runs after TransformPropagationSystem in
+ * PhysicsUpdate -- deferring to next frame's propagation would leave this
+ * frame's rendering one step stale.
+ */
 void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& inDelta ) noexcept
 {
     if ( inDelta.x() == 0.0f && inDelta.y() == 0.0f ) return;
@@ -56,10 +64,14 @@ void ApplyCorrection( Transform& inT, Velocity& inV, asge::math::Float2 const& i
     if ( inDelta.y() != 0.0f ) inV.m_DY = 0.0f;
 }
 
-// The entity that actually moves when inShape's collider is pushed: inShape
-// itself, or its nearest ancestor with a Rigidbody and a Velocity -- so a
-// compound body (a player with several child colliders) is pushed as a whole.
-// With no such ancestor it's inShape itself (static geometry, or a lone body).
+/**
+ * @brief The entity that actually moves when inShape's collider is pushed.
+ *
+ * InShape itself, or its nearest ancestor with a Rigidbody and a Velocity --
+ * so a compound body (a player with several child colliders) is pushed as a
+ * whole. With no such ancestor it's inShape itself (static geometry, or a lone
+ * body).
+ */
 Entity BodyOf( Registry& inRegistry, Entity inShape ) noexcept
 {
     for ( Entity current = inShape; current != Entity::Null(); )
@@ -75,8 +87,12 @@ Entity BodyOf( Registry& inRegistry, Entity inShape ) noexcept
     return inShape;
 }
 
-// Moves every descendant's world position by inDelta, so a pushed body's child
-// colliders and sprites follow it now rather than at the next propagation.
+/**
+ * @brief Moves every descendant's world position by inDelta.
+ *
+ * A pushed body's child colliders and sprites follow it now rather than at
+ * the next propagation.
+ */
 void ShiftDescendants( Registry& inRegistry, Entity inRoot, Float2 const& inDelta ) noexcept
 {
     asge::ecs::components::ForEachChild( inRegistry, inRoot, [&]( Entity inChild )
@@ -90,9 +106,12 @@ void ShiftDescendants( Registry& inRegistry, Entity inRoot, Float2 const& inDelt
     } );
 }
 
-// The part of a correction inWanted along one axis not already applied
-// (inApplied) to the same body this pass: two shapes of one body touching the
-// same wall must push it out once, not twice.
+/**
+ * @brief The part of a correction inWanted along one axis not already applied (inApplied) to the same body this pass.
+ *
+ * Two shapes of one body touching the same wall must push it out once, not
+ * twice.
+ */
 float RemainingCorrection( float inApplied, float inWanted ) noexcept
 {
     if ( inWanted * inApplied <= 0.0f ) return inWanted; // nothing applied yet, or the other way
@@ -100,10 +119,10 @@ float RemainingCorrection( float inApplied, float inWanted ) noexcept
 }
 
 /**
- * @brief Pushes e1/e2 apart along mtv, splitting the correction by mass
- *        ratio when both are movable — the actual push-out logic for a
- *        Solid/Solid overlap. Only a body with both Velocity and
- *        Rigidbody moves; a pair with neither is left alone.
+ * @brief Pushes e1/e2 apart along mtv for a Solid/Solid overlap.
+ *
+ * The correction is split by mass ratio when both are movable. Only a body
+ * with both Velocity and Rigidbody moves; a pair with neither is left alone.
  */
 void ResolveSolidCollision(
     Registry &inRegistry, Entity e1, Transform& t1, Entity e2, Transform& t2, 
@@ -148,6 +167,11 @@ void ResolveSolidCollision(
     if ( movable2 ) push( e2, t2, vel2.Value().get(), { -mtv.x() * share2, -mtv.y() * share2 } );
 }
 
+/**
+ * @brief The rect a collider shape occupies in the broad phase.
+ *
+ * A Rect is used as is; any other shape uses its bounding rect.
+ */
 Rect ToBroadPhaseRect( ColliderShape const& inShape ) noexcept
 {
     return std::visit( []( auto const& s ) -> Rect
@@ -158,7 +182,9 @@ Rect ToBroadPhaseRect( ColliderShape const& inShape ) noexcept
     }, inShape);
 }
 
-// Smallest rect enclosing every collider, or nullopt when there are none.
+/**
+ * @brief Smallest rect enclosing every collider, or nullopt when there are none.
+ */
 std::optional<Rect> ComputeColliderExtension( Registry const& inRegistry ) noexcept
 {
     std::optional<Rect> extension;
@@ -182,9 +208,12 @@ struct TriggerContact
 
 enum class TriggerEvent { Enter, Stay, Exit };
 
-// Emits inEvent on inTrigger's own per-entity signal, passing inOther. The
-// Collider is looked up fresh each time and never held across the emit, since
-// a handler may destroy entities or reallocate the pool.
+/**
+ * @brief Emits inEvent on inTrigger's own per-entity signal, passing inOther.
+ *
+ * The Collider is looked up fresh each time and never held across the emit,
+ * since a handler may destroy entities or reallocate the pool.
+ */
 void EmitOnTrigger( Registry& inRegistry, Entity inTrigger, Entity inOther, TriggerEvent inEvent ) noexcept
 {
     auto collider = inRegistry.GetComponent<Collider>( inTrigger );
@@ -202,15 +231,21 @@ void EmitOnTrigger( Registry& inRegistry, Entity inTrigger, Entity inOther, Trig
     if ( signal ) signal->Emit( inOther );
 }
 
-// Notifies both sides of a contact; a side that is not a Trigger (or has no
-// listener) is skipped, so a Trigger-vs-Trigger contact reaches each of them.
+/**
+ * @brief Notifies both sides of a contact.
+ *
+ * A side that is not a Trigger (or has no listener) is skipped, so a Trigger-
+ * vs-Trigger contact reaches each of them.
+ */
 void EmitOnBothSides( Registry& inRegistry, Entity inA, Entity inB, TriggerEvent inEvent ) noexcept
 {
     EmitOnTrigger( inRegistry, inA, inB, inEvent );
     EmitOnTrigger( inRegistry, inB, inA, inEvent );
 }
 
-// Exit only reaches the sides that were Triggers when the overlap was recorded.
+/**
+ * @brief Exit only reaches the sides that were Triggers when the overlap was recorded.
+ */
 void EmitExit( Registry& inRegistry, EntityPair const& inPair, asge::game::systems::TriggerSides inSides ) noexcept
 {
     if ( inSides & asge::game::systems::kFirstIsTrigger )
@@ -219,6 +254,11 @@ void EmitExit( Registry& inRegistry, EntityPair const& inPair, asge::game::syste
         EmitOnTrigger( inRegistry, inPair.m_Second, inPair.m_First, TriggerEvent::Exit );
 }
 
+/**
+ * @brief Minimum translation vector between two world-space colliders.
+ *
+ * Nullopt when their shapes do not overlap.
+ */
 std::optional<Float2> PenetrationVector( Transform const& t1, Collider const& c1,
     Transform const& t2, Collider const& c2) noexcept 
 {
@@ -231,6 +271,13 @@ std::optional<Float2> PenetrationVector( Transform const& t1, Collider const& c1
     }, obj1, obj2);
 }
 
+/**
+ * @brief Tests one collider pair and records or resolves the contact.
+ *
+ * Skips pairs that cannot collide (layers, same body, Unknown resolution) and
+ * returns true to keep iterating. Triggers are recorded in ioContacts and
+ * ioPairs; Solid overlaps are pushed apart, tracking inCorrections per body.
+ */
 bool CheckCollision( 
     Registry& inRegistry, Entity inE1, Entity inE2, AppliedCorrections& inCorrections,
     asge::game::systems::PhysicsState& ioState, std::map<EntityPair, asge::game::systems::TriggerSides>& ioPairs,

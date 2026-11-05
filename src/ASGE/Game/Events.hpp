@@ -44,13 +44,10 @@ signals::Signal<ecs::Entity>& OnAnimationFinished() noexcept;
 /**
  * @brief Fires when a non-looping PathFollow reaches the end of its Path.
  *
- * PathFollow::m_Finished flips to true and the follower entity is passed
- * along.
- *
- * A process-wide signal fired synchronously from systems::PathFollowingSystem,
- * exactly once per run: it fires on the frame m_Finished becomes true, and
- * again only if m_Finished is later reset and the end is reached again.
- * Followers on a looping Path never finish, so they never emit it.
+ * A process-wide signal, fired synchronously by systems::PathFollowingSystem
+ * with the follower entity when PathFollow::m_Finished becomes true. It fires
+ * again only if m_Finished is reset and the end is reached again; followers on
+ * a looping Path never emit it.
  */
 signals::Signal<ecs::Entity>& OnPathFinished() noexcept;
 

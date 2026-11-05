@@ -142,14 +142,9 @@ public:
     /**
      * @brief Makes inNewVirtualPath the active scene's identity going forward.
      *
-     * Retags every currently-active entity's SceneId to match, so
-     * ActiveEntities()/SaveScene() keep seeing them under the new path.
-     * Touches neither disk nor the Registry's actual entity set.
-     *
-     * Used for "Save As" (retags a populated active scene under a new
-     * path) and, paired with a prior UnloadScene(), for starting a scene
-     * from scratch -- nothing active left to retag, so this just
-     * establishes the identity newly-created entities get tagged under.
+     * Retags every active entity's SceneId so ActiveEntities()/SaveScene() keep
+     * seeing them. Touches neither disk nor the entity set. Used for "Save As",
+     * and after UnloadScene() to start a scene from scratch.
      */
     void RenameActiveScene( str::String const& inNewVirtualPath ) noexcept;
 

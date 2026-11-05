@@ -58,16 +58,12 @@ struct SpriteDrawCorners
 };
 
 /**
- * @brief Returns inDstRect's own corners, rotated around inDstRect's center.
+ * @brief Returns inDstRect's corners, rotated around its center.
  *
- * The rect is the one utils::SpriteGetDstRect returns, and the angle is
- * inRotationRadians.
- *
- * Positive inRotationRadians rotates clockwise on screen (screen-space Y
- * grows downward); inRotationRadians == 0 reproduces inDstRect's unrotated
- * corners exactly. Feeds IRenderer::DrawTextureAffine, the only DrawTexture*
- * overload that can express rotation — see RenderSystem, which switches to
- * it whenever a drawn entity's Transform::m_WorldRotation is non-zero.
+ * inDstRect is the rect utils::SpriteGetDstRect returns. Positive
+ * inRotationRadians is clockwise on screen, and 0 reproduces the unrotated
+ * corners. Feeds IRenderer::DrawTextureAffine, which RenderSystem uses when
+ * Transform::m_WorldRotation is non-zero.
  */
 SpriteDrawCorners SpriteGetDrawCorners( math::Rect const& inDstRect, float inRotationRadians ) noexcept;
 

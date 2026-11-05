@@ -3,6 +3,12 @@
 namespace
 {
 
+/**
+ * @brief Destination rect of inSprite placed at inPos and scaled by inScale.
+ *
+ * Nullopt if the sprite has no texture. Uses the source rect's size when set,
+ * otherwise the texture's.
+ */
 std::optional<asge::math::Rect> SpriteRectAt(
     asge::game::components::Sprite const& inSprite, asge::math::Float2 inPos, asge::math::Float2 inScale ) noexcept
 {

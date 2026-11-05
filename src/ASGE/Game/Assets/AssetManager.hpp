@@ -54,15 +54,42 @@ class AssetManager
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
 public:
+    /**
+     * @brief Creates a manager whose assets are resolved through inVfs.
+     *
+     * inVfs is held by reference and must outlive the manager.
+     */
     explicit AssetManager( filesystem::VirtualFileSystem const& inVfs ) noexcept
     : m_Vfs( inVfs )
     {}
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     AssetManager( AssetManager const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     AssetManager& operator=( AssetManager const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     AssetManager( AssetManager&& ) = default;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     AssetManager& operator=( AssetManager&& ) = delete;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~AssetManager() = default;
 
     // Named GetImage (not LoadImage) -- Windows headers #define LoadImage to
@@ -144,28 +171,11 @@ public:
     /**
      * @brief Deferred-loads every asset-owning component that needs (re)resolving.
      *
-     * Covers every entity in inRegistry that has one.
-     *
-     * Folds over `components::SerializableComponents` and, for each type T,
-     * calls `Resolver<T>{}` on every entity's T — a no-op for most
-     * component types (nothing to load), and an actual resolve for the
-     * ones that do own an asset (`Sprite`, `Animation`, `AudioSource` —
-     * re-resolved whenever their virtual path changes, released back to
-     * null when it's cleared to empty; `Path` builds its spline once
-     * — see their own `Resolver<T>` specializations in AssetResolver.hpp
-     * for exactly what each one does).
-     *
-     * Any resolve failure (VFS resolve, decode, texture creation) is logged
-     * and that entity is left unresolved — retried on the next call rather
-     * than treated as fatal, since inRenderer only exists once the caller
-     * has a window (unlike component construction, which can happen
-     * earlier, e.g. while loading a scene).
-     *
-     * Walks every entity via `View<Ts>().IncludeDisabled()`, not the
-     * disabled-skipping `View<Ts>()` every gameplay system uses — a
-     * `markers::Disable`d entity should already have a live texture/clip
-     * ready the instant something re-enables it, not still be waiting on
-     * some unrelated future resolve to notice it exists.
+     * Folds over `components::SerializableComponents` and runs `Resolver<T>` on
+     * each entity's T: a no-op for most, a real resolve for Sprite, Animation,
+     * AudioSource and Path (see AssetResolver.hpp). A failed resolve is logged and
+     * retried on the next call. Disabled entities are walked too
+     * (`IncludeDisabled()`) so re-enabling one finds its assets ready.
      */
     void ResolveAssets( ecs::Registry& inRegistry, video::IRenderer& inRenderer );
 };

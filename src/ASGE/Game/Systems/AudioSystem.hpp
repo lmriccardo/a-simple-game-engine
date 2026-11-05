@@ -9,14 +9,10 @@ namespace asge::game::systems
 /**
  * @brief Drives every entity's AudioSource.
  *
- * Starts newly-playing sources, honors PlayAudioSource's restart requests,
- * restarts looping ones that ran out of queued audio, stops ones that
- * finished without looping, and clears data for stopped ones.
- *
- * A source's audio::AudioStream is created (via inDevice) the first tick it
- * plays and then kept for that AudioSource's lifetime — replaying it (via
- * PlayAudioSource, whether it's still playing or already stopped) always
- * reuses that same stream rather than creating a new one.
+ * Starts newly-playing sources, honors PlayAudioSource's restarts, restarts
+ * looping ones that ran dry, and stops finished non-looping ones. A source's
+ * audio::AudioStream is created via inDevice on its first tick and then kept,
+ * so replaying always reuses it.
  */
 void AudioSystem( ecs::Registry& inRegistry, audio::AudioDevice& inDevice );
 

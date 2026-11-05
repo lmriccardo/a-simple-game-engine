@@ -23,6 +23,11 @@ enum class UIWidgetError
     TextWithNoFont,
 };
 
+/**
+ * @brief Human-readable message for a UIWidgetError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(UIWidgetError e) noexcept
 {
     switch (e)

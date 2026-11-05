@@ -27,11 +27,39 @@ public:
     : m_Vfs( inVfs )
     {}
 
+    /**
+     * @brief Copy constructor.
+     *
+     * Defaulted; copies each member.
+     */
     SceneSerializer( SceneSerializer const& ) = default;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     SceneSerializer( SceneSerializer&& ) = default;
+
+    /**
+     * @brief Copy assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     SceneSerializer& operator=( SceneSerializer const& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     SceneSerializer& operator=( SceneSerializer&& ) = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~SceneSerializer() = default;
 
     /**
@@ -48,12 +76,10 @@ public:
     /**
      * @brief Populates dstRegistry from a scene file previously written by Save().
      *
-     * One fresh CreateEntity() per `[[entity]]` block, with every
-     * serializable component present re-added via its Serializer. A non-null
-     * outCtx receives each file index's new entity (m_Entities) on success. On
-     * any failure, only the entities this call itself created are rolled back
-     * — anything already in dstRegistry before the call is never touched, win
-     * or lose.
+     * Creates one entity per `[[entity]]` block and re-adds each serializable
+     * component via its Serializer. A non-null outCtx receives each file index's
+     * new entity on success. On failure only the entities this call created are
+     * rolled back; existing ones are never touched.
      */
     BoolResult Load(
         ecs::Registry& dstRegistry, str::String const& inVirtualPath, LoadContext* outCtx = nullptr ) const noexcept;

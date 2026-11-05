@@ -82,12 +82,8 @@ struct Collider
 /**
  * @brief Whether two Colliders are even willing to collide with each other.
  *
- * Decided before either's actual shape/overlap is looked at — see
- * systems::CollisionSystem, which skips a pair entirely on false.
- *
- * Mutual: inA's layer must be in inB's mask *and* inB's layer must be in
- * inA's mask, so one side excluding the other is enough to skip the pair
- * regardless of what the other side's mask says.
+ * Decided before shape or overlap is looked at; systems::CollisionSystem skips
+ * the pair on false. Mutual: each layer must be in the other's mask.
  */
 bool LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept;
 

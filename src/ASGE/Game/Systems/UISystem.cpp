@@ -30,12 +30,20 @@ using InteractableComponents = std::tuple<
     asge::game::components::UIButton, asge::game::components::UICheckbox,
     asge::game::components::UISlider>;
 
+/**
+ * @brief Fallback for interactable components with no click behavior.
+ *
+ * Does nothing.
+ */
 template<typename T>
 void ResolveInteractionsImpl( 
     [[maybe_unused]]    Registry& inReg, 
     [[maybe_unused]]    Entity inEntity, 
     [[maybe_unused]]    T& ) noexcept {}
 
+/**
+ * @brief Emits the button's click signal.
+ */
 void ResolveInteractionsImpl( 
     [[maybe_unused]] Registry& inReg, [[maybe_unused]] Entity inEntity, 
     [[maybe_unused]] asge::game::components::UIButton& inButton ) noexcept
@@ -43,6 +51,9 @@ void ResolveInteractionsImpl(
     inButton.m_OnClick.Emit();
 }
 
+/**
+ * @brief Flips the checkbox and emits its toggle signal with the new state.
+ */
 void ResolveInteractionsImpl( 
     [[maybe_unused]] Registry& inReg, [[maybe_unused]] Entity inEntity, 
     asge::game::components::UICheckbox& inCheckbox ) noexcept
@@ -51,6 +62,11 @@ void ResolveInteractionsImpl(
     inCheckbox.m_OnToggled.Emit(inCheckbox.m_Checked);
 }
 
+/**
+ * @brief Applies ResolveInteractionsImpl to each interactable component the entity has.
+ *
+ * Walks InteractableComponents by index.
+ */
 template<std::size_t... Is>
 void ResolveInteractionsImpl( 
     Registry& inReg, Entity inEntity, std::index_sequence<Is...> ) noexcept
@@ -67,18 +83,32 @@ void ResolveInteractionsImpl(
     );
 }
 
+/**
+ * @brief Runs a clicked entity's component click behavior.
+ *
+ * Covers every type in InteractableComponents (button, checkbox, slider).
+ */
 void ResolveInteractions( Registry& inReg, Entity inEntity ) noexcept
 {
     static constexpr std::size_t N = std::tuple_size_v<InteractableComponents>;
     ResolveInteractionsImpl( inReg, inEntity, std::make_index_sequence<N>{} );
 };
 
-/** @brief Size of each of inCount equal slots across inExtent with inGap between neighbours, never negative. */
+/**
+ * @brief Size of each of inCount equal slots across inExtent.
+ *
+ * inGap separates neighbours; the result is never negative.
+ */
 float SlotExtent( float inExtent, int inCount, float inGap ) noexcept
 {
     return std::max( 0.0f, ( inExtent - inGap * static_cast<float>( inCount - 1 ) ) / static_cast<float>( inCount ) );
 }
 
+/**
+ * @brief The inIndex-th cell of a Grid layout, row by row.
+ *
+ * Nullopt if either dimension is non-positive or inIndex is past the last cell.
+ */
 std::optional<asge::math::Rect> SlotRect(
     asge::game::components::LayoutGrid const& inGrid, std::size_t inIndex,
     asge::math::Float2 inSize, asge::math::Float2 inGap ) noexcept
@@ -95,6 +125,11 @@ std::optional<asge::math::Rect> SlotRect(
         static_cast<float>( inIndex / cols ) * ( h + inGap.y() ), w, h };
 }
 
+/**
+ * @brief The inIndex-th row of a VStack layout, spanning the full width.
+ *
+ * Nullopt if inIndex is past the last row.
+ */
 std::optional<asge::math::Rect> SlotRect(
     asge::game::components::LayoutVStack const& inVstack, std::size_t inIndex,
     asge::math::Float2 inSize, asge::math::Float2 inGap ) noexcept
@@ -105,6 +140,11 @@ std::optional<asge::math::Rect> SlotRect(
     return asge::math::Rect{ 0.0f, static_cast<float>( inIndex ) * ( h + inGap.y() ), inSize.x(), h };
 }
 
+/**
+ * @brief The inIndex-th column of an HStack layout, spanning the full height.
+ *
+ * Nullopt if inIndex is past the last column.
+ */
 std::optional<asge::math::Rect> SlotRect(
     asge::game::components::LayoutHStack const& inHstack, std::size_t inIndex,
     asge::math::Float2 inSize, asge::math::Float2 inGap ) noexcept
@@ -115,6 +155,11 @@ std::optional<asge::math::Rect> SlotRect(
     return asge::math::Rect{ static_cast<float>( inIndex ) * ( w + inGap.x() ), 0.0f, w, inSize.y() };
 }
 
+/**
+ * @brief An Absolute layout has no slots.
+ *
+ * Always nullopt.
+ */
 std::optional<asge::math::Rect> SlotRect(
     [[maybe_unused]] asge::game::components::LayoutAbsolute const& inAbsolute, [[maybe_unused]] std::size_t inIndex,
     [[maybe_unused]] asge::math::Float2 inSize, [[maybe_unused]] asge::math::Float2 inGap ) noexcept
@@ -123,10 +168,11 @@ std::optional<asge::math::Rect> SlotRect(
 }
 
 /**
- * @brief The inIndex-th slot of inLayout (position and size, relative to the
- *        content area's top-left) inside an inSize area with inGap between
- *        slots, or nullopt if it has none (Absolute, a non-positive
- *        row/column count, or more children than slots).
+ * @brief The inIndex-th slot of inLayout, relative to the content area's top-left.
+ *
+ * The area is inSize with inGap between slots. Returns nullopt if there is no
+ * such slot: Absolute layout, a non-positive row/column count, or more
+ * children than slots.
  */
 std::optional<asge::math::Rect> SlotRect(
     asge::game::components::LayoutSpec const& inLayout, std::size_t inIndex,
@@ -137,7 +183,11 @@ std::optional<asge::math::Rect> SlotRect(
         inLayout );
 }
 
-/** @brief Offset of a child inFree units smaller than its slot along one axis, never negative. */
+/**
+ * @brief Offset of a child inFree units smaller than its slot along one axis.
+ *
+ * inAlign picks start, center or end; never negative.
+ */
 float AlignOffset( asge::game::components::SlotAlign inAlign, float inFree ) noexcept
 {
     using asge::game::components::SlotAlign;
@@ -153,15 +203,13 @@ float AlignOffset( asge::game::components::SlotAlign inAlign, float inFree ) noe
 }
 
 /**
- * @brief Moves inChild into inSlot (offset by inOrigin, in its parent's local
- *        space), stretching its UIRect on each axis its UILayoutItem fills.
+ * @brief Moves inChild into inSlot, stretching its UIRect on the axes its UILayoutItem fills.
  *
- * Without a UILayoutItem the child fills both axes and sits at the slot's
- * start. A Sprite is drawn at its texture's size and an auto-sized UILabel fits
- * its text, so neither is ever stretched. An axis that isn't stretched keeps
- * the child's size and is placed by the item's alignment. The rect is divided
- * by the child's local scale because UIRect::m_Size is pre-scale. A child with
- * no UIRect has no known size, so it is simply placed at the slot's start.
+ * inSlot is offset by inOrigin, in the parent's local space. Without a
+ * UILayoutItem the child fills both axes. Sprites and auto-sized UILabels are
+ * never stretched, and an unstretched axis keeps its size and is aligned by the
+ * item. The rect is divided by the local scale since UIRect::m_Size is
+ * pre-scale; a child without a UIRect is placed at the slot's start.
  */
 void ApplySlot(
     asge::ecs::Registry& inReg, asge::ecs::Entity inChild, asge::game::components::Transform& inTransform,
@@ -202,8 +250,10 @@ void ApplySlot(
 }
 
 /**
- * @brief Lays out inPanel's children into its slots, then recurses so a
- *        nested panel is laid out after the rect its parent just gave it.
+ * @brief Lays out inPanel's children into its slots.
+ *
+ * Recurses afterwards so a nested panel is laid out after the rect its parent
+ * just gave it.
  */
 void LayoutChildren( asge::ecs::Registry& inReg, asge::ecs::Entity inPanel ) noexcept
 {

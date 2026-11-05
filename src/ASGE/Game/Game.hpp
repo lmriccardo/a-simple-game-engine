@@ -307,6 +307,10 @@ public:
  */
 template<typename T>
 std::true_type is_game_helper( Game<T> const volatile& );
+
+/**
+ * @brief Fallback overload chosen when the type does not derive from any Game<T>.
+ */
 std::false_type is_game_helper( ... );
 
 /**

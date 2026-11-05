@@ -44,9 +44,28 @@ public:
     , m_Value( std::move(inValue) )
     {}
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     Asset( Asset const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Asset& operator=( Asset const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Asset( Asset&& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Asset& operator=( Asset&& ) = default;
 
     /**

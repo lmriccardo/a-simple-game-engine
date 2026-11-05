@@ -5,6 +5,12 @@
 namespace
 {
 
+/**
+ * @brief Resolves inPath against inBase.
+ *
+ * An absolute path is kept as is; a relative one is joined onto inBase and
+ * lexically normalized.
+ */
 asge::filesystem::Path Resolve( asge::filesystem::Path const& inBase, std::string const& inPath )
 {
     asge::filesystem::Path const path = inPath;

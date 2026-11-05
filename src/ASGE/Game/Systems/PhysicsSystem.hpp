@@ -74,26 +74,19 @@ void GravitySystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 /**
  * @brief Runs a full physics frame.
  *
- * Gravity, movement, path following, then collision
- * detection/response/trigger-events, in that order.
- *
- * The single entry point a game loop actually needs — see GravitySystem/
- * MovementSystem/PathFollowingSystem/CollisionSystem for what each step does
- * on its own. inState persists across calls (one per Registry, not shared) so
- * CollisionSystem can tell Enter from Stay from Exit.
+ * Gravity, movement, path following, then collision detection, response and
+ * trigger events, in that order. inState persists across calls (one per
+ * Registry) so CollisionSystem can tell Enter from Stay from Exit.
  */
 void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDeltaTime ) noexcept;
 
 /**
  * @brief Moves each PathFollow entity along its parent's components::Path.
  *
- * Applies the follower's offsets and optional tangent alignment.
- *
- * Also writes the path tangent into PathFollow::m_Heading every frame it
- * moves, even with m_AlignRotation off. Emits events::OnPathFinished once
- * when a follower on a non-looping Path reaches its end. Warns once per
- * follower if the parent has no Path. Followers paused with
- * components::PathFollowPause are skipped entirely.
+ * Applies the follower's offsets and optional tangent alignment, and always
+ * writes the tangent into PathFollow::m_Heading. Emits events::OnPathFinished
+ * at the end of a non-looping Path, warns once per follower whose parent has
+ * no Path, and skips followers paused with components::PathFollowPause.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

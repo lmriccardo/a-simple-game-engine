@@ -52,6 +52,9 @@ struct AssetRef
 template<typename C>
 struct Resolver
 {
+    /**
+     * @brief Does nothing: this component has no asset to resolve.
+     */
     void operator()( AssetManager&, ecs::Registry&, video::IRenderer&, C& ) const noexcept {}
 };
 
@@ -67,6 +70,11 @@ template<>
 struct Resolver<components::Sprite>
 {
     using C = components::Sprite;
+    /**
+     * @brief Resolves one Sprite's asset.
+     *
+     * See the Resolver<Sprite> comment above for when it (re)loads.
+     */
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
@@ -86,6 +94,11 @@ template<>
 struct Resolver<components::Animation>
 {
     using C = components::Animation;
+    /**
+     * @brief Resolves one Animation's asset.
+     *
+     * See the Resolver<Animation> comment above for when it (re)loads.
+     */
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
@@ -106,6 +119,11 @@ template<>
 struct Resolver<components::AudioSource>
 {
     using C = components::AudioSource;
+    /**
+     * @brief Resolves one AudioSource's asset.
+     *
+     * See the Resolver<AudioSource> comment above for when it (re)loads.
+     */
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
@@ -124,6 +142,11 @@ template<>
 struct Resolver<components::Path>
 {
     using C = components::Path;
+    /**
+     * @brief Resolves one Path's asset.
+     *
+     * See the Resolver<Path> comment above for when it (re)loads.
+     */
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
@@ -145,6 +168,11 @@ template<>
 struct Resolver<components::UILabel>
 {
     using C = components::UILabel;
+    /**
+     * @brief Resolves one UILabel's asset.
+     *
+     * See the Resolver<UILabel> comment above for when it (re)loads.
+     */
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
@@ -166,6 +194,9 @@ struct Resolver<components::UILabel>
 template<typename C>
 struct AssetRefs
 {
+    /**
+     * @brief Reports nothing: this component references no asset.
+     */
     std::optional<AssetRef> operator()( C const& ) const noexcept { return std::nullopt; }
 };
 

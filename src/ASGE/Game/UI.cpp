@@ -18,6 +18,13 @@ using namespace asge;
 using namespace asge::game;
 using namespace asge::game::ui;
 
+/**
+ * @brief Creates the entity every UI widget starts from.
+ *
+ * Adds a Name (if inName is not empty), a dirty Transform at inPosition, a
+ * RenderInfo and a UIRect of inSize. The entity is destroyed again if any
+ * component fails to attach.
+ */
 Result<ecs::Entity> CreateUIEntity(
     ecs::Registry& inReg, str::String const& inName, math::Float2 inPosition,
     math::Float2 inSize, bool inScreenSpace) 
@@ -62,6 +69,12 @@ Result<ecs::Entity> CreateUIEntity(
     return Result<ecs::Entity>::Ok( e );
 }
 
+/**
+ * @brief Adds a UILabel to inE from inText.
+ *
+ * Does nothing when the text is empty and fails with TextWithNoFont when there
+ * is text but no font path.
+ */
 Result<ecs::Entity> AddText( ecs::Registry& inReg, ecs::Entity inE, TextDesc const& inText, bool inAutoSize )
 {
     if ( inText.m_Content.empty() ) return Result<ecs::Entity>::Ok( inE );

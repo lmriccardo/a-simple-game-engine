@@ -5,6 +5,11 @@ namespace
 
 using namespace asge;
 
+/**
+ * @brief The serialized name of a ResolutionType.
+ *
+ * FromString() reads it back.
+ */
 asge::str::String ToString( asge::game::components::ResolutionType inResolveT ) noexcept
 {
     switch ( inResolveT )
@@ -16,6 +21,11 @@ asge::str::String ToString( asge::game::components::ResolutionType inResolveT ) 
     return "Unknown";
 }
 
+/**
+ * @brief Parses a ResolutionType name written by ToString().
+ *
+ * Anything unrecognized reads as Unknown.
+ */
 asge::game::components::ResolutionType FromString( asge::str::StringView inSv ) noexcept
 {
     if ( inSv == "Solid" ) return asge::game::components::ResolutionType::Solid;

@@ -62,6 +62,9 @@ private:
     // Hashes a `Key` (virtual path + KeyArgs) for `m_Assets`.
     struct KeyHash
     {
+        /**
+         * @brief Combines the hashes of every tuple element.
+         */
         std::size_t operator()( Key const& inKey ) const noexcept
         {
             return detail::HashTupleImpl( inKey,
@@ -79,9 +82,28 @@ public:
     : m_Loader( std::move(inLoader) )
     {}
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     AssetPool( AssetPool const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     AssetPool& operator=( AssetPool const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     AssetPool( AssetPool&& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     AssetPool& operator=( AssetPool&& ) = default;
 
     /**

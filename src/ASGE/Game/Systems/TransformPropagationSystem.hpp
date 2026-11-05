@@ -6,19 +6,12 @@ namespace asge::game::systems
 {
 
 /**
- * @brief Flattens every Transform's Local (authored) state into its World (computed) state.
+ * @brief Flattens every Transform's Local state into its World state.
  *
- * Composes through components::Hierarchy where one exists.
- *
- * A root Transform (no Hierarchy, or one with no parent) only recomputes
- * its World fields when its own m_Dirty is set, copying Local straight
- * across. From there, every descendant with both a Transform and a
- * Hierarchy is composed relative to its parent's just-computed World
- * transform, recursively, whenever the child itself is dirty or an
- * ancestor moved this call — a Hierarchy node with no Transform blocks
- * propagation into its own children, since there's no world transform to
- * compose them against. Every Transform actually recomposed has its
- * m_Dirty cleared before returning.
+ * Composes through components::Hierarchy. A root only recomputes when its own
+ * m_Dirty is set; a descendant is recomposed under its parent's fresh World
+ * transform when it or an ancestor is dirty. A Hierarchy node without a
+ * Transform stops propagation. m_Dirty is cleared on every recomposed Transform.
  */
 void TransformPropagationSystem( ecs::Registry& inRegistry ) noexcept;
 

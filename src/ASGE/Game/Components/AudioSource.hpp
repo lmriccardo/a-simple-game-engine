@@ -49,13 +49,9 @@ struct AudioSource
 /**
  * @brief Marks inAudioSource to (re)start playing right away.
  *
- * It loops per inLoop once it runs out of queued audio.
- *
- * Safe to call whether inAudioSource is stopped, already playing, or still
- * mid-loop -- AudioSystem always honors the request on its next pass by
- * restarting from the beginning of the clip, reusing the existing stream
- * rather than creating a new one. inLoop only governs what happens if this
- * playthrough runs out on its own; it plays independently of it either way.
+ * Safe whether it is stopped, playing or mid-loop: AudioSystem restarts the
+ * clip from the beginning on its next pass, reusing the existing stream.
+ * inLoop only governs what happens once this playthrough runs out.
  */
 void PlayAudioSource( AudioSource& inAudioSource, bool inLoop = true ) noexcept;
 

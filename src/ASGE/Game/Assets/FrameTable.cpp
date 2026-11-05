@@ -14,6 +14,11 @@ using asge::game::asset::GridOrder;
 constexpr asge::str::StringView kOrderRow    = "row";
 constexpr asge::str::StringView kOrderColumn = "column";
 
+/**
+ * @brief The serialized name of a GridOrder.
+ *
+ * "column" for ColumnMajor, "row" otherwise.
+ */
 constexpr asge::str::StringView OrderToString( GridOrder inOrder ) noexcept
 {
     return inOrder == GridOrder::ColumnMajor ? kOrderColumn : kOrderRow;
