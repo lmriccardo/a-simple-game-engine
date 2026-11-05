@@ -2007,8 +2007,8 @@ TEST(AnimationSystemTest, AdvancesToNextFrameOnceFrameDurationElapses)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_FrameDuration = 0.1f
+        .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 0.1f);
@@ -2032,9 +2032,9 @@ TEST(AnimationSystemTest, LoopingAnimationWrapsToFrameZeroPastTheLastFrame)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_FrameDuration = 0.1f,
-        .m_Loop = true
+        .m_Loop = true,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     // Two full frame-durations from frame 0 lands back on frame 0.
@@ -2056,9 +2056,9 @@ TEST(AnimationSystemTest, NonLoopingAnimationClampsOnLastFrameAndStopsPlaying)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_FrameDuration = 0.1f,
-        .m_Loop = false
+        .m_Loop = false,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 0.5f); // Well past the end.
@@ -2077,9 +2077,9 @@ Entity SpawnTwoFrameAnimation(Registry& inRegistry, FakeTexture* inTexture, bool
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Sprite{ .m_Texture = inTexture }).IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_FrameDuration = 0.1f,
-        .m_Loop = inLoop
+        .m_Loop = inLoop,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
     return entity.Value();
 }
@@ -2129,8 +2129,8 @@ TEST(AnimationSystemTest, PerFrameDurationOverridesAnimationFrameDuration)
     table.m_FrameDurations = { 0.5f, 0.0f }; // frame 0 slow, frame 1 falls back, frame 2 falls back
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = Asset<FrameTable>::Create("test/clip.toml", std::move(table)),
-        .m_FrameDuration = 0.1f
+        .m_FrameDuration = 0.1f,
+        .m_Clip = Asset<FrameTable>::Create("test/clip.toml", std::move(table))
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 0.3f); // < 0.5 -> still frame 0
@@ -2149,9 +2149,9 @@ TEST(AnimationSystemTest, PlaybackSpeedScalesAdvancement)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 }, asge::math::Rect{ 16, 0, 8, 8 } }),
         .m_FrameDuration = 0.1f,
-        .m_PlaybackSpeed = 2.0f
+        .m_PlaybackSpeed = 2.0f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 }, asge::math::Rect{ 16, 0, 8, 8 } })
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 0.1f); // 0.2 effective -> two frames
@@ -2166,8 +2166,8 @@ TEST(AnimationSystemTest, NonPositivePlaybackSpeedDoesNotAdvance)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 } }),
-        .m_PlaybackSpeed = 0.0f
+        .m_PlaybackSpeed = 0.0f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 } })
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 10.0f);
@@ -2184,8 +2184,8 @@ TEST(AnimationSystemTest, NotPlayingAnimationIsNotAdvanced)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_Playing = false
     }).IsOk());
 
@@ -2208,8 +2208,8 @@ TEST(AnimationSystemTest, StoppingRestoresTheSpritesOwnSourceRect)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture, .m_SourceRect = idle }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_FrameDuration = 0.1f
+        .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     auto& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
@@ -2239,8 +2239,8 @@ TEST(AnimationSystemTest, ClearingTheClipPathWhilePlayingRestoresTheSpritesOwnSo
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk()); // whole texture: no rect
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_FrameDuration = 0.1f
+        .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     auto& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
@@ -2263,10 +2263,10 @@ Entity SpawnFinishingAnimation(Registry& inRegistry, FakeTexture* inTexture, asg
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Sprite{ .m_Texture = inTexture, .m_SourceRect = inIdle }).IsOk());
     EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_FrameDuration = 0.1f,
         .m_Loop = false,
-        .m_FinishBehavior = inBehavior
+        .m_FinishBehavior = inBehavior,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
     return entity.Value();
 }
@@ -2394,7 +2394,7 @@ TEST(AnimationSystemTest, UnresolvedClipIsSkippedRatherThanCrashing)
     ASSERT_TRUE(entity.IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml", .m_Clip = nullptr, .m_FrameDuration = 0.1f
+        .m_ClipPath = "test/clip.toml", .m_FrameDuration = 0.1f, .m_Clip = nullptr
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
@@ -2413,8 +2413,8 @@ TEST(AnimationSystemTest, NullTextureIsSkipped)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = nullptr }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_FrameDuration = 0.1f
+        .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
@@ -2437,8 +2437,8 @@ TEST(AnimationSystemTest, NonPositiveFrameDurationIsSkippedRatherThanLoopingFore
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_FrameDuration = 0.0f
+        .m_FrameDuration = 0.0f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     asge::game::systems::AnimationSystem(registry, 1.0f);
@@ -2458,13 +2458,13 @@ TEST(AnimationSystemTest, LargeDeltaTimeStepsThroughMultipleFramesInOneCall)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
+        .m_FrameDuration = 0.1f,
+        .m_Loop = true,
         .m_Clip = MakeClip({
             asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f },
             asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f },
             asge::math::Rect{ 16.0f, 0.0f, 8.0f, 8.0f }
-        }),
-        .m_FrameDuration = 0.1f,
-        .m_Loop = true
+        })
     }).IsOk());
 
     // 0.35s / 0.1s per frame = 3 whole steps -> frame (0 + 3) % 3 == 0, 0.05s left over.
@@ -2488,8 +2488,8 @@ TEST(AnimationSystemTest, OutOfRangeCurrentFrameFromLongerClipIsWrappedToZero)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
         .m_CurrentFrame = 6
     }).IsOk());
 
@@ -2516,8 +2516,8 @@ TEST(RenderPipelineTest, AdvancesAnimationThenDrawsTheUpdatedFrame)
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
     ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
         .m_ClipPath = "test/clip.toml",
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_FrameDuration = 0.1f
+        .m_FrameDuration = 0.1f,
+        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
     }).IsOk());
 
     asge::game::systems::RenderPipeline(registry, renderer, 0.1f);
