@@ -172,7 +172,7 @@ TASKS = [
     ("Slider", "Min, Max and starting Value, the track colour and the thumb's Color / Hover / Pressed colours."),
     ("Panel", "Background and border colours, margin, padding, spacing and a layout for its children."),
 ], ("Type", "Settings"))}
-<p>Every type also takes a Name, a Position and a <em>Screen Space</em> flag (on by default, so HUD elements stay put while the viewport pans and zooms). Fonts are picked from those loaded in the Assets panel. Afterwards each widget's components appear as Inspector sections (UIRect, Interactable, UIButton, UILabel, UICheckbox, UISlider, UIPanel) without an <strong>x</strong>: delete the whole entity instead. You can also drag an entity's row onto a panel in the Entities tree to move it in later.</p>
+<p>Every type also takes a Name, a Position and a <em>Screen Space</em> flag (on by default, so HUD elements stay put while the viewport pans and zooms). Fonts are picked from those known to the asset explorer. Afterwards each widget's components appear as Inspector sections (UIRect, Interactable, UIButton, UILabel, UICheckbox, UISlider, UIPanel) without an <strong>x</strong>: delete the whole entity instead. You can also drag an entity's row onto a panel in the Entities tree to move it in later.</p>
 <h2>Panel layouts</h2>
 <p>A panel's <strong>Layout</strong> decides where its children go, applied live in the viewport.</p>
 {kv_table([
@@ -202,14 +202,18 @@ TASKS = [
      "Mount asset folders, load assets and preview them in the Asset Inspector.",
      f"""
 <h1>Import and inspect assets</h1>
-<p class="lede">Assets are addressed by virtual path everywhere in ASGE. The editor gives you a panel for the mounts that back those paths and one for browsing what they resolve to.</p>
-{shot("asset-inspector-texture.png", "The Asset Inspector showing a texture")}
+<p class="lede">Assets are addressed by virtual path everywhere in ASGE. The bottom panel keeps the mounts that back those paths, a file explorer for what they hold, and the Log side by side.</p>
+{shot("bottom-panel.png", "The bottom panel: mountpoints, the asset explorer and the Log")}
+<h2>The bottom panel</h2>
+<p>It has three columns, <strong>Mounts</strong>, the asset explorer and the <strong>Log</strong>, separated by splitters you can drag. Drag the panel's top edge to change its height, and use the arrow at its top-left to minimize it down to its header row and back.</p>
 <h2>Steps</h2>
 <ol>
-  <li>In the <strong>Virtual File System</strong> panel, add a mount (a virtual root pointing at a real directory) with the native folder picker.</li>
-  <li>In the <strong>Assets</strong> panel, use <strong>Load Asset...</strong> to bring in a texture, animation clip, audio clip or <code>.ttf</code> font. The panel lists everything the editor knows about: assets some entity references, plus those you loaded explicitly (so an unused import still shows up).</li>
-  <li>Click an entry to open the <strong>Asset Inspector</strong>: absolute path, mountpoint and file size, plus a preview for the kind.</li>
+  <li>In the <strong>Mounts</strong> column, click <strong>+ Add mount</strong>, type a name and pick a real directory with <strong>Browse...</strong>. That makes a virtual root. Click a mountpoint to browse it; hover it to see the real directories behind it, or right-click it to unmount one. A root the scene uses but nothing mounts is listed in yellow with a <strong>Set...</strong> button.</li>
+  <li>The explorer shows the selected mountpoint one folder at a time. Click a folder to open it, and use the up arrow or the path crumbs above to go back, all the way to the mountpoint. Each item shows its name under its icon, and textures show a thumbnail.</li>
+  <li>Use <strong>Load Asset...</strong> to bring in a texture, animation clip, audio clip or <code>.ttf</code> font. The explorer lists everything the editor knows about: assets some entity references, plus those you loaded explicitly (so an unused import still shows up). Right-click an asset you loaded to <strong>Remove from list</strong>.</li>
+  <li>Click a file to open the <strong>Asset Inspector</strong>: absolute path, mountpoint and file size, plus a preview for the kind.</li>
 </ol>
+{shot("asset-inspector-texture.png", "The Asset Inspector showing a texture")}
 {kv_table([
     ("Texture", "Pixel dimensions and a scaled thumbnail."),
     ("Audio clip", "Duration, size, and working Play/Pause and Rewind controls."),
@@ -242,9 +246,9 @@ TASKS = [
 {shot("create-clip-modal.png", "The Create Clip modal with a grid overlay")}
 <h2>Steps</h2>
 <ol>
-  <li>Open the spritesheet texture in the <a href="import-and-inspect-assets.html">Asset Inspector</a> and click <strong>Create Clip</strong>.</li>
-  <li>In the modal, set <strong>Rows</strong> and <strong>Columns</strong>. A bigger thumbnail shows a live grid overlay and the computed per-cell pixel size.</li>
-  <li>Click <strong>Apply</strong>. The editor writes <code>&lt;image&gt;_clip.toml</code> next to the texture (creating or overwriting it), then registers and selects it as a new animation clip.</li>
+  <li>Right-click the spritesheet texture in the <a href="import-and-inspect-assets.html">asset explorer</a> and choose <strong>Create Clip</strong>.</li>
+  <li>In the modal, give the clip a <strong>Name</strong> (letters, digits, <code>_</code> and <code>-</code>) and set <strong>Rows</strong> and <strong>Columns</strong>. Margins, spacing, row- or column-major order, the first frame and the frame count are optional. A bigger thumbnail shows a live grid overlay and the computed per-cell pixel size.</li>
+  <li>Click <strong>Apply</strong>. The editor writes <code>&lt;image&gt;_clip_&lt;name&gt;.toml</code> next to the texture (a name that already exists is refused), then registers and selects it as a new animation clip.</li>
   <li>Add an <code>Animation</code> component to an entity, choose the clip path and frame duration, and press <strong>Play</strong>.</li>
 </ol>
 {shot("animation-clip-preview.png", "The animation clip preview cycling through frames")}
