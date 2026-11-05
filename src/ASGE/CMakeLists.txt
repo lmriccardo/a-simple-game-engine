@@ -31,6 +31,7 @@ add_library(ASGE STATIC
     Core/Math/LinearAlgebra/Vector2.cpp
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
+    Core/Math/Geometry/Angle.cpp
     Core/Math/Interpolation/CatmullRomSpline.cpp
     Core/Math/Geometry/Rect.cpp
     Core/Math/Interpolation/Easing.cpp
