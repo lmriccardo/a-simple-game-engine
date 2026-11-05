@@ -10,18 +10,25 @@
 namespace asge::game::components
 {
 
-/** @brief The set of shapes a Collider can be — see AabbOverlap/PenetrationVector (Collision.hpp). */
+/**
+ * @brief The set of shapes a Collider can be.
+ *
+ * See AabbOverlap/PenetrationVector (Collision.hpp).
+ */
 using ColliderShape = std::variant<math::Rect, math::Circle>;
 
 /**
- * @brief A bitmask identifying/filtering which Colliders can collide with
- *        which — see Collider::m_Layer/m_Mask and LayersCanCollide.
+ * @brief A bitmask identifying/filtering which Colliders can collide with which.
+ *
+ * See Collider::m_Layer/m_Mask and LayersCanCollide.
  */
 using CollisionLayer = std::uint32_t;
 
 /**
- * @brief How CollisionSystem react to an overlap
- *        involving this Collider.
+ * @brief How CollisionSystem reacts to an overlap involving this Collider.
+ *
+ * Unknown ignores the pair, Trigger only raises events and Solid pushes the
+ * bodies apart.
  */
 enum class ResolutionType
 {
@@ -45,9 +52,9 @@ struct Collider
     CollisionLayer m_Layer{1u};                            // which layer(s) this Collider itself occupies
     CollisionLayer m_Mask{ ~CollisionLayer{0} };           // which layer(s) this Collider is willing to collide with
 
-    signals::LazySignal<ecs::Entity> m_OnEnter{};
-    signals::LazySignal<ecs::Entity> m_OnExit{};
-    signals::LazySignal<ecs::Entity> m_OnStay{};
+    signals::LazySignal<ecs::Entity> m_OnEnter{}; // Per-entity enter listeners, created on first OnEnter()
+    signals::LazySignal<ecs::Entity> m_OnExit{};  // Per-entity exit listeners, created on first OnExit()
+    signals::LazySignal<ecs::Entity> m_OnStay{};  // Per-entity stay listeners, created on first OnStay()
 
     /**
      * @brief Signal fired with the *other* entity when something starts overlapping this Trigger.
@@ -57,17 +64,26 @@ struct Collider
      */
     signals::Signal<ecs::Entity>& OnEnter() noexcept;
 
-    /** @brief Same as OnEnter(), fired when an overlap with this Trigger ends (including when the other entity was destroyed). */
+    /**
+     * @brief Same as OnEnter(), fired when an overlap with this Trigger ends.
+     *
+     * Also fires when the other entity was destroyed.
+     */
     signals::Signal<ecs::Entity>& OnExit () noexcept;
 
-    /** @brief Same as OnEnter(), fired every call the overlap with this Trigger continues; created only when requested. */
+    /**
+     * @brief Same as OnEnter(), fired every call the overlap with this Trigger continues.
+     *
+     * Created only when requested.
+     */
     signals::Signal<ecs::Entity>& OnStay () noexcept;
 };
 
 /**
- * @brief Whether two Colliders are even willing to collide with each other,
- *        before either's actual shape/overlap is looked at — see
- *        systems::CollisionSystem, which skips a pair entirely on false.
+ * @brief Whether two Colliders are even willing to collide with each other.
+ *
+ * Decided before either's actual shape/overlap is looked at — see
+ * systems::CollisionSystem, which skips a pair entirely on false.
  *
  * Mutual: inA's layer must be in inB's mask *and* inB's layer must be in
  * inA's mask, so one side excluding the other is enough to skip the pair
@@ -75,7 +91,11 @@ struct Collider
  */
 bool LayersCanCollide( Collider const& inA, Collider const& inB ) noexcept;
 
-/** @brief Returns True if input collider has unknown resolution type */
+/**
+ * @brief Returns true if the collider's resolution type is Unknown.
+ *
+ * CollisionSystem ignores such colliders entirely.
+ */
 bool HasUnknownResolution( Collider const& inCollider ) noexcept;
 
 }
@@ -83,18 +103,35 @@ bool HasUnknownResolution( Collider const& inCollider ) noexcept;
 namespace asge::game::scene
 {
 
-/** @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask) -- the per-entity trigger signals (m_OnEnter/m_OnExit/m_OnStay) are runtime-only and never serialized. */
+/**
+ * @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask).
+ *
+ * The per-entity trigger signals (m_OnEnter/m_OnExit/m_OnStay) are
+ * runtime-only and never serialized.
+ */
 template<>
 struct Serializer<components::Collider>
 {
     using T = components::Collider;
-    static constexpr str::StringView kTableName = "Collider";
+    static constexpr str::StringView kTableName = "Collider"; // Name of the TOML subtable (de)serialization uses
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             components::Collider inCollider,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

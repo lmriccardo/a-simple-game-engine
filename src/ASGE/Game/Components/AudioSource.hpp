@@ -47,8 +47,9 @@ struct AudioSource
 };
 
 /**
- * @brief Marks inAudioSource to (re)start playing right away, looping per
- *        inLoop once it runs out of queued audio.
+ * @brief Marks inAudioSource to (re)start playing right away.
+ *
+ * It loops per inLoop once it runs out of queued audio.
  *
  * Safe to call whether inAudioSource is stopped, already playing, or still
  * mid-loop -- AudioSystem always honors the request on its next pass by
@@ -58,22 +59,30 @@ struct AudioSource
  */
 void PlayAudioSource( AudioSource& inAudioSource, bool inLoop = true ) noexcept;
 
-/** @brief Marks inAudioSource to stop; AudioSystem clears its queued audio on the next pass. */
+/**
+ * @brief Marks inAudioSource to stop.
+ *
+ * AudioSystem clears its queued audio on the next pass.
+ */
 void StopAudioSource( AudioSource& inAudioSource ) noexcept;
 
 /**
- * @brief Releases inAudioSource's stream back to inDevice's pool and clears
- *        m_Stream, so a later PlayAudioSource creates a fresh one instead of
- *        reusing it.
+ * @brief Releases inAudioSource's stream back to inDevice's pool.
  *
- * A no-op returning BoolResult::Ok() if inAudioSource has no stream yet.
+ * Also clears m_Stream, so a later PlayAudioSource creates a fresh one instead
+ * of reusing it. A no-op returning BoolResult::Ok() if inAudioSource has no stream yet.
  * Unlike StopAudioSource, this actually frees the underlying pool slot for
  * other sources to use -- reach for it when a source is done for good (e.g.
  * its entity is being destroyed), not just paused.
  */
 BoolResult DetachAudioSource( audio::AudioDevice& inDevice, AudioSource& inAudioSource ) noexcept;
 
-/** @brief Set the audio source gain/volume */
+/**
+ * @brief Sets the audio source gain/volume.
+ *
+ * Stored in m_Volume and applied to the stream when AudioSystem next
+ * (re)starts the source.
+ */
 void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept;
 
 }
@@ -82,26 +91,38 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_VirtualClipPath only — which clip to play, not the
- *        live playback state. FromToml leaves m_Clip null and
- *        m_ResolvedVirtualClipPath empty (both resolved later by
- *        AssetManager::ResolveAssets, same as Sprite::m_Texture) and
- *        m_Stream/m_Playing/m_Loop/m_Volume at AudioSource's in-code
- *        defaults; a scene file describes what an entity plays, not
- *        whether a previous run happened to be mid-playback.
+ * @brief Round-trips m_VirtualClipPath only — which clip to play, not the live playback state.
+ *
+ * FromToml leaves m_Clip null and m_ResolvedVirtualClipPath empty (both
+ * resolved later by AssetManager::ResolveAssets, same as Sprite::m_Texture)
+ * and m_Stream/m_Playing/m_Loop/m_Volume at AudioSource's in-code defaults; a
+ * scene file describes what an entity plays, not whether a previous run
+ * happened to be mid-playback.
  */
 template<>
 struct Serializer<components::AudioSource>
 {
-    static constexpr str::StringView kTableName = "AudioSource";
+    static constexpr str::StringView kTableName = "AudioSource"; // Name of the TOML subtable (de)serialization uses
 
     using T = components::AudioSource;
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

@@ -44,7 +44,12 @@ struct Sprite
     std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
 
-/** @brief The three corners IRenderer::DrawTextureAffine maps a texture's (0,0)/(w,0)/(0,h) onto. */
+/**
+ * @brief The three corners IRenderer::DrawTextureAffine maps a texture onto.
+ *
+ * They are the images of the texture's (0,0), (w,0) and (0,h) points, which
+ * is enough to describe any rotation or scale.
+ */
 struct SpriteDrawCorners
 {
     math::Float2 m_Origin; // texture's top-left (0,0) maps here
@@ -53,8 +58,10 @@ struct SpriteDrawCorners
 };
 
 /**
- * @brief inDstRect's own corners (as utils::SpriteGetDstRect returns), rotated
- *        inRotationRadians around inDstRect's center.
+ * @brief Returns inDstRect's own corners, rotated around inDstRect's center.
+ *
+ * The rect is the one utils::SpriteGetDstRect returns, and the angle is
+ * inRotationRadians.
  *
  * Positive inRotationRadians rotates clockwise on screen (screen-space Y
  * grows downward); inRotationRadians == 0 reproduces inDstRect's unrotated
@@ -74,13 +81,25 @@ struct Serializer<components::Sprite>
 {
     using T = components::Sprite;
 
-    static constexpr str::StringView kTableName = "Sprite";
+    static constexpr str::StringView kTableName = "Sprite"; // Name of the TOML subtable (de)serialization uses
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             components::Sprite inSprite,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

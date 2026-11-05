@@ -38,19 +38,36 @@ struct Transform
 namespace asge::game::scene
 {
 
-/** @brief Round-trips the three m_Local* fields and m_Locked only -- see the struct's own doc comment for why m_World* and m_Dirty are runtime-only. */
+/**
+ * @brief Round-trips the three m_Local* fields and m_Locked only.
+ *
+ * See the struct's own doc comment for why m_World* and m_Dirty are
+ * runtime-only.
+ */
 template<>
 struct Serializer<components::Transform>
 {
     using T = components::Transform;
 
-    static constexpr str::StringView kTableName = "Transform";
+    static constexpr str::StringView kTableName = "Transform"; // Name of the TOML subtable (de)serialization uses
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             components::Transform inTransform,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

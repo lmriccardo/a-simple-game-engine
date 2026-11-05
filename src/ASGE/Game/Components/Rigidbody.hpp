@@ -7,14 +7,16 @@ namespace asge::game::components
 {
 
 /**
- * @brief Marks an entity as physics-driven: subject to gravity and
- * collision-resolution push-out, as opposed to entities that merely have
- * a Velocity (e.g. scripted movement) without being a physics body.
+ * @brief Marks an entity as physics-driven.
+ *
+ * Subject to gravity and collision-resolution push-out, as opposed to
+ * entities that merely have a Velocity (e.g. scripted movement) without being
+ * a physics body.
  */
 struct Rigidbody
 {
-    float m_Mass{1.0f};
-    bool  m_AffectedByGravity{true};
+    float m_Mass{1.0f};            // Relative mass; the heavier body yields less in a push-out
+    bool  m_AffectedByGravity{true}; // Whether GravitySystem accelerates this entity downwards
 };
 
 }
@@ -22,18 +24,34 @@ struct Rigidbody
 namespace asge::game::scene
 {
 
-/** @brief Round-trips both fields (m_Mass, m_AffectedByGravity) -- Rigidbody carries no runtime-only state beyond them. */
+/**
+ * @brief Round-trips both fields (m_Mass, m_AffectedByGravity).
+ *
+ * Rigidbody carries no runtime-only state beyond them.
+ */
 template<>
 struct Serializer<components::Rigidbody>
 {
     using T = components::Rigidbody;
-    static constexpr str::StringView kTableName = "Rigidbody";
+    static constexpr str::StringView kTableName = "Rigidbody"; // Name of the TOML subtable (de)serialization uses
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             components::Rigidbody inRigidbody,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
