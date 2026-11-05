@@ -229,7 +229,7 @@ public:
      *
      * On success the other's value is converted with T's constructor; on
      * failure the same ErrorInfo is carried over. Lets a function return a
-     * Result<U> where a Result<T> is expected.
+     * `Result<U>` where a `Result<T>` is expected.
      */
     template<typename Other>
     requires is_result_v<std::decay_t<Other>> &&

@@ -112,6 +112,7 @@ public:
      * failure at a given height is exact, so the result here is too, not a
      * heuristic. Fails with whatever error Load itself hits at 1px (e.g. the
      * file isn't a valid font at all) rather than a "too big" one.
+     * @param inPath Font file to measure.
      * @param inUpperBound Highest pixel height the search considers;
      *        defaults to the atlas's own height, since no font can
      *        plausibly still fit beyond that.

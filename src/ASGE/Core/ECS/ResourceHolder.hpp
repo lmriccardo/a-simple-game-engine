@@ -20,7 +20,7 @@ public:
  * @brief Owns Registry's single instance of resource type T.
  *
  * Purely a typed box IResourceHolder can be stored/erased through — Registry
- * is the only intended caller (via SetResource<T>/GetResource<T>), which
+ * is the only intended caller (via `SetResource<T>`/`GetResource<T>`), which
  * `static_cast`s back to ResourceHolder<T> using the id it already tracked.
  */
 template<typename T>

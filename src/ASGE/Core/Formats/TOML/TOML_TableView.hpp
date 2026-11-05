@@ -61,7 +61,7 @@ public:
     /**
      * @brief Sets an array-valued key on this table, creating it if it doesn't exist yet.
      *
-     * Elements may themselves be std::vector<U> for a nested TOML array.
+     * Elements may themselves be `std::vector<U>` for a nested TOML array.
      */
     template<typename T>
     TOMLTableView& SetArray( std::string const& inKey, std::vector<T> const& inValues )

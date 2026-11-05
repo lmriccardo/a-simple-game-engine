@@ -22,7 +22,7 @@ namespace asge::ecs
  * ComponentPool<T> per component type used so far (created lazily on the
  * first AddComponent<T>) and ties them together: DestroyEntity() strips
  * the entity from every pool, and View<Ts...>() iterates entities that
- * have every one of Ts across their pools. SetResource<T>/GetResource<T>
+ * have every one of Ts across their pools. `SetResource<T>`/`GetResource<T>`
  * hold at most one T not tied to any Entity — e.g. shared/global state a
  * system needs but that isn't itself part of the world.
  */

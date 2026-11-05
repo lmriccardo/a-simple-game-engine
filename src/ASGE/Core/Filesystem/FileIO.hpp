@@ -32,7 +32,7 @@ BoolResult WriteText( Path const& inPath, str::String const& inContent );
 /**
  * @brief Copies (overwriting an existing destination) a file.
  *
- * Named Copy (not CopyFile) because Windows headers #define CopyFile to
+ * Named Copy (not CopyFile) because Windows headers `#define` CopyFile to
  * CopyFileA/W. Returns an error Result if the source cannot be read or the
  * destination cannot be written.
  */
