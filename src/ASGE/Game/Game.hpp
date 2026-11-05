@@ -27,31 +27,56 @@ namespace asge::game
 namespace details
 {
 
-/** @brief The non-template surface Application drives: per-frame update/render plus system events. */
+/**
+ * @brief The non-template surface Application drives.
+ *
+ * Per-frame update/render plus system events.
+ */
 class IGame
 {
 public:
+    /**
+     * @brief Virtual so a game can be destroyed through the interface.
+     */
     virtual ~IGame() = default;
 
-    /** @brief Advances the game by one frame. */
+    /**
+     * @brief Advances the game by one frame.
+     *
+     * Called by Application once per loop iteration with the frame's delta
+     * time in seconds and the current input snapshot.
+     */
     virtual void Update(float inDeltaTime, input::InputState const& inInput) = 0;
 
-    /** @brief Draws the current frame. */
+    /**
+     * @brief Draws the current frame.
+     *
+     * Called by Application after Update(), with the renderer to draw into.
+     */
     virtual void Render(video::IRenderer& inRenderer) = 0;
 
-    /** @brief Called for every system event Application's loop pumps. */
+    /**
+     * @brief Called for every system event Application's loop pumps.
+     *
+     * Window, keyboard and mouse events arrive here before the next Update().
+     */
     virtual void OnSystemEvent(event::SystemEvent const& inSysEvent) = 0;
 
-    /** @brief True once a state has requested a clean shutdown via TransitionKind::Quit. */
+    /**
+     * @brief True once a state has requested a clean shutdown via TransitionKind::Quit.
+     *
+     * Application polls it to end its loop.
+     */
     [[nodiscard]] virtual bool QuitRequested() const noexcept = 0;
 };
 
 }
 
 /**
- * @brief Base for a concrete game: owns the asset/scene/VFS stack and a
- *        state::GameStateStack<TStateId>, and wires state Update() requests
- *        into stack transitions.
+ * @brief Base for a concrete game.
+ *
+ * Owns the asset/scene/VFS stack and a state::GameStateStack<TStateId>, and
+ * wires state Update() requests into stack transitions.
  *
  * A derived class implements CreateState() (one case per TStateId) and calls
  * SetInitialState() from its own constructor to seed the stack. States are
@@ -67,21 +92,25 @@ public:
     using Transition = state::Transition<TStateId>;
 
 protected:
-    filesystem::VirtualFileSystem m_Vfs;
-    asset::AssetManager           m_Assets{ m_Vfs };
-    scene::SceneManager           m_SceneManager{ m_Vfs };
-    video::IRenderer&             m_Renderer;
-    audio::AudioDevice&           m_AudioDev;
-    project::ProjectData          m_Project;
+    filesystem::VirtualFileSystem m_Vfs;                  // Virtual mounts assets and scenes resolve through
+    asset::AssetManager           m_Assets{ m_Vfs };      // Loads and caches assets
+    scene::SceneManager           m_SceneManager{ m_Vfs };// The active scene and its registry
+    video::IRenderer&             m_Renderer;             // Renderer assets are resolved against; not owned
+    audio::AudioDevice&           m_AudioDev;             // Audio device AudioSystem plays on; not owned
+    project::ProjectData          m_Project;              // The project last loaded by LoadProject()
 
 private:
-    state::GameStateStack<TStateId>                           m_States;
-    std::unordered_map<TStateId, std::unique_ptr<StateType>>  m_StateCache;
-    bool                                                      m_QuitRequested{false};
-    systems::PhysicsState                                     m_PhysicsState;
-    float                                                     m_LastDeltaTime{0.0f};
+    state::GameStateStack<TStateId>                           m_States;           // The live state stack
+    std::unordered_map<TStateId, std::unique_ptr<StateType>>  m_StateCache;       // Owns every state created so far
+    bool                                                      m_QuitRequested{false}; // Set by a Quit transition
+    systems::PhysicsState                                     m_PhysicsState;     // Trigger bookkeeping kept across frames
+    float                                                     m_LastDeltaTime{0.0f}; // Delta time of the last Update(), for Render()
 
-    /** @brief Returns inId's cached state, creating it via CreateState() on first use. */
+    /**
+     * @brief Returns inId's cached state, creating it via CreateState() on first use.
+     *
+     * The returned reference stays valid until InvalidateState() evicts it.
+     */
     StateType& GetOrCreateState( TStateId inId )
     {
         auto it = m_StateCache.find( inId );
@@ -93,8 +122,10 @@ private:
     }
 
     /**
-     * @brief Applies one state's requested Push/Pop/Replace to m_States, or
-     *        flags a Quit for QuitRequested(); TransitionKind::None is a no-op.
+     * @brief Applies one state's requested transition.
+     *
+     * Push/Pop/Replace change m_States, Quit flags QuitRequested(), and
+     * TransitionKind::None is a no-op.
      */
     void ApplyTransition( Transition const& inTransition )
     {
@@ -114,29 +145,54 @@ private:
     }
 
 protected:
-    /** @brief Constructs the state for inId; called at most once per id unless InvalidateState() runs. */
+    /**
+     * @brief Constructs the state for inId.
+     *
+     * Called at most once per id unless InvalidateState() runs.
+     */
     virtual std::unique_ptr<StateType> CreateState( TStateId inId ) = 0;
 
-    /** @brief Seeds the stack with inId as the bottom (and initially only) state. */
+    /**
+     * @brief Seeds the stack with inId as the bottom (and initially only) state.
+     *
+     * Call it from the derived constructor, once CreateState() can be used.
+     */
     void SetInitialState( TStateId inId ) noexcept
     {
         m_States.PushRaw( &GetOrCreateState( inId ) );
     }
 
-    /** @brief Evicts inId's cached state, so the next transition to it calls CreateState() again. */
+    /**
+     * @brief Evicts inId's cached state, so the next transition to it calls CreateState() again.
+     *
+     * Do not evict a state that is currently on the stack.
+     */
     void InvalidateState( TStateId inId ) noexcept
     {
         m_StateCache.erase( inId );
     }
 
 public:
+    /**
+     * @brief Creates a game that draws with inRenderer and plays on inAudioDev.
+     *
+     * Both are held by reference and must outlive the game. Also sets an
+     * empty UIHitList resource on the scene registry, which opts the scene
+     * into UI hover and click detection.
+     */
     explicit Game( video::IRenderer& inRenderer, audio::AudioDevice& inAudioDev ) noexcept
     : m_Renderer( inRenderer ), m_AudioDev( inAudioDev )
     {
         m_SceneManager.GetRegistry().SetResource( resources::UIHitList{} ); // opts the scene into UI hover/click detection
     }
 
-    /** @brief Loads inPath as the active scene and resolves its Sprite/Animation assets through m_Renderer. */
+    /**
+     * @brief Loads inPath as the active scene and resolves its assets through m_Renderer.
+     *
+     * inPath is a virtual path. Sprite, animation, audio and font assets are
+     * resolved right away; a failed scene load is returned and nothing is
+     * resolved.
+     */
     BoolResult LoadScene( str::String const& inPath ) noexcept
     {
         auto result = m_SceneManager.LoadScene( inPath );
@@ -146,10 +202,12 @@ public:
     }
 
     /**
-     * @brief Loads a `.asgeproject` written by the editor: mounts its VFS entries (skipping
-     *        missing directories with a warning) and loads its main scene (the first listed one
-     *        if none is set) as the active one. Fails with SceneError::EmptyProject if the
-     *        project lists no scenes.
+     * @brief Loads a `.asgeproject` written by the editor.
+     *
+     * Mounts its VFS entries (skipping missing directories with a warning)
+     * and loads its main scene (the first listed one if none is set) as the
+     * active one. Fails with SceneError::EmptyProject if the project lists no
+     * scenes.
      */
     BoolResult LoadProject( filesystem::Path const& inPath ) noexcept
     {
@@ -177,14 +235,20 @@ public:
         return result;
     }
 
-    /** @brief The project last passed to LoadProject(); empty before that. */
+    /**
+     * @brief The project last passed to LoadProject().
+     *
+     * Empty before that.
+     */
     [[nodiscard]] project::ProjectData const& GetProject() const noexcept { return m_Project; }
 
     /**
-     * @brief Runs one frame over the active scene's registry in the only valid order:
-     *        UI interaction, the states' own Update() (game logic), gravity, movement,
-     *        path following, UI layout, one transform propagation, collisions, triggers,
-     *        audio. States never call these systems themselves.
+     * @brief Runs one frame over the active scene's registry in the only valid order.
+     *
+     * UI interaction, the states' own Update() (game logic), gravity,
+     * movement, path following, UI layout, one transform propagation,
+     * collisions, triggers, audio. States never call these systems
+     * themselves.
      */
     void Update( float inDeltaTime, input::InputState const& inInput ) override
     {
@@ -206,8 +270,11 @@ public:
     }
 
     /**
-     * @brief Resolves pending assets, clears with the visible state's ClearColor(), lets states
-     *        draw RenderBackground(), draws the scene through RenderPipeline, then states' Render().
+     * @brief Draws one frame.
+     *
+     * Resolves pending assets, clears with the visible state's ClearColor(),
+     * lets states draw RenderBackground(), draws the scene through
+     * RenderPipeline, then calls the states' Render().
      */
     void Render( video::IRenderer& inRenderer ) override
     {
@@ -219,24 +286,42 @@ public:
         m_States.Render( inRenderer );
     }
 
+    /**
+     * @brief Forwards the event to the topmost state.
+     */
     void OnSystemEvent( event::SystemEvent const& inSysEvent ) override
     {
         m_States.OnSystemEvent( inSysEvent );
     }
 
+    /**
+     * @brief True once a state has requested a Quit transition.
+     */
     [[nodiscard]] bool QuitRequested() const noexcept override { return m_QuitRequested; }
 };
 
-/** @brief Detects (via derived-to-base conversion) whether TDerived derives from some Game<T>. */
+/**
+ * @brief Detects (via derived-to-base conversion) whether a type derives from some Game<T>.
+ *
+ * Declared only, for use in an unevaluated context by is_game.
+ */
 template<typename T>
 std::true_type is_game_helper( Game<T> const volatile& );
 std::false_type is_game_helper( ... );
 
-/** @brief True (as a type) if TDerived publicly derives from some Game<T> — see is_game_v. */
+/**
+ * @brief True (as a type) if TDerived publicly derives from some Game<T>.
+ *
+ * See is_game_v.
+ */
 template<typename TDerived>
 using is_game = decltype( is_game_helper( std::declval<TDerived&>() ) );
 
-/** @brief True if TDerived publicly derives from some Game<T> — the constraint Application<TGame> requires. */
+/**
+ * @brief True if TDerived publicly derives from some Game<T>.
+ *
+ * The constraint Application<TGame> requires.
+ */
 template<typename TDerived>
 inline constexpr bool is_game_v = is_game<TDerived>::value;
 
