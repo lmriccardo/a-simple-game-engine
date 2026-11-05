@@ -28,7 +28,9 @@ namespace _internal
 {
 
 /**
- * Key values can either be: strings, doubles, integer, boolean, array
+ * @brief A TOML value: forward declaration of the wrapper around ValueType.
+ *
+ * Key values can either be: strings, doubles, integer, boolean, array.
  */
 struct TOMLValue;
 
@@ -41,8 +43,12 @@ using ValueType = std::variant<
     std::vector<TOMLValue>
 >;
 
+/**
+ * @brief Prints a value in TOML syntax (strings quoted, arrays bracketed).
+ */
 std::ostream& operator<<( std::ostream& oss, ValueType const& inValue ) noexcept;
 
+// A ValueType that may recursively hold an array of itself (nested arrays).
 struct TOMLValue : public ValueType
 {
     using ValueType::ValueType;
@@ -54,7 +60,14 @@ struct TOMLValue : public ValueType
 
 template<typename T> using VectorResult = Result<std::vector<T>>;
 
-template<typename T> 
+/**
+ * @brief Converts a TOML array into a std::vector<T>, checking every element's type.
+ *
+ * Fails with ConfError::TomlTypeMismatch (or TomlExpectedNestedArray when T is
+ * itself a vector and an element is not an array), naming the offending index.
+ * Nested vectors are converted recursively.
+ */
+template<typename T>
 VectorResult<T> ToTypedVector(std::vector<TOMLValue> const& inVec)
 {
     std::vector<T> outResult;
@@ -119,17 +132,24 @@ enum class StringType {
  */
 struct TOMLTypeInfo
 {
-    ElementType s_Type = ElementType::Null;
+    ElementType s_Type = ElementType::Null;                // The value's TOML kind
     StringType  s_StringType = StringType::Invalid; // meaningful only if s_Type == String
     std::vector<TOMLTypeInfo> s_ElementInfo{}; // meaningful only if s_Type == Array
 };
 
+// One key's value together with the formatting info needed to write it back.
 struct TOMLEntry
 {
-    ValueType    s_Value;
-    TOMLTypeInfo s_Info;
+    ValueType    s_Value; // The parsed value
+    TOMLTypeInfo s_Info;  // How the value was written in the source
 };
 
+/**
+ * @brief The TOMLTypeInfo to use for a newly created value of type T.
+ *
+ * Strings default to the basic ("...") style, vectors recurse into their
+ * element type, and an unsupported T fails to compile.
+ */
 template<typename T>
 TOMLTypeInfo DefaultTypeInfoFor() noexcept
 {
@@ -173,15 +193,42 @@ DEF_TO_NATIVE_TYPE( ElementType::Double, double )
 template<ElementType EType>
 using to_native_type_t = typename to_native_type<EType>::type;
 
+/**
+ * @brief Guesses the TOML kind of a value from its text (quotes, digits, brackets...).
+ */
 ElementType DetectType( std::string_view inLine ) noexcept;
+
+/**
+ * @brief Removes a trailing `# comment` from a line, ignoring # inside quoted strings.
+ */
 std::string_view StripComment( std::string_view inLine ) noexcept;
+
+/**
+ * @brief Parses the value text of a `key = value` line into an entry.
+ *
+ * inStream is only needed for multi-line strings, which continue on the
+ * following lines; pass nullptr when parsing a single array element.
+ * Returns an error Result on malformed text.
+ */
 Result<TOMLEntry> ParseValue(std::istringstream* inStream, std::string_view inLine);
 
 // ----------------------- PARSING ARRAYS -----------------------
 
-
+/**
+ * @brief Splits the inside of an array on top-level commas.
+ *
+ * Commas nested in inner arrays or inside strings do not split.
+ */
 std::vector<std::string_view> SplitArrayElements( std::string_view inStr );
+
+/**
+ * @brief Parses an `[a, b, ...]` array value, including nested arrays.
+ */
 Result<TOMLEntry> ParseArray( std::string_view inLine );
+
+/**
+ * @brief Builds a homogeneous array of the native type for EType from element texts.
+ */
 template<ElementType EType>
 ValueType BuildArray( std::vector<std::string_view>& inElements )
 {
@@ -197,34 +244,103 @@ ValueType BuildArray( std::vector<std::string_view>& inElements )
 
 /** @brief Parses a TOML string value, including empty basic and literal strings. */
 Result<str::String> ParseString( std::istringstream* inStream, std::string_view inLine );
+
+/**
+ * @brief Tells which of the four TOML string styles inSv starts with (or Invalid).
+ */
 StringType DetectStringType( std::string_view inSv ) noexcept;
+
+/**
+ * @brief Resolves TOML escape sequences (\n, \t, \uXXXX, ...) in inSv.
+ *
+ * isMultiline additionally honors the line-ending backslash of multi-line
+ * basic strings.
+ */
 std::string ProcessEscape( std::string_view inSv, bool isMultiline=false ) noexcept;
+
+/**
+ * @brief Extracts the content of a one-line basic or literal string.
+ *
+ * Literal strings (isLiteral) are returned raw; basic ones have their
+ * escapes processed.
+ */
 std::string ParseBasicString( std::string_view inLine, bool isLiteral=false ) noexcept;
+
+/**
+ * @brief Extracts a triple-quoted string, reading more lines from inStream until it closes.
+ */
 std::string ParseMultiLineString( std::istringstream& inStream,
     std::string_view inSv, bool isLiteral=false
 );
 
 // ----------------------- SERIALIZING VALUES -----------------------
 
+/**
+ * @brief Escapes inRaw so it can be written inside a TOML basic string.
+ */
 std::string EscapeForOutput( std::string_view inRaw, bool isMultiline ) noexcept;
+
+/**
+ * @brief Writes one value in TOML syntax, using inInfo to keep its original style.
+ */
 void WriteValue( std::ostream& oss, ValueType const& inValue, TOMLTypeInfo const& inInfo ) noexcept;
 
 // ----------------------- PARSING TABLES UTILITIES -----------------------
 
-struct PathSegment 
+struct PathSegment
 {
-    std::string_view name;
-    std::optional<std::size_t> index;
+    std::string_view name;             // Table name part of the segment
+    std::optional<std::size_t> index;  // Array-of-tables index from `name[index]`, if any
 };
 
+/**
+ * @brief Splits a path segment such as `entity[2]` into its name and optional index.
+ */
 PathSegment ParseSegment(std::string_view inSegment);
 
+/**
+ * @brief Splits a dotted table path at its first dot into (head, rest).
+ *
+ * Without a dot the whole path is the head and the rest is empty.
+ */
 std::pair<std::string_view, std::string_view> SplitTablePath( std::string_view inTableName ) noexcept;
+
+/**
+ * @brief Finds the direct subtable called inName (the last one for an array of tables).
+ *
+ * Returns TomlNoSubtable if there is none.
+ */
 Result<table_pointer> FindSubTable( table_pointer inParent, std::string const& inName ) noexcept;
+
+/**
+ * @brief Const-parent overload of FindSubTable.
+ */
 Result<table_pointer> FindSubTable( table_const_pointer inParent, std::string const& inName ) noexcept;
+
+/**
+ * @brief Finds element inIndex of the array of tables called inName.
+ *
+ * Returns TomlNoSubtable if the array or the index does not exist.
+ */
 Result<table_pointer> FindSubTableAt( table_const_pointer inParent, std::string const& inName, std::size_t inIndex ) noexcept;
+
+/**
+ * @brief Walks a dotted path from inRoot, creating every missing table along the way.
+ *
+ * inType is the type given to a table that has to be created at the end of the path.
+ */
 table_pointer FindOrCreateTable( table_pointer inRoot, std::string_view inTableName, TableType inType);
+
+/**
+ * @brief Handles a `[[name]]` line: appends a new table to that array of tables.
+ *
+ * Returns the new table, so following key/value lines are added to it.
+ */
 table_pointer ParseArrayTable( table_pointer inRoot, std::string_view inLine );
+
+/**
+ * @brief Handles a `[name]` line: finds or creates that table and returns it.
+ */
 table_pointer ParseTable( table_pointer inRoot, std::string_view inLine );
 
 class Table : public std::enable_shared_from_this<Table>
@@ -239,22 +355,38 @@ private:
     std::weak_ptr<Table> m_ParentTable; // The parent table
     TableType m_Type; // Table type wrt arrays of tables
 
+    /**
+     * @brief The dotted path from the root to this table, used for headers when printing.
+     */
     std::string GetAbsoluteName() const noexcept;
+
+    /**
+     * @brief Writes this table and its subtables as TOML text.
+     *
+     * Key/value pairs come first, then each subtable under its own header.
+     */
     void PrintTable(std::ostream& oss) const noexcept;
 
     /**
-     * @brief Resolves a dotted path to the TOMLEntry of an already-existing
-     *        key, recursing into subtables exactly like Get<T>/GetTable do.
-     *        Shared by Set/SetTypedArray so the path-walking logic (and its
-     *        error codes) lives in exactly one place.
+     * @brief Resolves a dotted path to the TOMLEntry of an already-existing key.
+     *
+     * Recurses into subtables exactly like Get<T>/GetTable do. Shared by
+     * Set/SetTypedArray so the path-walking logic (and its error codes) lives
+     * in exactly one place.
      */
     Result<TOMLEntry*> FindEntry( std::string const& inPath ) noexcept;
 public:
+    /**
+     * @brief Creates an empty table called inName with the given array-of-tables kind.
+     */
     Table(std::string const& inName, TableType inType)
     : m_Name( inName ), m_Type( inType )
     {}
 
-    Table(TableType inType) : m_Name( "" ), m_Type( inType ) {}
+    /**
+     * @brief Creates an empty unnamed table (typically the document root).
+     */
+    Table(TableType inType) : m_Name( "" ), m_Type( inType )
 
     /* Delete all copy and move constructors and ass. operators */
     Table(Table const&)            = delete;
@@ -264,21 +396,59 @@ public:
 
     ~Table() = default;
 
+    /**
+     * @brief Adds a new key with its entry.
+     *
+     * Fails with TomlAlreadyExistingKey if the key is already there; use Set
+     * to change an existing value.
+     */
     BoolResult AddKvPair( std::string const& inKey, TOMLEntry inEntry ) noexcept;
+
+    /**
+     * @brief Appends inChild to this table's subtables.
+     */
     void AddSubTable( pointer inChild ) noexcept;
+
+    /**
+     * @brief Records the parent table (held weakly, so no ownership cycle).
+     */
     void SetParent( std::weak_ptr<Table> inParent ) noexcept;
 
+    /**
+     * @brief Prints the table as TOML text; the output parses back to the same data.
+     */
     inline friend std::ostream& operator<<( std::ostream& oss, Table const& inTable ) noexcept
     {
         inTable.PrintTable( oss );
         return oss;
     }
 
+    /**
+     * @brief The direct subtables, in document order.
+     */
     std::vector<pointer> const& GetSubTables() const noexcept;
+
+    /**
+     * @brief The table's own name (empty for the root).
+     */
     std::string const& GetName() const noexcept;
 
+    /**
+     * @brief Finds a subtable by dotted path, honoring `name[index]` segments.
+     *
+     * Read-only: never creates anything. Returns TomlNoSubtable if a segment
+     * does not exist.
+     */
     Result<pointer> GetTable( std::string const& inPath ) const noexcept;
 
+    /**
+     * @brief Reads the value at a dotted key path as type RetType.
+     *
+     * Returns a pointer into the table, valid until the table is modified.
+     * Fails with TomlNoAttribute for a missing key or TomlTypeMismatch when
+     * the stored value is of another type. RetType must be one of ValueType's
+     * alternatives.
+     */
     template<typename RetType>
     requires asge::_internal::traits::variant_contains_v<RetType, ValueType>
     Result<RetType const*> Get( std::string const& inPath ) const
@@ -316,6 +486,12 @@ public:
         return Result<RetType const*>::Ok(std::get_if<RetType>(&kvIt->second.s_Value));
     }
 
+    /**
+     * @brief Reads an array key as a std::vector<T>.
+     *
+     * A missing key (or one that is not an array) yields an empty vector
+     * rather than an error; an element of the wrong type is an error.
+     */
     template<typename T>
     VectorResult<T> GetTypedArray( std::string const& inPath ) const
     {
@@ -325,9 +501,11 @@ public:
     }
 
     /**
-     * @brief Overwrites the value of an already-existing key, preserving its
-     *        original TOMLTypeInfo (string subtype, numeric kind, ...). Does
-     *        not create missing keys or tables.
+     * @brief Overwrites the value of an already-existing key.
+     *
+     * Preserves its original TOMLTypeInfo (string subtype, numeric kind, ...).
+     * Does not create missing keys or tables, and fails with TomlTypeMismatch
+     * if T differs from the stored type.
      */
     template<typename T>
     requires asge::_internal::traits::variant_contains_v<T, ValueType>
@@ -347,9 +525,10 @@ public:
     }
 
     /**
-     * @brief Overwrites an already-existing array-valued key with new
-     *        elements, reusing the array's existing per-element TOMLTypeInfo
-     *        (or a sensible default if the existing array was empty).
+     * @brief Overwrites an already-existing array-valued key with new elements.
+     *
+     * Reuses the array's existing per-element TOMLTypeInfo (or a sensible
+     * default if the existing array was empty).
      */
     template<typename T>
     BoolResult SetTypedArray( std::string const& inPath, std::vector<T> const& inValues ) noexcept
@@ -390,11 +569,11 @@ public:
     }
 
     /**
-     * @brief Like Set(), but creates the key with a default TOMLTypeInfo if
-     *        it doesn't exist yet, instead of failing. Only vivifies the
-     *        leaf key, not missing intermediate tables (a dotted inKey into
-     *        a missing subtable still errors) — pair with FindOrCreateTable
-     *        for that, as TOMLBuilder does.
+     * @brief Like Set(), but creates the key if it doesn't exist yet.
+     *
+     * The new key gets a default TOMLTypeInfo. Only vivifies the leaf key, not
+     * missing intermediate tables (a dotted inKey into a missing subtable still
+     * errors) — pair with FindOrCreateTable for that, as TOMLBuilder does.
      */
     template<typename T>
     requires asge::_internal::traits::variant_contains_v<T, ValueType>
@@ -411,10 +590,11 @@ public:
     }
 
     /**
-     * @brief Like SetTypedArray(), but creates the key if it doesn't exist
-     *        yet. Seeds an empty array entry with the right per-element
-     *        shape and delegates the actual fill (nested-array recursion
-     *        included) to SetTypedArray, so that logic lives in one place.
+     * @brief Like SetTypedArray(), but creates the key if it doesn't exist yet.
+     *
+     * Seeds an empty array entry with the right per-element shape and
+     * delegates the actual fill (nested-array recursion included) to
+     * SetTypedArray, so that logic lives in one place.
      */
     template<typename T>
     BoolResult SetOrCreateTypedArray( std::string const& inKey, std::vector<T> const& inValues ) noexcept
@@ -431,10 +611,18 @@ public:
 
 }
 
-/** @brief Parses a raw TOML document already in memory. */
+/**
+ * @brief Parses a raw TOML document already in memory.
+ *
+ * Returns the root table, or the first syntax error found.
+ */
 Result<table_pointer> Parse(std::string const& inRaw) noexcept;
 
-/** @brief Reads inPath's contents and parses them as TOML -- ReadText's error propagates as-is on a read failure. */
+/**
+ * @brief Reads inPath's contents and parses them as TOML.
+ *
+ * A read failure is returned as ReadText's own error, unchanged.
+ */
 Result<table_pointer> Parse(filesystem::Path const& inPath) noexcept;
 
 }
