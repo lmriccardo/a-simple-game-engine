@@ -22,7 +22,7 @@ namespace _internal
 template<SystemEventType SType>
 struct CommonEvent
 {
-    static constexpr SystemEventType tag = SType;
+    static constexpr SystemEventType tag = SType; // Compile-time tag of the owning event set
 
     EventType     s_Type;      // The type of the event
     std::uint64_t s_Timestamp; // Timestamp in nanoseconds
@@ -113,17 +113,33 @@ class SystemEvent
 {
     _internal::_SystemEvent m_Event; // The actual emitted event
 public:
+    /**
+     * @brief Creates an empty event holding an UnknownEvent.
+     *
+     * The variant's first alternative is default-constructed, so IsUnknown()
+     * is true until a real event is assigned.
+     */
     SystemEvent() = default;
 
+    /**
+     * @brief Wraps one concrete event (Quit, Window, Keyboard, Mouse*...).
+     *
+     * Accepts any type satisfying IsSystemEvent, by forwarding reference,
+     * and stores it in the variant. Non-event types fail the constraint at
+     * compile time, so there is no implicit conversion from arbitrary data.
+     */
     template<_internal::IsSystemEvent EventT>
     SystemEvent( EventT&& inEvent ) noexcept
         : m_Event{ std::forward<EventT>( inEvent ) }
     {}
 
     /**
-     * @brief Retrieves a pointer to the specific event type.
-     * @tparam EventT The event type to extract.
-     * @return Pointer to EventT, or nullptr if type mismatch.
+     * @brief Retrieves a pointer to the stored event if it is an EventT.
+     *
+     * The non-throwing accessor: returns nullptr when the variant holds a
+     * different event type, so it doubles as the type test in
+     * `if ( auto const* e = ev.TryGet<KeyboardEvent>() )`. The pointer
+     * refers into this SystemEvent and dies with it.
      */
     template<_internal::IsSystemEvent EventT>
     EventT const* TryGet() const noexcept
@@ -132,8 +148,11 @@ public:
     }
 
     /**
-     * @brief Unsafe accessor: returns the stored event, throws if EventT doesn't match.
-     * @tparam EventT The event type to extract.
+     * @brief Returns the stored event as EventT, throwing on a type mismatch.
+     *
+     * Throws std::bad_variant_access if the variant holds another event type,
+     * so only use it once the type is already known. Prefer TryGet when the
+     * event kind is not guaranteed.
      */
     template<_internal::IsSystemEvent EventT>
     EventT const& Get() const
@@ -141,10 +160,20 @@ public:
         return std::get<EventT>( m_Event );
     }
 
-    /** @brief True if this SystemEvent holds no recognized event. */
+    /**
+     * @brief True if this SystemEvent holds no recognized event.
+     *
+     * True for a default-constructed event and for platform events that
+     * the translation layer could not classify.
+     */
     bool IsUnknown() const noexcept;
 
-    /** @brief Shared instance of the unknown/no-op event. */
+    /**
+     * @brief Shared instance of the unknown/no-op event.
+     *
+     * Returned by reference to a single static, so callers can compare
+     * or hand it out without constructing one. It must not be modified.
+     */
     static SystemEvent const& GetUnknown() noexcept;
 };
 
@@ -154,7 +183,10 @@ namespace _internal
 
 /**
  * @brief Translates a platform event (e.g. SDL) into an asge SystemEvent.
- * @param inPlftEvent Pointer to the platform event, or nullptr.
+ *
+ * inPlftEvent points at the platform's native event (an SDL_Event for the
+ * SDL backend) and may be nullptr, which yields the unknown event. Types the
+ * backend does not map are also returned as unknown instead of failing.
  */
 SystemEvent ProcessEvent( void const* inPlftEvent ) noexcept;
 
