@@ -37,7 +37,14 @@ private:
     ApplicationConfig const& m_Config;         // The application configuration
     std::optional<TGame>     m_Game;           // The owned game instance; empty if video init failed
 
-    /** @brief Feeds one SDL event into input tracking and the game, or stops the loop on a quit event. */
+    /**
+     * @brief Feeds one SDL event into input tracking and the game.
+     *
+     * The raw SDL event is translated to a SystemEvent, handed to the
+     * InputSystem first so polling state is current, then forwarded to the
+     * game's OnSystemEvent. A QuitEvent is consumed here instead: it clears
+     * m_Running and is not forwarded to the game. Assumes m_Game is engaged.
+     */
     void processEvent(SDL_Event const* inSdlEventPtr) noexcept
     {
         event::SystemEvent sysEvent = event::_internal::ProcessEvent( inSdlEventPtr );
@@ -55,9 +62,13 @@ private:
 
 public:
     /**
-     * @brief Initializes the video system from inConfig, then constructs TGame
-     *        from its renderer plus inGameArgs. Logs and leaves m_Game empty
-     *        if video init fails, rather than throwing.
+     * @brief Initializes video and audio from inConfig, then constructs TGame.
+     *
+     * TGame is built in place from the VideoSystem's renderer, the audio
+     * device and inGameArgs. If video or audio init fails the error is logged
+     * and m_Game stays empty instead of throwing, which makes Run() refuse to
+     * start. The target FPS from inConfig is applied just before construction.
+     * inConfig is held by reference and must outlive the Application.
      */
     template<typename ... Args>
     explicit Application(ApplicationConfig const& inConfig, Args&& ... inGameArgs)
@@ -76,9 +87,13 @@ public:
     }
 
     /**
-     * @brief Runs the main loop (poll events, update, render, present) until
-     *        an OS quit event arrives or a state requests one via
-     *        TransitionKind::Quit.
+     * @brief Runs the main loop until a quit event or a game-requested quit.
+     *
+     * Each iteration ticks the clock, rolls the input snapshot, drains the SDL
+     * event queue, updates the game with the delta time and input state, then
+     * renders and presents. The loop ends on an OS quit event or when the game
+     * reports QuitRequested() (e.g. a state returning TransitionKind::Quit).
+     * Logs an error and returns immediately if construction left m_Game empty.
      */
     void Run()
     {
