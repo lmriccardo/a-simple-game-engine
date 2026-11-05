@@ -25,9 +25,8 @@ namespace asge::mem
  *
  * This class does not store any data itself — it only manages indices. It
  * is meant to be paired with an external, equally-sized container (e.g. a
- * sparse array) that the returned indices key into.
- *
- * @tparam N Number of allocatable slots; fixed at compile time.
+ * sparse array) that the returned indices key into. N, the number of
+ * allocatable slots, is fixed at compile time.
  */
 template<std::size_t N>
 class FreeList
@@ -42,6 +41,9 @@ class FreeList
     std::size_t m_FreeHead{0}; // The current free position
 
 public:
+    /**
+     * @brief Links all N slots into the free chain, lowest index first.
+     */
     FreeList()
     {
         for ( std::size_t ii = 0; ii < N; ++ii )
@@ -60,8 +62,8 @@ public:
     /**
      * @brief Claims the next free index and marks it in use.
      *
-     * @return The claimed index on success, or an error with
-     *         @c std::errc::result_out_of_range if all @c N slots are in use.
+     * Returns the claimed index, or an error with
+     * @c std::errc::result_out_of_range if all @c N slots are in use.
      */
     [[nodiscard]] Result<std::size_t> Get() noexcept
     {
@@ -81,8 +83,7 @@ public:
     /**
      * @brief Checks whether an index is currently claimed via @c Get().
      *
-     * @param inIndex Index to check.
-     * @return @c true if @c inIndex is in range and currently in use.
+     * Out-of-range indices are simply reported as not used.
      */
     [[nodiscard]] bool IsUsed(std::size_t inIndex) const noexcept
     {
@@ -92,10 +93,9 @@ public:
     /**
      * @brief Releases a previously-claimed index back to the free-list.
      *
-     * @param inIndex Index previously returned by @c Get().
-     * @return Ok on success, or an error with @c std::errc::invalid_argument
-     *         if @c inIndex is out of range, was never claimed, or has
-     *         already been freed.
+     * Returns an error with @c std::errc::invalid_argument if @c inIndex is
+     * out of range, was never claimed, or has already been freed. The freed
+     * index is the next one Get() hands out.
      */
     BoolResult Free(std::size_t inIndex) noexcept
     {

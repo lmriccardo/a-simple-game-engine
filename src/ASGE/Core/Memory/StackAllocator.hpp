@@ -32,7 +32,7 @@ template<std::size_t N>
 class StackAllocator
 {
 private:
-    /** Per-allocation metadata written just before each object in the buffer. */
+    // Per-allocation metadata written just before each object in the buffer.
     struct Header
     {
         std::size_t s_PrevTop;            // m_Top value before this allocation.
@@ -43,13 +43,23 @@ private:
     std::array<std::byte, N> m_Buffer; // Raw byte buffer.
     std::size_t              m_Top{0}; // Offset one past the last live byte.
 
-    /** Rounds @p inOffset up to the next multiple of @p inAlign (must be a power of two). */
+    /**
+     * @brief Rounds inOffset up to the next multiple of inAlign.
+     *
+     * inAlign must be a power of two; there is no check.
+     */
     static std::size_t
     Align(std::size_t inOffset, std::size_t inAlign) noexcept
     {
         return (inOffset + inAlign - 1) & ~(inAlign - 1);
     }
 
+    /**
+     * @brief Finds the Header of the allocation that inPtr points at.
+     *
+     * Reads the back pointer stored just before the object, which holds the
+     * header's offset in the buffer.
+     */
     Header* GetHeader(void* inPtr) noexcept
     {
         std::byte*   objBytes    = reinterpret_cast<std::byte*>(inPtr);
@@ -62,7 +72,14 @@ public:
     using size_type   = std::size_t;
     using marker_type = size_type; // A marker is the raw buffer offset at a point in time.
 
+    /**
+     * @brief Creates an empty allocator over its own N byte buffer.
+     */
     StackAllocator()  = default;
+
+    /**
+     * @brief Destroys every live object (see Reset()).
+     */
     ~StackAllocator() { Reset(); }
 
     StackAllocator(const StackAllocator&)            = delete;
@@ -74,12 +91,9 @@ public:
      * @brief Allocates and constructs an object of type T in the buffer.
      *
      * Computes the correct alignment for the Header, back pointer, object,
-     * and footer before placing them sequentially in the buffer.
-     *
-     * @tparam T    Type of object to allocate.
-     * @tparam Args Constructor argument types.
-     * @param  inArgs Arguments forwarded to T's constructor.
-     * @return Pointer to the constructed object, or nullptr if the buffer is exhausted.
+     * and footer before placing them sequentially in the buffer, then
+     * constructs T from inArgs. Returns nullptr, with the buffer unchanged,
+     * if the whole block does not fit in the remaining space.
      */
     template<typename T, typename... _Args>
     requires std::is_constructible_v<T, _Args...>
@@ -114,18 +128,20 @@ public:
         return obj;
     }
 
-    /** Returns the current top offset as a rewind checkpoint. */
+    /**
+     * @brief Returns the current top offset as a rewind checkpoint.
+     *
+     * Pass it to FreeToMarker() to destroy everything allocated afterwards.
+     */
     [[nodiscard]] marker_type GetMarker() const noexcept { return m_Top; }
 
     /**
      * @brief Destroys and frees the most recently allocated object.
      *
      * Calls T's destructor and restores m_Top to its value before this allocation.
-     * Must be called in strict LIFO order — asserts if inPtr is not the most
-     * recent allocation.
-     *
-     * @tparam T   Type of the object to free.
-     * @param inPtr Pointer previously returned by Alloc<T>(). Must not be nullptr.
+     * Must be called in strict LIFO order. inPtr must come from Alloc<T>() and
+     * not be null. The debug assert only catches pointers already below the
+     * top, so it does not reliably detect every out-of-order free.
      */
     template<typename T>
     void Free( T* inPtr ) noexcept
@@ -144,9 +160,8 @@ public:
      * @brief Destroys all objects allocated after the given marker and rolls back the stack.
      *
      * Walks the allocation chain backwards from m_Top to inMarker, calling each
-     * object's destructor in reverse allocation order.
-     *
-     * @param inMarker A value previously returned by GetMarker(). Must be <= m_Top.
+     * object's destructor in reverse allocation order. inMarker must come from
+     * GetMarker() and not exceed the current top (asserted in debug builds).
      */
     void FreeToMarker(marker_type inMarker) noexcept
     {
@@ -167,12 +182,34 @@ public:
         }
     }
 
-    /** Destructs all live objects and resets the allocator to its initial empty state. */
+    /**
+     * @brief Destructs all live objects and resets the allocator to its initial empty state.
+     */
     void Reset() noexcept { FreeToMarker(0); }
 
+    /**
+     * @brief Bytes in use, including headers, padding and footers.
+     */
     [[nodiscard]] size_type Used() const noexcept { return m_Top; }
+
+    /**
+     * @brief Bytes left in the buffer.
+     *
+     * An allocation also needs room for its metadata, so a request of this
+     * many bytes of payload will not fit.
+     */
     [[nodiscard]] size_type Remaining() const noexcept { return N - m_Top; }
+
+    /**
+     * @brief True when every byte is used.
+     *
+     * Only exact fullness counts: Alloc may already fail well before that.
+     */
     [[nodiscard]] size_type Full() const noexcept { return m_Top == N; }
+
+    /**
+     * @brief True while nothing is allocated.
+     */
     [[nodiscard]] size_type Empty() const noexcept { return m_Top == 0; }
 };
 
