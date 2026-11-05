@@ -21,21 +21,24 @@ namespace asge::filesystem
  */
 class VirtualFileSystem
 {
-    /** @brief One virtual-root-to-real-directory binding in the mount table. */
+    // One virtual-root-to-real-directory binding in the mount table.
     struct MountInfo
     {
         str::String m_VirtualRoot;  // Normalized virtual mount point (no leading/trailing slashes)
         Path m_RealDirectory;       // Canonical real directory the mount point resolves to
     };
-    std::vector<MountInfo> m_Mounts{};
+    std::vector<MountInfo> m_Mounts{}; // Mounts in registration (and resolution) order
 public:
-    /** @brief A virtual path split into its root (first segment) and the remainder after it. */
+    // A virtual path split into its root (first segment) and the remainder after it.
     struct SplitPath
     {
         str::String m_Root; // The path's first segment, e.g. "textures"
         str::String m_Rest; // Everything after the root's slash, or empty if there wasn't one
     };
 
+    /**
+     * @brief Creates a file system with no mounts.
+     */
     VirtualFileSystem() = default;
 
     VirtualFileSystem( VirtualFileSystem const& ) = delete;
@@ -67,6 +70,10 @@ public:
 
     /**
      * @brief Removes a previously registered mount-point/real-path binding.
+     *
+     * Both arguments are normalized like in Mount(), so they match whichever
+     * spelling was used at mount time. Returns VfsError::NotMounted if no such
+     * binding exists.
      */
     [[nodiscard]] BoolResult Unmount( str::StringCRef inMntPoint, str::StringCRef inRealPath ) noexcept;
 
@@ -77,21 +84,25 @@ public:
      */
     [[nodiscard]] bool Exists( str::StringCRef inVirtualPath ) const noexcept;
 
-    /** @brief Returns the currently registered mounts, in resolution order. */
+    /**
+     * @brief Returns the currently registered mounts, in resolution order.
+     *
+     * The reference is invalidated by the next Mount() or Unmount().
+     */
     [[nodiscard]] std::vector<MountInfo> const& ListMounts() const noexcept;
 
     /**
-     * @brief Splits a virtual path into its root and the remainder after it —
-     *        the same split Resolve() does internally to find a matching
-     *        mount, exposed for callers that just need the root.
+     * @brief Splits a virtual path into its root and the remainder after it.
      *
-     * Normalizes @p inVirtualPath first, same as Mount()/Resolve(), so
+     * The same split Resolve() does internally to find a matching mount,
+     * exposed for callers that just need the root. Normalizes @p inVirtualPath first, same as Mount()/Resolve(), so
      * equivalent forms (slashes, leading/trailing whitespace) split the same.
      */
     [[nodiscard]] static SplitPath SplitRoot( str::StringCRef inVirtualPath ) noexcept;
 
     /**
      * @brief Checks whether @p inRoot is currently a registered mount point.
+     *
      * @p inRoot is normalized the same way as a Mount() call's mount point.
      */
     [[nodiscard]] bool IsMounted( str::StringCRef inRoot ) const noexcept;
