@@ -23,10 +23,16 @@ struct QuadBlockHeader
     std::uint32_t       m_Used { 0 };       // Slots filled in this block; only a node's last block is partial
 };
 
+/**
+ * @brief One node of a QuadTree: its bounds, its four children and its element blocks.
+ *
+ * Type-independent (elements are reached through the block headers), so the
+ * QuadTree template does not bloat it. A node is a leaf until subdivided.
+ */
 struct QuadNode
 {
-    static constexpr std::uint16_t s_MaxNofElements = 16;
-    static constexpr std::uint16_t s_MaxDepth       = 10;
+    static constexpr std::uint16_t s_MaxNofElements = 16; // Elements a leaf holds before it splits
+    static constexpr std::uint16_t s_MaxDepth       = 10; // Deepest level a node may be split to
 
     math::Rect                  m_Bounds; // The bounds of the current quadtree node
     std::array<QuadNode*, 4>    m_Children; // The 4 quadrant subdivision
@@ -36,11 +42,16 @@ struct QuadNode
     std::uint32_t       m_Count { 0 };          // Total number of elements in the node
     std::uint16_t       m_Depth { 0 };          // Distance from the root (root is 0)
     
+    /**
+     * @brief Creates an empty leaf covering inBounds at depth inDepth.
+     */
     QuadNode( math::Rect const& inBounds, std::uint16_t inDepth = 0 );
     QuadNode( QuadNode const& ) = delete;
     QuadNode& operator=( QuadNode const& ) = delete;
 
-    /** @brief True if the node has not been subdivided into children. */
+    /**
+     * @brief True if the node has not been subdivided into children.
+     */
     bool IsLeaf() const noexcept;
 };
 

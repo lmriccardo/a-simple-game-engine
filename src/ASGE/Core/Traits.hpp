@@ -8,6 +8,7 @@
 namespace asge::_internal::traits
 {
 
+// True for any std::vector<T, Alloc> specialization (see is_vector_v).
 template<typename T>
 struct is_vector : std::false_type {};
 
@@ -17,6 +18,7 @@ struct is_vector<std::vector<T, Alloc>> : std::true_type {};
 template<typename T>
 constexpr bool is_vector_v = is_vector<T>::value;
 
+// True if T is one of the alternatives of the std::variant `Variant` (see variant_contains_v).
 template<typename T, typename Variant>
 struct variant_contains;
 
@@ -28,9 +30,11 @@ struct variant_contains<T, std::variant<Ts...>>
 template<typename T, typename Variant>
 constexpr bool variant_contains_v = variant_contains<T, Variant>::value;
 
+// Always false but dependent on the type, for static_assert in an unreachable if-constexpr branch.
 template<typename>
 inline constexpr bool always_false_v = false;
 
+// Turns std::tuple<Ts...> into std::variant<Ts...>; any other type is left as it is.
 template<typename T>
 struct tuple_to_variant { using type = T; };
 
@@ -40,6 +44,7 @@ struct tuple_to_variant<std::tuple<Ts...>> { using type = std::variant<Ts...>; }
 template<typename T>
 using tuple_to_variant_t = tuple_to_variant<T>::type;
 
+// True if every element type of the std::tuple is the same (see tuple_is_homogeneous_v).
 template<typename Tuple>
 struct tuple_is_homogeneous;
 

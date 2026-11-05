@@ -18,9 +18,9 @@ constexpr auto has_nullptr_impl(const Tuple& t, std::index_sequence<Is...>)
 /**
  * @brief Checks whether any element of a tuple of pointers is null.
  *
- * @tparam Ts Element types; each must be a pointer or std::nullptr_t.
- * @param t Tuple to inspect.
- * @return true if at least one element compares equal to nullptr.
+ * Every element type must be a pointer or std::nullptr_t (enforced by a
+ * requires clause). Returns true if at least one element compares equal to
+ * nullptr; an empty tuple gives false.
  */
 template<typename... Ts>
 constexpr bool has_nullptr( const std::tuple<Ts...>& t )
