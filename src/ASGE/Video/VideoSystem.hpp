@@ -29,15 +29,12 @@ public:
     inline ~VideoSystem() { Shutdown(); }
 
     /**
-     * @brief Initialize the video system
+     * @brief Initialize the video system.
      *
-     * Brings up the given graphics backend, then creates the main window
-     * (inTitle, inWidth x inHeight pixels) and its renderer. On any failure
-     * it shuts down whatever was already created and returns an error Result.
-     * inResizable defaults to false; asge-editor is the one caller that opts
-     * in. The renderer's viewport is NOT kept in sync with a resizable
-     * window, so that caller must update it on SDL_EVENT_WINDOW_RESIZED
-     * (see IRenderer::SetViewport).
+     * Brings up the graphics backend, then creates the main window (inTitle,
+     * inWidth x inHeight) and its renderer; on failure it shuts down what it made.
+     * inResizable defaults to false. The viewport is not kept in sync with a
+     * resizable window: update it on SDL_EVENT_WINDOW_RESIZED (IRenderer::SetViewport).
      */
     BoolResult Initialize(std::string const& inTitle, int inWidth, int inHeight,
         GraphicsBackend inBackend = GraphicsBackend::SDL, bool inResizable = false);

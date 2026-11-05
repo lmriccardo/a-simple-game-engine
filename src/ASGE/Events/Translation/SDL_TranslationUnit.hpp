@@ -75,6 +75,7 @@ inline void __processCommonEvent_SDL(
  * of *inSysEvent.
  */
 void __processQuit    ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
+
 /**
  * @brief Translates an SDL window event into inSysEvent.
  *
@@ -82,6 +83,7 @@ void __processQuit    ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) n
  * (for a resize, the new width and height). Replaces *inSysEvent.
  */
 void __processWindow  ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
+
 /**
  * @brief Translates an SDL key up/down event into inSysEvent.
  *
@@ -89,6 +91,7 @@ void __processWindow  ( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) n
  * and the down/repeat flags. Replaces *inSysEvent.
  */
 void __processKeyboard( SystemEvent* inSysEvent, SDL_Event const& inSdlEvent ) noexcept;
+
 /**
  * @brief Translates an SDL motion/button/wheel event into inSysEvent.
  *

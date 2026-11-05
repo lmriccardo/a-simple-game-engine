@@ -42,7 +42,14 @@ public:
      */
     virtual ~SDLTexture();
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     SDLTexture(SDLTexture const&) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     SDLTexture& operator=(SDLTexture const&) = delete;
 
     /**

@@ -48,8 +48,14 @@ public:
      */
     virtual ~SDLRenderer();
 
-    // Renderer is not copyiable at all
+    /**
+     * @brief Copy construction is disabled.
+     */
     SDLRenderer(SDLRenderer const& inOther) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     SDLRenderer& operator=(SDLRenderer const& inOther) = delete;
 
     /**

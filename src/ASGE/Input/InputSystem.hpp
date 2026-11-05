@@ -16,6 +16,11 @@ class InputSystem
 {
     InputState m_State; // Input state fed by the frame loop
 public:
+    /**
+     * @brief Default constructor.
+     *
+     * Defaulted; members take their default values.
+     */
     InputSystem() = default;
 
     /**

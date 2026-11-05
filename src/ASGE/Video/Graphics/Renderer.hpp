@@ -14,6 +14,9 @@ namespace asge::video
 class IRenderer
 {
 public:
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~IRenderer() = default;
 
     /**
@@ -130,15 +133,12 @@ public:
         math::Float2 const& inRight, math::Float2 const& inDown) const noexcept = 0;
 
     /**
-     * @brief Draw a string of text using a baked Font and its uploaded atlas texture
+     * @brief Draws a string of text using a baked Font and its uploaded atlas texture.
      *
-     * Decodes inText as UTF-8 and renders characters from a fixed baked ASCII
-     * range (see Font::Load); other codepoints are skipped. A '
-' returns the
-     * pen to inPosition's x and moves down one font line. inTexture must be the
-     * atlas uploaded from inFont.GetAtlasImage(); inPosition is the
-     * baseline-relative pen start. Tints the shared atlas via inTexture's color
-     * mod before drawing, so all glyphs in this call share inColor.
+     * Decodes inText as UTF-8 and renders the fixed baked ASCII range (see
+     * Font::Load); other codepoints are skipped. A newline returns the pen to
+     * inPosition's x and moves down one line. inTexture must be the atlas uploaded
+     * from inFont.GetAtlasImage(); all glyphs share inColor.
      */
     virtual void DrawString( str::StringView inText, media::Font const& inFont,
         ITexture & inTexture, math::Float2 const& inPosition,

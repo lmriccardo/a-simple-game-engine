@@ -8,6 +8,9 @@ namespace asge::video
 class IWindow
 {
 public:
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~IWindow() = default;
 
     /**

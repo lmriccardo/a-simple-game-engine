@@ -17,6 +17,11 @@ enum class VideoError : std::uint8_t
     GetWindowSizeFailed
 };
 
+/**
+ * @brief Human-readable message for a VideoError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(VideoError e) noexcept
 {
     switch (e)

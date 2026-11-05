@@ -41,8 +41,14 @@ public:
      */
     virtual ~SDLWindow();
 
-    // Window is not copyiable at all
+    /**
+     * @brief Copy construction is disabled.
+     */
     SDLWindow(SDLWindow const& inOther) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     SDLWindow& operator=(SDLWindow const& inOther) = delete;
 
     /**

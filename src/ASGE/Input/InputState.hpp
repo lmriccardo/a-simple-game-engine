@@ -31,13 +31,46 @@ class InputState
     math::Float2 m_PreviousMousePos {}; // Mouse position at the last NewFrame()
     math::Float2 m_ScrollDelta      {}; // Wheel scroll accumulated this frame
 public:
+    /**
+     * @brief Default constructor.
+     *
+     * Defaulted; members take their default values.
+     */
     InputState() = default;
 
+    /**
+     * @brief Copy constructor.
+     *
+     * Defaulted; copies each member.
+     */
     InputState( InputState const& ) = default;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     InputState( InputState && ) = default;
+
+    /**
+     * @brief Copy assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     InputState& operator=( InputState const& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     InputState& operator=( InputState && ) = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~InputState() = default;
 
     /**

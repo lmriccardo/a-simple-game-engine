@@ -10,11 +10,33 @@ namespace asge::video
 class ITexture
 {
 public:
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~ITexture() = default;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     ITexture(ITexture const&) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     ITexture& operator=(ITexture const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     ITexture(ITexture&&) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     ITexture& operator=(ITexture&&) = default;
 
     /**
@@ -56,6 +78,11 @@ public:
     virtual Result<graphics::RGBA_Color> GetColorMod() const noexcept = 0;
 
 protected:
+    /**
+     * @brief Default constructor.
+     *
+     * Defaulted; members take their default values.
+     */
     ITexture() = default;
 };
 
