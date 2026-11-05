@@ -16,7 +16,7 @@ namespace asge::math
 namespace _internal
 {
 
-/* Concepts constraining to numeric types (not boolean types) */
+// Constrains to numeric types (integral or floating point, but not bool).
 template<typename T>
 concept Numeric = 
     (    std::is_integral_v<std::remove_cvref_t<T>> 
@@ -43,6 +43,14 @@ struct rebind_derived_trait<VecN<N, T, void>>
 
 }
 
+/**
+ * @brief A fixed-size N-component numeric vector, the base of Vec2 and Vec3.
+ *
+ * Stores N values of type T inline and provides element access, component-wise
+ * arithmetic and scalar scaling. Derived is the CRTP type that operators
+ * return (a Vec2 stays a Vec2); leave it void to use VecN directly. Mixed
+ * element types are allowed, and the result takes their common type.
+ */
 template<std::size_t N, _internal::Numeric T, typename Derived = void>
 class VecN
 {
@@ -85,34 +93,57 @@ public:
     using iterator = pointer;
     using const_iterator = const_pointer;
 
+    /**
+     * @brief Leaves the components uninitialized.
+     */
     VecN() = default;
 
+    /**
+     * @brief Builds the vector from exactly N numbers, each converted to T.
+     */
     template<_internal::Numeric... Us>
     requires (sizeof...(Us) == N)
     constexpr VecN( Us... inValues ) : m_Vector{ static_cast<T>(inValues)... }
     {}
 
+    /**
+     * @brief Builds a vector with every component set to inValue.
+     */
     explicit VecN( value_type const inValue )
     {
         Fill( inValue );
     }
 
+    /**
+     * @brief Builds the vector from a brace list; missing components are 0.
+     *
+     * Extra values past the N-th are ignored.
+     */
     constexpr VecN( std::initializer_list<T> inList )
     {
         Zeros(); // First set all elements to zero
         std::copy_n( inList.begin(), std::min( N, inList.size() ), m_Vector );
     }
 
-    VecN( VecN const& inOther ) noexcept 
+    /**
+     * @brief Copies the components of inOther.
+     */
+    VecN( VecN const& inOther ) noexcept
     {
         std::copy(inOther.m_Vector, inOther.m_Vector + N, m_Vector);
     }
 
+    /**
+     * @brief Moves the components of inOther (a plain copy for numbers).
+     */
     VecN( VecN&& inOther ) noexcept
     {
         std::move(inOther.m_Vector, inOther.m_Vector + N, m_Vector);
     }
 
+    /**
+     * @brief Copy-assigns the components of inOther.
+     */
     VecN& operator=( VecN const& inOther ) noexcept
     {
         if (this != &inOther) 
@@ -123,6 +154,9 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Move-assigns the components of inOther (a plain copy for numbers).
+     */
     VecN& operator=( VecN&& inOther ) noexcept
     {
         if (this != &inOther) 
@@ -133,39 +167,59 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Virtual so a VecN can be deleted through a base pointer.
+     *
+     * Note this adds a vtable pointer to every vector.
+     */
     virtual ~VecN() = default;
 
-    /* Returns a vector with all zeros of the corresponding type */
+    /**
+     * @brief Returns a vector with all zeros of the corresponding type.
+     */
     static VecN Zero() noexcept
     {
         return VecN( static_cast<value_type>(0) );
     }
 
-    /* Fill the entire vector with the input value */
+    /**
+     * @brief Fills the entire vector with the input value.
+     */
     constexpr void Fill( value_type const inValue ) noexcept
     {
         std::fill(m_Vector, m_Vector + N, inValue);
     }
 
-    /* Fills the vector with zeros of the corresponding type */
+    /**
+     * @brief Fills the vector with zeros of the corresponding type.
+     */
     constexpr void Zeros() noexcept
     {
         Fill(static_cast<value_type>(0));
     }
 
-    /* Returns the size of the current array */
+    /**
+     * @brief Returns the number of components (always N).
+     */
     constexpr size_type Size() const noexcept
     {
         return N;
     }
 
-    /* Checks whether the vector contains any element */
+    /**
+     * @brief True if the vector has no components, which only happens for N == 0.
+     */
     constexpr bool Empty() const noexcept
     {
         return Size() == 0;
     }
 
-    /* Returns the element at given position. Throws if out of bound */
+    /**
+     * @brief Returns the element at the given position.
+     *
+     * Bounds-checked: throws std::out_of_range if inPos >= N. Note that Vec2
+     * and Vec3 make this operator private; use their x()/y()/z() accessors.
+     */
     constexpr reference operator[]( size_type inPos )
     {
         if ( inPos >= Size() )
@@ -176,7 +230,11 @@ public:
         return m_Vector[inPos];
     }
 
-    /* Returns a const-reference to the element at given position. Throws if OOB */
+    /**
+     * @brief Returns a const reference to the element at the given position.
+     *
+     * Bounds-checked: throws std::out_of_range if inPos >= N.
+     */
     constexpr const_reference operator[](size_type inPos) const
     {
         if ( inPos >= Size() )
@@ -187,19 +245,32 @@ public:
         return m_Vector[inPos];
     }
 
-    /* Returns the pointer to the internal data */
+    /**
+     * @brief Returns a pointer to the N contiguous components.
+     */
     pointer Data() noexcept
     {
         return m_Vector;
     }
 
-    /* Returns the constant pointer to the internal data */
+    /**
+     * @brief Returns a const pointer to the N contiguous components.
+     */
     const_pointer Data() const noexcept
     {
         return m_Vector;
     }
 
-    /* Sums two input vector N */
+    /**
+     * @brief Component-wise sum of two vectors.
+     *
+     * The result keeps this vector's derived type, with the common type of
+     * the two element types as its elements. The other arithmetic operators
+     * below follow the same rule: component-wise for a vector operand,
+     * applied to every component for a scalar operand, and the compound
+     * forms (+=, -=, ...) update this vector in place and return it.
+     * Integer division by zero is undefined behavior.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto operator+( VecN<N,U,OtherDerived> const& inOther ) const noexcept
     {
@@ -303,6 +374,12 @@ public:
     }
 };
 
+/**
+ * @brief Squared Euclidean length of a vector.
+ *
+ * Avoids the square root, so it is the cheap choice for comparing lengths.
+ * For integer vectors it can overflow T.
+ */
 template<std::size_t N, _internal::Numeric T, typename Derived>
 T LengthSquared( VecN<N, T, Derived> const& inVector ) noexcept
 {
@@ -314,6 +391,11 @@ T LengthSquared( VecN<N, T, Derived> const& inVector ) noexcept
     return result;
 }
 
+/**
+ * @brief Euclidean length of a vector.
+ *
+ * Returns T for floating-point vectors and double for integer ones.
+ */
 template<std::size_t N, _internal::Numeric T, typename Derived>
 auto Length( VecN<N, T, Derived> const& inVector ) noexcept
 {
@@ -321,14 +403,24 @@ auto Length( VecN<N, T, Derived> const& inVector ) noexcept
     return static_cast<RetType>( std::sqrt( static_cast<double>(LengthSquared( inVector )) ) );
 }
 
+/**
+ * @brief Distance between two points, i.e. the length of their difference.
+ *
+ * Both vectors must have the same type.
+ */
 template<std::size_t N, _internal::Numeric T, typename Derived>
 auto Distance( VecN<N, T, Derived> const& inVec1, VecN<N, T, Derived> const& inVec2 ) noexcept
 {
     return Length( inVec2 - inVec1 );
 }
 
-/** @brief Returns `inVector` scaled to unit length. Dividing by a zero
- *  length (a zero vector) yields a vector of NaNs/infinities. */
+/**
+ * @brief Returns `inVector` scaled to unit length.
+ *
+ * Dividing by a zero length (a zero vector) yields a vector of
+ * NaNs/infinities. Meant for floating-point vectors: an integer vector
+ * truncates back to integers.
+ */
 template<std::size_t N, _internal::Numeric T, typename Derived>
 Derived NormalizeVec( VecN<N, T, Derived> const& inVector ) noexcept
 {

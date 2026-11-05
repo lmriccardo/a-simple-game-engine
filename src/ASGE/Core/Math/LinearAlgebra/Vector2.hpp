@@ -5,6 +5,12 @@
 namespace asge::math
 {
 
+/**
+ * @brief A two-component vector of numeric type T, with named x() and y() accessors.
+ *
+ * Builds on VecN<2, T>, inheriting its arithmetic operators and storage. The
+ * Float2, Double2, Int2 and Int642 aliases cover the common types.
+ */
 template<_internal::Numeric T>
 class Vec2 final : public VecN<2, T, Vec2<T>>
 {
@@ -21,26 +27,58 @@ public:
     using typename base::reference;
     using typename base::const_reference;
 
+    /**
+     * @brief Returns the vector (0, 0).
+     */
     static Vec2 Zero()
     {
         return Vec2( base::Zero() );
     }
 
+    /**
+     * @brief Leaves the components uninitialized.
+     */
     Vec2() = default;
 
+    /**
+     * @brief Builds the vector from exactly two numbers (x, y), converted to T.
+     */
     template<_internal::Numeric... Us>
     requires (sizeof...(Us) == 2)
     constexpr explicit Vec2( Us... inValues ) : base( inValues... )
     {}
 
+    /**
+     * @brief Builds the vector from a brace list; missing components are 0.
+     *
+     * Extra values past the second are ignored.
+     */
     constexpr Vec2( std::initializer_list<T> inList ) : base( inList )
     {}
 
+    /**
+     * @brief Converts from the underlying VecN, e.g. the result of an operator.
+     */
     Vec2(const base& inBase) : base(inBase) {}
 
+    /**
+     * @brief The first component, by reference.
+     */
     constexpr reference x() { return (*this)[0]; }
+
+    /**
+     * @brief The second component, by reference.
+     */
     constexpr reference y() { return (*this)[1]; }
+
+    /**
+     * @brief The first component, by value.
+     */
     constexpr value_type x() const { return (*this)[0]; }
+
+    /**
+     * @brief The second component, by value.
+     */
     constexpr value_type y() const { return (*this)[1]; }
 
     using base::operator+;
@@ -63,9 +101,12 @@ using Int642 = Vec2<std::int64_t>;
 
 DEFINE_REBIND_TRAIT(Vec2)
 
-/** @brief Rotates inVector by inAngle radians about the origin. Positive
- *  angles turn clockwise on screen, matching this engine's screen-space
- *  (Y-down) convention. */
+/**
+ * @brief Rotates inVector by inAngle radians about the origin.
+ *
+ * Positive angles turn clockwise on screen, matching this engine's
+ * screen-space (Y-down) convention.
+ */
 Float2 Rotate( Float2 inVector, float inAngle ) noexcept;
 
 }

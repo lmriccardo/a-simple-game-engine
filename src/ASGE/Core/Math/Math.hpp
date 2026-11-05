@@ -1,5 +1,8 @@
 #pragma once
 
+// Umbrella header: includes the whole math module (geometry, vectors,
+// interpolation, scalar helpers).
+
 #include "Geometry/Rect.hpp"
 #include "Geometry/Circle.hpp"
 #include "LinearAlgebra/Vector2.hpp"
