@@ -6,9 +6,9 @@ namespace asge::game::resources
 {
 
 /**
- * @brief Optional override for the camera systems::RenderSystem uses while
- *        drawing screen-space content, in place of its own default identity
- *        (origin, 1x) reset.
+ * @brief Optional override for the camera systems::RenderSystem uses for screen-space content.
+ *
+ * It replaces RenderSystem's own default identity (origin, 1x) reset.
  *
  * Absent by default -- a real shipped game never sets this, so its own
  * screen-space HUD stays exactly what it always was: fixed to the window,
@@ -23,7 +23,7 @@ namespace asge::game::resources
  */
 struct ScreenSpaceCamera
 {
-    video::Camera m_Camera;
+    video::Camera m_Camera; // Camera applied while drawing screen-space entities
 };
 
 }

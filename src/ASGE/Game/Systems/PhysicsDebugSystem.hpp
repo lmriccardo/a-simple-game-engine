@@ -9,11 +9,11 @@ namespace asge::game::systems
 {
 
 /**
- * @brief Draws every Collider's world-space bounds — Rect via DrawRect,
- *        Circle via DrawCircle, both unfilled — color-coded by
- *        ResolutionType (green Solid, yellow Trigger, grey Unknown) so a
- *        mixed scene reads at a glance which colliders actually push out
- *        versus just sense.
+ * @brief Draws every Collider's world-space bounds as unfilled outlines.
+ *
+ * Rect via DrawRect and Circle via DrawCircle, color-coded by ResolutionType
+ * (green Solid, yellow Trigger, grey Unknown) so a mixed scene reads at a
+ * glance which colliders actually push out versus just sense.
  *
  * Purely opt-in: nothing in the physics/render pipeline calls this on its
  * own, a game calls it from its own Render() (typically behind its own

@@ -48,7 +48,11 @@ using SerializableComponents = std::tuple<
     UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem, UIProgressBar
 >;
 
-/** @brief Every component type belonging to the UI subsystem. */
+/**
+ * @brief Every component type belonging to the UI subsystem.
+ *
+ * Part of SerializableComponents, so a scene file round-trips them too.
+ */
 using UIComponents = std::tuple<
     UIButton, UIRect, Interactable, UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem>;
 

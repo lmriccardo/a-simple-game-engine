@@ -6,9 +6,9 @@ namespace asge::game::systems
 {
 
 /**
- * @brief Flattens every Transform's Local (authored) state into its World
- *        (computed) state, composing through components::Hierarchy where
- *        one exists.
+ * @brief Flattens every Transform's Local (authored) state into its World (computed) state.
+ *
+ * Composes through components::Hierarchy where one exists.
  *
  * A root Transform (no Hierarchy, or one with no parent) only recomputes
  * its World fields when its own m_Dirty is set, copying Local straight

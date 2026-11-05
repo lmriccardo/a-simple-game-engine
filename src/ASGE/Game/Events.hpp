@@ -17,21 +17,24 @@ namespace asge::game::events
 signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerEnter() noexcept;
 
 /**
- * @brief Fires the frame a previously-overlapping Trigger pair stops
- *        overlapping — including when that's because one side was
- *        destroyed. See OnCollisionTriggerEnter for the other half.
+ * @brief Fires the frame a previously-overlapping Trigger pair stops overlapping.
+ *
+ * Also fires when that's because one side was destroyed. See
+ * OnCollisionTriggerEnter for the other half.
  */
 signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerExit() noexcept;
 
 /**
- * @brief Fires every frame after the first that a Trigger pair keeps
- *        overlapping. See OnCollisionTriggerEnter for the other half.
+ * @brief Fires every frame after the first that a Trigger pair keeps overlapping.
+ *
+ * See OnCollisionTriggerEnter for the other half.
  */
 signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerStay() noexcept;
 
 /**
- * @brief Fires when a non-looping Animation reaches its last frame and stops
- *        (Animation::m_Playing cleared), with the owning entity.
+ * @brief Fires when a non-looping Animation reaches its last frame and stops.
+ *
+ * Animation::m_Playing is cleared and the owning entity is passed along.
  *
  * A process-wide signal fired synchronously from systems::AnimationSystem,
  * once per playback; looping animations never emit it.
@@ -39,8 +42,10 @@ signals::Signal<ecs::Entity, ecs::Entity>& OnCollisionTriggerStay() noexcept;
 signals::Signal<ecs::Entity>& OnAnimationFinished() noexcept;
 
 /**
- * @brief Fires when a non-looping PathFollow reaches the end of its Path
- *        (PathFollow::m_Finished flips to true), with the follower entity.
+ * @brief Fires when a non-looping PathFollow reaches the end of its Path.
+ *
+ * PathFollow::m_Finished flips to true and the follower entity is passed
+ * along.
  *
  * A process-wide signal fired synchronously from systems::PathFollowingSystem,
  * exactly once per run: it fires on the frame m_Finished becomes true, and

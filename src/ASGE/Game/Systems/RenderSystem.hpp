@@ -9,8 +9,9 @@ namespace asge::game::systems
 {
 
 /**
- * @brief Advances every entity's Animation and writes the current frame
- *        into its Sprite::m_SourceRect.
+ * @brief Advances every entity's Animation and writes the current frame into its Sprite.
+ *
+ * The frame goes into Sprite::m_SourceRect.
  *
  * Skipped entirely until Animation::m_Clip is resolved (see
  * asset::AssetManager::ResolveAssets) — an entity whose clip hasn't loaded
@@ -25,9 +26,9 @@ namespace asge::game::systems
  * events::OnAnimationFinished once for the entity. The Sprite's own crop is
  * then restored on the next run, unless Animation::m_FinishBehavior is
  * HoldLastFrame, in which case the last frame stays until another clip
- * starts or the clip path is cleared. A
- * non-positive duration or m_PlaybackSpeed is treated as "not animating" rather than
- * risking an infinite advance loop.
+ * starts or the clip path is cleared. A non-positive duration or
+ * m_PlaybackSpeed is treated as "not animating" rather than risking an
+ * infinite advance loop.
  */
 void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
@@ -51,9 +52,10 @@ void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
 
 /**
- * @brief Draws every entity that has both a Transform and a Sprite whose
- *        destination rect overlaps the camera's currently visible area
- *        (unless it resolves to screen space -- see below).
+ * @brief Draws every entity that has both a Transform and a Sprite, plus the UI widgets.
+ *
+ * A world-space entity is drawn only if its destination rect overlaps the
+ * camera's currently visible area; a screen-space one always is (see below).
  *
  * Transform::m_WorldCoordinates is the sprite's top-left corner (before
  * rotation — see below); m_WorldScale stretches the drawn size — the
@@ -79,8 +81,8 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
  * default, or resources::ScreenSpaceCamera's own value if that resource is
  * set -- see its own doc comment for why) restored to the world camera once
  * the last one is drawn; within that, by RenderInfo::m_Layer, then
- * bottom-edge Y (shifted by RenderInfo::m_SortOffsetY) when either side opted into RenderInfo::m_YSort, then by
- * sort owner and m_LocalOrder for entities under a components::Hierarchy
+ * bottom-edge Y (shifted by RenderInfo::m_SortOffsetY) when either side
+ * opted into RenderInfo::m_YSort, then by sort owner and m_LocalOrder for entities under a components::Hierarchy
  * parent with m_InheritSortFromParent set, and finally by entity index for
  * a stable order.
  *
@@ -92,8 +94,7 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 
 /**
- * @brief The single per-frame entry point: AnimationSystem, then
- *        CameraSystem, then RenderSystem.
+ * @brief The single per-frame entry point: AnimationSystem, then CameraSystem, then RenderSystem.
  *
  * Convenience wrapper for callers that want animated, camera-followed
  * sprites without sequencing the three systems themselves — equivalent to
@@ -107,13 +108,13 @@ void RenderPipeline(
     ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
 
 /**
- * @brief True if inA sorts after inB in RenderSystem's own resolved draw
- *        order -- i.e. inA is drawn on top of inB -- without re-deriving
- *        that order from scratch: same resolved RenderInfo (screen-space
- *        last, then layer, then y-sort's bottom edge, then sort owner/
- *        local order/inheritance depth), tie-broken by entity index.
- *        For a tool (a viewport picker, say) that needs "which of these
- *        two would end up on top" outside of an actual draw pass.
+ * @brief True if inA sorts after inB in RenderSystem's own resolved draw order.
+ *
+ * That means inA is drawn on top of inB, without re-deriving that order from
+ * scratch: same resolved RenderInfo (screen-space last, then layer, then
+ * y-sort's bottom edge, then sort owner, local order and inheritance depth),
+ * tie-broken by entity index. For a tool (a viewport picker, say) that needs
+ * "which of these two would end up on top" outside of an actual draw pass.
  *
  * An entity with no Sprite/UIRect (nothing RenderSystem would draw) still
  * resolves a layer/screen-space position -- it just never sorts by y, since
