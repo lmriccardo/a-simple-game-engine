@@ -20,42 +20,65 @@ private:
     bool                       m_BackendInitialized{false}; // Whether the backend subsystem is up
 
 public:
+    /**
+     * @brief Shuts the video system down.
+     *
+     * Calls Shutdown(), so the renderer, window and backend are released
+     * even if the owner never called it explicitly.
+     */
     inline ~VideoSystem() { Shutdown(); }
 
     /**
      * @brief Initialize the video system
      *
-     * Initialize the window system by bringing up the given graphics
-     * backend and creating the main window and renderer for it.
-     *
-     * @param inTitle The title of the window
-     * @param inWidth The width of the window
-     * @param inHeight The height of the window
-     * @param inBackend The graphics backend to initialize (defaults to SDL)
-     * @param inResizable Whether the window can be resized by the user
-     *        (defaults to false, matching every existing consumer's
-     *        fixed-size behavior -- asge-editor is the one caller that
-     *        opts in). IRenderer's viewport is NOT kept in sync with the
-     *        window automatically; a resizable window's caller must update
-     *        it on SDL_EVENT_WINDOW_RESIZED itself (see IRenderer::
-     *        SetViewport).
+     * Brings up the given graphics backend, then creates the main window
+     * (inTitle, inWidth x inHeight pixels) and its renderer. On any failure
+     * it shuts down whatever was already created and returns an error Result.
+     * inResizable defaults to false; asge-editor is the one caller that opts
+     * in. The renderer's viewport is NOT kept in sync with a resizable
+     * window, so that caller must update it on SDL_EVENT_WINDOW_RESIZED
+     * (see IRenderer::SetViewport).
      */
     BoolResult Initialize(std::string const& inTitle, int inWidth, int inHeight,
         GraphicsBackend inBackend = GraphicsBackend::SDL, bool inResizable = false);
 
-    // Shutdown the video system closing the renderer, the window and the backend subsystem
+    /**
+     * @brief Shuts down the video system, closing the renderer, window and backend.
+     *
+     * Releases the renderer first, then the window, then the backend
+     * subsystem. Safe to call repeatedly and on a system that never
+     * initialized successfully.
+     */
     void Shutdown();
 
-    // Returns a reference to the renderer
+    /**
+     * @brief Returns the renderer.
+     *
+     * Only valid after a successful Initialize(); calling it before, or after
+     * Shutdown(), dereferences a null pointer.
+     */
     IRenderer& GetRenderer();
 
-    // Returns a const reference to the renderer
+    /**
+     * @brief Returns the renderer (const overload).
+     *
+     * Same precondition as the non-const GetRenderer().
+     */
     IRenderer const& GetRenderer() const;
 
-    // Returns a reference to the window
+    /**
+     * @brief Returns the main window.
+     *
+     * Only valid after a successful Initialize(); calling it before, or after
+     * Shutdown(), dereferences a null pointer.
+     */
     IWindow& GetWindow();
 
-    // Returns a const reference to the window
+    /**
+     * @brief Returns the main window (const overload).
+     *
+     * Same precondition as the non-const GetWindow().
+     */
     IWindow const& GetWindow() const;
 };
 

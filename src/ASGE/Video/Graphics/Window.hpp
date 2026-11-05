@@ -10,13 +10,27 @@ class IWindow
 public:
     virtual ~IWindow() = default;
 
-    // Returns the backend-native window handle (e.g. SDL_Window*)
+    /**
+     * @brief Returns the backend-native window handle (e.g. SDL_Window*).
+     *
+     * The window keeps ownership; cast it to the backend type. Null once
+     * the window is destroyed.
+     */
     virtual void* NativeHandle() const = 0;
 
-    // Returns the current window size, in pixels
+    /**
+     * @brief Returns the current window size, in pixels.
+     *
+     * Queried live from the backend, so it follows user resizes. Backend
+     * failures are logged and yield {0, 0}.
+     */
     virtual math::Int2 Size() const = 0;
 
-    // Checks if the current window is valid or not
+    /**
+     * @brief Checks if the current window is valid or not.
+     *
+     * False if creation failed or the window was destroyed.
+     */
     virtual bool IsValid() const = 0;
 };
 
