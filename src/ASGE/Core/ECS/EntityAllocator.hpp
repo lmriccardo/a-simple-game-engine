@@ -43,9 +43,28 @@ public:
         m_Generations.fill(0);
     }
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     EntityAllocator(EntityAllocator const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     EntityAllocator(EntityAllocator&&) = default;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     EntityAllocator& operator=(EntityAllocator const&) = delete;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     EntityAllocator& operator=(EntityAllocator&&) = default;
 
     /**

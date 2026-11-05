@@ -32,6 +32,9 @@ private:
     data_t      m_Data;   // Bytes representing the image
 
 public:
+    /**
+     * @brief Default construction is disabled.
+     */
     Image() = delete;
 
     /**
@@ -42,9 +45,28 @@ public:
      */
     Image( std::size_t inW, std::size_t inH, graphics::PixelFormat inFormat, data_t const& inData );
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     Image(Image const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Image(Image&&) = default;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Image& operator=(Image const&) = delete;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Image& operator=(Image&&) = default;
 
     /**

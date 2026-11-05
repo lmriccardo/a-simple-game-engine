@@ -9,6 +9,11 @@
 namespace asge::_internal::traits
 {
 
+/**
+ * @brief Folds a null check over the tuple's elements.
+ *
+ * Backs has_nullptr(); Is indexes every element of the tuple.
+ */
 template <typename Tuple, std::size_t... Is>
 constexpr auto has_nullptr_impl(const Tuple& t, std::index_sequence<Is...>)
 {

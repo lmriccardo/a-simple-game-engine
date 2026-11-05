@@ -64,8 +64,14 @@ public:
      */
     LinearAllocator( void* inBuffer, std::size_t inSize );
 
-    // Non-copyable but movable
+    /**
+     * @brief Copy construction is disabled.
+     */
     LinearAllocator( LinearAllocator const& )            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     LinearAllocator& operator=( LinearAllocator const& ) = delete;
 
     /**
@@ -202,12 +208,35 @@ public:
      */
     ArenaAllocator( size_type inSize );
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     ArenaAllocator( ArenaAllocator const& )            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     ArenaAllocator& operator=( ArenaAllocator const& ) = delete;
 
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     ArenaAllocator( ArenaAllocator&& )            = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     ArenaAllocator& operator=( ArenaAllocator&& ) = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~ArenaAllocator() = default;
 };
 

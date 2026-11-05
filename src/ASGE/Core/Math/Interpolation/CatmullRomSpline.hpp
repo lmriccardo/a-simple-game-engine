@@ -115,11 +115,39 @@ public:
     explicit CatmullRomSpline(
         std::vector<Float2> inWp, std::size_t inResolution=32 );
 
+    /**
+     * @brief Copy constructor.
+     *
+     * Defaulted; copies each member.
+     */
     CatmullRomSpline( CatmullRomSpline const& ) = default;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     CatmullRomSpline( CatmullRomSpline && ) = default;
+
+    /**
+     * @brief Copy assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     CatmullRomSpline& operator=( CatmullRomSpline const& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     CatmullRomSpline& operator=( CatmullRomSpline && ) = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~CatmullRomSpline() = default;
 
     /**

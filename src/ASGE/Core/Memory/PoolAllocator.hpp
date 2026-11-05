@@ -49,6 +49,7 @@ private:
     struct Deleter
     {
         std::shared_ptr<PoolAllocator> s_Pool; // Keeps the pool alive while the allocation lives
+
         /**
          * @brief Returns inPtr's slot to the pool, then drops the pool reference.
          */
@@ -99,9 +100,24 @@ public:
     using value_type = T;
     using pointer    = std::unique_ptr<T, Deleter>;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     PoolAllocator(const PoolAllocator&)            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     PoolAllocator& operator=(const PoolAllocator&) = delete;
+
+    /**
+     * @brief Move construction is disabled.
+     */
     PoolAllocator(PoolAllocator&&)                 = delete;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     PoolAllocator& operator=(PoolAllocator&&)      = delete;
 
     /**

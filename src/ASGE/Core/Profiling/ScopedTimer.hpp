@@ -33,7 +33,14 @@ public:
         m_Bucket.Record( static_cast<std::uint64_t>(elapsed) );
     }
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     ScopedTimer( ScopedTimer const& )            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     ScopedTimer& operator=( ScopedTimer const& ) = delete;
 };
 

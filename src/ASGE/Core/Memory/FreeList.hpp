@@ -52,11 +52,35 @@ public:
         }
     }
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     FreeList(FreeList const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     FreeList(FreeList&&) = default;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     FreeList& operator=(FreeList const&) = delete;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     FreeList& operator=(FreeList&&) = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~FreeList() = default;
 
     /**

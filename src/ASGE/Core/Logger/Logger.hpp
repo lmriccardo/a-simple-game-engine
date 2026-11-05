@@ -122,7 +122,12 @@ private:
 
     mutable signals::Signal<LogRecord const&> m_OnLog; // Signal emitting the log record
 
-    Logger(): m_Level{LogLevel::Info} {} // The constructor is private
+    /**
+     * @brief Creates the logger at Info level.
+     *
+     * Private: use Instance().
+     */
+    Logger(): m_Level{LogLevel::Info} {}
 
 public:
     /**
@@ -142,19 +147,12 @@ public:
     void SetLogLevel( LogLevel inLevel ) noexcept;
 
     /**
-     * @brief Log a message to console
+     * @brief Logs a message to the console.
      *
-     * Log the input message to the console if the logging level
-     * is at least the current one set to the logger. This function
-     * is thread-safe.
-     *
-     * If the first argument is string-like (const char*, std::string,
-     * std::string_view, ...) and contains "{}" placeholders, the remaining
-     * arguments are substituted into them in order, e.g.
-     * `Log(lvl, fn, "{} of {}", 1, 2)` logs "1 of 2". Otherwise every
-     * argument is simply concatenated, as before. inFunction names the caller
-     * (the LOG_* macros pass the current function) and the record is also
-     * emitted on the OnLog signal after printing.
+     * Printed if inLevel is at least the logger's level; thread-safe. If the first
+     * argument is string-like with "{}" placeholders, the rest are substituted in
+     * order (`"{} of {}", 1, 2` logs "1 of 2"); otherwise all are concatenated.
+     * inFunction names the caller, and the record is also emitted on OnLog.
      */
     template<typename ...LArgs>
     void Log( LogLevel inLevel, char const* inFunction, LArgs&& ...args)

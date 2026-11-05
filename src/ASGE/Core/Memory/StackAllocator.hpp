@@ -82,9 +82,24 @@ public:
      */
     ~StackAllocator() { Reset(); }
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     StackAllocator(const StackAllocator&)            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     StackAllocator& operator=(const StackAllocator&) = delete;
+
+    /**
+     * @brief Move construction is disabled.
+     */
     StackAllocator(StackAllocator&&)                 = delete;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     StackAllocator& operator=(StackAllocator&&)      = delete;
 
     /**

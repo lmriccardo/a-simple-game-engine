@@ -83,7 +83,9 @@ private:
         View const* m_View;   // The view being iterated
         std::size_t m_Index{}; // Position in the smallest pool's dense storage
 
-        // True only if every pool in m_ActivePools contains this entity.
+        /**
+         * @brief True only if every pool in m_ActivePools contains this entity.
+         */
         bool PassesAllPools( Entity entity ) const
         {
             bool selector {true};
@@ -102,7 +104,9 @@ private:
             );
         }
 
-        // Advance m_Index until it lands on a matching entity, or falls off the end.
+        /**
+         * @brief Advance m_Index until it lands on a matching entity, or falls off the end.
+         */
         void SkipToValid()
         {
             // No smallest pool means the owning View is invalid (see class
@@ -123,12 +127,18 @@ private:
         using pointer           = void;
         using reference         = value_type;
 
-        Iterator(View const* inView, std::size_t inIndex) 
+        /**
+         * @brief Starts at inIndex of the smallest pool, skipping to the first match.
+         */
+        Iterator(View const* inView, std::size_t inIndex)
         : m_View( inView ), m_Index( inIndex )
         {
             SkipToValid();
         }
 
+        /**
+         * @brief The current entity followed by references to each viewed component.
+         */
         value_type operator*()
         {
             Entity const entity = m_View->m_SmallestPool->Entities()[m_Index];
@@ -140,14 +150,24 @@ private:
             return functools::PrependToTuple( entity, components );
         }
 
-        Iterator& operator++() 
+        /**
+         * @brief Steps to the next entity that has every viewed component.
+         */
+        Iterator& operator++()
         {
             ++m_Index;
             SkipToValid();
             return *this;
         }
 
+        /**
+         * @brief True if the two iterators are at different positions.
+         */
         bool operator!=(Iterator const& other) const { return m_Index != other.m_Index; }
+
+        /**
+         * @brief True if the two iterators are at the same position.
+         */
         bool operator==(Iterator const& other) const { return !(m_Index != other.m_Index); }
     };
 

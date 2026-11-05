@@ -71,11 +71,33 @@ private:
          int inAscent, int inDescent) noexcept;
 
 public:
+    /**
+     * @brief Default construction is disabled.
+     */
     Font() = delete;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     Font( Font const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Font& operator=( Font const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Font( Font&& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Font& operator=( Font&& ) = default;
 
     /**

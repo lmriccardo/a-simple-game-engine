@@ -16,7 +16,9 @@ namespace asge::math
 namespace _internal
 {
 
-// Constrains to numeric types (integral or floating point, but not bool).
+/**
+ * @brief Constrains to numeric types (integral or floating point, but not bool).
+ */
 template<typename T>
 concept Numeric = 
     (    std::is_integral_v<std::remove_cvref_t<T>> 
@@ -60,9 +62,23 @@ protected:
     template<_internal::Numeric U>
     using rebind_actual_derived_t = typename _internal::rebind_derived_trait<actual_derived>::template type<U>;
 
+    /**
+     * @brief This vector as its most derived type.
+     *
+     * Lets the arithmetic operators return the derived vector (CRTP).
+     */
     actual_derived& Self() { return static_cast<actual_derived&>(*this); }
+
+    /**
+     * @brief Const overload of Self().
+     */
     actual_derived const& Self() const { return static_cast<actual_derived const&>(*this); }
 
+    /**
+     * @brief Writes op(a[i], b[i]) into inOut for each of the N components.
+     *
+     * Backs the vector-vector operators.
+     */
     template<typename _OutIter, typename _InIter1, typename _InIter2, typename BinaryOp>
     static void _ApplyBinaryIter( _OutIter inOut, _InIter1 inIter1, _InIter2 inIter2, BinaryOp op )
     {
@@ -72,6 +88,11 @@ protected:
         }
     }
 
+    /**
+     * @brief Writes op(a[i], inScalar) into inOut for each of the N components.
+     *
+     * Backs the vector-scalar operators.
+     */
     template<typename _OutIter, typename _InIter, typename _Scalar, typename BinaryOp>
     static void _ApplyBinaryScalar( _OutIter inOut, _InIter inIter, _Scalar inScalar, BinaryOp op )
     {
@@ -264,11 +285,9 @@ public:
     /**
      * @brief Component-wise sum of two vectors.
      *
-     * The result keeps this vector's derived type, with the common type of
-     * the two element types as its elements. The other arithmetic operators
-     * below follow the same rule: component-wise for a vector operand,
-     * applied to every component for a scalar operand, and the compound
-     * forms (+=, -=, ...) update this vector in place and return it.
+     * The result keeps this vector's derived type, with the common type of the two
+     * element types. The operators below follow the same rule: component-wise for a
+     * vector, per component for a scalar, and compound forms update in place.
      * Integer division by zero is undefined behavior.
      */
     template<_internal::Numeric U, typename OtherDerived>
@@ -279,6 +298,11 @@ public:
         return result;
     }
 
+    /**
+     * @brief Component-wise difference of two vectors.
+     *
+     * Same result type rules as operator+.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto operator-(VecN<N, U,OtherDerived> const& inOther) const noexcept 
     {
@@ -287,6 +311,11 @@ public:
         return result;
     }
 
+    /**
+     * @brief Component-wise product of two vectors.
+     *
+     * Same result type rules as operator+.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto operator*(VecN<N, U,OtherDerived> const& inOther) const noexcept 
     {
@@ -295,6 +324,11 @@ public:
         return result;
     }
 
+    /**
+     * @brief Component-wise quotient of two vectors.
+     *
+     * Same result type rules as operator+.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto operator/(VecN<N, U,OtherDerived> const& inOther) const noexcept 
     {
@@ -303,6 +337,9 @@ public:
         return result;
     }
 
+    /**
+     * @brief Multiplies every component by inScalar.
+     */
     template<_internal::Numeric U>
     auto operator*(U const& inScalar) const noexcept
     {
@@ -311,6 +348,9 @@ public:
         return result;
     }
 
+    /**
+     * @brief Divides every component by inScalar.
+     */
     template<_internal::Numeric U>
     auto operator/(U const& inScalar) const noexcept
     {
@@ -319,6 +359,11 @@ public:
         return result;
     }
 
+    /**
+     * @brief Adds inOther component-wise, in place.
+     *
+     * Returns this vector.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto& operator+=(VecN<N, U, OtherDerived> const& inOther) noexcept 
     {
@@ -326,6 +371,11 @@ public:
         return Self();
     }
 
+    /**
+     * @brief Subtracts inOther component-wise, in place.
+     *
+     * Returns this vector.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto& operator-=(VecN<N, U, OtherDerived> const& inOther) noexcept
     {
@@ -333,6 +383,11 @@ public:
         return Self();
     }
 
+    /**
+     * @brief Multiplies component-wise by inOther, in place.
+     *
+     * Returns this vector.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto& operator*=(VecN<N, U, OtherDerived> const& inOther) noexcept 
     {
@@ -340,6 +395,11 @@ public:
         return Self();
     }
 
+    /**
+     * @brief Divides component-wise by inOther, in place.
+     *
+     * Returns this vector.
+     */
     template<_internal::Numeric U, typename OtherDerived>
     auto& operator/=(VecN<N, U, OtherDerived> const& inOther) noexcept 
     {
@@ -347,6 +407,11 @@ public:
         return Self();
     }
 
+    /**
+     * @brief Multiplies every component by inOther, in place.
+     *
+     * Returns this vector.
+     */
     template<_internal::Numeric U>
     auto& operator*=(U const& inOther) noexcept 
     {
@@ -354,6 +419,11 @@ public:
         return Self();
     }
 
+    /**
+     * @brief Divides every component by inOther, in place.
+     *
+     * Returns this vector.
+     */
     template<_internal::Numeric U>
     auto& operator/=(U const& inOther) noexcept 
     {
@@ -361,12 +431,20 @@ public:
         return Self();
     }
 
+    /**
+     * @brief Scalar times vector; same as vec * scalar.
+     */
     template<_internal::Numeric U>
     friend auto operator*(U const& scalar, actual_derived const& vec) noexcept 
     {
         return vec * scalar;
     }
 
+    /**
+     * @brief Scalar divided by vector; evaluates vec / scalar.
+     *
+     * Note the operand order is not preserved.
+     */
     template<_internal::Numeric U>
     friend auto operator/(U const& scalar, actual_derived const& vec) noexcept 
     {

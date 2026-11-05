@@ -27,12 +27,9 @@ struct Hierarchy
 /**
  * @brief Makes inChild a child of inParent, re-parenting it if needed.
  *
- * An existing parent is detached first. A no-op if inParent equals inChild,
- * or if inChild is already an ancestor of inParent, since either would
- * introduce a cycle. Lazily adds a Hierarchy to either entity that doesn't
- * have one yet, and marks inChild's Transform (if any) dirty so the next
- * TransformPropagationSystem pass recomposes its world transform under the
- * new parent.
+ * An existing parent is detached first. A no-op if the two are equal or inChild
+ * is already an ancestor of inParent (either would form a cycle). Lazily adds a
+ * Hierarchy where missing and marks inChild's Transform dirty.
  */
 void AttachChild( ecs::Registry& inReg, ecs::Entity inParent, ecs::Entity inChild );
 
@@ -88,12 +85,10 @@ void ForEachChild( ecs::Registry& inReg, ecs::Entity inParent, Callable&& inFn )
 /**
  * @brief Rebuilds every Hierarchy link among inEntities from their m_Parent pointers.
  *
- * Used so data that was never validated (a loaded scene file) can't leave the
- * tree inconsistent or cyclic. A parent that is the entity itself, isn't in inEntities, or has no
- * Hierarchy is dropped (the entity becomes a root), and a parent cycle is
- * broken at the point it would close. Sibling order is kept from each
- * parent's stored first-child chain wherever that chain is consistent;
- * children it doesn't reach follow in inEntities order.
+ * Lets unvalidated data (a loaded scene file) never leave the tree inconsistent
+ * or cyclic. An invalid parent is dropped, making the entity a root, and a cycle
+ * is broken where it would close. Sibling order is kept where the stored chain
+ * is consistent; the rest follow in inEntities order.
  */
 void SanitizeHierarchy( ecs::Registry& inReg, std::vector<ecs::Entity> const& inEntities );
 

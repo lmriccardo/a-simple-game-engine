@@ -67,14 +67,11 @@ protected:
     inline static std::uint64_t s_ThreadCounter{0}; // Counter for default names
 
     /**
-     * @brief Implements the internal thread logic
-     * 
-     * This method must implement only the internal thread logic
-     * inside the thread loop, which is instead managed outside
-     * the particular thread implementation. Therefore, all other
-     * conditions that might be return the thread execution must
-     * be specified in this method. To cancel the thread, the Cancel
-     * function on the context shall be called.
+     * @brief Implements the internal thread logic.
+     *
+     * Runs inside the thread loop, which is managed outside the concrete thread.
+     * Every condition that should end the thread's execution must therefore be
+     * handled here; to cancel the thread, call Cancel on the context.
      */
     virtual void Run( context_pointer& ) = 0;
 
@@ -116,9 +113,24 @@ public:
 
     /* We need to delete copy constructor and copy assignment */
     Thread(Thread const&) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Thread& operator=(Thread const&) = delete;
 
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Thread(Thread&&) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Thread& operator=(Thread&&) = default;
 
     /**
@@ -240,8 +252,11 @@ public:
       m_Args( std::forward<_Args>(inArgs)... )
     {}
 
-    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
-    // @warning on Thread's class doc comment.
+    /**
+     * @brief Cancels and joins the thread.
+     *
+     * Must happen here, not in ~Thread(); see the @warning on Thread's class comment.
+     */
     ~ThreadImpl() override { Cancel(); Join(); }
 };
 

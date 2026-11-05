@@ -24,9 +24,12 @@ namespace asge::ecs
 class IComponentPool
 {
 public:
-    // Registry destroys concrete ComponentPool<T,...> instances through
-    // std::unique_ptr<IComponentPool>; without a virtual destructor that
-    // delete is undefined behavior (and would skip T's destructors).
+    /**
+     * @brief Virtual so a pool can be destroyed through the interface.
+     *
+     * Registry deletes concrete pools via `std::unique_ptr<IComponentPool>`;
+     * without this that delete would skip T's destructors (undefined behavior).
+     */
     virtual ~IComponentPool() = default;
 
     /**
@@ -78,15 +81,25 @@ class ComponentPool final : public IComponentPool
 
     std::size_t m_FreeComponentHead{0}; // Next free dense slot, also the component count
 
-    // Forward iterator over (Entity const&, T&) pairs, in dense storage order.
+    /**
+     * @brief Forward iterator over (Entity const&, T&) pairs.
+     *
+     * Walks the dense storage in order, so it visits live components only.
+     */
     class _Iterator
     {
         ComponentPool* m_Pool;  // The actual pool on which iterate on
         std::size_t    m_Index; // The current index of the iterator
     public:
+        /**
+         * @brief Points the iterator at dense position inStartIndex of inPool.
+         */
         _Iterator( ComponentPool* inPool, std::size_t inStartIndex )
             : m_Pool( inPool ), m_Index( inStartIndex ) {}
-        
+
+        /**
+         * @brief The entity and a reference to its component at this position.
+         */
         auto operator*() const
         {
             return std::pair<Entity const&, T&>(
@@ -94,7 +107,14 @@ class ComponentPool final : public IComponentPool
             );
         }
 
+        /**
+         * @brief Steps to the next dense position.
+         */
         _Iterator& operator++() { ++m_Index; return *this; }
+
+        /**
+         * @brief True if the two iterators are at different positions.
+         */
         bool operator!=(_Iterator const& other) const { return m_Index != other.m_Index; }
     };
 
@@ -117,9 +137,28 @@ public:
         m_Sparse.fill( Nc );
     }
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     ComponentPool(ComponentPool const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     ComponentPool(ComponentPool&&) = default;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     ComponentPool& operator=(ComponentPool const&) = delete;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     ComponentPool& operator=(ComponentPool&&) = default;
 
     /**

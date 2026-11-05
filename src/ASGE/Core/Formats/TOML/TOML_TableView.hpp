@@ -84,12 +84,9 @@ public:
     /**
      * @brief Descends into a dotted subtable path, creating any missing tables.
      *
-     * Returns a view scoped to the table at inPath, relative to this one.
-     * Unlike GetTable()/HasTable(), inPath does not understand `[index]`
-     * segments into an array-of-tables — `"entity[0]"` is treated as one
-     * literal (and unmatched) table name, so this silently creates a garbage
-     * sibling instead of finding an existing element. Use GetTable() to read
-     * one back.
+     * Returns a view scoped to inPath, relative to this table. Unlike GetTable(),
+     * it does not understand `[index]` segments: "entity[0]" is one literal table
+     * name, so it silently creates a new sibling. Use GetTable() to read one back.
      */
     TOMLTableView Table( std::string const& inPath )
     {
@@ -154,13 +151,9 @@ public:
     /**
      * @brief Reads a float-valued key, with an int fallback.
      *
-     * The read-side counterpart to the float overload of Set(). Stored and
-     * looked up as `double` underneath; see that overload's doc comment for
-     * why. Falls back to an int-typed value (coerced to double) before giving
-     * up to inDefault: a bare TOML integer literal (`y = 528`) and a float
-     * literal (`y = 528.0`) are numerically interchangeable wherever a float
-     * is being read, and requiring the latter is a silent-zero footgun for
-     * hand-authored files.
+     * Read-side counterpart of the float overload of Set(), stored as `double`.
+     * Falls back to an int-typed value before inDefault, so a TOML `y = 528` reads
+     * the same as `y = 528.0` in hand-authored files.
      */
     float Get( std::string const& inKey, float inDefault = 0.0f ) const
     {

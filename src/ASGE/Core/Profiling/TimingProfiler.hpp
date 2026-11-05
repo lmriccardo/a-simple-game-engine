@@ -57,6 +57,11 @@ private:
     mutable std::mutex m_Mutex;                       // Guards m_Buckets lookup and creation
     std::unordered_map<str::String, TimingBucket> m_Buckets; // Buckets by scope name
 
+    /**
+     * @brief Default constructor.
+     *
+     * Defaulted; members take their default values.
+     */
     TimingProfiler() = default;
 public:
     /**
@@ -64,7 +69,14 @@ public:
      */
     static TimingProfiler& Instance();
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     TimingProfiler( TimingProfiler const& )            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     TimingProfiler& operator=( TimingProfiler const& ) = delete;
 
     /**

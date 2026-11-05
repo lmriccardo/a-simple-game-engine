@@ -152,6 +152,9 @@ std::ostream& operator<<(std::ostream& inOss, const FileEvent& inEvent);
 class IFileEventHandler
 {
 public:
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~IFileEventHandler() = default;
 
     /**

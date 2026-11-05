@@ -53,8 +53,14 @@ struct TOMLValue : public ValueType
 {
     using ValueType::ValueType;
 
-    // explicit conversion from ValueType
+    /**
+     * @brief Wraps a ValueType by move.
+     */
     TOMLValue(ValueType&& inValue) : ValueType(std::move(inValue)) {}
+
+    /**
+     * @brief Wraps a copy of a ValueType.
+     */
     TOMLValue(ValueType const& inValue) : ValueType(inValue) {}
 };
 
@@ -386,14 +392,35 @@ public:
     /**
      * @brief Creates an empty unnamed table (typically the document root).
      */
-    Table(TableType inType) : m_Name( "" ), m_Type( inType )
+    Table(TableType inType) : m_Name( "" ), m_Type( inType ) {}
 
     /* Delete all copy and move constructors and ass. operators */
     Table(Table const&)            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Table& operator=(Table const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Table(Table&&)                 = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Table& operator=(Table&&)      = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~Table() = default;
 
     /**

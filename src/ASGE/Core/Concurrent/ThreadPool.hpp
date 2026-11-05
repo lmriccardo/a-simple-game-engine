@@ -22,6 +22,9 @@ namespace _internal
 
 struct IExecuter
 {
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~IExecuter() = default;
 
     /**
@@ -66,6 +69,11 @@ public:
     using CallableBase::CallableBase;
     using CallableBase::operator=;
     
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~WorkerJob() override = default;
 
     /**
@@ -96,7 +104,9 @@ public:
     }
 };
 
-// Added deduction guide for WorkerJob constructor
+/**
+ * @brief Added deduction guide for WorkerJob constructor.
+ */
 template<typename _Callable, typename... _Args>
 WorkerJob(_Callable&&, _Args&&...) 
 -> WorkerJob<std::decay_t<_Callable>, std::decay_t<_Args>...>;
@@ -147,17 +157,39 @@ public:
     , m_JobQueue( inQueue )
     {}
 
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Worker(Worker&&) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Worker& operator=(Worker&&) = default;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     Worker(Worker const&) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Worker& operator=(Worker const&) = delete;
 
-    // Must Cancel()+Join() here, not rely on ~Thread() -- see the
-    // @warning on Thread's class doc comment. ThreadPool::~ThreadPool()
-    // already joins every worker before this runs, so this is a no-op
-    // in that path; it only matters if a Worker is ever destroyed on
-    // its own (e.g. ThreadPool's constructor throwing partway through).
+    /**
+     * @brief Cancels and joins the worker.
+     *
+     * Must happen here, not in ~Thread(); see the @warning on Thread's class comment.
+     * ThreadPool::~ThreadPool() already joins every worker before this runs,
+     * so this is a no-op in that path; it only matters if a Worker is ever
+     * destroyed on its own (e.g. ThreadPool's constructor throwing partway
+     * through).
+     */
     ~Worker() override { Cancel(); Join(); }
 };
 
@@ -204,10 +236,24 @@ public:
      */
     ThreadPool( std::size_t nWorkers = HardwareConcurrency() );
 
+    /**
+     * @brief Move construction is disabled.
+     */
     ThreadPool( ThreadPool&& )      = delete;
+
+    /**
+     * @brief Copy construction is disabled.
+     */
     ThreadPool( ThreadPool const& ) = delete;
 
+    /**
+     * @brief Copy assignment is disabled.
+     */
     ThreadPool& operator=( ThreadPool const& ) = delete;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     ThreadPool& operator=( ThreadPool&& )      = delete;
 
     /**

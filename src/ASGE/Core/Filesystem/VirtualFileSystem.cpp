@@ -6,12 +6,12 @@ namespace
 {
 
 /**
- * @brief Normalizes a virtual mount point: backslashes -> forward slashes,
- *        then strips leading/trailing slashes and whitespace.
+ * @brief Normalizes a virtual mount point.
  *
- * "\\textures\\players\\" and "/textures/players/" and "textures/players"
- * must all resolve to the same mount point, or Resolve()'s prefix-match
- * against a differently-formatted virtual path will silently miss.
+ * Backslashes become forward slashes, then leading/trailing slashes and
+ * whitespace are stripped. "\\textures\\players\\", "/textures/players/" and
+ * "textures/players" must all resolve to the same mount point, or Resolve()'s
+ * prefix match would silently miss.
  */
 asge::str::String NormalizeVirtualPath( asge::str::StringView inSv ) noexcept
 {

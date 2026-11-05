@@ -41,11 +41,35 @@ public:
      */
     VirtualFileSystem() = default;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     VirtualFileSystem( VirtualFileSystem const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     VirtualFileSystem( VirtualFileSystem && ) = default;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     VirtualFileSystem& operator=( VirtualFileSystem const& ) = delete;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     VirtualFileSystem& operator=( VirtualFileSystem && ) = default;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~VirtualFileSystem() = default;
 
     /**

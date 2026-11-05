@@ -362,6 +362,11 @@ enum class FileWatcherError : std::uint8_t
 #endif
 };
 
+/**
+ * @brief Human-readable message for a FileWatcherError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(FileWatcherError e) noexcept
 {
     switch (e)
@@ -396,6 +401,11 @@ enum class ConfError : std::uint8_t
     TomlNoAttribute
 };
 
+/**
+ * @brief Human-readable message for a ConfError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(ConfError e) noexcept
 {
     switch (e)
@@ -423,6 +433,11 @@ enum class ImageError
     DecodeFailed = 1,
 };
 
+/**
+ * @brief Human-readable message for a ImageError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(ImageError e) noexcept
 {
     switch (e)
@@ -444,6 +459,11 @@ enum class FontError
     UnexistingCodepoint,
 };
 
+/**
+ * @brief Human-readable message for a FontError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(FontError e) noexcept
 {
     switch (e)
@@ -470,6 +490,11 @@ enum class EcsError
     ResourceNotSet,
 };
 
+/**
+ * @brief Human-readable message for a EcsError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(EcsError e) noexcept
 {
     switch (e)
@@ -495,6 +520,11 @@ enum class VfsError
     EmptyMounts,
 };
 
+/**
+ * @brief Human-readable message for a VfsError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(VfsError e) noexcept
 {
     switch (e)
@@ -523,6 +553,11 @@ enum class AudioError
     StreamDetachFailed,
 };
 
+/**
+ * @brief Human-readable message for a AudioError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(AudioError e) noexcept
 {
     switch (e)
@@ -550,6 +585,11 @@ enum class SceneError : std::uint8_t
     EmptyProject,
 };
 
+/**
+ * @brief Human-readable message for a SceneError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(SceneError e) noexcept
 {
     switch (e)

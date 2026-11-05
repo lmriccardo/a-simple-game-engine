@@ -192,9 +192,23 @@ public:
     , m_Args( std::forward<_Args>(inArgs)... )
     {}
 
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~Callable() = default;
 
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Callable( Callable&& )            = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Callable& operator=( Callable&& ) = default;
 
     /**
@@ -220,8 +234,12 @@ public:
 namespace _internal
 {
 
-// Recursive right-to-left walk backing ReduceTuple(); see its docs for the
-// actual fold order and the reasoning behind the fold-type return.
+/**
+ * @brief Recursive right-to-left walk backing ReduceTuple().
+ *
+ * See its docs for the actual fold order and the reasoning behind the fold-
+ * type return.
+ */
 template<std::size_t Icurr, std::size_t Iend, typename Tuple, typename BinOp>
 auto ReduceTupleImpl( Tuple const& t, BinOp&& b )
     -> asge::_internal::traits::tuple_fold_type_t<Tuple>
@@ -238,14 +256,10 @@ auto ReduceTupleImpl( Tuple const& t, BinOp&& b )
 /**
  * @brief Right-associative fold over a tuple's elements, no separate seed.
  *
- * The last element seeds the accumulator; @c b(accumulator, element) is
- * then applied moving leftward one element at a time. For a 3-tuple
- * (c0, c1, c2) this computes @c b(b(c2, c1), c0).
- *
- * Every value passed to @c b -- the accumulator and each element alike --
- * is typed as Tuple's fold type: the shared element type if every element
- * has the same type, or a @c std::variant of the element types otherwise.
- * @c b must return that same type. The tuple needs at least 2 elements.
+ * The last element seeds the accumulator, then @c b(accumulator, element) is
+ * applied leftward; (c0, c1, c2) gives @c b(b(c2, c1), c0). Everything passed
+ * to @c b has Tuple's fold type (the shared element type, else a
+ * @c std::variant of them), which @c b must also return. Needs 2+ elements.
  */
 template<typename Tuple, typename BinOp>
 requires (std::tuple_size_v<Tuple> >= 2)
@@ -258,16 +272,21 @@ auto ReduceTuple( Tuple const& t, BinOp&& b )
 namespace _internal
 {
 
-// Invokes c on each already-unpacked element and collects the results.
-// c is taken by lvalue here (not forwarded) since it is reused once per
-// element rather than consumed by a single call.
+/**
+ * @brief Invokes c on each already-unpacked element and collects the results.
+ *
+ * C is taken by lvalue here (not forwarded) since it is reused once per
+ * element rather than consumed by a single call.
+ */
 template<typename Callable, typename ... Args>
 auto MapTupleImplV2( Callable&& c, Args&&... args )
 {
     return std::make_tuple( std::invoke(c, std::forward<Args>(args))... );
 }
 
-// Unpacks t's elements via the index pack and hands them to MapTupleImplV2.
+/**
+ * @brief Unpacks t's elements via the index pack and hands them to MapTupleImplV2.
+ */
 template<typename Tuple, typename Callable, std::size_t ... Is>
 auto MapTupleImpl( Tuple&& t, Callable&& c, std::index_sequence<Is...> )
 {

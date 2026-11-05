@@ -265,6 +265,11 @@ class LazySignal
 {
     std::unique_ptr<Signal<Args...>> m_Sig{nullptr}; // The signal, null until first Get()
 public:
+    /**
+     * @brief Default constructor.
+     *
+     * Defaulted; members take their default values.
+     */
     LazySignal() = default;
 
     /**
@@ -277,7 +282,18 @@ public:
      */
     LazySignal& operator=( LazySignal const& ) noexcept { m_Sig.reset(); return *this; }
 
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     LazySignal( LazySignal&& ) noexcept = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     LazySignal& operator=( LazySignal&& ) noexcept = default;
 
     /**

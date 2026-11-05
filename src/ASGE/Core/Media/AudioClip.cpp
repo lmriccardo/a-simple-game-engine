@@ -10,7 +10,11 @@
 namespace
 {
 
-/** @brief Decodes RIFF/WAVE bytes into raw PCM via SDL's own WAV loader. */
+/**
+ * @brief Decodes RIFF/WAVE bytes into raw PCM.
+ *
+ * Uses SDL's own WAV loader.
+ */
 asge::Result<asge::media::AudioClip> DecodeWav( std::span<const std::byte> inBytes ) noexcept
 {
     SDL_IOStream* io = SDL_IOFromConstMem( inBytes.data(), inBytes.size() );
@@ -31,7 +35,11 @@ asge::Result<asge::media::AudioClip> DecodeWav( std::span<const std::byte> inByt
     return asge::Result<asge::media::AudioClip>::Ok( asge::media::AudioClip( spec, std::move(data) ) );
 }
 
-/** @brief Decodes Ogg Vorbis bytes into signed 16-bit PCM via stb_vorbis. */
+/**
+ * @brief Decodes Ogg Vorbis bytes into signed 16-bit PCM.
+ *
+ * Uses stb_vorbis.
+ */
 asge::Result<asge::media::AudioClip> DecodeOgg( std::span<const std::byte> inBytes ) noexcept
 {
     int channels = 0, sampleRate = 0;

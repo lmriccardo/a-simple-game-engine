@@ -54,6 +54,9 @@ struct IContext
 {
     using pointer = std::shared_ptr<IContext>;
 
+    /**
+     * @brief Virtual destructor so derived types are destroyed through the interface.
+     */
     virtual ~IContext() = default;
 
     /**
@@ -100,11 +103,18 @@ class EmptyContext final : public _internal::IContext
 {
     friend context_pointer Background() noexcept;
 
-    // Keeps the constructor private since it can only be
-    // constructed by the Context class using static method
+    /**
+     * @brief Default constructor, private.
+     *
+     * Only Background() creates an EmptyContext.
+     */
     EmptyContext() = default;
 
-    // Keeps Cancel private since the empty context cannot be canceled
+    /**
+     * @brief Does nothing: the empty context cannot be cancelled.
+     *
+     * Private so callers cannot try.
+     */
     inline void Cancel( ContextErr ) override {}
 public:
     /**
@@ -130,10 +140,32 @@ public:
      */
     inline void AddChild( pointer const& ) noexcept {}
 
+    /**
+     * @brief Copy constructor.
+     *
+     * Defaulted; copies each member.
+     */
     EmptyContext( EmptyContext const& ) = default;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     EmptyContext( EmptyContext&& ) = default;
 
+    /**
+     * @brief Copy assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     EmptyContext& operator=( EmptyContext const& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     EmptyContext& operator=( EmptyContext&& ) = default;
 };
 
@@ -203,9 +235,24 @@ private:
 public:
     using pointer = std::shared_ptr<Context>;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     Context( Context const& )            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Context& operator=( Context const& ) = delete;
+
+    /**
+     * @brief Move construction is disabled.
+     */
     Context( Context&& )                 = delete;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     Context& operator=( Context&& )      = delete;
 
     /**
@@ -295,25 +342,19 @@ context_pointer Background() noexcept;
 /**
  * @brief Derives a child context that can be manually cancelled.
  *
- * The returned context is a child of the given parent. If the parent
- * is already cancelled at the time of this call, the child is cancelled
- * immediately with the same error. Otherwise, the child is registered
- * with the parent and will be cancelled automatically when the parent is.
- *
- * If no parent is provided, Background() is used as the parent. The result
- * is a shared_ptr<Context>, which exposes Cancel() directly.
+ * The child is cancelled immediately, with the same error, if the parent is
+ * already cancelled; otherwise it is registered with the parent and cancelled
+ * along with it. A null inParent means Background(). The result is a
+ * shared_ptr<Context>, which exposes Cancel() directly.
  */
 Context::pointer WithCancel( context_pointer inParent = nullptr );
 
 /**
  * @brief Derives a child context that carries an immutable typed value.
  *
- * Creates a new ContextWithValue<T> as a child of the given parent, attaching
- * it to the context tree. If the parent is already cancelled at the time of
- * this call, the child is cancelled immediately with the same error. Otherwise
- * the child is registered with the parent and will be cancelled automatically
- * when the parent is. T must be move-constructible, and a null inParent
- * means Background().
+ * Creates a ContextWithValue<T> as a child of inParent, with the same
+ * cancellation rules as WithCancel(). T must be move-constructible, and a null
+ * inParent means Background().
  */
 template<typename T>
 std::shared_ptr<ContextWithValue<T>> WithValue( T inValue, context_pointer inParent)

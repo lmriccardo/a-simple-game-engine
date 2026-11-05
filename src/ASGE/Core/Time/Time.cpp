@@ -12,8 +12,10 @@ namespace
 {
 
 /**
- * Sleeps for roughly inDuration. On Windows std::this_thread::sleep_for rounds up to the
- * ~15.6 ms system timer tick, so a high-resolution waitable timer is used instead.
+ * @brief Sleeps for roughly inDuration.
+ *
+ * On Windows std::this_thread::sleep_for rounds up to the ~15.6 ms system timer
+ * tick, so a high-resolution waitable timer is used instead.
  */
 void CoarseSleep( Duration inDuration ) noexcept
 {

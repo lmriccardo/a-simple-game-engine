@@ -24,6 +24,9 @@ private:
     SDL_AudioSpec m_Spec; // sample format, channel count and frequency of m_Data
     data_t        m_Data; // decoded raw PCM samples
 public:
+    /**
+     * @brief Default construction is disabled.
+     */
     AudioClip() = delete;
 
     /**
@@ -35,9 +38,28 @@ public:
         : m_Spec( inSpec ), m_Data( std::move(inData) )
     {}
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     AudioClip( AudioClip const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     AudioClip& operator=( AudioClip const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     AudioClip( AudioClip&& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     AudioClip& operator=( AudioClip&& ) = default;
 
     /**
