@@ -27,14 +27,24 @@ struct Entity
 
     friend bool operator==(Entity const&, Entity const&) = default;
 
-    /* Returns a Null Entity, i.e., with index value set at its maximum */
+    /**
+     * @brief Returns a Null Entity, i.e., with index value set at its maximum.
+     *
+     * Generation 0. Use it as an "no entity" value; it never matches a live
+     * slot because kMaxEntities is far below the maximum index.
+     */
     inline static constexpr Entity Null() noexcept
     {
         return Entity{ std::numeric_limits<EntityIndex>::max(), 0 };
     }
 };
 
-/** @brief Packs an Entity's index+generation into one orderable integer — the basis for EntityPair's operator<. */
+/**
+ * @brief Packs an Entity's index+generation into one orderable integer.
+ *
+ * The index goes in the high 32 bits and the generation in the low 32. It is
+ * the basis for EntityPair's operator< and the std::hash specialisation.
+ */
 inline std::uint64_t PackEntity( Entity inE ) noexcept
 {
     return ( static_cast<std::uint64_t>( inE.m_Index ) << 32 ) | inE.m_Generation;
@@ -49,9 +59,14 @@ inline std::uint64_t PackEntity( Entity inE ) noexcept
  */
 struct EntityPair
 {
-    Entity m_First;
-    Entity m_Second;
+    Entity m_First;  // The entity with the lower packed value
+    Entity m_Second; // The entity with the higher packed value
 
+    /**
+     * @brief Orders pairs lexicographically by packed (first, second).
+     *
+     * Makes EntityPair usable as a std::set/map key.
+     */
     friend inline bool operator<(
         EntityPair const& inL, EntityPair const& inR ) noexcept
     {
@@ -61,7 +76,12 @@ struct EntityPair
     }
 };
 
-/** @brief Builds an EntityPair with the lower-packed Entity always first, so (a, b) and (b, a) produce the same key. */
+/**
+ * @brief Builds an EntityPair with the lower-packed Entity always first.
+ *
+ * (a, b) and (b, a) therefore produce the same key, which is what collision
+ * bookkeeping needs.
+ */
 inline EntityPair MakeCanonicalPair( Entity inA, Entity inB ) noexcept
 {
     return PackEntity(inA) < PackEntity(inB)
@@ -73,7 +93,11 @@ inline EntityPair MakeCanonicalPair( Entity inA, Entity inB ) noexcept
 template<>
 struct std::hash<asge::ecs::Entity>
 {
-    /** @brief Hashes an Entity via its packed index+generation — see PackEntity. */
+    /**
+     * @brief Hashes an Entity via its packed index+generation.
+     *
+     * See PackEntity.
+     */
     std::size_t operator()( asge::ecs::Entity const& inEntity ) const noexcept
     {
         return std::hash<std::uint64_t>{}( asge::ecs::PackEntity( inEntity ) );

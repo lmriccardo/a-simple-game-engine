@@ -10,6 +10,9 @@ namespace asge::ecs
 class IResourceHolder
 {
 public:
+    /**
+     * @brief Virtual so a ResourceHolder<T> is destroyed correctly through the base.
+     */
     virtual ~IResourceHolder() = default;
 };
 
@@ -24,8 +27,11 @@ template<typename T>
 class ResourceHolder final : public IResourceHolder
 {
 public:
-    T m_Value;
+    T m_Value; // The held resource
 
+    /**
+     * @brief Takes ownership of inValue (moved in).
+     */
     explicit ResourceHolder( T inValue ) noexcept( std::is_nothrow_move_constructible_v<T> )
         : m_Value ( std::move(inValue) )
     {}

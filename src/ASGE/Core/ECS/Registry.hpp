@@ -16,10 +16,9 @@ namespace asge::ecs
 {
 
 /**
- * @brief Owns entities, their components, and registry-wide resources; the
- *        ECS's single entry point.
+ * @brief Owns entities, their components, and registry-wide resources.
  *
- * Wraps an EntityAllocator<kMaxEntities> for entity lifecycle and one
+ * The ECS's single entry point. Wraps an EntityAllocator<kMaxEntities> for entity lifecycle and one
  * ComponentPool<T> per component type used so far (created lazily on the
  * first AddComponent<T>) and ties them together: DestroyEntity() strips
  * the entity from every pool, and View<Ts...>() iterates entities that
@@ -29,23 +28,26 @@ namespace asge::ecs
  */
 class Registry
 {
-    EntityAllocator<kMaxEntities>                 m_Allocator{};
-    std::vector<std::unique_ptr<IComponentPool>>  m_Pools{};
-    std::vector<std::unique_ptr<IResourceHolder>> m_Resources{}; // dense, indexed by ResourceId<T>()
+    EntityAllocator<kMaxEntities>                 m_Allocator{};  // Issues and validates entity handles
+    std::vector<std::unique_ptr<IComponentPool>>  m_Pools{};      // One pool per component type, indexed by type id
+    std::vector<std::unique_ptr<IResourceHolder>> m_Resources{};  // dense, indexed by ResourceId<T>()
 
     // Next unused resource id, shared by every Registry instance -- same
     // "dense, monotonically-assigned, unsynchronized" tradeoff as
     // ComponentTypeId.hpp's GetComponentTypeId, just kept private to Registry
     // since resource ids (unlike component type ids) have no other caller.
-    static inline std::size_t s_NextResourceId = 0;
+    static inline std::size_t s_NextResourceId = 0; // Counter behind ResourceId<T>()
 
     // Concrete pool type backing component type T.
     template<typename T>
     using pool_t = ComponentPool<T, component_cap_v<T>>;
 
-    // Returns the stable id for resource type T, assigned on first use and
-    // cached in a function-local static -- see s_NextResourceId's warning
-    // above about assignment order/thread-safety.
+    /**
+     * @brief Returns the stable id for resource type T.
+     *
+     * Assigned on first use and cached in a function-local static -- see
+     * s_NextResourceId's note above about assignment order and thread-safety.
+     */
     template <typename T>
     [[nodiscard]] static std::size_t ResourceId() noexcept
     {
@@ -53,7 +55,9 @@ class Registry
         return id;
     }
 
-    // Returns T's pool, or nullptr if T has never been used (read-only).
+    /**
+     * @brief Returns T's pool (read-only), or nullptr if T has never been used.
+     */
     template <typename T>
     [[nodiscard]] pool_t<T> const* FindPool() const noexcept
     {
@@ -65,17 +69,22 @@ class Registry
         return static_cast<pool_t<T> const*>( m_Pools[id].get() );
     }
 
-    // Returns T's pool, or nullptr if T has never been used. Implemented in
-    // terms of the const overload above (then const_cast-ing the pointer
-    // back to mutable) rather than duplicating the lookup — safe here
-    // because *this is genuinely non-const at the call site.
+    /**
+     * @brief Returns T's pool, or nullptr if T has never been used.
+     *
+     * Implemented in terms of the const overload above (then const_cast-ing
+     * the pointer back to mutable) rather than duplicating the lookup — safe
+     * here because *this is genuinely non-const at the call site.
+     */
     template <typename T>
     [[nodiscard]] pool_t<T>* FindPool() noexcept
     {
         return const_cast<pool_t<T>*>( std::as_const(*this).template FindPool<T>() );
     }
 
-    // Returns T's pool, creating (and registering) it on first use.
+    /**
+     * @brief Returns T's pool, creating (and registering) it on first use.
+     */
     template <typename T>
     [[nodiscard]] pool_t<T>& GetOrCreatePool()
     {
@@ -92,13 +101,14 @@ class Registry
 public:
     /**
      * @brief Allocates a new entity.
-     * @return A fresh Entity, or an error if the registry has no more room.
+     *
+     * Returns a fresh Entity, or an error if the registry has no more room
+     * (kMaxEntities alive at once).
      */
     [[nodiscard]] Result<Entity> CreateEntity() noexcept;
 
     /**
-     * @brief Lists every currently-alive entity, regardless of which
-     *        components (if any) it has.
+     * @brief Lists every currently-alive entity, regardless of its components.
      *
      * Unlike View<Ts...>, which only sees entities present in a specific
      * set of component pools, this walks the allocator directly — the
@@ -109,35 +119,41 @@ public:
 
     /**
      * @brief Destroys an entity and strips it from every component pool.
-     * @return Ok on success, or an error if inEntity is not currently alive.
+     *
+     * Returns an error if inEntity is not currently alive. Its children, if
+     * any, are not destroyed (see DestroyEntityGraph for that).
      */
     [[nodiscard]] BoolResult DestroyEntity( Entity inEntity ) noexcept;
 
     /**
-     * @brief Destroys an entities and strips them from every component pool.
-     *        Logs error when it cannot remove a specific entity.
+     * @brief Destroys every entity and strips them from every component pool.
+     *
+     * Logs an error when it cannot remove a specific entity and carries on
+     * with the rest.
      */
     void DestroyAllEntities() noexcept;
 
     /**
      * @brief Disables an entity by adding the Disable marker to it alone.
-     *        No effect on its children -- IsDisabled() derives their
-     *        disabled state by walking up to this entity, so nothing
-     *        needs writing to them.
+     *
+     * No effect on its children -- IsDisabled() derives their disabled state
+     * by walking up to this entity, so nothing needs writing to them.
      */
     void DisableEntity( Entity inEntity ) noexcept;
 
     /**
-     * @brief True if inEntity carries the Disable marker itself, or any
-     *        ancestor in its Hierarchy chain does. Walks up via
-     *        components::Hierarchy::m_Parent, so cost is O(depth).
+     * @brief True if inEntity or any of its ancestors carries the Disable marker.
+     *
+     * Walks up via components::Hierarchy::m_Parent, so the cost is O(depth).
      */
     bool IsDisabled( Entity inEntity ) const noexcept;
 
     /**
      * @brief Attaches inComponent to inEntity, creating T's pool on first use.
-     * @return A reference to the stored component, or an error if inEntity's
-     *         index is out of range or T's pool is full.
+     *
+     * Replaces an existing T on the entity. Returns a reference to the stored
+     * component, or an error if inEntity's index is out of range or T's pool
+     * is full.
      */
     template<typename T>
     Result<std::reference_wrapper<T>> AddComponent( Entity inEntity, T inComponent )
@@ -147,8 +163,9 @@ public:
 
     /**
      * @brief Detaches inEntity's component of type T, if any.
-     * @return Ok on success, or an error if T has never been used or
-     *         inEntity has no component of this type.
+     *
+     * Returns an error if T has never been used or inEntity has no component
+     * of this type.
      */
     template<typename T>
     [[nodiscard]] BoolResult RemoveComponent( Entity inEntity )
@@ -166,8 +183,9 @@ public:
 
     /**
      * @brief Looks up inEntity's component of type T (read-only).
-     * @return A const reference to the component, or an error if T has
-     *         never been used or inEntity has none.
+     *
+     * Returns a const reference to the component, or an error if T has never
+     * been used or inEntity has none.
      */
     template<typename T>
     [[nodiscard]] Result<std::reference_wrapper<T const>> GetComponent( Entity inEntity ) const noexcept
@@ -185,8 +203,10 @@ public:
 
     /**
      * @brief Looks up inEntity's component of type T.
-     * @return A reference to the component, or an error if T has never
-     *         been used or inEntity has none.
+     *
+     * Returns a reference to the component, or an error if T has never been
+     * used or inEntity has none. The reference is invalidated by removing
+     * components of the same type.
      */
     template<typename T>
     [[nodiscard]] Result<std::reference_wrapper<T>> GetComponent( Entity inEntity ) noexcept
@@ -202,7 +222,11 @@ public:
         return pool->Get(inEntity);
     }
 
-    /** @brief Checks whether inEntity currently has a component of type T. */
+    /**
+     * @brief Checks whether inEntity currently has a component of type T.
+     *
+     * False when T has never been used, instead of an error.
+     */
     template <typename T>
     [[nodiscard]] bool HasComponent( Entity inEntity ) const noexcept
     {
@@ -210,8 +234,12 @@ public:
         return pool && pool->Contains( inEntity );
     }
 
-    /** @brief Gets inEntity's existing component of type T, or default-
-     *         constructs and attaches one first if it doesn't have one yet. */
+    /**
+     * @brief Gets inEntity's component of type T, adding a default one first if missing.
+     *
+     * Marked noexcept but the add can fail (full pool or an invalid entity),
+     * in which case the Value() read afterwards asserts.
+     */
     template<typename T>
     [[nodiscard]] std::reference_wrapper<T> GetOrAddComponent( Entity inEntity ) noexcept
     {
@@ -226,10 +254,8 @@ public:
      * type that has never been used — so the result may be empty if any
      * of Ts has never been added to an entity yet. Entities IsDisabled()
      * considers disabled are skipped unless Ts includes markers::Disable
-     * or the caller chains View::IncludeDisabled() onto the result.
-     *
-     * @tparam Ts Component types the returned view requires.
-     * @return A View<Ts...> yielding (Entity, Ts&...) for each match.
+     * or the caller chains View::IncludeDisabled() onto the result. The view
+     * yields (Entity, Ts&...) for each match.
      */
     template<typename ... Ts>
     [[nodiscard]] asge::ecs::View<Ts...> View() noexcept
@@ -240,10 +266,11 @@ public:
     }
 
     /**
-     * @brief Read-only counterpart to View() — same lookup (including the
-     *        IsDisabled() skip), but returns View<Ts const...>, so iterating
-     *        yields (Entity, Ts const&...) instead of mutable references.
-     *        The only overload callable through a Registry const&.
+     * @brief Read-only counterpart to View().
+     *
+     * Same lookup (including the IsDisabled() skip), but returns
+     * View<Ts const...>, so iterating yields (Entity, Ts const&...) instead of
+     * mutable references. The only overload callable through a Registry const&.
      */
     template<typename ... Ts>
     [[nodiscard]] asge::ecs::View<Ts const...> View() const noexcept
@@ -254,10 +281,9 @@ public:
     }
 
     /**
-     * @brief Stores inValue as the registry-wide instance of type T,
-     *        replacing any previous one.
+     * @brief Stores inValue as the registry-wide instance of type T.
      *
-     * Unlike components, a resource is not attached to any Entity — there is
+     * Replaces any previous one. Unlike components, a resource is not attached to any Entity — there is
      * at most one T per Registry, found by its type alone. Not noexcept:
      * both growing m_Resources and constructing T's ResourceHolder may
      * allocate (or, for the latter, throw from T's own move constructor).
@@ -272,8 +298,9 @@ public:
 
     /**
      * @brief Looks up the registry-wide instance of type T.
-     * @return A reference to the resource, or an error if SetResource<T>()
-     *         has never been called on this registry.
+     *
+     * Returns a reference to the resource, or an error (EcsError::ResourceNotSet)
+     * if SetResource<T>() has never been called on this registry.
      */
     template<typename T>
     [[nodiscard]] Result<std::reference_wrapper<T>> GetResource() noexcept
@@ -290,6 +317,12 @@ public:
         return Result<std::reference_wrapper<T>>::Ok(std::reference_wrapper<T>( resource ));
     }
 
+    /**
+     * @brief Calls the callback once for every alive entity.
+     *
+     * Iterates a snapshot taken by AllEntities(), so the callback may create
+     * or destroy entities without invalidating the loop.
+     */
     void ForEachEntity( std::function<void(Entity const&)> m_Callback ) const;
 };
 
