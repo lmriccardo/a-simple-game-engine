@@ -12,26 +12,30 @@ namespace asge::config::toml
 {
 
 /**
- * @brief Fluent handle to one table node while building a TOML document.
- *        Set()/SetArray() auto-vivify the key on this table; Table()
- *        descends into (creating if needed) a subtable, scoping further
- *        calls to it. Returned by TOMLBuilder::Table() — not constructed
- *        directly by callers.
+ * @brief Fluent handle to one table node while building or reading a TOML document.
+ *
+ * Set()/SetArray() auto-vivify the key on this table; Table() descends into
+ * (creating if needed) a subtable, scoping further calls to it. Returned by
+ * TOMLBuilder::Table() — not constructed directly by callers.
  */
 class TOMLTableView
 {
 protected:
-    table_pointer m_Table;
+    table_pointer m_Table; // The table node this view is scoped to
 
 public:
+    /**
+     * @brief Wraps inTable; the view shares ownership of the node.
+     */
     explicit TOMLTableView( table_pointer inTable ) noexcept
         : m_Table( std::move(inTable) )
     {}
 
     /**
-     * @brief Sets a scalar key on this table, creating it if it doesn't
-     *        exist yet. A failure (e.g. re-setting an existing key with a
-     *        different type) is logged rather than breaking the chain.
+     * @brief Sets a scalar key on this table, creating it if it doesn't exist yet.
+     *
+     * A failure (e.g. re-setting an existing key with a different type) is
+     * logged rather than breaking the chain.
      */
     template<typename T>
     requires asge::_internal::traits::variant_contains_v<T, _internal::ValueType>
@@ -42,10 +46,12 @@ public:
     }
 
     /**
-     * @brief Sets a float-valued key. TOML has no separate 32-bit float
-     *        type — it's stored as the same `double` a TOML "float" always
-     *        is — this overload just spares callers the cast at every call
-     *        site (e.g. every component field that happens to be `float`).
+     * @brief Sets a float-valued key.
+     *
+     * TOML has no separate 32-bit float type — it's stored as the same
+     * `double` a TOML "float" always is — this overload just spares callers
+     * the cast at every call site (e.g. every component field that happens to
+     * be `float`).
      */
     TOMLTableView& Set( std::string const& inKey, float inValue )
     {
@@ -53,9 +59,9 @@ public:
     }
 
     /**
-     * @brief Sets an array-valued key on this table, creating it if it
-     *        doesn't exist yet. Elements may themselves be std::vector<U>
-     *        for a nested TOML array.
+     * @brief Sets an array-valued key on this table, creating it if it doesn't exist yet.
+     *
+     * Elements may themselves be `std::vector<U>` for a nested TOML array.
      */
     template<typename T>
     TOMLTableView& SetArray( std::string const& inKey, std::vector<T> const& inValues )
@@ -65,9 +71,10 @@ public:
     }
 
     /**
-     * @brief Sets a float-array-valued key. Stored as an array of TOML
-     *        doubles — the array-valued counterpart to the float overload
-     *        of Set(); see its doc comment for why.
+     * @brief Sets a float-array-valued key.
+     *
+     * Stored as an array of TOML doubles — the array-valued counterpart to the
+     * float overload of Set(); see its doc comment for why.
      */
     TOMLTableView& SetArray( std::string const& inKey, std::vector<float> const& inValues )
     {
@@ -75,15 +82,11 @@ public:
     }
 
     /**
-     * @brief Descends into a dotted subtable path relative to this table,
-     *        creating any missing tables along the way, and returns a view
-     *        scoped to it.
+     * @brief Descends into a dotted subtable path, creating any missing tables.
      *
-     * @warning Unlike GetTable()/HasTable(), inPath does not understand
-     *          `[index]` segments into an array-of-tables — `"entity[0]"`
-     *          is treated as one literal (and unmatched) table name, so
-     *          this silently creates a garbage sibling instead of finding
-     *          an existing element. Use GetTable() to read one back.
+     * Returns a view scoped to inPath, relative to this table. Unlike GetTable(),
+     * it does not understand `[index]` segments: "entity[0]" is one literal table
+     * name, so it silently creates a new sibling. Use GetTable() to read one back.
      */
     TOMLTableView Table( std::string const& inPath )
     {
@@ -93,11 +96,12 @@ public:
     }
 
     /**
-     * @brief Appends a new element to an array-of-tables (`[[inKey]]`) under
-     *        this table and returns a view scoped to it. Unlike Table(), each
-     *        call creates a fresh sibling rather than reusing one of the same
-     *        name — the first call tags it Root, later calls Array, mirroring
-     *        how the parser distinguishes successive `[[inKey]]` blocks.
+     * @brief Appends a new element to an array-of-tables (`[[inKey]]`) under this table.
+     *
+     * Returns a view scoped to the new element. Unlike Table(), each call
+     * creates a fresh sibling rather than reusing one of the same name — the
+     * first call tags it Root, later calls Array, mirroring how the parser
+     * distinguishes successive `[[inKey]]` blocks.
      */
     TOMLTableView ArrayTable( std::string const& inKey )
     {
@@ -112,9 +116,10 @@ public:
     }
 
     /**
-     * @brief Reads a scalar value at inKey on this table, returning
-     *        inDefault if the key is missing or holds a different type —
-     *        the read-side counterpart to Set().
+     * @brief Reads a scalar value at inKey on this table.
+     *
+     * Returns inDefault if the key is missing or holds a different type — the
+     * read-side counterpart to Set().
      */
     template<typename T>
     requires asge::_internal::traits::variant_contains_v<T, _internal::ValueType>
@@ -125,10 +130,12 @@ public:
     }
 
     /**
-     * @brief Reads an int64-valued key, falling back to an int-typed value
-     *        before giving up to inDefault: the parser stores any integer
-     *        that fits in 32 bits as `int` (e.g. a packed color with alpha 0),
-     *        so a strict int64 lookup would silently return inDefault.
+     * @brief Reads an int64-valued key, with an int fallback.
+     *
+     * Falls back to an int-typed value before giving up to inDefault: the
+     * parser stores any integer that fits in 32 bits as `int` (e.g. a packed
+     * color with alpha 0), so a strict int64 lookup would silently return
+     * inDefault.
      */
     std::int64_t Get( std::string const& inKey, std::int64_t inDefault ) const
     {
@@ -142,14 +149,11 @@ public:
     }
 
     /**
-     * @brief Reads a float-valued key — the read-side counterpart to the
-     *        float overload of Set(). Stored/looked up as `double`
-     *        underneath; see that overload's doc comment for why. Falls
-     *        back to an int-typed value (coerced to double) before giving
-     *        up to inDefault: a bare TOML integer literal (`y = 528`) and
-     *        a float literal (`y = 528.0`) are numerically interchangeable
-     *        wherever a float is being read, and requiring the latter is a
-     *        silent-zero footgun for hand-authored files.
+     * @brief Reads a float-valued key, with an int fallback.
+     *
+     * Read-side counterpart of the float overload of Set(), stored as `double`.
+     * Falls back to an int-typed value before inDefault, so a TOML `y = 528` reads
+     * the same as `y = 528.0` in hand-authored files.
      */
     float Get( std::string const& inKey, float inDefault = 0.0f ) const
     {
@@ -163,11 +167,12 @@ public:
     }
 
     /**
-     * @brief Reads an array-valued key at inKey on this table, returning
-     *        inDefault if the array's elements hold a different type — the
-     *        read-side counterpart to SetArray(). A missing key yields an
-     *        empty vector rather than inDefault, mirroring the underlying
-     *        Table::GetTypedArray().
+     * @brief Reads an array-valued key at inKey on this table.
+     *
+     * Returns inDefault if the array's elements hold a different type — the
+     * read-side counterpart to SetArray(). A missing key yields an empty
+     * vector rather than inDefault, mirroring the underlying
+     * Table::GetTypedArray().
      */
     template<typename T>
     std::vector<T> GetArray( std::string const& inKey, std::vector<T> inDefault = {} ) const
@@ -177,9 +182,11 @@ public:
     }
 
     /**
-     * @brief Reads a float-array-valued key — the read-side counterpart to
-     *        the float overload of SetArray(). Stored/looked up as an
-     *        array of doubles; see that overload's doc comment for why.
+     * @brief Reads a float-array-valued key.
+     *
+     * The read-side counterpart to the float overload of SetArray(). Stored
+     * and looked up as an array of doubles; see that overload's doc comment
+     * for why.
      */
     std::vector<float> GetArray( std::string const& inKey, std::vector<float> inDefault = {} ) const
     {
@@ -192,12 +199,13 @@ public:
     }
 
     /**
-     * @brief Read-only descent into an existing subtable at inPath, honoring
-     *        `[index]` segments into an array-of-tables (e.g. `"entity[1]"`)
-     *        the same way Table::GetTable does. Unlike Table(), never
-     *        creates anything — this is what a loader walking `entity[0]`,
-     *        `entity[1]`, ... array elements back out of a parsed document
-     *        needs; HasTable() is built on top of it.
+     * @brief Read-only descent into an existing subtable at inPath.
+     *
+     * Honors `[index]` segments into an array-of-tables (e.g. `"entity[1]"`)
+     * the same way Table::GetTable does. Unlike Table(), never creates
+     * anything — this is what a loader walking `entity[0]`, `entity[1]`, ...
+     * array elements back out of a parsed document needs; HasTable() is built
+     * on top of it.
      */
     [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath ) const
     {
@@ -207,12 +215,11 @@ public:
     }
 
     /**
-     * @brief Read-only descent into element inIndex of an array-of-tables
-     *        named inPath relative to this table — equivalent to
-     *        GetTable(inPath + "[" + inIndex + "]"), for callers walking a
-     *        known count of elements (e.g. Serializer<Animation>::FromToml
-     *        over "Frame[0]", "Frame[1]", ...) without building that string
-     *        themselves.
+     * @brief Read-only descent into element inIndex of an array-of-tables.
+     *
+     * Equivalent to GetTable(inPath + "[" + inIndex + "]"), for callers walking
+     * a known count of elements (e.g. Serializer<Animation>::FromToml over
+     * "Frame[0]", "Frame[1]", ...) without building that string themselves.
      */
     [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath, int inIndex ) const
     {
@@ -221,8 +228,9 @@ public:
 
     /**
      * @brief True if a subtable exists at inPath relative to this table.
-     *        Unlike Table(), never creates one — safe to probe for an
-     *        optional section before descending into it.
+     *
+     * Unlike Table(), never creates one — safe to probe for an optional
+     * section before descending into it.
      */
     bool HasTable( std::string const& inPath ) const
     {

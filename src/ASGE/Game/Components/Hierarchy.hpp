@@ -9,7 +9,23 @@
 namespace asge::game::components
 {
 
+/**
+ * @brief Makes inChild a child of inParent.
+ *
+ * Calls the Core ECS AttachChild (see Core/ECS/Hierarchy.hpp), which
+ * re-parents the child if it already has a parent and ignores a request that
+ * would create a cycle, then marks the child's Transform (if any) dirty so
+ * its world transform is recomposed under the new parent.
+ */
 void AttachChild( ecs::Registry& inReg, ecs::Entity inParent, ecs::Entity inChild );
+
+/**
+ * @brief Detaches inChild from its parent, leaving it a root.
+ *
+ * Calls the Core ECS DetachChild, then marks the child's Transform (if any)
+ * dirty since its world transform is no longer composed through the old
+ * parent.
+ */
 void DetachChild(ecs::Registry &inReg, ecs::Entity inChild);
 
 }
@@ -18,9 +34,10 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips every entity-reference field (m_Parent/m_FirstChild/
- *        m_LastChild/m_PrevSibling/m_NextSibling) via SaveContext/
- *        LoadContext rather than the raw ecs::Entity handle.
+ * @brief Round-trips every entity-reference field via SaveContext/LoadContext.
+ *
+ * The fields are m_Parent/m_FirstChild/m_LastChild/m_PrevSibling/m_NextSibling,
+ * and they are saved as stable ids rather than the raw ecs::Entity handle.
  *
  * An Entity's index/generation isn't stable across a save/load round trip
  * -- Load() creates fresh entities in whatever order it encounters
@@ -37,15 +54,27 @@ namespace asge::game::scene
 template<>
 struct Serializer<ecs::components::Hierarchy>
 {
-    static constexpr str::StringView kTableName = "Hierarchy";
+    static constexpr str::StringView kTableName = "Hierarchy"; // Name of the TOML subtable (de)serialization uses
 
     using T = ecs::components::Hierarchy;
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

@@ -9,7 +9,11 @@
 namespace
 {
 
-/** @brief Clamps inRegion so it lies fully within an image of inDimensions pixels. */
+/**
+ * @brief Clamps inRegion so it lies fully within an image of inDimensions pixels.
+ *
+ * Called by Image::AlphaContentBounds so the scanned region stays inside the pixel buffer.
+ */
 asge::math::Rect ClampRegionToImage( asge::math::Rect const& inRegion, asge::math::Int2 inDimensions ) noexcept
 {
     float const imgW = static_cast<float>( inDimensions.x() );
@@ -23,7 +27,11 @@ asge::math::Rect ClampRegionToImage( asge::math::Rect const& inRegion, asge::mat
     return { x0, y0, std::max( 0.0f, x1 - x0 ), std::max( 0.0f, y1 - y0 ) };
 }
 
-/** @brief True if the pixel at (inX, inY) in inImage is fully transparent (alpha == 0). */
+/**
+ * @brief True if the pixel at (inX, inY) in inImage is fully transparent.
+ *
+ * That is, its alpha is 0.
+ */
 bool IsPixelTransparent( asge::media::Image const& inImage, std::size_t inX, std::size_t inY ) noexcept
 {
     // Alpha is always the last byte of a pixel here: offset 3 of 4 for RGBA8,
@@ -100,7 +108,7 @@ asge::math::Rect asge::media::Image::AlphaContentBounds( math::Rect const &inReg
     };
 }
 
-asge::Result<asge::media::Image> asge::media::Image::Image::Load(filesystem::Path const &inImagePath)
+asge::Result<asge::media::Image> asge::media::Image::Load(filesystem::Path const &inImagePath)
 {
     auto byteResult = filesystem::ReadBinary( inImagePath );
     if (!byteResult) return Result<Image>::Err(byteResult.Error());

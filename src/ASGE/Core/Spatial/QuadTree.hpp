@@ -16,17 +16,28 @@
 namespace asge::spatial
 {
 
-/** @brief Type-independent head of an element block, so QuadNode can chain blocks without knowing T. */
+/**
+ * @brief Type-independent head of an element block.
+ *
+ * Lets QuadNode chain blocks without knowing T. A released block reuses
+ * m_Next as its free-list link.
+ */
 struct QuadBlockHeader
 {
     QuadBlockHeader*    m_Next { nullptr }; // Next block of the same node, or the free-list successor
     std::uint32_t       m_Used { 0 };       // Slots filled in this block; only a node's last block is partial
 };
 
+/**
+ * @brief One node of a QuadTree: its bounds, its four children and its element blocks.
+ *
+ * Type-independent (elements are reached through the block headers), so the
+ * QuadTree template does not bloat it. A node is a leaf until subdivided.
+ */
 struct QuadNode
 {
-    static constexpr std::uint16_t s_MaxNofElements = 16;
-    static constexpr std::uint16_t s_MaxDepth       = 10;
+    static constexpr std::uint16_t s_MaxNofElements = 16; // Elements a leaf holds before it splits
+    static constexpr std::uint16_t s_MaxDepth       = 10; // Deepest level a node may be split to
 
     math::Rect                  m_Bounds; // The bounds of the current quadtree node
     std::array<QuadNode*, 4>    m_Children; // The 4 quadrant subdivision
@@ -36,11 +47,24 @@ struct QuadNode
     std::uint32_t       m_Count { 0 };          // Total number of elements in the node
     std::uint16_t       m_Depth { 0 };          // Distance from the root (root is 0)
     
+    /**
+     * @brief Creates an empty leaf covering inBounds at depth inDepth.
+     */
     QuadNode( math::Rect const& inBounds, std::uint16_t inDepth = 0 );
+
+    /**
+     * @brief Copy construction is disabled.
+     */
     QuadNode( QuadNode const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     QuadNode& operator=( QuadNode const& ) = delete;
 
-    /** @brief True if the node has not been subdivided into children. */
+    /**
+     * @brief True if the node has not been subdivided into children.
+     */
     bool IsLeaf() const noexcept;
 };
 
@@ -61,17 +85,24 @@ class QuadTree
 
     static constexpr std::size_t s_BlockCapacity = QuadNode::s_MaxNofElements;
 
-    // Popping a node pushes at most 4 children, so a walk of depth D never holds more than 3*D + 4 nodes
-    static constexpr std::size_t s_QueryStackSize = 3 * QuadNode::s_MaxDepth + 4;
+    static constexpr std::size_t s_QueryStackSize = 3 * QuadNode::s_MaxDepth + 4; // Query stack capacity: a walk of depth D holds at most 3*D + 4 nodes
 
-    /** @brief Fixed-size run of elements of one node, stored as parallel arrays. */
+    /**
+     * @brief Fixed-size run of elements of one node.
+     *
+     * Bounds and values are stored as parallel arrays.
+     */
     struct Block : QuadBlockHeader
     {
         std::array<math::Rect, s_BlockCapacity>  m_Bounds; // Element bounds
         std::array<T, s_BlockCapacity>           m_Values; // Element values
     };
 
-    /** @brief Copy of an element of a node above the one being visited, used by ForEachPair. */
+    /**
+     * @brief Copy of an element of a node above the one being visited.
+     *
+     * Used by ForEachPair to carry ancestor elements down the walk.
+     */
     struct Entry
     {
         math::Rect  m_Bounds; // Element bounds
@@ -87,22 +118,49 @@ class QuadTree
     std::uint16_t       m_MaxDepth   { 0 };             // Deepest node created since the last Reset
     bool                m_Exhausted  { false };         // An arena allocation failed since the last Reset
 
-    /** @brief Allocates a node from the arena, or returns nullptr if the arena is full. */
+    /**
+     * @brief Allocates a node from the arena.
+     *
+     * Returns nullptr, and marks the tree exhausted, if the arena is full.
+     */
     QuadNode* createNode( math::Rect const& inBounds, std::uint16_t inDepth ) noexcept;
 
-    /** @brief Returns an empty block from the free list or the arena, or nullptr if the arena is full. */
+    /**
+     * @brief Returns an empty block from the free list or the arena.
+     *
+     * Released blocks are reused first. Returns nullptr, and marks the tree
+     * exhausted, if the arena is full.
+     */
     Block* acquireBlock() noexcept;
 
-    /** @brief Pushes the block on the free list for later reuse. */
+    /**
+     * @brief Pushes the block on the free list for later reuse.
+     *
+     * Debug builds assert the block is not already on the list.
+     */
     void releaseBlock( QuadBlockHeader* inBlock ) noexcept;
 
-    /** @brief Appends the element to the node's last block, chaining a new one if full. False if the arena is full. */
+    /**
+     * @brief Appends the element to the node's last block.
+     *
+     * Chains a new block when the last one is full or missing. Returns false
+     * if the arena has no room for that block.
+     */
     bool addElementToNode( QuadNode* inNode, T inElement, math::Rect const& inBounds ) noexcept;
 
-    /** @brief Returns 0..3 if the input rect fits one quadrant, -1 otherwise */
+    /**
+     * @brief Returns 0..3 if the rect fits entirely inside one quadrant, -1 otherwise.
+     *
+     * Quadrants are numbered top-left, top-right, bottom-left, bottom-right.
+     */
     int getQuadrantIndex( QuadNode const* inNode, math::Rect const& inBounds ) const noexcept;
 
-    /** @brief Recursively inserts an element into the tree. False only if the arena has no room for it. */
+    /**
+     * @brief Recursively inserts an element into the subtree of inNode.
+     *
+     * A full leaf below the depth cap splits first, then the element descends
+     * while it fits a single quadrant. False only if the arena has no room.
+     */
     bool insert( QuadNode* inNode, T inElement, math::Rect const& inBounds ) noexcept;
 
     /**
@@ -114,8 +172,9 @@ class QuadTree
     void subdivide( QuadNode* inNode ) noexcept;
 
     /**
-     * @brief Visits the elements of the subtree for which inElemPred holds, using an explicit fixed-size stack.
+     * @brief Visits the matching elements of a subtree with an explicit fixed-size stack.
      *
+     * An element matches when inElemPred holds for it.
      * A child is entered only if inNodePred holds for its bounds, so the node predicate must be
      * true whenever the element predicate is true for something inside the node. Nodes are visited
      * in the same order as a recursive walk (parent, then children 0..3). Returns false once the
@@ -124,7 +183,12 @@ class QuadTree
     template<typename NodePred, typename ElemPred, typename Visitor>
     bool traverse( QuadNode const* inNode, NodePred inNodePred, ElemPred inElemPred, Visitor& inVisitor ) const;
 
-    /** @brief Branch-and-bound step of Nearest: updates the best element found so far in the subtree. */
+    /**
+     * @brief Branch-and-bound step of Nearest().
+     *
+     * Updates the best element and distance found so far, visiting the
+     * closest quadrants first so the bound prunes the rest early.
+     */
     void nearest( QuadNode const* inNode, math::Float2 const& inPoint,
                   float& ioBestDistance, std::optional<T>& ioBest ) const noexcept;
 
@@ -140,7 +204,12 @@ class QuadTree
                      std::size_t inAncBegin, std::size_t inAncEnd, Visitor& inVisitor ) const;
 
 public:
-    /** @brief Reserves an arena of inArenaBytes for nodes and element blocks, and caps the tree at inMaxElements. */
+    /**
+     * @brief Reserves an arena of inArenaBytes and caps the tree at inMaxElements.
+     *
+     * The arena holds the nodes and element blocks. The tree is unusable
+     * until Reset() succeeds.
+     */
     QuadTree( std::size_t inArenaBytes, std::size_t inMaxElements );
 
     /**
@@ -152,7 +221,11 @@ public:
      */
     BoolResult Reset( float inW, float inH ) noexcept;
 
-    /** @brief Like Reset(inW, inH), but the new tree covers inBounds, which may start away from the origin. */
+    /**
+     * @brief Like Reset(inW, inH), but the new tree covers inBounds.
+     *
+     * inBounds may start away from the origin; the same errors apply.
+     */
     BoolResult Reset( math::Rect const& inBounds ) noexcept;
 
     /**
@@ -164,7 +237,11 @@ public:
      */
     BoolResult Insert( T inElement, math::Rect const& inBounds ) noexcept;
 
-    /** @brief Number of elements currently stored. */
+    /**
+     * @brief Number of elements currently stored.
+     *
+     * Back to 0 after Reset().
+     */
     std::size_t Size() const noexcept;
 
     /**
@@ -201,10 +278,18 @@ public:
      */
     std::optional<T> Nearest( math::Float2 const& inPoint ) const noexcept;
 
-    /** @brief Number of nodes created since the last Reset, root included. */
+    /**
+     * @brief Number of nodes created since the last Reset.
+     *
+     * The root is included.
+     */
     std::size_t NodeCount() const noexcept;
 
-    /** @brief Depth of the deepest node created since the last Reset (the root is 0). */
+    /**
+     * @brief Depth of the deepest node created since the last Reset.
+     *
+     * The root is at depth 0.
+     */
     std::uint16_t MaxDepthReached() const noexcept;
 
     /**
@@ -215,10 +300,18 @@ public:
      */
     bool ArenaExhausted() const noexcept;
 
-    /** @brief Arena bytes consumed so far by nodes and element blocks. */
+    /**
+     * @brief Arena bytes consumed so far by nodes and element blocks.
+     *
+     * Compare with ArenaCapacity() to size the arena.
+     */
     std::size_t ArenaUsed() const noexcept;
 
-    /** @brief Total arena size in bytes. */
+    /**
+     * @brief Total arena size in bytes.
+     *
+     * Fixed at construction.
+     */
     std::size_t ArenaCapacity() const noexcept;
 
     /**

@@ -36,7 +36,12 @@ namespace
 using namespace asge;
 using namespace asge::game::components;
 
-/** @brief RenderInfo resolved up an entity's Hierarchy chain: layer/y-sort/screen-space plus which entity "owns" the group for tie-breaking. */
+/**
+ * @brief RenderInfo resolved up an entity's Hierarchy chain.
+ *
+ * Holds layer, y-sort and screen-space, plus which entity "owns" the group
+ * for tie-breaking.
+ */
 struct RenderInfoResolved
 {
     int           m_Layer;      // Resolved draw-order bucket
@@ -50,7 +55,11 @@ struct RenderInfoResolved
 
 using Visual = std::variant<Sprite const*, UIRect const*>;
 
-/** @brief One drawable entity's precomputed sort keys and destination rect for a single frame. */
+/**
+ * @brief One drawable entity's precomputed sort keys and destination rect.
+ *
+ * Built once per entity per frame.
+ */
 struct DrawItem
 {
     ecs::Entity                        m_Entity;    // Source entity; index is the tie-break of last resort
@@ -63,12 +72,26 @@ struct DrawItem
 
 static constexpr RenderInfo kDefaultRenderInfo = RenderInfo{}; // Fallback for entities with no RenderInfo component of their own
 
-/** @brief Maps a visual component type T to the tuple of other component types that, if also present on the same entity, mean T should not be collected/drawn for it. Defaults to none. */
+/**
+ * @brief Maps a visual component type T to the component types that exclude it.
+ *
+ * If any of them is also on the entity, T is not collected or drawn for it.
+ * Defaults to none.
+ */
 template<typename T> struct should_collect_trait { using Excludes = std::tuple<>; };
-/** @brief A UIRect is skipped in favor of a Sprite on the same entity -- lets a scene author swap one for the other without both drawing on top of each other. */
+/**
+ * @brief A UIRect is skipped in favor of a Sprite on the same entity.
+ *
+ * Lets a scene author swap one for the other without both drawing on top of
+ * each other.
+ */
 template<> struct should_collect_trait<UIRect> { using Excludes = std::tuple<Sprite>; };
 
-/** @brief Checks inE against each type in should_collect_trait<T>::Excludes via GetComponent, folded with ||. */
+/**
+ * @brief Checks inE against each type in should_collect_trait<T>::Excludes.
+ *
+ * Looks each one up via GetComponent, folded with ||.
+ */
 template<typename T, std::size_t ...Is>
 bool ShouldExcludeImpl(
     ecs::Registry const& inReg, ecs::Entity const& inE, std::index_sequence<Is...>) noexcept
@@ -77,7 +100,11 @@ bool ShouldExcludeImpl(
     return ( ( static_cast<bool>( inReg.GetComponent<std::tuple_element_t<Is, Excludes>>(inE) ) ) || ... );
 }
 
-/** @brief True if inE has any of the component types should_collect_trait<T>::Excludes lists, meaning Collect<T> should skip it. */
+/**
+ * @brief True if inE has any of the component types should_collect_trait<T>::Excludes lists.
+ *
+ * That means Collect<T> should skip it.
+ */
 template<typename T>
 bool ShouldExclude( ecs::Registry const& inReg, ecs::Entity const& inE ) noexcept
 {
@@ -88,12 +115,11 @@ bool ShouldExclude( ecs::Registry const& inReg, ecs::Entity const& inE ) noexcep
 }
 
 /**
- * @brief Resolves inTarget's effective RenderInfoResolved, walking up its
- *        Hierarchy chain when RenderInfo::m_InheritSortFromParent is set.
+ * @brief Resolves inTarget's effective RenderInfoResolved.
  *
- * m_ScreenSpace always propagates from an inheriting ancestor even when
- * m_InheritSortFromParent is false; layer, y-sort and the sort owner only
- * propagate when it's true.
+ * Walks up the Hierarchy chain when RenderInfo::m_InheritSortFromParent is
+ * set. m_ScreenSpace always propagates from an inheriting ancestor, even when
+ * that flag is false; layer, y-sort and the sort owner only when it is true.
  */
 RenderInfoResolved ResolveRenderInfo( ecs::Registry const& inReg, ecs::Entity inTarget )
 {
@@ -123,10 +149,11 @@ RenderInfoResolved ResolveRenderInfo( ecs::Registry const& inReg, ecs::Entity in
 }
 
 /**
- * @brief Orders DrawItems for RenderSystem: world-space before screen-space,
- *        then by resolved layer, then bottom-edge Y when either side opted
- *        into y-sort, then by sort owner, RenderInfo::m_LocalOrder,
- *        inheritance depth, and finally entity index.
+ * @brief Orders DrawItems for RenderSystem.
+ *
+ * World-space before screen-space, then by resolved layer, then bottom-edge Y
+ * when either side opted into y-sort, then by sort owner,
+ * RenderInfo::m_LocalOrder, inheritance depth, and finally entity index.
  */
 bool operator<(DrawItem const& a, DrawItem const& b) noexcept
 {
@@ -147,7 +174,11 @@ bool operator<(DrawItem const& a, DrawItem const& b) noexcept
 
 // ---- Size : The only per-type part of collection ----------------------------------------------
 
-/** @brief Builds a world-space rect from inT's position/scale and a size authored in Transform-local units (e.g. UIRect::m_Size). */
+/**
+ * @brief Builds a world-space rect from inT's position and scale.
+ *
+ * inSize is authored in Transform-local units (e.g. UIRect::m_Size).
+ */
 math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noexcept
 {
     return math::Rect{
@@ -155,20 +186,32 @@ math::Rect RectFromSize( Transform const& inT, math::Float2 const& inSize ) noex
         inSize.x() * inT.m_WorldScale.x(), inSize.y() * inT.m_WorldScale.y() };
 }
 
-/** @brief Sprite's destination rect, or nullopt if it has no texture (see utils::SpriteGetDstRect). */
+/**
+ * @brief Sprite's destination rect.
+ *
+ * Nullopt if it has no texture (see utils::SpriteGetDstRect).
+ */
 std::optional<math::Rect> ComputeDstRect( Sprite const& inS, Transform const& inT ) noexcept
 {
     auto const r = game::utils::SpriteGetDstRect( inS, inT );
     return r.has_value() ? std::optional<math::Rect>{ *r } : std::nullopt;
 }
 
-/** @brief UIRect's destination rect -- always present, unlike Sprite's (a widget has no missing-texture case). */
+/**
+ * @brief UIRect's destination rect.
+ *
+ * Always present, unlike Sprite's: a widget has no missing-texture case.
+ */
 std::optional<math::Rect> ComputeDstRect( UIRect const& inR, Transform const& inT ) noexcept
 {
     return RectFromSize( inT, inR.m_Size );
 }
 
-/** @brief Destination rect of whatever visual the entity has, for computing an owner's bottom edge. */
+/**
+ * @brief Destination rect of whatever visual the entity has.
+ *
+ * Used to compute an owner's bottom edge.
+ */
 std::optional<math::Rect> GetAnyDstRect( ecs::Registry const& inReg, ecs::Entity inE, Transform const& inT ) noexcept
 {
     if ( auto s = inReg.GetComponent<Sprite>( inE ) ) return ComputeDstRect( s.Value().get(), inT );
@@ -176,8 +219,12 @@ std::optional<math::Rect> GetAnyDstRect( ecs::Registry const& inReg, ecs::Entity
     return std::nullopt;
 }
 
-/** @brief inOwner's own sort Y -- bottom edge (Transform + Sprite, if it has one) plus its RenderInfo::m_SortOffsetY --
- * for an item inheriting inOwner's sort key, or inFallback if inOwner has no Transform. */
+/**
+ * @brief inOwner's own sort Y, for an item inheriting inOwner's sort key.
+ *
+ * That is its bottom edge (Transform + Sprite, if any) plus
+ * RenderInfo::m_SortOffsetY, or inFallback if inOwner has no Transform.
+ */
 float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float inFallback ) noexcept
 {
     auto tResult = inReg.GetComponent<Transform>( inOwner );
@@ -192,7 +239,11 @@ float ComputeOwnerSortY( ecs::Registry const& inReg, ecs::Entity inOwner, float 
 
 // ---- Collection: identical for every visual type ------------------------------
 
-/** @brief Builds a DrawItem from an entity's Transform + Sprite, or nullopt if the sprite has no texture. */
+/**
+ * @brief Builds a DrawItem from an entity's Transform and Sprite.
+ *
+ * Nullopt if the sprite has no texture.
+ */
 template<typename T>
 void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<DrawItem>& outItems ) noexcept
 {
@@ -224,7 +275,11 @@ void Collect( ecs::Registry& inReg, math::Rect const& inVisible, std::vector<Dra
 
 // ---- Drawing: one overload per visual type ------------------------------------
 
-/** @brief Picks inColors' m_PressedColor/m_HoverColor/m_Color by inE's sibling Interactable, shared by UIButton and UICheckbox's box fill. */
+/**
+ * @brief Picks inColors' pressed, hover or normal color by inE's sibling Interactable.
+ *
+ * Shared by UIButton and UICheckbox's box fill.
+ */
 graphics::RGBA_Color PickStateColor(
     ecs::Registry const& inReg, ecs::Entity inE, details::StateColors const& inColors)
 {
@@ -238,7 +293,11 @@ graphics::RGBA_Color PickStateColor(
     return inColors.m_Color;
 }
 
-/** @brief Draws a Sprite's texture into inItem.m_DstRect, routing through the affine overloads when the entity's Transform is rotated. */
+/**
+ * @brief Draws a Sprite's texture into inItem.m_DstRect.
+ *
+ * Routes through the affine overloads when the entity's Transform is rotated.
+ */
 void Draw(
     [[maybe_unused]] ecs::Registry const& inReg,
     video::IRenderer& inRenderer, DrawItem const& inItem, Sprite const& inSprite )
@@ -269,6 +328,11 @@ void Draw(
     if ( tinted ) texture->SetColorMod( graphics::colors::s_White );
 }
 
+/**
+ * @brief Draws a UIButton's fill rect.
+ *
+ * The color is picked by PickStateColor from m_Colors.
+ */
 void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer, 
     DrawItem const& inItem, UIButton const& inButton)
@@ -280,15 +344,10 @@ void Draw(
 /**
  * @brief Draws a UILabel's text with its baked Font atlas.
  *
- * Positioned within inItem.m_DstRect by inLabel.m_Align/m_VerticalAlign
- * using Font::Measure's real pixel size, then offset down by GetAscent()
- * since DrawString's position is the baseline, not a bounding-box corner
- * -- for Top/Left that puts the glyphs flush against the rect's own edges.
- * str::Justify is the wrong tool for the horizontal case despite the
- * similar name: it pads by *character count* for fixed-width text layout,
- * not by the pixel width a proportional font actually draws at, so passing
- * it inItem.m_DstRect.m_Width (pixels) as a character count padded with
- * far more space glyphs than intended.
+ * Positioned within inItem.m_DstRect by the label's alignment, using
+ * Font::Measure's real pixel size, then offset down by GetAscent() since
+ * DrawString's position is the baseline. str::Justify is not used: it pads by
+ * character count, not by the pixel width a proportional font draws at.
  */
 void Draw(
     [[maybe_unused]] ecs::Registry const& inReg, video::IRenderer& inRenderer,
@@ -331,9 +390,10 @@ void Draw(
 }
 
 /**
- * @brief Draws a UICheckbox's box (PickStateColor'd from m_BoxColors, like
- *        UIButton) and, if checked, an inset filled square in m_CheckColor
- *        on top -- inset 15% of the box's width/height on each side.
+ * @brief Draws a UICheckbox's box and, if checked, its check mark.
+ *
+ * The box color is picked from m_BoxColors like UIButton's. The check is a
+ * filled square in m_CheckColor, inset 15% of the box on each side.
  */
 void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
@@ -357,6 +417,11 @@ void Draw(
     inRenderer.DrawRect( checkBox, inCheckbox.m_CheckColor, true );
 }
 
+/**
+ * @brief Draws a UISlider's track, its filled part and its thumb.
+ *
+ * The thumb position comes from GetThumbPosition().
+ */
 void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, UISlider const& inSlider)
@@ -384,6 +449,9 @@ void Draw(
     inRenderer.DrawCircle( center, radius, color, true );
 }
 
+/**
+ * @brief Draws a UIPanel's background, inset by its margin, and its border if set.
+ */
 void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, UIPanel const& inPanel)
@@ -403,6 +471,11 @@ void Draw(
     }
 }
 
+/**
+ * @brief Draws a UIProgressBar's background, its fill and its border.
+ *
+ * The fill is sized by the normalized value along m_Direction.
+ */
 void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
     DrawItem const& inItem, UIProgressBar const& inBar )
@@ -433,10 +506,11 @@ void Draw(
 }
 
 /**
- * @brief Draws a UIRect by dispatching to whichever of UIWidgets it also
- *        carries (UIButton/UICheckbox pick their fill color from a sibling
- *        Interactable's m_Held/m_Hovered; a missing Interactable just means
- *        never hovered/held); does nothing if it carries none of them.
+ * @brief Draws a UIRect by dispatching to whichever UIWidgets it also carries.
+ *
+ * UIButton and UICheckbox pick their fill from a sibling Interactable (a
+ * missing one just means never hovered or held). Does nothing if it carries
+ * none of them.
  */
 void Draw(
     ecs::Registry const& inReg, video::IRenderer& inRenderer,
@@ -451,13 +525,15 @@ void Draw(
     );
 }
 
-// A UILabel with m_AutoSize keeps its sibling UIRect's own m_Size in sync
-// with its measured text every frame -- "fit the text" (LabelDesc::m_Size's
-// own doc comment) means the rect tracks whatever the text currently
-// measures at, not just whatever it happened to be sized at creation.
-// Skipped until m_Font actually resolves (see Resolver<UILabel>); until
-// then the rect stays whatever CreateLabel gave it, same as any other
-// unresolved asset-owning component.
+/**
+ * @brief Keeps an auto-sized UILabel's sibling UIRect in sync with its text.
+ *
+ * "fit the text" (LabelDesc::m_Size's own doc comment) means the rect tracks
+ * whatever the text currently measures at, not just whatever it happened to be
+ * sized at creation. Skipped until m_Font actually resolves (see
+ * Resolver<UILabel>); until then the rect stays whatever CreateLabel gave it,
+ * same as any other unresolved asset-owning component.
+ */
 void ResolveLabelAutoSize( ecs::Registry& inRegistry ) noexcept
 {
     for ( auto [ entity, label ] : inRegistry.View<UILabel>() )
@@ -475,15 +551,11 @@ void ResolveLabelAutoSize( ecs::Registry& inRegistry ) noexcept
 // ----------- Hit List collection ------------------------------------
 
 /**
- * @brief Rebuilds resources::UIHitList (if set) from this frame's sorted
- *        drawItems -- a no-op if that resource isn't present.
+ * @brief Rebuilds resources::UIHitList from this frame's sorted drawItems.
  *
- * One HitEntry per entity carrying both UIRect (its footprint) and an
- * *enabled* Interactable (opting it into hit-testing at all) -- even one
- * drawn as a Sprite (see ShouldExclude), since a hit entry only needs the
- * rect, not whatever actually got drawn. Skips a second adjacent DrawItem
- * from the same entity (one entity can produce several -- e.g. Sprite +
- * UILabel -- which after sorting end up adjacent).
+ * A no-op if the resource isn't set. One HitEntry per entity with a UIRect and
+ * an enabled Interactable, even if it was drawn as a Sprite. A second adjacent
+ * DrawItem from the same entity (e.g. Sprite + UILabel) is skipped.
  */
 void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawItems )
 {
@@ -510,7 +582,11 @@ void CollectHitList( ecs::Registry& inReg, std::vector<DrawItem> const& inDrawIt
     }
 }
 
-/** @brief The subset of DrawItem's own sort key operator< needs, computed for one entity outside of a Collect<T> pass -- backs IsDrawnAbove. */
+/**
+ * @brief The subset of DrawItem's sort key that operator< needs.
+ *
+ * Computed for one entity outside a Collect<T> pass; backs IsDrawnAbove.
+ */
 struct SortKey
 {
     RenderInfoResolved m_RenderInfo;
@@ -518,6 +594,12 @@ struct SortKey
     ecs::Entity        m_Entity;
 };
 
+/**
+ * @brief Computes the SortKey of one entity.
+ *
+ * Resolves its RenderInfo and sort Y, taking the owner's bottom edge for an
+ * entity that inherits its owner's sort key.
+ */
 SortKey ComputeSortKey( ecs::Registry const& inReg, ecs::Entity inEntity ) noexcept
 {
     RenderInfoResolved const render = ResolveRenderInfo( inReg, inEntity );

@@ -14,27 +14,28 @@ namespace asge::video
  * @brief Initializes the given graphics backend's subsystem
  *
  * Must be called once before CreateWindow/CreateRenderer for that backend,
- * and paired with a matching ShutdownBackend call.
- *
- * @param inBackend The graphics backend to initialize
+ * and paired with a matching ShutdownBackend call. For SDL this is
+ * SDL_Init(SDL_INIT_VIDEO). Returns an error Result carrying the backend's
+ * message on failure, including for an unknown backend value.
  */
 BoolResult InitializeBackend(GraphicsBackend inBackend);
 
 /**
  * @brief Shuts down the given graphics backend's subsystem
  *
- * @param inBackend The graphics backend to shut down
+ * Counterpart of InitializeBackend; for SDL this calls SDL_Quit(), which
+ * tears down every SDL subsystem. Destroy all windows, renderers and
+ * textures of that backend first.
  */
 void ShutdownBackend(GraphicsBackend inBackend);
 
 /**
  * @brief Creates a window for the given graphics backend
  *
- * @param inBackend The graphics backend to create the window for
- * @param inTitle The title of the window
- * @param inWidth The width of the window
- * @param inHeight The height of the window
- * @param inResizable Whether the window can be resized by the user
+ * inWidth/inHeight are in pixels and inResizable lets the user resize it.
+ * The backend must already be initialized. Creation failure is logged by
+ * the backend and shows up as a window whose IsValid() is false, so check
+ * it. Returns nullptr only for an unknown backend value.
  */
 std::unique_ptr<IWindow> CreateWindow(
     GraphicsBackend inBackend, std::string const& inTitle, int inWidth, int inHeight, bool inResizable);
@@ -42,8 +43,9 @@ std::unique_ptr<IWindow> CreateWindow(
 /**
  * @brief Creates a renderer for the given graphics backend, bound to the input window
  *
- * @param inBackend The graphics backend to create the renderer for
- * @param inWindow The window the renderer will draw to
+ * inWindow must come from CreateWindow for the same backend and outlive the
+ * renderer. As with CreateWindow, failures are logged and give a renderer
+ * whose IsValid() is false; nullptr only for an unknown backend value.
  */
 std::unique_ptr<IRenderer> CreateRenderer(GraphicsBackend inBackend, IWindow const& inWindow);
 

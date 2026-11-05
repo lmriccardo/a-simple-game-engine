@@ -26,10 +26,8 @@ namespace asge::rtti
  * Wraps compiler-specific RTTI demangling (@c abi::__cxa_demangle on
  * GCC/Clang, @c UnDecorateSymbolName on MSVC) behind a single portable call.
  * Falls back to the raw @c typeid(T).name() on unsupported compilers or if
- * demangling fails.
- *
- * @tparam T Type to name.
- * @return The demangled type name.
+ * demangling fails. The result is for logging and diagnostics: its exact text
+ * differs between compilers.
  */
 template <typename T>
 std::string GetDemangledName() noexcept

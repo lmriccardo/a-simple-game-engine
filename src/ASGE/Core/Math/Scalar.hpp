@@ -3,14 +3,23 @@
 namespace asge::math
 {
 
-/** @brief Maps @p inValue from [@p inMin, @p inMax] to [0, 1] without clamping; returns 0 for an empty range. */
+/**
+ * @brief Maps a value from [inMin, inMax] to [0, 1] without clamping.
+ *
+ * Values outside the range land outside [0, 1]. Returns 0 for an empty range
+ * (inMin == inMax) instead of dividing by zero.
+ */
 inline constexpr float Normalize01(float inValue, float inMin, float inMax) noexcept
 {
     if ( inMin == inMax ) return 0.0f;
     return ( inValue - inMin ) / ( inMax - inMin );
 }
 
-/** @brief Restricts @p inValue to the closed range [@p inMin, @p inMax]; requires inMin <= inMax. */
+/**
+ * @brief Restricts a value to the closed range [inMin, inMax].
+ *
+ * Requires inMin <= inMax; otherwise the result is unspecified.
+ */
 inline constexpr float Clamp( float inValue, float inMin, float inMax ) noexcept
 {
     if ( inValue < inMin ) return inMin;
@@ -18,7 +27,11 @@ inline constexpr float Clamp( float inValue, float inMin, float inMax ) noexcept
     return inValue;
 }
 
-/** @brief Linearly interpolates from @p inA to @p inB by @p inT, without clamping @p inT. */
+/**
+ * @brief Linearly interpolates from inA to inB by inT.
+ *
+ * inT is not clamped, so values outside [0, 1] extrapolate.
+ */
 inline constexpr float Lerp( float inA, float inB, float inT ) noexcept
 {
     return inA + ( inB - inA ) * inT;
@@ -35,7 +48,11 @@ inline constexpr float Remap(
     return Lerp( inOutMin, inOutMax, Normalize01( inValue, inInMin, inInMax ) );
 }
 
-/** @brief Restricts @p inValue to [0, 1]. */
+/**
+ * @brief Restricts a value to [0, 1].
+ *
+ * Shorthand for Clamp(inValue, 0, 1).
+ */
 inline constexpr float Saturate( float inValue ) noexcept
 {
     return Clamp( inValue, 0.0f, 1.0f );

@@ -69,21 +69,34 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_Speed/m_OffsetH/m_OffsetV/m_AlignRotation only; FromToml leaves
- *        m_Traveled/m_Finished/m_Heading at their defaults.
+ * @brief Round-trips m_Speed/m_OffsetH/m_OffsetV/m_AlignRotation only.
+ *
+ * FromToml leaves m_Traveled/m_Finished/m_Heading at their defaults.
  */
 template<>
 struct Serializer<components::PathFollow>
 {
-    static constexpr str::StringView kTableName = "PathFollow";
+    static constexpr str::StringView kTableName = "PathFollow"; // Name of the TOML subtable (de)serialization uses
 
     using T = components::PathFollow;
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

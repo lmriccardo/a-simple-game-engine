@@ -39,12 +39,10 @@ namespace asge::ecs
  * itself is one of Ts, since the caller is then explicitly asking to see
  * disabled entities.
  *
- * Ts may be const-qualified (e.g. `View<Sprite const>`, what
- * Registry::View<Ts...>() const returns) to get (Entity, Ts const&...)
- * instead — the same pools, just read-only, for a Registry the caller only
- * holds a const reference to.
- *
- * @tparam Ts Component types an entity must have to appear in this view.
+ * Ts, the component types an entity must have to appear in this view, may be
+ * const-qualified (e.g. `View<Sprite const>`, what Registry::View<Ts...>()
+ * const returns) to get (Entity, Ts const&...) instead — the same pools, just
+ * read-only, for a Registry the caller only holds a const reference to.
  */
 template<typename ... Ts>
 class View
@@ -82,10 +80,12 @@ private:
     // storage, skipping entities the other pools don't also contain.
     class Iterator
     {
-        View const* m_View;
-        std::size_t m_Index{};
+        View const* m_View;   // The view being iterated
+        std::size_t m_Index{}; // Position in the smallest pool's dense storage
 
-        // True only if every pool in m_ActivePools contains this entity.
+        /**
+         * @brief True only if every pool in m_ActivePools contains this entity.
+         */
         bool PassesAllPools( Entity entity ) const
         {
             bool selector {true};
@@ -104,7 +104,9 @@ private:
             );
         }
 
-        // Advance m_Index until it lands on a matching entity, or falls off the end.
+        /**
+         * @brief Advance m_Index until it lands on a matching entity, or falls off the end.
+         */
         void SkipToValid()
         {
             // No smallest pool means the owning View is invalid (see class
@@ -125,12 +127,18 @@ private:
         using pointer           = void;
         using reference         = value_type;
 
-        Iterator(View const* inView, std::size_t inIndex) 
+        /**
+         * @brief Starts at inIndex of the smallest pool, skipping to the first match.
+         */
+        Iterator(View const* inView, std::size_t inIndex)
         : m_View( inView ), m_Index( inIndex )
         {
             SkipToValid();
         }
 
+        /**
+         * @brief The current entity followed by references to each viewed component.
+         */
         value_type operator*()
         {
             Entity const entity = m_View->m_SmallestPool->Entities()[m_Index];
@@ -142,18 +150,33 @@ private:
             return functools::PrependToTuple( entity, components );
         }
 
-        Iterator& operator++() 
+        /**
+         * @brief Steps to the next entity that has every viewed component.
+         */
+        Iterator& operator++()
         {
             ++m_Index;
             SkipToValid();
             return *this;
         }
 
+        /**
+         * @brief True if the two iterators are at different positions.
+         */
         bool operator!=(Iterator const& other) const { return m_Index != other.m_Index; }
+
+        /**
+         * @brief True if the two iterators are at the same position.
+         */
         bool operator==(Iterator const& other) const { return !(m_Index != other.m_Index); }
     };
 
-    /** @brief Returns the smallest pool based on entity density */
+    /**
+     * @brief Returns the smallest pool based on entity density.
+     *
+     * Iterating the smallest pool minimises the entities that need checking
+     * against the rest. Only called when every pool pointer is valid.
+     */
     IComponentPool const* GetSmallestPool() const noexcept
     {
         return std::apply([](auto* first, auto*... rest) -> IComponentPool const*
@@ -171,8 +194,8 @@ public:
      * inPools[i] should be the pool for the i-th type in Ts (nullptr if
      * that type has never been used), typically Registry::FindPool<T>()'s
      * result — Registry::View<Ts...>() is the intended way to construct this.
-     * inIsDisabled need not be set (an empty std::function skips the check
-     * below entirely, same as every entity passing it).
+     * inIsDisabled need not be set (an empty std::function skips the disabled
+     * check entirely, same as every entity passing it).
      */
     View( std::function<bool(Entity)> inIsDisabled, Pool<Ts>*&& ... inPools )
         : m_IsDisabled(std::move(inIsDisabled))
@@ -182,14 +205,20 @@ public:
     {
     }
 
-    /** @brief Start of the view; matches end() immediately if any pool is missing. */
+    /**
+     * @brief Start of the view; matches end() immediately if any pool is missing.
+     *
+     * Positions on the first entity present in every pool.
+     */
     Iterator begin()
     {
         if ( !m_Valid ) return end();
         return Iterator( this, 0 );
     }
 
-    /** @brief One-past-the-last element of the view. */
+    /**
+     * @brief One-past-the-last element of the view.
+     */
     Iterator end()
     {
         return Iterator( this, Size() );
@@ -197,8 +226,10 @@ public:
 
     /**
      * @brief Opts this view back into entities carrying markers::Disable.
-     * @return *this, moved -- chain directly off Registry::View(), e.g.
-     *         `for (auto ... : registry.View<T>().IncludeDisabled())`.
+     *
+     * Returns *this, moved, so chain it directly off Registry::View(), e.g.
+     * `for (auto ... : registry.View<T>().IncludeDisabled())`. Only callable
+     * on a temporary.
      */
     View IncludeDisabled() && noexcept
     {
@@ -206,6 +237,13 @@ public:
         return std::move( *this );
     }
 
+    /**
+     * @brief Upper bound on the entity count: the smallest pool's size.
+     *
+     * Entities filtered out by the other pools or by the disabled check are
+     * still counted, so it is not the number of items iteration yields.
+     * Zero for a view with a missing pool.
+     */
     std::size_t Size() const noexcept
     {
         if ( !m_Valid ) return 0;

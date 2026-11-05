@@ -10,13 +10,18 @@
 namespace asge::game::asset
 {
 
-/** @brief Direction in which frame indices walk a spritesheet grid. */
+/**
+ * @brief Direction in which frame indices walk a spritesheet grid.
+ *
+ * RowMajor fills a row before moving to the next; ColumnMajor fills a column.
+ */
 enum class GridOrder { RowMajor, ColumnMajor };
 
 /**
- * @brief Describes one clip as a contiguous range of cells over a regular
- *        spritesheet grid — which cells, in which order, and how they are
- *        spaced. Serialized field-for-field by FrameTable::Save/Load.
+ * @brief Describes one clip as a contiguous range of cells over a regular spritesheet grid.
+ *
+ * Says which cells, in which order, and how they are spaced. Serialized
+ * field-for-field by FrameTable::Save/Load.
  */
 struct GridSpec
 {
@@ -26,14 +31,15 @@ struct GridSpec
     std::size_t m_First{0};      // Index of the clip's first frame, counted in m_Order
     std::size_t m_Count{0};      // Number of frames in the clip
     float       m_Spacing{0.0f}; // Gap between adjacent cells, in pixels
-    GridOrder   m_Order{GridOrder::RowMajor};
+    GridOrder   m_Order{GridOrder::RowMajor}; // Direction the frame indices walk the grid
 };
 
 /**
- * @brief A named sequence of source rects into a spritesheet — one entry
- *        per animation frame, shared by every components::Animation whose
- *        m_ClipPath resolves to the same virtual path (see
- *        asset::AssetManager::GetFrameTable/ResolveAssets).
+ * @brief A named sequence of source rects into a spritesheet.
+ *
+ * One entry per animation frame, shared by every components::Animation whose
+ * m_ClipPath resolves to the same virtual path (see
+ * asset::AssetManager::GetFrameTable/ResolveAssets).
  *
  * Load() reads a small TOML meta-file (its own `[FrameTable]` table, keyed
  * by kTableName) describing a contiguous run of cells on one regular grid
@@ -43,8 +49,10 @@ struct GridSpec
  * between cells. Every key but x/y/w/h/columns/count is optional, so older
  * files still load; "rows" = 0 means unknown. Load() fails on an unknown
  * "order" or on a clip that runs past the end of a known-size grid. See
- * MakeGridFrames, which does the actual grid math. Not the spritesheet's pixels themselves; the entity's
- * own Sprite::m_VirtualPath still points at the texture this FrameTable's
+ * MakeGridFrames, which does the actual grid math.
+ *
+ * It is not the spritesheet's pixels themselves; the entity's own
+ * Sprite::m_VirtualPath still points at the texture this FrameTable's
  * rects are meant to crop -- m_OriginAsset (also read from the same table,
  * key "m_OriginAsset") is that same texture's virtual path, recorded purely
  * as editor bookkeeping (see the level editor's "Create Clip" modal and its
@@ -59,29 +67,39 @@ struct GridSpec
  */
 struct FrameTable
 {
-    static constexpr str::StringView kTableName = "FrameTable";
-    std::vector<math::Rect> m_Frames;
+    static constexpr str::StringView kTableName = "FrameTable"; // Name of the TOML subtable (de)serialization uses
+    std::vector<math::Rect> m_Frames; // Source rect of each frame, in texture pixels
     std::vector<float>      m_FrameDurations{}; // Optional per-frame seconds (key "frame_durations");
     str::String             m_OriginAsset{}; // Virtual path of the texture this clip slices
 
-    /** @brief Seconds frame inIndex is shown: its m_FrameDurations entry if present and positive, else inFallback. */
+    /**
+     * @brief Seconds frame inIndex is shown.
+     *
+     * Its m_FrameDurations entry if present and positive, else inFallback.
+     */
     [[nodiscard]] float FrameDuration( std::size_t inIndex, float inFallback ) const noexcept
     {
         return inIndex < m_FrameDurations.size() && m_FrameDurations[inIndex] > 0.0f
             ? m_FrameDurations[inIndex] : inFallback;
     }
 
-    /** @brief Parses inPath's `[FrameTable]` TOML table into m_Frames/m_OriginAsset */
+    /**
+     * @brief Parses inPath's `[FrameTable]` TOML table into m_Frames/m_OriginAsset.
+     *
+     * Builds m_Frames from the grid keys through MakeGridFrames, and reads
+     * the optional frame_durations and m_OriginAsset. Fails on a missing or
+     * malformed file; see the struct comment for the accepted keys.
+     */
     static Result<FrameTable> Load( filesystem::Path const& inPath );
 
     /**
-     * @brief Writes inSpec/inOriginAsset as inPath's
-     *        `[FrameTable]` table — the exact schema Load() reads back (see
-     *        the struct doc comment). Creates inPath if it doesn't exist;
-     *        overwrites it (as a fresh file containing just this table) if
-     *        it does — meant for a file this call is the sole owner of (the
-     *        level editor's in-editor spritesheet slicer, say), not one
-     *        with other hand-authored content to preserve.
+     * @brief Writes inSpec/inOriginAsset as inPath's `[FrameTable]` table.
+     *
+     * Uses the exact schema Load() reads back (see the struct doc comment).
+     * Creates inPath if it doesn't exist; overwrites it (as a fresh file
+     * containing just this table) if it does — meant for a file this call is
+     * the sole owner of (the level editor's in-editor spritesheet slicer,
+     * say), not one with other hand-authored content to preserve.
      */
     [[nodiscard]] static BoolResult Save(filesystem::Path const& inPath, 
                                          GridSpec const& inSpec, 
@@ -89,23 +107,22 @@ struct FrameTable
                                          std::vector<float> const& inFrameDurations = {} ) noexcept;
 
     /**
-     * @brief Checks whether inPath is a FrameTable clip — a TOML file with
-     *        a top-level `[FrameTable]` table — without building the frame
-     *        grid. Parses the real TOML, unlike a substring search.
-     * @return false for a missing, malformed, or non-matching file alike.
+     * @brief Checks whether inPath is a FrameTable clip, without building the frame grid.
+     *
+     * A clip is a TOML file with a top-level `[FrameTable]` table. Parses the
+     * real TOML, unlike a substring search. Returns false for a missing,
+     * malformed, or non-matching file alike.
      */
     [[nodiscard]] static bool IsFrameTable( filesystem::Path const& inPath );
 };
 
 /**
- * @brief Builds inSpec.m_Count sub-rects (in texture pixels) across a regular
- *        grid spritesheet, for use as FrameTable::m_Frames.
+ * @brief Builds inSpec.m_Count sub-rects across a regular grid spritesheet.
  *
- * Cell indices run from m_First to m_First + m_Count - 1. In RowMajor order
- * index i sits at column (i % m_Columns), row (i / m_Columns); in ColumnMajor
- * order at column (i / m_Rows), row (i % m_Rows). Adjacent cells are
- * m_Spacing pixels apart. Returns an empty vector if m_Count is 0 or the
- * wrap length for the order (m_Columns / m_Rows) is 0.
+ * The rects are in texture pixels, for use as FrameTable::m_Frames. Indices run
+ * from m_First; RowMajor puts index i at column (i % m_Columns), ColumnMajor at
+ * row (i % m_Rows). Cells are m_Spacing pixels apart. Empty if m_Count or the
+ * wrap length is 0.
  */
 std::vector<math::Rect> MakeGridFrames( GridSpec const& inSpec ) noexcept;
     

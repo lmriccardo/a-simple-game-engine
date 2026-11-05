@@ -8,7 +8,11 @@ namespace
 using namespace asge::game::components;
 using namespace asge::audio;
 
-/** @brief Creates inSource's stream on first use, then (re)fills it with its clip's PCM data. */
+/**
+ * @brief Creates inSource's stream on first use, then refills it with its clip's PCM data.
+ *
+ * Failing to create the stream is logged and leaves the source untouched.
+ */
 void StartOrReplaySource( AudioDevice &inDevice, AudioSource& inSource )
 {
     // If the stream is nullpointer then we need to create one
@@ -26,7 +30,11 @@ void StartOrReplaySource( AudioDevice &inDevice, AudioSource& inSource )
     inSource.m_Stream->PutData( inSource.m_Clip->Get() );
 }
 
-/** @brief Clears inSource's queued PCM data, if it has a live stream. */
+/**
+ * @brief Clears inSource's queued PCM data.
+ *
+ * Does nothing if it has no live stream.
+ */
 void StopSource( AudioSource& inSource )
 {
     if ( inSource.m_Stream && inSource.m_Stream->IsValid() )

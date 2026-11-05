@@ -19,13 +19,13 @@ namespace detail
  * @brief Combines hashes of an arbitrary tuple into one std::size_t.
  *
  * Applies boost::hash_combine's mixing formula via a fold expression over
- * each element's std::hash, at the indices named by @p I (see AssetPool::
- * KeyHash for how the index sequence is built).
+ * each element's std::hash, at the indices named by the index sequence (see
+ * AssetPool::KeyHash for how it is built).
  */
 template <typename Tuple, std::size_t... I>
 std::size_t HashTupleImpl( Tuple const& inTuple, std::index_sequence<I...> ) noexcept
 {
-    std::size_t seed = 0;
+    std::size_t seed = 0; // Running hash, mixed with each element
     auto combine = [&seed]( auto const& inElem )
     {
         using ElemT = std::decay_t<decltype(inElem)>;
@@ -38,9 +38,9 @@ std::size_t HashTupleImpl( Tuple const& inTuple, std::index_sequence<I...> ) noe
 }
 
 /**
- * @brief A VFS-backed, path-keyed cache of `shared_ptr<Asset<T>>`, loaded via
- * a caller-supplied `Loader` on first request.
+ * @brief A VFS-backed, path-keyed cache of `shared_ptr<Asset<T>>`.
  *
+ * Assets are loaded via a caller-supplied `Loader` on first request.
  * `KeyArgs` extends the cache key past the virtual path for asset types a
  * bare path doesn't fully identify — e.g. a font's bake pixel height, so
  * `"fonts/x.ttf"` at two different sizes gets two independent cache entries
@@ -54,13 +54,17 @@ class AssetPool
 {
 public:
     using asset_ptr = std::shared_ptr<Asset<T>>;
-    /** @brief Loads `T` from a resolved real path plus this pool's extra key args. */
+    // Loads `T` from a resolved real path plus this pool's extra key args.
     using Loader = std::function<Result<T>(filesystem::Path const&, KeyArgs...)>;
 private:
     using Key = std::tuple<str::String, KeyArgs...>;
-    /** @brief Hashes a `Key` (virtual path + KeyArgs) for `m_Assets`. */
+
+    // Hashes a `Key` (virtual path + KeyArgs) for `m_Assets`.
     struct KeyHash
     {
+        /**
+         * @brief Combines the hashes of every tuple element.
+         */
         std::size_t operator()( Key const& inKey ) const noexcept
         {
             return detail::HashTupleImpl( inKey,
@@ -68,16 +72,38 @@ private:
         }
     };
 
-    std::unordered_map<Key, asset_ptr, KeyHash> m_Assets;
-    Loader m_Loader;
+    std::unordered_map<Key, asset_ptr, KeyHash> m_Assets; // Cached assets by virtual path + key args
+    Loader m_Loader;                                      // Called on a cache miss to build the value
 public:
+    /**
+     * @brief Creates an empty pool that builds missing assets with inLoader.
+     */
     explicit AssetPool( Loader inLoader ) noexcept
     : m_Loader( std::move(inLoader) )
     {}
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     AssetPool( AssetPool const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     AssetPool& operator=( AssetPool const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     AssetPool( AssetPool&& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     AssetPool& operator=( AssetPool&& ) = default;
 
     /**
@@ -107,7 +133,11 @@ public:
     }
 
     /**
-     * @brief Remove a cached asset from the pool
+     * @brief Removes a cached asset from the pool.
+     *
+     * No-op if nothing is cached for that key. Holders of the asset keep
+     * their `shared_ptr`; only the pool's own reference is dropped, so the
+     * next GetOrLoad() loads it again.
      */
     void Remove( str::StringCRef inVirtualPath, KeyArgs ...inArgs ) noexcept
     {

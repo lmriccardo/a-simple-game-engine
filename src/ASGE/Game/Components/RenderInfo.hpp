@@ -33,19 +33,36 @@ struct RenderInfo
 namespace asge::game::scene
 {
 
-/** @brief Round-trips every RenderInfo field verbatim -- no entity references or runtime-only state to reconcile through a SaveContext/LoadContext. */
+/**
+ * @brief Round-trips every RenderInfo field verbatim.
+ *
+ * No entity references or runtime-only state to reconcile through a
+ * SaveContext/LoadContext.
+ */
 template<>
 struct Serializer<components::RenderInfo>
 {
-    static constexpr str::StringView kTableName = "RenderInfo";
+    static constexpr str::StringView kTableName = "RenderInfo"; // Name of the TOML subtable (de)serialization uses
 
     using T = components::RenderInfo;
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

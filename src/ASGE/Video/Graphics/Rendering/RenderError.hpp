@@ -25,6 +25,11 @@ enum class RenderError : std::uint8_t
     RenderTextureFailed,
 };
 
+/**
+ * @brief Human-readable message for a RenderError value.
+ *
+ * Looked up by the error category REGISTER_ASGE_ERROR creates.
+ */
 inline str::String ToErrorString(RenderError e) noexcept
 {
     switch (e)

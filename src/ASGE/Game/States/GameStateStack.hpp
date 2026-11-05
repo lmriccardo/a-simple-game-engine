@@ -24,7 +24,11 @@ public:
 private:
     std::vector<StateType*> m_States; // Non-owning, states are owned by the game itself
 
-    /** @brief Index of the lowest state Render() draws; the stack must be non-empty for it to be meaningful. */
+    /**
+     * @brief Index of the lowest state Render() draws.
+     *
+     * The stack must be non-empty for it to be meaningful.
+     */
     [[nodiscard]] std::size_t VisibleStart() const noexcept
     {
         if ( m_States.empty() ) return 0;
@@ -35,14 +39,22 @@ private:
     }
 
 public:
-    /** @brief Calls inState->OnEnter() and pushes it as the new topmost state. */
+    /**
+     * @brief Calls inState->OnEnter() and pushes it as the new topmost state.
+     *
+     * inState must not be null and stays owned by the caller.
+     */
     void PushRaw( StateType* inState ) noexcept
     {
         inState->OnEnter();
         m_States.push_back( inState );
     }
 
-    /** @brief Calls the topmost state's OnExit() and pops it. No-op on an empty stack. */
+    /**
+     * @brief Calls the topmost state's OnExit() and pops it.
+     *
+     * No-op on an empty stack.
+     */
     void PopRaw() noexcept
     {
         if ( m_States.empty() ) return;
@@ -50,7 +62,12 @@ public:
         m_States.pop_back();
     }
 
-    /** @brief Pops the current top (if any) and pushes inState in its place, at the same depth. */
+    /**
+     * @brief Pops the current top (if any) and pushes inState in its place.
+     *
+     * The old top gets OnExit() and the new one OnEnter(); the depth of the
+     * stack is unchanged.
+     */
     void ReplaceRaw( StateType* inState ) noexcept
     {
         PopRaw();
@@ -58,8 +75,9 @@ public:
     }
 
     /**
-     * @brief Updates states top-down, stopping after the first whose
-     *        BlocksUpdateBelow() is true; the topmost requested transition wins.
+     * @brief Updates states top-down, stopping after the first whose BlocksUpdateBelow() is true.
+     *
+     * The topmost requested transition wins.
      */
     [[nodiscard]] std::optional<Transition<TStateId>> Update(
         float inDeltaTime, input::InputState const& inInput ) noexcept
@@ -75,9 +93,11 @@ public:
     }
 
     /**
-     * @brief Renders bottom-up over the visible range: walks down from the top
-     *        while each state's RendersBelow() lets what's under it show
-     *        through, then draws that range back up so layering is correct.
+     * @brief Renders bottom-up over the visible range.
+     *
+     * Walks down from the top while each state's RendersBelow() lets what's
+     * under it show through, then draws that range back up so layering is
+     * correct.
      */
     void Render( video::IRenderer& inRenderer ) noexcept
     {
@@ -87,7 +107,11 @@ public:
         }
     }
 
-    /** @brief Same traversal as Render(), calling each visible state's RenderBackground() instead. */
+    /**
+     * @brief Same traversal as Render(), calling each visible state's RenderBackground() instead.
+     *
+     * Used to draw under the ECS scene.
+     */
     void RenderBackground( video::IRenderer& inRenderer ) noexcept
     {
         for ( std::size_t i = VisibleStart(); i < m_States.size(); ++i )
@@ -96,20 +120,32 @@ public:
         }
     }
 
-    /** @brief Dispatches inSysEvent to the topmost state only. No-op on an empty stack. */
+    /**
+     * @brief Dispatches inSysEvent to the topmost state only.
+     *
+     * No-op on an empty stack.
+     */
     void OnSystemEvent( event::SystemEvent const& inSysEvent ) noexcept
     {
         if ( !m_States.empty() ) m_States.back()->OnSystemEvent( inSysEvent ); // top only
     }
 
-    /** @brief The bottom-most visible state's ClearColor(); black on an empty stack. */
+    /**
+     * @brief The bottom-most visible state's ClearColor().
+     *
+     * Black on an empty stack.
+     */
     [[nodiscard]] graphics::RGBA_Color ClearColor() const noexcept
     {
         if ( m_States.empty() ) return { 0, 0, 0, 255 };
         return m_States[VisibleStart()]->ClearColor();
     }
 
-    /** @brief True if the stack has no states. */
+    /**
+     * @brief True if the stack has no states.
+     *
+     * Update and Render do nothing on an empty stack.
+     */
     [[nodiscard]] bool Empty() const noexcept { return m_States.empty(); }
 };
 

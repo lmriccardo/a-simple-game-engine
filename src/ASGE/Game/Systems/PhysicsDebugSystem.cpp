@@ -6,7 +6,11 @@
 namespace
 {
 
-/** @brief The outline color DebugDrawColliders uses for one ResolutionType. */
+/**
+ * @brief The outline color DebugDrawColliders uses for one ResolutionType.
+ *
+ * Green for Solid, yellow for Trigger, grey otherwise.
+ */
 asge::graphics::RGBA_Color ColorForResolution( asge::game::components::ResolutionType inResolution ) noexcept
 {
     using asge::game::components::ResolutionType;

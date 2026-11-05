@@ -12,26 +12,35 @@ namespace asge::game::systems
 {
 
 /**
- * @brief inCollider's local shape offset by inTransform's position, in
- *        world space — same shape kind, new coordinates.
+ * @brief Returns inCollider's local shape moved into world space.
+ *
+ * The shape is offset by inTransform's world position — same shape kind, new
+ * coordinates.
  */
 components::ColliderShape WorldBounds(
     components::Transform const& inTransform, components::Collider const& inCollider ) noexcept;
 
-/** @brief Which entities of a canonical EntityPair were Triggers when the overlap was recorded (bit 0: m_First, bit 1: m_Second). */
+/**
+ * @brief Which entities of a canonical EntityPair were Triggers when the overlap was recorded.
+ *
+ * Bit 0 is m_First and bit 1 is m_Second; see kFirstIsTrigger and
+ * kSecondIsTrigger.
+ */
 using TriggerSides = std::uint8_t;
-inline constexpr TriggerSides kFirstIsTrigger  = 1u << 0;
-inline constexpr TriggerSides kSecondIsTrigger = 1u << 1;
+inline constexpr TriggerSides kFirstIsTrigger  = 1u << 0; // m_First of the pair was a Trigger
+inline constexpr TriggerSides kSecondIsTrigger = 1u << 1; // m_Second of the pair was a Trigger
 
 /**
- * @brief Cross-frame bookkeeping PhysicsUpdate needs — which Trigger pairs
- *        were overlapping last frame (so CollisionSystem can tell Enter from
- *        Stay) and which side of each was the Trigger (so a per-entity Exit
- *        still reaches it if its resolution changed mid-overlap).
+ * @brief Cross-frame bookkeeping PhysicsUpdate needs.
+ *
+ * It remembers which Trigger pairs were overlapping last frame (so
+ * CollisionSystem can tell Enter from Stay) and which side of each was the
+ * Trigger (so a per-entity Exit still reaches it if its resolution changed
+ * mid-overlap).
  */
 struct PhysicsState
 {
-    std::map<ecs::EntityPair, TriggerSides> m_PreviousTriggerPairs;
+    std::map<ecs::EntityPair, TriggerSides> m_PreviousTriggerPairs; // Trigger pairs overlapping last frame
 };
 
 /**
@@ -63,25 +72,21 @@ void CollisionSystem( ecs::Registry& inRegistry, PhysicsState& ioState ) noexcep
 void GravitySystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 
 /**
- * @brief Runs a full physics frame: gravity, movement, path following, then
- *        collision detection/response/trigger-events, in that order.
+ * @brief Runs a full physics frame.
  *
- * The single entry point a game loop actually needs — see GravitySystem/
- * MovementSystem/PathFollowingSystem/CollisionSystem for what each step does
- * on its own. inState persists across calls (one per Registry, not shared) so
- * CollisionSystem can tell Enter from Stay from Exit.
+ * Gravity, movement, path following, then collision detection, response and
+ * trigger events, in that order. inState persists across calls (one per
+ * Registry) so CollisionSystem can tell Enter from Stay from Exit.
  */
 void PhysicsUpdate( ecs::Registry& inRegistry, PhysicsState& inState, float inDeltaTime ) noexcept;
 
 /**
- * @brief Moves each PathFollow entity along its parent's components::Path,
- *        applying offsets and optional tangent alignment.
+ * @brief Moves each PathFollow entity along its parent's components::Path.
  *
- * Also writes the path tangent into PathFollow::m_Heading every frame it
- * moves, even with m_AlignRotation off. Emits events::OnPathFinished once
- * when a follower on a non-looping Path reaches its end. Warns once per
- * follower if the parent has no Path. Followers paused with
- * components::PathFollowPause are skipped entirely.
+ * Applies the follower's offsets and optional tangent alignment, and always
+ * writes the tangent into PathFollow::m_Heading. Emits events::OnPathFinished
+ * at the end of a non-looping Path, warns once per follower whose parent has
+ * no Path, and skips followers paused with components::PathFollowPause.
  */
 void PathFollowingSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
 

@@ -26,15 +26,14 @@ namespace asge::mem
  * outstanding allocations even if the caller drops their own @c shared_ptr.
  *
  * Copy and move are disabled — the internal slot addresses must remain stable.
- *
- * @tparam T Element type stored in each pool slot.
- * @tparam N Number of slots; fixed at compile time.
+ * T is the element type of each slot and N the number of slots, fixed at
+ * compile time.
  */
 template<typename T, std::size_t N>
 class PoolAllocator : public std::enable_shared_from_this<PoolAllocator<T, N>>
 {
 private:
-    /** One pool entry: either live object storage or a free-list pointer. */
+    // One pool entry: either live object storage or a free-list pointer.
     union Slot
     {
         alignas(T) std::byte s_Storage[sizeof(T)];
@@ -49,7 +48,11 @@ private:
      */
     struct Deleter
     {
-        std::shared_ptr<PoolAllocator> s_Pool;
+        std::shared_ptr<PoolAllocator> s_Pool; // Keeps the pool alive while the allocation lives
+
+        /**
+         * @brief Returns inPtr's slot to the pool, then drops the pool reference.
+         */
         inline void operator()( T* inPtr )
         {
             s_Pool->Free( inPtr );
@@ -61,6 +64,9 @@ private:
     Slot* m_FreeHead{nullptr};   // Head of the intrusive free-list.
     std::size_t m_Used{0};       // Total number of used slots
 
+    /**
+     * @brief Links all N slots into the free list; only Create() calls it.
+     */
     PoolAllocator()
     {
         for ( size_type ii = 0; ii < N - 1; ++ii )
@@ -74,7 +80,8 @@ private:
 
     /**
      * @brief Returns a slot to the free-list and destructs the held object.
-     * @note Called exclusively by @c Deleter — not part of the public API.
+     *
+     * Called exclusively by Deleter; not part of the public API.
      */
     void Free( T* inPtr ) noexcept
     {
@@ -93,18 +100,32 @@ public:
     using value_type = T;
     using pointer    = std::unique_ptr<T, Deleter>;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     PoolAllocator(const PoolAllocator&)            = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     PoolAllocator& operator=(const PoolAllocator&) = delete;
+
+    /**
+     * @brief Move construction is disabled.
+     */
     PoolAllocator(PoolAllocator&&)                 = delete;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     PoolAllocator& operator=(PoolAllocator&&)      = delete;
 
     /**
      * @brief Creates a pool allocator managed by a @c shared_ptr.
      *
      * The constructor is private; this factory is the only way to obtain an
-     * instance so that @c shared_from_this works correctly.
-     *
-     * @return A @c shared_ptr owning the new pool.
+     * instance so that @c shared_from_this works correctly. Returns the
+     * @c shared_ptr that owns the new pool.
      */
     [[nodiscard]] static std::shared_ptr<PoolAllocator> Create()
     {
@@ -116,11 +137,7 @@ public:
      *
      * Returns a null @c pointer when the pool is exhausted (all N slots are in
      * use). The returned @c pointer's deleter keeps the pool alive independently
-     * of the caller's @c shared_ptr.
-     *
-     * @tparam _Args Constructor argument types for @c T.
-     * @param  inArgs Arguments forwarded to @c T's constructor.
-     * @return An owning @c pointer to the constructed object, or @c nullptr.
+     * of the caller's @c shared_ptr. inArgs are forwarded to @c T's constructor.
      */
     template<typename ..._Args>
     requires std::is_constructible_v<T, _Args...>
@@ -138,9 +155,24 @@ public:
         return { retObj, Deleter{ this->shared_from_this() } };
     }
 
+    /**
+     * @brief Number of slots currently holding a live object.
+     */
     [[nodiscard]] size_type Used() const noexcept { return m_Used; }
+
+    /**
+     * @brief Number of free slots left.
+     */
     [[nodiscard]] size_type Remaining() const noexcept { return N - m_Used; }
+
+    /**
+     * @brief True when every slot is in use.
+     */
     [[nodiscard]] size_type Full() const noexcept { return m_Used == N; }
+
+    /**
+     * @brief True when no slot is in use.
+     */
     [[nodiscard]] size_type Empty() const noexcept { return m_Used == 0; }
 };
 

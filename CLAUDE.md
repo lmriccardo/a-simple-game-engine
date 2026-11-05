@@ -48,6 +48,17 @@ line, then ~4-5 lines of description (what it does, notable behavior/edge
 cases). Skip `@param`/`@return`/`@tparam` breakdowns unless the signature
 alone doesn't make them obvious.
 
+Trivial functions — plain getters/setters, one-line forwarders, defaulted
+special members — may use a shorter block: the `@brief`, a blank ` *` line,
+and 1-3 lines covering only what the name doesn't already say (lifetime,
+edge cases, preconditions). Don't pad them to 4-5 lines with restated
+signatures; filler goes stale. Anything with real behavior keeps the full
+block.
+
+File-local helpers (anonymous-namespace functions in a `.cpp` that no header
+declares) have no declaration to put the block on, so their block stays on the
+definition; every other function documents its header declaration only.
+
 Every struct/class data member gets a small trailing `//` comment beside it
 (what it holds, a few words); don't Doxygen-block a field.
 

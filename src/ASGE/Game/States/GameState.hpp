@@ -10,8 +10,7 @@ namespace asge::game::state
 {
 
 /**
- * @brief What a state Update() is asking for -- a stack change, or a clean
- *        application shutdown.
+ * @brief What a state Update() is asking for -- a stack change, or a clean application shutdown.
  *
  * Quit isn't a stack operation: GameStateStack forwards it through
  * unmodified, and Game<TStateId>::ApplyTransition is what actually acts on
@@ -19,12 +18,16 @@ namespace asge::game::state
  */
 enum class TransitionKind { None, Push, Pop, Replace, Quit };
 
-/** @brief One requested stack change (or quit): push/replace a new state, or pop/quit the current one. */
+/**
+ * @brief One requested stack change (or quit).
+ *
+ * Push/replace a new state, or pop/quit the current one.
+ */
 template<typename TStateId>
 struct Transition
 {
     TStateId        m_TargetId; // Ignored when m_Kind == Pop or Quit
-    TransitionKind  m_Kind;
+    TransitionKind  m_Kind;     // What to do to the stack
 };
 
 /**
@@ -40,32 +43,73 @@ template<typename TStateId>
 class IGameState
 {
 public:
+    /**
+     * @brief Virtual so a state can be destroyed through the interface.
+     */
     virtual ~IGameState() = default;
 
-    /** @brief Advances this state by one frame; an engaged result requests a stack transition. */
+    /**
+     * @brief Advances this state by one frame.
+     *
+     * An engaged result requests a stack transition.
+     */
     [[nodiscard]] virtual std::optional<Transition<TStateId>>
     Update( float inDeltaTime, input::InputState const& inInput ) = 0;
 
-    /** @brief Draws this state's frame. */
+    /**
+     * @brief Draws this state's frame.
+     *
+     * Called bottom-up over the visible range of the stack.
+     */
     virtual void Render( video::IRenderer& inRenderer ) = 0;
 
-    /** @brief Draws under the scene: called after the clear, before Game draws the ECS scene. No-op by default. */
+    /**
+     * @brief Draws under the scene: called after the clear, before Game draws the ECS scene.
+     *
+     * No-op by default.
+     */
     virtual void RenderBackground( video::IRenderer& ) {}
 
-    /** @brief Background color Game clears the frame with before drawing the scene; opaque black by default. */
+    /**
+     * @brief Background color Game clears the frame with before drawing the scene.
+     *
+     * Opaque black by default.
+     */
     [[nodiscard]] virtual graphics::RGBA_Color ClearColor() const noexcept { return { 0, 0, 0, 255 }; }
 
-    /** @brief Called for every system event while this state is topmost. */
+    /**
+     * @brief Called for every system event while this state is topmost.
+     *
+     * States below the top never see events.
+     */
     virtual void OnSystemEvent( event::SystemEvent const& inSysEvent ) = 0;
 
-    /** @brief Called once when this state becomes topmost via Push/Replace. */
+    /**
+     * @brief Called once when this state becomes topmost via Push/Replace.
+     *
+     * Does nothing by default.
+     */
     virtual void OnEnter() {}
-    /** @brief Called once when this state stops being topmost via Pop/Replace. */
+
+    /**
+     * @brief Called once when this state stops being topmost via Pop/Replace.
+     *
+     * Does nothing by default.
+     */
     virtual void OnExit() {}
 
-    /** @brief True (the default) if states below this one should not receive Update(). */
+    /**
+     * @brief True if states below this one should not receive Update().
+     *
+     * True by default; override with false for a pause overlay.
+     */
     [[nodiscard]] virtual bool BlocksUpdateBelow() const noexcept { return true; }
-    /** @brief True if this state is drawn over whatever is below it rather than covering it. */
+
+    /**
+     * @brief True if this state is drawn over whatever is below it rather than covering it.
+     *
+     * False by default.
+     */
     [[nodiscard]] virtual bool RendersBelow()      const noexcept { return false; }
 };
 

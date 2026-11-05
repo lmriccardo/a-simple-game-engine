@@ -44,7 +44,12 @@ struct Sprite
     std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
 
-/** @brief The three corners IRenderer::DrawTextureAffine maps a texture's (0,0)/(w,0)/(0,h) onto. */
+/**
+ * @brief The three corners IRenderer::DrawTextureAffine maps a texture onto.
+ *
+ * They are the images of the texture's (0,0), (w,0) and (0,h) points, which
+ * is enough to describe any rotation or scale.
+ */
 struct SpriteDrawCorners
 {
     math::Float2 m_Origin; // texture's top-left (0,0) maps here
@@ -53,14 +58,12 @@ struct SpriteDrawCorners
 };
 
 /**
- * @brief inDstRect's own corners (as utils::SpriteGetDstRect returns), rotated
- *        inRotationRadians around inDstRect's center.
+ * @brief Returns inDstRect's corners, rotated around its center.
  *
- * Positive inRotationRadians rotates clockwise on screen (screen-space Y
- * grows downward); inRotationRadians == 0 reproduces inDstRect's unrotated
- * corners exactly. Feeds IRenderer::DrawTextureAffine, the only DrawTexture*
- * overload that can express rotation — see RenderSystem, which switches to
- * it whenever a drawn entity's Transform::m_WorldRotation is non-zero.
+ * inDstRect is the rect utils::SpriteGetDstRect returns. Positive
+ * inRotationRadians is clockwise on screen, and 0 reproduces the unrotated
+ * corners. Feeds IRenderer::DrawTextureAffine, which RenderSystem uses when
+ * Transform::m_WorldRotation is non-zero.
  */
 SpriteDrawCorners SpriteGetDrawCorners( math::Rect const& inDstRect, float inRotationRadians ) noexcept;
 
@@ -74,13 +77,25 @@ struct Serializer<components::Sprite>
 {
     using T = components::Sprite;
 
-    static constexpr str::StringView kTableName = "Sprite";
+    static constexpr str::StringView kTableName = "Sprite"; // Name of the TOML subtable (de)serialization uses
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             components::Sprite inSprite,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

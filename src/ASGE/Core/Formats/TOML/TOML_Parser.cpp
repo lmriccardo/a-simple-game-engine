@@ -161,6 +161,12 @@ std::ostream &asge::config::toml::_internal::operator<<(std::ostream &oss, Value
 namespace
 {
 
+/**
+ * @brief Formats a double for TOML output.
+ *
+ * Appends ".0" when the text has no decimal point or exponent, so it parses
+ * back as a float rather than an integer.
+ */
 std::string FormatDouble(double inValue)
 {
     std::ostringstream oss;
@@ -175,9 +181,12 @@ std::string FormatDouble(double inValue)
     return result;
 }
 
-// Best-effort fallback used only when a value's TOMLTypeInfo is missing/stale
-// (e.g. array size mismatch) — infers a plain default straight from the
-// runtime alternative actually held by the ValueType.
+/**
+ * @brief Infers a plain TOMLTypeInfo from the value actually held.
+ *
+ * Best-effort fallback, used only when a value's TOMLTypeInfo is missing or
+ * stale (e.g. an array size mismatch).
+ */
 TOMLTypeInfo InferTypeInfo(ValueType const& inValue) noexcept
 {
     return std::visit([](auto&& v) -> TOMLTypeInfo {

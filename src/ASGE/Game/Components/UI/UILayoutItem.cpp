@@ -5,6 +5,11 @@ namespace
 
 using asge::game::components::SlotAlign;
 
+/**
+ * @brief The serialized name of a SlotAlign.
+ *
+ * FromString() reads it back.
+ */
 asge::str::String ToString( SlotAlign inValue ) noexcept
 {
     switch ( inValue )
@@ -17,6 +22,11 @@ asge::str::String ToString( SlotAlign inValue ) noexcept
     return "Start";
 }
 
+/**
+ * @brief Parses a SlotAlign name written by ToString().
+ *
+ * Anything unrecognized reads as Start.
+ */
 SlotAlign FromString( asge::str::String const& inValue ) noexcept
 {
     if ( inValue == "Center" ) return SlotAlign::Center;

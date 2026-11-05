@@ -12,12 +12,12 @@ namespace _internal
 
 struct Offsets
 {
-    static constexpr std::uint32_t WINDOW_EVENT_START   = 0x00000010u;
-    static constexpr std::uint32_t WINDOW_EVENT_END     = 0x00000100u;
-    static constexpr std::uint32_t KEYBOARD_EVENT_START = WINDOW_EVENT_END;
-    static constexpr std::uint32_t KEYBOARD_EVENT_END   = 0x00000200u;
-    static constexpr std::uint32_t MOUSE_EVENT_START    = KEYBOARD_EVENT_END;
-    static constexpr std::uint32_t MOUSE_EVENT_END      = 0x00000300u;
+    static constexpr std::uint32_t WINDOW_EVENT_START   = 0x00000010u;       // First window EventType value
+    static constexpr std::uint32_t WINDOW_EVENT_END     = 0x00000100u;       // One past the last window value
+    static constexpr std::uint32_t KEYBOARD_EVENT_START = WINDOW_EVENT_END;  // First keyboard EventType value
+    static constexpr std::uint32_t KEYBOARD_EVENT_END   = 0x00000200u;       // One past the last keyboard value
+    static constexpr std::uint32_t MOUSE_EVENT_START    = KEYBOARD_EVENT_END;// First mouse EventType value
+    static constexpr std::uint32_t MOUSE_EVENT_END      = 0x00000300u;       // One past the last mouse value
 };
 
 }
@@ -53,14 +53,24 @@ enum class SystemEventType
 namespace _internal
 {
 
-/** @brief True if inType falls within the [Start, Stop) offset range. */
+/**
+ * @brief True if inType falls within the [Start, Stop) offset range.
+ *
+ * Half-open: Start is included, Stop is not, so adjacent ranges such as the
+ * window and keyboard blocks never both claim the same value.
+ */
 template<std::uint32_t Start, std::uint32_t Stop>
 inline constexpr bool IsIncluded( std::uint32_t inType ) noexcept
 {
     return inType >= Start && inType < Stop;
 }
 
-/** @brief True if inType's numeric value belongs to Set's EventType offset range. */
+/**
+ * @brief True if inType's numeric value belongs to Set's EventType offset range.
+ *
+ * QUIT is a single value, the others are offset blocks from Offsets.
+ * SystemEventType::UKNOWN (and any unlisted set) never matches.
+ */
 template<SystemEventType Set>
 inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
 {
@@ -78,7 +88,12 @@ inline constexpr bool IsValidSysType( std::uint32_t inType ) noexcept
     }
 }
 
-/** @brief Returns SysT if inEventType belongs to it, otherwise UKNOWN. */
+/**
+ * @brief Returns SysT if inEventType belongs to it, otherwise UKNOWN.
+ *
+ * Thin wrapper over IsValidSysType that turns the boolean into the set tag,
+ * so ToSysEventTypeImpl can fold it over a parameter pack.
+ */
 template<SystemEventType SysT>
 inline SystemEventType CheckOne( EventType inEventType ) noexcept
 {
@@ -87,7 +102,13 @@ inline SystemEventType CheckOne( EventType inEventType ) noexcept
     return SystemEventType::UKNOWN;
 }
 
-/** @brief Tries each SysTypes in turn, returning the first that matches inEventType. */
+/**
+ * @brief Tries each SysTypes in turn and returns the one that matches inEventType.
+ *
+ * Evaluates every set over the pack with a fold expression and keeps the
+ * match, so if sets ever overlapped the last listed would win. Returns
+ * UKNOWN when none match.
+ */
 template<SystemEventType... SysTypes>
 inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
 {
@@ -105,7 +126,12 @@ inline SystemEventType ToSysEventTypeImpl( EventType inEventType ) noexcept
     return result;
 }
 
-/** @brief Classifies inEventType into its owning SystemEventType (QUIT/KEYBOARD/WINDOW/MOUSE). */
+/**
+ * @brief Classifies inEventType into its owning SystemEventType.
+ *
+ * Checks QUIT, KEYBOARD, WINDOW and MOUSE; any EventType outside those
+ * blocks (including EventType::UKNOWN) maps to SystemEventType::UKNOWN.
+ */
 inline SystemEventType ToSysEventType(
     EventType inEventType ) noexcept
 {

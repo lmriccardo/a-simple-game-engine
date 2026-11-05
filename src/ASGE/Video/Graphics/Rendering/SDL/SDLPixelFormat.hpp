@@ -13,14 +13,17 @@ namespace asge::video
 
 /**
  * @brief Maps an asge::graphics::PixelFormat to the SDL_PixelFormat SDLTexture uploads as
+ *
+ * Every asge format uploads as an RGBA SDL format, because ExpandPixelsForUpload
+ * widens single-channel (A8) data to four bytes per pixel first.
  */
 [[nodiscard]] SDL_PixelFormat MapPixelFormat( graphics::PixelFormat inFormat ) noexcept;
 
 // Tightly-packed pixel bytes ready to hand to SDL_UpdateTexture, plus their stride.
 struct SDLUploadBuffer
 {
-    std::vector<std::uint8_t> s_Data;
-    std::size_t s_Stride{0};
+    std::vector<std::uint8_t> s_Data;   // Packed pixel bytes
+    std::size_t s_Stride{0};            // Bytes per row
 };
 
 /**

@@ -18,12 +18,17 @@ using Viewport = math::Rect;
  */
 struct Camera
 {
-    float m_X   { 0.0f }; // world-space X the camera is centered/anchored on
-    float m_Y   { 0.0f }; // world-space Y the camera is centered/anchored on
+    float m_X   { 0.0f }; // world-space X of the viewport's top-left corner
+    float m_Y   { 0.0f }; // world-space Y of the viewport's top-left corner
     float m_Zoom{ 1.0f }; // uniform scale applied after translating by the camera
 };
 
-/** @brief Converts a world-space point to screen space via inCamera's position and zoom. */
+/**
+ * @brief Converts a world-space point to screen space via inCamera's position and zoom.
+ *
+ * Computes (world - camera position) * zoom. The camera position is the
+ * world point drawn at the screen origin, not the screen center.
+ */
 math::Float2 WorldToScreen(Camera const& inCamera, math::Float2 inWorldPos) noexcept;
 
 /**
@@ -36,12 +41,23 @@ math::Float2 WorldToScreen(
     Camera const& inCamera, Viewport const& inViewport, math::Float2 inWorldPos
 ) noexcept;
 
-// Inverse of the two-argument WorldToScreen: maps a screen-space point back to world space
+/**
+ * @brief Inverse of the viewport-aware WorldToScreen.
+ *
+ * Maps a screen-space point back to world space by removing inViewport's
+ * origin offset, then undoing the zoom and camera translation. Handy for
+ * turning a mouse position into a world position.
+ */
 math::Float2 ScreenToWorld(
     Camera const& inCamera, Viewport const& inViewport, math::Float2 inScreenPos
 ) noexcept;
 
-// Applies WorldToScreen to inWorldRect's position and inCamera's zoom to its size
+/**
+ * @brief Maps a world-space rect to screen space through inCamera.
+ *
+ * The top-left corner goes through WorldToScreen and the width/height are
+ * multiplied by the zoom. Rotation is not supported, so it stays axis-aligned.
+ */
 math::Rect TransformRect(Camera const& inCamera, math::Rect const& inWorldRect) noexcept;
 
 /**

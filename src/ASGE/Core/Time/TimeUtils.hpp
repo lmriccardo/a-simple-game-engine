@@ -16,13 +16,28 @@ using Timestamp   = SystemClock::time_point;
 using Timepoint   = SteadyClock::time_point;
 using Duration    = SteadyClock::duration;
 
-/* Get the current time as a chrono time point */
+/**
+ * @brief Get the current time as a chrono time point.
+ *
+ * Wall-clock time from the system clock; it can jump if the system time
+ * changes. Use SteadyNow() to measure durations.
+ */
 inline Timestamp Now() noexcept { return SystemClock::now(); }
 
-/* Get the current timepoint from the steady clock */
+/**
+ * @brief Get the current timepoint from the steady clock.
+ *
+ * Monotonic: never goes backwards, which makes it the right clock for
+ * measuring elapsed time.
+ */
 inline Timepoint SteadyNow() noexcept { return SteadyClock::now(); }
 
-/* Converts the input timestamp into a localtime (calendar time) */
+/**
+ * @brief Converts the input timestamp into a localtime (calendar time).
+ *
+ * Uses the machine's local time zone. The result is a plain std::tm value,
+ * so it is safe to keep.
+ */
 std::tm LocalTime( Timestamp const& inTimestamp ) noexcept;
 
 /**
@@ -30,15 +45,18 @@ std::tm LocalTime( Timestamp const& inTimestamp ) noexcept;
  * 
  * Given an input timestamp and the formatting string
  * it returns the formatted string plus the milliseconds
- * precision like: `<format>.<ms>`.
- * 
- * @param inTimestamp The input timestamp (system clock time point)
- * @param inFormat The formatting string for the timestamp
+ * precision like: `<format>.<ms>`. inFormat is a strftime format string
+ * and the timestamp is a system clock time point, shown in local time.
  */
 std::string FormatTimestamp( 
     Timestamp const& inTimestamp, char const* inFormat );
 
-/* Returns the nanoseconds passed from the input timepoint */
+/**
+ * @brief Returns the nanoseconds passed from the input timepoint.
+ *
+ * T is the clock type (system or steady), deduced from inStart. Compares
+ * against T::now(), so inStart must come from the same clock.
+ */
 template<typename T>
 std::int64_t NanosFrom( std::chrono::time_point<T> inStart ) noexcept
 {

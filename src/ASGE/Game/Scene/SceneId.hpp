@@ -7,13 +7,14 @@ namespace asge::game::scene
 
 /**
  * @brief Marks which scene (by virtual path) an entity belongs to.
- *        SceneManager stamps this on entities it loads, to tell scenes
- *        apart within its one shared Registry — pure bookkeeping, not
- *        gameplay data, so it never round-trips through a scene file.
+ *
+ * SceneManager stamps this on entities it loads, to tell scenes apart within
+ * its one shared Registry — pure bookkeeping, not gameplay data, so it
+ * never round-trips through a scene file.
  */
 struct SceneId
 {
-    str::String m_Path;
+    str::String m_Path; // Virtual path of the scene the entity belongs to
 
     friend bool operator==(SceneId const&, SceneId const&) = default;
 };

@@ -27,8 +27,9 @@ struct Path
 
 /**
  * @brief Rebuilds inPath.m_Path from its current m_Waypoints/m_Resolution.
- *        Call it after mutating either field, since the resolver only
- *        builds the spline once.
+ *
+ * Call it after mutating either field, since the resolver only builds the
+ * spline once.
  */
 void RebuildPath( Path& inPath ) noexcept;
 
@@ -38,21 +39,35 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_Waypoints/m_Loop/m_Resolution only; FromToml leaves
- *        m_Path at its default, built later by asset::Resolver<Path>.
+ * @brief Round-trips m_Waypoints/m_Loop/m_Resolution only.
+ *
+ * FromToml leaves m_Path at its default, built later by
+ * asset::Resolver<Path>.
  */
 template<>
 struct Serializer<components::Path>
 {
-    static constexpr str::StringView kTableName = "Path";
+    static constexpr str::StringView kTableName = "Path"; // Name of the TOML subtable (de)serialization uses
 
     using T = components::Path;
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

@@ -7,7 +7,11 @@
 namespace asge::game::resources
 {
 
-/** @brief One clickable entity's hit-test rect for a single frame -- see UIHitList. */
+/**
+ * @brief One clickable entity's hit-test rect for a single frame.
+ *
+ * See UIHitList.
+ */
 struct HitEntry
 {
     ecs::Entity m_Entity;      // The UIButton-carrying entity this rect belongs to
@@ -26,7 +30,7 @@ struct HitEntry
  */
 struct UIHitList
 {
-    std::vector<HitEntry> m_Entries;
+    std::vector<HitEntry> m_Entries; // Hit rects of the last drawn frame, back to front
 };
 
 }

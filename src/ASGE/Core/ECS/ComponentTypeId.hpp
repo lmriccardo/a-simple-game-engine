@@ -14,9 +14,8 @@ using ComponentTypeId = std::size_t;
  *
  * Not meant to be called directly — GetComponentTypeId<T>() is the only
  * intended caller, using it to lazily assign each type its own id once.
- *
- * @warning The counter is a plain, unsynchronized static: concurrent first
- *          calls for different types from multiple threads would race.
+ * The counter is a plain, unsynchronized static: concurrent first calls for
+ * different types from multiple threads would race.
  */
 inline ComponentTypeId NextComponentTypeId() noexcept
 {
@@ -32,8 +31,6 @@ inline ComponentTypeId NextComponentTypeId() noexcept
  * same value for the rest of the program's run. Assignment order depends
  * on call order, so ids must not be persisted or assumed equal across
  * separate runs, builds, or processes.
- *
- * @tparam T Component type to identify.
  */
 template <typename T>
 ComponentTypeId GetComponentTypeId() noexcept
@@ -48,8 +45,6 @@ ComponentTypeId GetComponentTypeId() noexcept
  * Defaults every component to kMaxEntities; specialize this trait for a
  * specific T to give its ComponentPool a smaller or larger Nc instead,
  * independent of how many entities the world can hold.
- *
- * @tparam T Component type being sized.
  */
 template<typename T>
 struct ComponentCapacity

@@ -24,10 +24,9 @@ namespace _internal
  * This prevents consumers from observing partially written data even when
  * multiple producers are writing concurrently.
  *
- * @tparam N  Capacity of the queue. Must be a power of 2.
- * @tparam T  Type of elements stored. Must be move-assignable.
- *
- * @note TryPush and TryPop are wait-free on the fast path and never allocate.
+ * N is the capacity of the queue and must be a power of 2; T is the stored
+ * element type and must be move-assignable. TryPush and TryPop never allocate
+ * and are wait-free on the fast path.
  */
 template<std::size_t N, typename T>
 class MPMCQueue
@@ -36,19 +35,22 @@ class MPMCQueue
 
     struct Slot
     {
-        T                  s_Item;
-        std::atomic_size_t s_Sequence{0};    
+        T                  s_Item;           // The stored element
+        std::atomic_size_t s_Sequence{0};    // Turn indicator for producers and consumers
     };
 
-    std::array<Slot, N> m_Slots;
-    std::atomic_size_t  m_WriteHead{0};
-    std::atomic_size_t  m_ReadHead{0};
+    std::array<Slot, N> m_Slots;         // The ring buffer
+    std::atomic_size_t  m_WriteHead{0};  // Next position producers claim
+    std::atomic_size_t  m_ReadHead{0};   // Next position consumers claim
 public:
     using value_type   = T;
     using reference    = T&;
     using size_type    = std::size_t;
     using pointer_diff = std::ptrdiff_t;
 
+    /**
+     * @brief Creates an empty queue by giving slot i the initial sequence i.
+     */
     MPMCQueue()
     {
         for ( size_type ii = 0; ii < N; ++ii )
@@ -57,6 +59,12 @@ public:
         }
     }
 
+    /**
+     * @brief Tries to append inItem; returns false if the queue is full.
+     *
+     * Never blocks. On failure inItem is not stored (it may already have
+     * been moved from, so do not rely on its value).
+     */
     bool TryPush(value_type inItem) noexcept
     {
         size_type write = m_WriteHead.load(std::memory_order_relaxed);
@@ -95,6 +103,11 @@ public:
         }
     }
 
+    /**
+     * @brief Tries to take the oldest element into outItem; returns false if empty.
+     *
+     * Never blocks. outItem is only written on success.
+     */
     bool TryPop(reference outItem) noexcept
     {
         size_type read = m_ReadHead.load( std::memory_order_relaxed );

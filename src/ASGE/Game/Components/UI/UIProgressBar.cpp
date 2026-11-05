@@ -7,6 +7,11 @@ namespace
 
 using asge::game::components::FillDirection;
 
+/**
+ * @brief The serialized name of a FillDirection.
+ *
+ * FromString() reads it back.
+ */
 asge::str::String ToString( FillDirection inValue ) noexcept
 {
     switch ( inValue )
@@ -20,6 +25,11 @@ asge::str::String ToString( FillDirection inValue ) noexcept
     return "LeftToRight";
 }
 
+/**
+ * @brief Parses a FillDirection name written by ToString().
+ *
+ * Anything unrecognized reads as LeftToRight.
+ */
 FillDirection FromString( asge::str::String const& inValue ) noexcept
 {
     if ( inValue == "RightToLeft" ) return FillDirection::RightToLeft;
@@ -28,11 +38,19 @@ FillDirection FromString( asge::str::String const& inValue ) noexcept
     return FillDirection::LeftToRight;
 }
 
+/**
+ * @brief Packs a color into an integer TOML can store.
+ *
+ * ColorFromInt() reverses it.
+ */
 std::int64_t ColorToInt( asge::graphics::RGBA_Color const& inColor ) noexcept
 {
     return static_cast<std::int64_t>( asge::graphics::RGBATo32A( inColor ) );
 }
 
+/**
+ * @brief Unpacks a color stored by ColorToInt().
+ */
 asge::graphics::RGBA_Color ColorFromInt( std::int64_t inValue ) noexcept
 {
     return asge::graphics::C32AToRGBA( static_cast<asge::graphics::Color32A>( inValue ) );

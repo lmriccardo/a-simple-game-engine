@@ -5,6 +5,11 @@ namespace
 
 using namespace asge::game::components;
 
+/**
+ * @brief The serialized name of a PanelLayout.
+ *
+ * FromString() reads it back.
+ */
 asge::str::String ToString(PanelLayout inValue) noexcept
 {
     switch ( inValue )
@@ -18,6 +23,11 @@ asge::str::String ToString(PanelLayout inValue) noexcept
     return "Absolute";
 }
 
+/**
+ * @brief Parses a PanelLayout name written by ToString().
+ *
+ * Anything unrecognized reads as Absolute.
+ */
 PanelLayout FromString(asge::str::String inValue) noexcept
 {
     if ( inValue == "Absolute" ) return PanelLayout::Absolute;
@@ -27,23 +37,43 @@ PanelLayout FromString(asge::str::String inValue) noexcept
     return PanelLayout::Absolute;
 }
 
+/**
+ * @brief Writes an Absolute layout's fields.
+ *
+ * It has none, so nothing is written.
+ */
 void SerializeLayout( LayoutAbsolute inLayout, asge::config::toml::TOMLTableView inTview ) {}
 
+/**
+ * @brief Writes a Grid layout's m_Rows and m_Cols into inTview.
+ */
 void SerializeLayout( LayoutGrid inLayout, asge::config::toml::TOMLTableView inTview )
 {
     inTview.Set( "m_Rows", inLayout.m_Rows).Set( "m_Cols", inLayout.m_Cols );
 }
 
+/**
+ * @brief Writes an HStack layout's m_Cols into inTview.
+ */
 void SerializeLayout( LayoutHStack inLayout, asge::config::toml::TOMLTableView inTview )
 {
     inTview.Set( "m_Cols", inLayout.m_Cols);
 }
 
+/**
+ * @brief Writes a VStack layout's m_Rows into inTview.
+ */
 void SerializeLayout( LayoutVStack inLayout, asge::config::toml::TOMLTableView inTview )
 {
     inTview.Set( "m_Rows", inLayout.m_Rows);
 }
 
+/**
+ * @brief Writes the active layout's type and fields.
+ *
+ * The type name goes under m_LayoutType and the layout's own fields into a
+ * "Layout" subtable of inTview.
+ */
 void SerializeLayoutSpec( LayoutSpec inSpec, asge::config::toml::TOMLTableView inTview )
 {
     std::visit( [&]( auto spec ) {

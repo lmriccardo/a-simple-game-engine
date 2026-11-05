@@ -10,6 +10,9 @@ namespace asge::ecs
 class IResourceHolder
 {
 public:
+    /**
+     * @brief Virtual so a ResourceHolder<T> is destroyed correctly through the base.
+     */
     virtual ~IResourceHolder() = default;
 };
 
@@ -17,15 +20,18 @@ public:
  * @brief Owns Registry's single instance of resource type T.
  *
  * Purely a typed box IResourceHolder can be stored/erased through — Registry
- * is the only intended caller (via SetResource<T>/GetResource<T>), which
+ * is the only intended caller (via `SetResource<T>`/`GetResource<T>`), which
  * `static_cast`s back to ResourceHolder<T> using the id it already tracked.
  */
 template<typename T>
 class ResourceHolder final : public IResourceHolder
 {
 public:
-    T m_Value;
+    T m_Value; // The held resource
 
+    /**
+     * @brief Takes ownership of inValue (moved in).
+     */
     explicit ResourceHolder( T inValue ) noexcept( std::is_nothrow_move_constructible_v<T> )
         : m_Value ( std::move(inValue) )
     {}

@@ -47,36 +47,66 @@ struct GlyphMetrics
     int advance;             // pen advance in pixels (or 26.6 fixed-point)
 };
 
+/**
+ * @brief A TrueType font baked into a glyph atlas, with metrics lookup and text measuring.
+ *
+ * Created only through Load. It owns the atlas Image and the per-codepoint
+ * GlyphMetrics; drawing is done elsewhere (IRenderer::DrawString) using the
+ * atlas image uploaded as a texture. Move-only.
+ */
 class Font
 {
 private:
-    // Per-codepoint atlas location and layout data for baked glyphs.
-    std::unordered_map<char32_t, GlyphMetrics> m_Glyphs;
+    std::unordered_map<char32_t, GlyphMetrics> m_Glyphs; // Atlas location and layout per baked codepoint
+    Image m_AtlasImage;                                  // Bitmap packing every glyph into sub-rectangles
+    int m_LineHeight;                                    // Distance between baselines, in pixels
+    int m_Ascent;                                        // Baseline to top of the tallest glyph, in pixels
+    int m_Descent;                                       // Baseline to bottom of the lowest glyph, in pixels
 
-    // Baked bitmap packing every glyph's bitmap into sub-rectangles.
-    Image m_AtlasImage;
-
-    // Line height, ascent, descent — font-wide vertical metrics, in pixels.
-    int m_LineHeight;
-    int m_Ascent;
-    int m_Descent;
-
+    /**
+     * @brief Builds a Font from already-baked data; used by Load only.
+     */
     Font(std::unordered_map<char32_t, GlyphMetrics> inGlyphs,
          Image inAtlasImage, int inLineHeight,
          int inAscent, int inDescent) noexcept;
 
 public:
+    /**
+     * @brief Default construction is disabled.
+     */
     Font() = delete;
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     Font( Font const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     Font& operator=( Font const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     Font( Font&& ) = default;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     Font& operator=( Font&& ) = default;
 
     /**
      * @brief Loads a TTF file and bakes ASCII 32-126 into a single atlas.
-     * @param inPath Path to the .ttf file.
-     * @param inPixelHeight Pixel height to bake glyphs at.
+     *
+     * inPath is the .ttf file and inPixelHeight the pixel height glyphs are
+     * baked at. Returns an error Result (FontError) if the file cannot be
+     * read or parsed, or if the glyphs do not fit the fixed atlas, see
+     * GetAtlasSize and FindMaxPixelHeight.
      */
     [[nodiscard]] static Result<Font> Load(const filesystem::Path& inPath, int inPixelHeight);
 
@@ -104,6 +134,7 @@ public:
      * failure at a given height is exact, so the result here is too, not a
      * heuristic. Fails with whatever error Load itself hits at 1px (e.g. the
      * file isn't a valid font at all) rather than a "too big" one.
+     * @param inPath Font file to measure.
      * @param inUpperBound Highest pixel height the search considers;
      *        defaults to the atlas's own height, since no font can
      *        plausibly still fit beyond that.
@@ -111,17 +142,51 @@ public:
     [[nodiscard]] static Result<int> FindMaxPixelHeight(
         const filesystem::Path& inPath, int inUpperBound = 512 );
 
+    /**
+     * @brief Looks up the baked metrics of one codepoint.
+     *
+     * Returns FontError::UnexistingCodepoint (with the codepoint in the
+     * detail) for anything outside the baked ASCII 32-126 range.
+     */
     [[nodiscard]] Result<GlyphMetrics> GetGlyph(char32_t inCodepoint) const;
+
+    /**
+     * @brief The baked atlas bitmap, to be uploaded as a texture by the caller.
+     *
+     * The reference lives as long as the Font.
+     */
     [[nodiscard]] const media::Image& GetAtlasImage() const noexcept;
 
+    /**
+     * @brief Distance between two baselines, in pixels.
+     */
     [[nodiscard]] int GetLineHeight() const noexcept;
+
+    /**
+     * @brief Baseline to the top of the tallest glyph, in pixels.
+     */
     [[nodiscard]] int GetAscent() const noexcept;
+
+    /**
+     * @brief Baseline to the bottom of the lowest glyph, in pixels.
+     */
     [[nodiscard]] int GetDescent() const noexcept;
+
+    /**
+     * @brief Size in pixels of inText when drawn with this font.
+     *
+     * Width is the widest line (sum of glyph advances). Height is one
+     * ascent-to-descent span for the last line plus a line height for each
+     * earlier line; '\n' starts a new line. Codepoints with no baked glyph
+     * add nothing to the width.
+     */
     [[nodiscard]] math::Float2 Measure( str::StringView inText ) const noexcept;
 
     /**
      * @brief Greedy word-wraps inText to inMaxWidth pixels by inserting a newline at spaces.
-     * Existing newlines are kept; a word wider than inMaxWidth gets its own line, not split.
+     *
+     * Existing newlines are kept. A word wider than inMaxWidth gets its own
+     * line instead of being split mid-word. Widths are measured with Measure.
      */
     [[nodiscard]] str::String WrapText( str::StringView inText, float inMaxWidth ) const noexcept;
 };

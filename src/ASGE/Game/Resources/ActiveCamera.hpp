@@ -6,8 +6,7 @@ namespace asge::game::resources
 {
 
 /**
- * @brief Registry-wide pointer at whichever entity systems::CameraSystem
- *        should follow this frame.
+ * @brief Registry-wide pointer at the entity systems::CameraSystem should follow.
  *
  * Set via Registry::SetResource<ActiveCamera>({ entity }); CameraSystem
  * no-ops entirely (leaving IRenderer's camera untouched) while m_Entity is
@@ -16,7 +15,7 @@ namespace asge::game::resources
  */
 struct ActiveCamera
 {
-    ecs::Entity m_Entity{ ecs::Entity::Null() };
+    ecs::Entity m_Entity{ ecs::Entity::Null() }; // The entity to follow; Null() means no camera is active
 };
 
 }

@@ -14,24 +14,28 @@ namespace asge::filesystem
 {
 
 /**
- * @brief Reads the input file content into a string
- * @param inPath The path of the file
+ * @brief Reads the input file content into a string.
+ *
+ * Returns an error Result if the file cannot be opened or read. The bytes are
+ * returned as is, so a binary file works too, but ReadBinary is clearer.
  */
 Result<str::String> ReadText( Path const& inPath );
 
 /**
- * @brief Writes (overwriting) the input content into the given file
- * @param inPath The path of the file
- * @param inContent The content to write
+ * @brief Writes (overwriting) the input content into the given file.
+ *
+ * Creates the file if missing and truncates it otherwise. The parent
+ * directory must already exist. Returns an error Result on failure.
  */
 BoolResult WriteText( Path const& inPath, str::String const& inContent );
 
 /**
- * @brief Copies (overwriting an existing destination) a file
- * @param inSource The path of the file to copy from
- * @param inDestination The path of the file to copy to
+ * @brief Copies (overwriting an existing destination) a file.
+ *
+ * Named Copy (not CopyFile) because Windows headers `#define` CopyFile to
+ * CopyFileA/W. Returns an error Result if the source cannot be read or the
+ * destination cannot be written.
  */
-// Named Copy (not CopyFile) — Windows headers #define CopyFile to CopyFileA/W.
 BoolResult Copy( Path const& inSource, Path const& inDestination ) noexcept;
 
 /**
@@ -39,9 +43,8 @@ BoolResult Copy( Path const& inSource, Path const& inDestination ) noexcept;
  *
  * Opens the file in binary mode (no text-mode newline translation), so it
  * is safe for arbitrary binary data such as images, audio, or compressed
- * assets. For text files, prefer ReadText instead.
- *
- * @param inPath The path of the file to read.
+ * assets. For text files, prefer ReadText instead. Returns an error Result
+ * if the file cannot be opened or read.
  */
 Result<std::vector<std::byte>> ReadBinary( Path const& inPath );
 

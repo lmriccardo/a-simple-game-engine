@@ -16,10 +16,9 @@ namespace asge::game::asset
 {
 
 /**
- * @brief Owns the per-asset-type `AssetPool`s and resolves/loads through a
- * `VirtualFileSystem` the caller keeps alive.
+ * @brief Owns the per-asset-type `AssetPool`s and loads through a VFS.
  *
- * The one entry point for loading assets by virtual path: `GetImage`/
+ * The caller keeps the `VirtualFileSystem` alive. The one entry point for loading assets by virtual path: `GetImage`/
  * `GetFont`/`GetFrameTable`/`GetAudio` each forward to their own
  * `AssetPool`, which caches by virtual path (plus, for fonts, the bake
  * pixel height) and only calls the underlying `Load` on a cache miss.
@@ -37,64 +36,86 @@ class AssetManager
     AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load       };
     AssetPool<media::AudioClip>  m_AudioPool  { &media::AudioClip::Load };
 
-    // GetTexture()'s cache, keyed by virtual path -- the sole owner of every
-    // GPU texture this AssetManager creates. Sprite::m_Texture only ever
-    // points into here, so an entry must outlive every entity holding one
-    // (see ResolveAssets' own doc comment) until UnloadTexture() drops it.
-    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache;
-
-    // GetFontAtlasTexture()'s cache, keyed by Font address rather than a
-    // virtual path -- a font's atlas is already a decoded Image sitting in
-    // m_FontPool (baked at Font::Load time), not a separate image file to
-    // resolve through the VFS. Safe to key by address since m_FontPool
-    // never evicts a Font once loaded, so it stays valid (and at the same
-    // address) for the AssetManager's own lifetime. UILabel::m_Texture
-    // only ever points into here.
-    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache;
+    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache; // GetTexture()'s cache by virtual path; sole owner of its GPU textures
+    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache; // Font atlas textures keyed by Font address (m_FontPool never evicts)
 
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
 public:
+    /**
+     * @brief Creates a manager whose assets are resolved through inVfs.
+     *
+     * inVfs is held by reference and must outlive the manager.
+     */
     explicit AssetManager( filesystem::VirtualFileSystem const& inVfs ) noexcept
     : m_Vfs( inVfs )
     {}
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     AssetManager( AssetManager const& ) = delete;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     AssetManager& operator=( AssetManager const& ) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     AssetManager( AssetManager&& ) = default;
+
+    /**
+     * @brief Move assignment is disabled.
+     */
     AssetManager& operator=( AssetManager&& ) = delete;
 
+    /**
+     * @brief Destructor.
+     *
+     * Defaulted; members clean up after themselves.
+     */
     ~AssetManager() = default;
 
     // Named GetImage (not LoadImage) -- Windows headers #define LoadImage to
     // LoadImageA/W, same reason FileIO's Copy isn't named CopyFile.
     /**
      * @brief Loads (or returns the cached) `Image` at a virtual path.
+     *
      * Fails if the path doesn't resolve through the VFS or fails to decode.
      */
     [[nodiscard]] Result<asset_ptr<media::Image>> GetImage( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) `Font` baked at @p inPixelHeight.
-     * A different @p inPixelHeight for the same path is a separate cache entry.
+     *
+     * A different @p inPixelHeight for the same path is a separate cache
+     * entry.
      */
     [[nodiscard]] Result<asset_ptr<media::Font>> GetFont(str::StringCRef inVirtualPath, int inPixelHeight );
 
     /**
-     * @brief Loads (or returns the cached) `FrameTable` at a virtual path —
-     * the meta-file a `components::Animation::m_ClipPath` points at.
+     * @brief Loads (or returns the cached) `FrameTable` at a virtual path.
+     *
+     * This is the meta-file a `components::Animation::m_ClipPath` points at.
+     * Fails if the path doesn't resolve through the VFS or fails to parse.
      */
     [[nodiscard]] Result<asset_ptr<FrameTable>> GetFrameTable( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) `AudioClip` at a virtual path.
+     *
      * Fails if the path doesn't resolve through the VFS or fails to decode.
      */
     [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
 
     /**
-     * @brief Loads (or returns the cached) GPU texture for a virtual path,
-     *        creating it via inRenderer on first request.
+     * @brief Loads (or returns the cached) GPU texture for a virtual path.
+     *
+     * The texture is created via inRenderer on first request.
      *
      * Cached by virtual path like GetImage — later calls for the same path
      * return the same `ITexture*` rather than allocating a new one. A
@@ -106,22 +127,25 @@ public:
 
     /**
      * @brief Frees the GPU texture cached for inVirtualPath, if any.
+     *
      * No-op if nothing is cached for that path; a later GetTexture() call
      * recreates it.
      */
     void UnloadTexture( str::StringCRef inVirtualPath ) noexcept;
 
     /**
-     * @brief Drops the decoded Image and GPU texture cached for inVirtualPath
-     *        and un-resolves every Sprite in inRegistry using it.
-     * The next ResolveAssets() re-reads the file from disk, so those sprites
-     * pick up its new pixels instead of the stale cached ones.
+     * @brief Drops the cached Image and GPU texture for inVirtualPath.
+     *
+     * Also un-resolves every Sprite in inRegistry using it. The next
+     * ResolveAssets() re-reads the file from disk, so those sprites pick up
+     * its new pixels instead of the stale cached ones.
      */
     void ReloadTexture( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept;
 
     /**
-     * @brief Loads (or returns the cached) GPU texture for inFont's baked
-     *        glyph atlas, creating it via inRenderer on first request.
+     * @brief Loads (or returns the cached) GPU texture for inFont's baked glyph atlas.
+     *
+     * The texture is created via inRenderer on first request.
      *
      * Cached by Font address (see m_FontAtlasCache's own doc comment), not
      * a virtual path -- there is no separate atlas image file to load, the
@@ -133,30 +157,13 @@ public:
         media::Font const& inFont, video::IRenderer& inRenderer ) noexcept;
 
     /**
-     * @brief Deferred-loads every asset-owning component in inRegistry
-     *        whose asset still needs (re)resolving, for every entity that
-     *        has one.
+     * @brief Deferred-loads every asset-owning component that needs (re)resolving.
      *
-     * Folds over `components::SerializableComponents` and, for each type T,
-     * calls `Resolver<T>{}` on every entity's T — a no-op for most
-     * component types (nothing to load), and an actual resolve for the
-     * ones that do own an asset (`Sprite`, `Animation`, `AudioSource` —
-     * re-resolved whenever their virtual path changes, released back to
-     * null when it's cleared to empty; `Path` builds its spline once
-     * — see their own `Resolver<T>` specializations in AssetResolver.hpp
-     * for exactly what each one does).
-     *
-     * Any resolve failure (VFS resolve, decode, texture creation) is logged
-     * and that entity is left unresolved — retried on the next call rather
-     * than treated as fatal, since inRenderer only exists once the caller
-     * has a window (unlike component construction, which can happen
-     * earlier, e.g. while loading a scene).
-     *
-     * Walks every entity via `View<Ts>().IncludeDisabled()`, not the
-     * disabled-skipping `View<Ts>()` every gameplay system uses — a
-     * `markers::Disable`d entity should already have a live texture/clip
-     * ready the instant something re-enables it, not still be waiting on
-     * some unrelated future resolve to notice it exists.
+     * Folds over `components::SerializableComponents` and runs `Resolver<T>` on
+     * each entity's T: a no-op for most, a real resolve for Sprite, Animation,
+     * AudioSource and Path (see AssetResolver.hpp). A failed resolve is logged and
+     * retried on the next call. Disabled entities are walked too
+     * (`IncludeDisabled()`) so re-enabling one finds its assets ready.
      */
     void ResolveAssets( ecs::Registry& inRegistry, video::IRenderer& inRenderer );
 };

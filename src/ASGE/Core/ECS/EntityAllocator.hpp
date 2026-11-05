@@ -25,32 +25,53 @@ namespace asge::ecs
  * A slot whose generation reaches its maximum value is retired rather than
  * recycled, so a still-held stale handle can never alias a future
  * allocation once the counter would otherwise wrap back to a reused value.
- *
- * @tparam N Number of concurrently allocatable entities; fixed at compile time.
+ * N, the number of concurrently allocatable entities, is fixed at compile time.
  */
 template<std::size_t N>
 class EntityAllocator
 {
 private:
-    mem::FreeList<N>                m_EntityFreeIds;
-    std::array<EntityGeneration, N> m_Generations{};
+    mem::FreeList<N>                m_EntityFreeIds; // Which slot indices are in use
+    std::array<EntityGeneration, N> m_Generations{}; // Current generation of each slot
 public:
+    /**
+     * @brief Creates an allocator with every slot free and generation 0.
+     */
     EntityAllocator()
     {
         // Initially fills all generations to 0
         m_Generations.fill(0);
     }
 
+    /**
+     * @brief Copy construction is disabled.
+     */
     EntityAllocator(EntityAllocator const&) = delete;
+
+    /**
+     * @brief Move constructor.
+     *
+     * Defaulted; moves each member.
+     */
     EntityAllocator(EntityAllocator&&) = default;
+
+    /**
+     * @brief Copy assignment is disabled.
+     */
     EntityAllocator& operator=(EntityAllocator const&) = delete;
+
+    /**
+     * @brief Move assignment.
+     *
+     * Defaulted; assigns each member.
+     */
     EntityAllocator& operator=(EntityAllocator&&) = default;
 
     /**
      * @brief Claims a free slot and returns a live handle for it.
      *
      * The returned Entity pairs the slot's index with its current generation.
-     * @return A fresh Entity, or an error if all N slots are in use.
+     * Fails with EcsError::NoMoreEntityAvailable when all N slots are in use.
      */
     [[nodiscard]] Result<Entity> Create() noexcept
     {
@@ -66,8 +87,8 @@ public:
      * @brief Invalidates a live handle and returns its slot to the free-list.
      *
      * Bumps the slot's generation, so every Entity previously issued for
-     * it (including inEntity) subsequently fails IsAlive().
-     * @return Ok on success, or an error if inEntity is not currently alive.
+     * it (including inEntity) subsequently fails IsAlive(). Returns an error
+     * (EcsError::EntityIsNotAlive) if inEntity is not currently alive.
      */
     [[nodiscard]] BoolResult Destroy( Entity inEntity ) noexcept
     {
