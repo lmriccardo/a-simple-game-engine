@@ -4,7 +4,7 @@
 
 void asge::game::components::RebuildPath(Path &inPath) noexcept
 {
-    inPath.m_Path = math::CatmullRomSpline( inPath.m_Waypoints, inPath.m_Resolution );
+    inPath.m_Path = math::CatmullRomSpline( inPath.m_Waypoints, inPath.m_Resolution, inPath.m_Linear );
 }
 
 void asge::game::scene::Serializer<asge::game::components::Path>::ToToml(
@@ -24,6 +24,7 @@ void asge::game::scene::Serializer<asge::game::components::Path>::ToToml(
     table.SetArray( "m_WaypointX", xs );
     table.SetArray( "m_WaypointY", ys );
     table.Set( "m_Loop", inValue.m_Loop );
+    table.Set( "m_Linear", inValue.m_Linear );
     table.Set( "m_Resolution", static_cast<int>(inValue.m_Resolution) );
 }
 
@@ -35,6 +36,7 @@ asge::game::scene::Serializer<asge::game::components::Path>::FromToml(
 
     T result;
     result.m_Loop  = table.Get( "m_Loop",  result.m_Loop  );
+    result.m_Linear = table.Get( "m_Linear", result.m_Linear );
     result.m_Resolution = static_cast<std::size_t>(
         table.Get<int>( "m_Resolution", static_cast<int>(result.m_Resolution) ) );
 

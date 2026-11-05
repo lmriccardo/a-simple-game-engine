@@ -396,7 +396,7 @@ void DrawPathWaypointOverlay(
     if ( !inActive && waypoints.size() >= 2 )
     {
         constexpr ImU32 kSplineColor = IM_COL32( 90, 190, 255, 200 );
-        asge::math::CatmullRomSpline const spline( waypoints, inPath.m_Resolution );
+        asge::math::CatmullRomSpline const spline( waypoints, inPath.m_Resolution, inPath.m_Linear );
         if ( spline.HasSegments() )
         {
             int const samples = std::max(
@@ -433,7 +433,7 @@ std::optional<PathPose> SamplePathPose(
     asge::math::CatmullRomSpline const* spline = &inPath.m_Path;
     if ( !spline->HasSegments() )
     {
-        built = asge::math::CatmullRomSpline( inPath.m_Waypoints, inPath.m_Resolution );
+        built = asge::math::CatmullRomSpline( inPath.m_Waypoints, inPath.m_Resolution, inPath.m_Linear );
         spline = &built;
     }
     if ( !spline->HasSegments() ) return std::nullopt;
@@ -473,7 +473,7 @@ void DrawPathFollowerHeading(
         auto const& built = path.Value().get().m_Path;
         float const length = built.HasSegments()
             ? built.Length()
-            : asge::math::CatmullRomSpline( path.Value().get().m_Waypoints, path.Value().get().m_Resolution ).Length();
+            : asge::math::CatmullRomSpline( path.Value().get().m_Waypoints, path.Value().get().m_Resolution, path.Value().get().m_Linear ).Length();
         distance = std::clamp( inProgress, 0.0f, 1.0f ) * length;
     }
     auto const pose = SamplePathPose( path.Value().get(), follow.Value().get(), distance );

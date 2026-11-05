@@ -63,6 +63,8 @@ Float2 HermiteDerivative(
  * can be looked up either by a normalized `[0, 1]` curve parameter or by
  * actual distance travelled along the curve. The curve passes through every
  * waypoint; the first and last waypoints are reused as their own neighbours.
+ * In linear mode each segment is instead a straight line between its two
+ * waypoints (sharp corners, exact arc length, resolution unused).
  */
 class CatmullRomSpline
 {
@@ -74,6 +76,7 @@ class CatmullRomSpline
         std::vector<ArcLengthSample> m_Table; // Arc-length lookup table local to this segment
         float m_StartDistance;                // Cumulative spline distance where this segment begins
         float m_Length;                       // This segment's own arc length
+        bool  m_Linear{false};                // Straight line P1->P2 instead of a Hermite curve
     };
 
     std::vector<Float2>  m_Waypoints{};       // The points the curve passes through
@@ -99,6 +102,14 @@ class CatmullRomSpline
      * least one segment.
      */
     std::pair<std::size_t, float> LocateByDistance(float inDistance) const noexcept;
+
+    /**
+     * @brief Evaluates a segment at local parameter `inT`.
+     *
+     * Hermite for a curved segment, a straight lerp from P1 to P2 for a
+     * linear one. Shared by PointAt() and PointAtDistance().
+     */
+    static Float2 EvalSegment( Segment const& inSeg, float inT ) noexcept;
 public:
     /**
      * @brief Creates an empty spline with no segments.
@@ -109,11 +120,12 @@ public:
      * @brief Builds the spline through `inWp`.
      *
      * Precomputes each segment's arc-length table with `inResolution`
-     * samples. Splines with fewer than two waypoints have no segments and
-     * evaluate to a zero point.
+     * samples. With `inLinear` every segment is a straight line instead and
+     * `inResolution` is ignored. Splines with fewer than two waypoints have
+     * no segments and evaluate to a zero point.
      */
     explicit CatmullRomSpline(
-        std::vector<Float2> inWp, std::size_t inResolution=32 );
+        std::vector<Float2> inWp, std::size_t inResolution=32, bool inLinear=false );
 
     /**
      * @brief Copy constructor.
