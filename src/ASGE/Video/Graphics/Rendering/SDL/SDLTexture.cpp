@@ -38,6 +38,7 @@ asge::video::SDLTexture &asge::video::SDLTexture::operator=(SDLTexture &&inOther
 {
     if ( this != &inOther )
     {
+        Destroy(); // Release the texture this one already owns
         m_Handle = inOther.m_Handle;
         inOther.m_Handle = nullptr;
     }

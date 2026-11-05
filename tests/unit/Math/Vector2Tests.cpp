@@ -171,4 +171,11 @@ TEST(Rotate, RotatingByTheOppositeAngleUndoesIt)
     EXPECT_NEAR(roundTripped.y(), original.y(), 1e-4f);
 }
 
+TEST(Vector2, ScalarDividedByVectorIsComponentWise)
+{
+    auto const r = 12.0f / Float2{ 2.0f, 4.0f };
+    EXPECT_FLOAT_EQ(r.x(), 6.0f);
+    EXPECT_FLOAT_EQ(r.y(), 3.0f);
+}
+
 }

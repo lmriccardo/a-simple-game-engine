@@ -46,9 +46,10 @@ public:
 
 }
 
-// Token-pastes a and b. Operands of ## are not macro-expanded, so __LINE__
-// stays literal and two PROFILE_SCOPEs in one scope would clash.
-#define ASGE_CONCAT( a, b ) a##b
+// Token-pastes a and b after expanding them, so `__LINE__` becomes the line
+// number and two PROFILE_SCOPEs in one scope get distinct names.
+#define ASGE_CONCAT_IMPL( a, b ) a##b
+#define ASGE_CONCAT( a, b ) ASGE_CONCAT_IMPL( a, b )
 
 // Times the rest of the enclosing scope under the bucket called `name`. The
 // bucket lookup is cached in a function-local static, so the profiler lock is
