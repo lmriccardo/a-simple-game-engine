@@ -100,7 +100,7 @@ asge::math::Rect asge::media::Image::AlphaContentBounds( math::Rect const &inReg
     };
 }
 
-asge::Result<asge::media::Image> asge::media::Image::Image::Load(filesystem::Path const &inImagePath)
+asge::Result<asge::media::Image> asge::media::Image::Load(filesystem::Path const &inImagePath)
 {
     auto byteResult = filesystem::ReadBinary( inImagePath );
     if (!byteResult) return Result<Image>::Err(byteResult.Error());
