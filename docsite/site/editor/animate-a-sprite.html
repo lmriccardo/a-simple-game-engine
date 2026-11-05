@@ -48,9 +48,9 @@
 <img src="../assets/img/editor/create-clip-modal.png" alt="The Create Clip modal with a grid overlay" loading="lazy"/>
 <h2 id="steps">Steps</h2>
 <ol>
-  <li>Open the spritesheet texture in the <a href="import-and-inspect-assets.html">Asset Inspector</a> and click <strong>Create Clip</strong>.</li>
-  <li>In the modal, set <strong>Rows</strong> and <strong>Columns</strong>. A bigger thumbnail shows a live grid overlay and the computed per-cell pixel size.</li>
-  <li>Click <strong>Apply</strong>. The editor writes <code>&lt;image&gt;_clip.toml</code> next to the texture (creating or overwriting it), then registers and selects it as a new animation clip.</li>
+  <li>Right-click the spritesheet texture in the <a href="import-and-inspect-assets.html">asset explorer</a> and choose <strong>Create Clip</strong>.</li>
+  <li>In the modal, give the clip a <strong>Name</strong> (letters, digits, <code>_</code> and <code>-</code>) and set <strong>Rows</strong> and <strong>Columns</strong>. Margins, spacing, row- or column-major order, the first frame and the frame count are optional. A bigger thumbnail shows a live grid overlay and the computed per-cell pixel size.</li>
+  <li>Click <strong>Apply</strong>. The editor writes <code>&lt;image&gt;_clip_&lt;name&gt;.toml</code> next to the texture (a name that already exists is refused), then registers and selects it as a new animation clip.</li>
   <li>Add an <code>Animation</code> component to an entity, choose the clip path and frame duration, and press <strong>Play</strong>.</li>
 </ol>
 <img src="../assets/img/editor/animation-clip-preview.png" alt="The animation clip preview cycling through frames" loading="lazy"/>
