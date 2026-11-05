@@ -612,3 +612,6 @@ REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
 REGISTER_ASGE_ERROR(asge::errors::VfsError, "asge.filesystem.vfs")
 REGISTER_ASGE_ERROR(asge::errors::AudioError, "asge.media.audio")
 REGISTER_ASGE_ERROR(asge::errors::SceneError, "asge.scene")
+
+#define BEGIN_ASGE_ERROR_NS namespace asge::errors {
+#define END_ASGE_ERRORS_NS }
