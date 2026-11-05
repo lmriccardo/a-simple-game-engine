@@ -574,6 +574,42 @@ and `UIPanel`. Renders UI elements according to the Panel Layout.
       removed from any entity, since a child can be attached to a panel after
       it was created.
 
+## Phase 18 - Bottom Panel: Mountpoints, Asset Explorer and Log
+
+**Goal**: Replace the floating Assets and Virtual
+File System windows with one bottom panel shared with the Log, so assets are
+browsed like files on disk.
+
+- [x] `BottomPanel` owns one borderless window anchored flush to the bottom and
+      both side edges, split into Mounts | Asset explorer | Log columns by
+      draggable splitters, with a user-draggable height. A header arrow button
+      minimizes it to the header row (there is no title bar, so ImGui's own
+      collapse arrow is unused). The Assets, VFS and Log panels lost their
+      `Begin`/`End` and became `Draw...Contents` functions drawn into child
+      regions. Restoring after a minimize applies the saved height once --
+      the window keeps its minimized size otherwise (the size hint is only
+      first-use) and the panel read that back as its own height.
+
+- [x] The VFS column is a list of mountpoints, one equally tall selectable row
+      per virtual root; a root mapped to several real directories is still one
+      row. Selecting one sets `AssetExplorerState::m_Root`. Unmount (per real
+      directory), `Set...` for roots a scene uses but nothing mounts, and
+      `+ Add mount` are kept, as a right-click menu, a yellow row and a popup.
+
+- [x] The asset column is a file explorer for the selected mountpoint, one
+      folder at a time (`ListFolder` in `AssetTree`, replacing `BuildAssetTree`).
+      Items are an icon with their name under it; folders open on click, and
+      an up button plus clickable path crumbs lead back to the mountpoint.
+      Textures show a thumbnail, loaded only while their cell is on screen and
+      retried every 120 frames after a failure (a missing mount would
+      otherwise re-read the file every frame); animations, audio clips and
+      fonts get icons drawn with `ImDrawList`, since the editor has no icon font.
+
+- [x] Clicking a file still opens the existing floating Asset Inspector, so the
+      sprite info/thumbnail and the animation, audio and font previews are
+      unchanged. The row context menu is unchanged too, except the per-row `x`
+      became `Remove from list` (only for hand-imported assets).
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no
