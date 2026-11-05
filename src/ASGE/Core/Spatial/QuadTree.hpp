@@ -85,8 +85,7 @@ class QuadTree
 
     static constexpr std::size_t s_BlockCapacity = QuadNode::s_MaxNofElements;
 
-    // Popping a node pushes at most 4 children, so a walk of depth D never holds more than 3*D + 4 nodes
-    static constexpr std::size_t s_QueryStackSize = 3 * QuadNode::s_MaxDepth + 4;
+    static constexpr std::size_t s_QueryStackSize = 3 * QuadNode::s_MaxDepth + 4; // Query stack capacity: a walk of depth D holds at most 3*D + 4 nodes
 
     /**
      * @brief Fixed-size run of elements of one node.

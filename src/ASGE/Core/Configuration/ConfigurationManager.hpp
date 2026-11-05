@@ -32,10 +32,7 @@ private:
     table_pointer_t              m_Configuration{ nullptr };    // The parsed document, null until loaded
     std::atomic<bool>            m_HotReloadEnabled{ false };   // Whether to reload on file changes
 
-    // Guards Get/Set/Save against each other and against a hot-reload swap.
-    // Read access stops being lock-free once Set can mutate the live tree
-    // in place, so this is a deliberate trade for mutation correctness.
-    mutable std::mutex           m_ConfigMutex;
+    mutable std::mutex           m_ConfigMutex; // Guards Get/Set/Save against each other and a hot-reload swap
 
     /**
      * @brief Reads and parses inPath, replacing the current document on success.

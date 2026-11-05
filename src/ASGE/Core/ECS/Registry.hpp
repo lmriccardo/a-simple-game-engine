@@ -32,11 +32,7 @@ class Registry
     std::vector<std::unique_ptr<IComponentPool>>  m_Pools{};      // One pool per component type, indexed by type id
     std::vector<std::unique_ptr<IResourceHolder>> m_Resources{};  // dense, indexed by ResourceId<T>()
 
-    // Next unused resource id, shared by every Registry instance -- same
-    // "dense, monotonically-assigned, unsynchronized" tradeoff as
-    // ComponentTypeId.hpp's GetComponentTypeId, just kept private to Registry
-    // since resource ids (unlike component type ids) have no other caller.
-    static inline std::size_t s_NextResourceId = 0; // Counter behind ResourceId<T>()
+    static inline std::size_t s_NextResourceId = 0; // Next unused resource id, shared by all Registries; unsynchronized
 
     // Concrete pool type backing component type T.
     template<typename T>
@@ -45,8 +41,10 @@ class Registry
     /**
      * @brief Returns the stable id for resource type T.
      *
-     * Assigned on first use and cached in a function-local static -- see
-     * s_NextResourceId's note above about assignment order and thread-safety.
+     * Assigned on first use and cached in a function-local static. Ids are
+     * dense and handed out in first-use order from a counter shared by every
+     * Registry, with no synchronization -- same trade-off as
+     * GetComponentTypeId.
      */
     template <typename T>
     [[nodiscard]] static std::size_t ResourceId() noexcept

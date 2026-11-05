@@ -32,26 +32,16 @@ class SceneManager
     filesystem::VirtualFileSystem const& m_Vfs;      // Resolves scene virtual paths; not owned
     SceneSerializer m_Serializer{ m_Vfs };           // Reads and writes scene files
 
-    ecs::Registry m_Registry; // only the active scene's entities, tagged by SceneId
-    std::optional<str::String> m_CurrentScenePath; // nullopt: nothing active
+    ecs::Registry m_Registry;                          // Only the active scene's entities, tagged by SceneId
+    std::optional<str::String> m_CurrentScenePath;     // Active scene's path; nullopt: nothing active
 
-    // Every other visited scene's entities, keyed by SceneId path, held as
-    // its own scratch Registry instead of live in m_Registry -- see
-    // SuspendScene()/RestoreScene().
     std::unordered_map<str::String, ecs::Registry> m_Snapshots; // Suspended scenes by SceneId path
-    // For each snapshotted scene, which snapshot entity each of its formerly
-    // live entities became -- see TakeRestoredEntities().
     std::unordered_map<str::String, std::unordered_map<ecs::Entity, ecs::Entity>> m_SuspendedHandles; // Old -> snapshot handle, per scene
-    // The last LoadScene()'s snapshot restore: each entity's handle before the
-    // scene was suspended -> its handle now.
     std::unordered_map<ecs::Entity, ecs::Entity> m_RestoredEntities; // Old -> new handle of the last restore
 
-    // A transition requested via RequestLoad()/RequestUnload(), applied on
-    // the next ApplyPendingTransition() call. At most one is pending at a
-    // time — a later request before that call overwrites an earlier one.
     enum class PendingKind { None, Load, Unload };
-    PendingKind m_PendingKind{ PendingKind::None }; // Which transition is queued, if any
-    str::String m_PendingPath;                       // Scene to load when m_PendingKind is Load
+    PendingKind m_PendingKind{ PendingKind::None }; // Queued transition, if any; a later request overwrites it
+    str::String m_PendingPath;                      // Scene to load when m_PendingKind is Load
 
     /**
      * @brief Copies every serializable component of an entity onto another.

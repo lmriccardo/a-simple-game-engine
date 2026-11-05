@@ -36,20 +36,8 @@ class AssetManager
     AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load       };
     AssetPool<media::AudioClip>  m_AudioPool  { &media::AudioClip::Load };
 
-    // GetTexture()'s cache, keyed by virtual path -- the sole owner of every
-    // GPU texture this AssetManager creates. Sprite::m_Texture only ever
-    // points into here, so an entry must outlive every entity holding one
-    // (see ResolveAssets' own doc comment) until UnloadTexture() drops it.
-    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache;
-
-    // GetFontAtlasTexture()'s cache, keyed by Font address rather than a
-    // virtual path -- a font's atlas is already a decoded Image sitting in
-    // m_FontPool (baked at Font::Load time), not a separate image file to
-    // resolve through the VFS. Safe to key by address since m_FontPool
-    // never evicts a Font once loaded, so it stays valid (and at the same
-    // address) for the AssetManager's own lifetime. UILabel::m_Texture
-    // only ever points into here.
-    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache;
+    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache; // GetTexture()'s cache by virtual path; sole owner of its GPU textures
+    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache; // Font atlas textures keyed by Font address (m_FontPool never evicts)
 
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
