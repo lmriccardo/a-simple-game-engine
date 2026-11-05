@@ -33,7 +33,7 @@
 namespace asge::logger
 {
 
-/* Enumerates all possible logging levels */
+/* Enumerates all possible logging levels, lowest to highest severity */
 enum class LogLevel
 {
     Debug,
@@ -106,10 +106,10 @@ void BuildMessage( std::ostringstream& oss, First&& inFirst, Rest&& ...inRest ) 
 
 struct LogRecord
 {
-    LogLevel        m_Level     { LogLevel::Info };
-    str::String     m_Function  {};
-    str::String     m_Message   {};
-    time::Timestamp m_Timestamp {};
+    LogLevel        m_Level     { LogLevel::Info }; // Severity of the record
+    str::String     m_Function  {};                 // Name of the logging function
+    str::String     m_Message   {};                 // The formatted message body
+    time::Timestamp m_Timestamp {};                 // When the record was logged
 };
 
 class Logger
@@ -125,9 +125,20 @@ private:
     Logger(): m_Level{LogLevel::Info} {} // The constructor is private
 
 public:
+    /**
+     * @brief Returns the process-wide Logger.
+     *
+     * A function-local static, so it is created on first use and is
+     * thread-safe to initialise. The LOG_* macros all go through it.
+     */
     static Logger& Instance();
 
-    /* Set a new log level for the logger */
+    /**
+     * @brief Sets the minimum level that Log() lets through.
+     *
+     * Messages below inLevel are dropped before any formatting happens.
+     * Thread-safe (stored in an atomic with relaxed ordering).
+     */
     void SetLogLevel( LogLevel inLevel ) noexcept;
 
     /**
@@ -141,12 +152,9 @@ public:
      * std::string_view, ...) and contains "{}" placeholders, the remaining
      * arguments are substituted into them in order, e.g.
      * `Log(lvl, fn, "{} of {}", 1, 2)` logs "1 of 2". Otherwise every
-     * argument is simply concatenated, as before.
-     *
-     * @param inLevel   The input level of the input message
-     * @param inFn      The name of the function calling this log
-     * @param inMessage The actual message (or format string) plus any
-     *                   substitution arguments
+     * argument is simply concatenated, as before. inFunction names the caller
+     * (the LOG_* macros pass the current function) and the record is also
+     * emitted on the OnLog signal after printing.
      */
     template<typename ...LArgs>
     void Log( LogLevel inLevel, char const* inFunction, LArgs&& ...args)
@@ -170,7 +178,13 @@ public:
         m_OnLog.Emit( record );
     }
 
-    /** @brief Connects an input callback to the on log signal. */
+    /**
+     * @brief Connects an input callback to the on log signal.
+     *
+     * inCallback runs for every record that passes the level filter, while
+     * the logger's mutex is held, so it must not log or block. Returns the
+     * connection so the caller can disconnect it.
+     */
     signals::Signal<LogRecord const&>::conn_type
     OnLogConnect( signals::Signal<LogRecord const&>::slot_type inCallback );
 };

@@ -19,7 +19,7 @@ using WStringView = std::wstring_view;
 
 using U8String = std::u8string;
 
-/** @brief How Justify pads a string to a target width — None pads nothing (see Justify's default case). */
+/** @brief How Justify pads a string to a target width; None pads nothing (see Justify's default case). */
 enum class TextAlign
 {
     None = 0,
@@ -28,21 +28,29 @@ enum class TextAlign
     Right
 };
 
-/** @brief TextAlign -> its lowercase TOML/display representation ("none" for anything unrecognized). */
+/**
+ * @brief TextAlign -> its lowercase TOML/display representation.
+ *
+ * Gives "left", "center" or "right", and "none" for TextAlign::None or any
+ * unrecognized value. FromString is the inverse.
+ */
 str::String ToString( TextAlign inAlign ) noexcept;
 
-/** @brief The read-side counterpart to ToString — any string other than "left"/"center"/"right" maps to None. */
+/**
+ * @brief The read-side counterpart to ToString.
+ *
+ * Any string other than "left", "center" or "right" maps to TextAlign::None,
+ * so a missing or misspelled value is never an error. The match is
+ * case-sensitive.
+ */
 TextAlign FromString( StringView inStr ) noexcept;
 
 /**
  * @brief Removes leading and trailing whitespace from a string_view.
  *
- * This function scans the input string_view from both ends, stripping out standard 
- * whitespace characters (spaces, tabs, newlines, and carriage returns). Because it 
- * operates on and returns a `std::string_view`, it performs no dynamic memory 
- * allocations or string copying.
- *
- * @param inSv The input string_view to be trimmed.
+ * Strips standard whitespace (spaces, tabs, newlines, carriage returns) from
+ * both ends. It returns a view into inSv, so nothing is allocated or copied
+ * and the result is only valid as long as the underlying string is.
  */
 StringView Trim(StringView inSv) noexcept;
 
@@ -55,27 +63,28 @@ StringView Trim(StringView inSv) noexcept;
 StringView Trim( StringView inSv, StringView inCharsToTrim ) noexcept;
 
 /**
- * @brief Splits a string_view into a vector of sub-views based on a delimiter string.
+ * @brief Splits a string_view into owned tokens on a delimiter string.
  *
- * Scans the input string_view and splits it wherever the sequence of characters 
- * specified by the delimiter `inSep` is found. Because it returns a vector of 
- * `std::string_view`, the individual tokens are zero-copy views into the original string.
- *
- * @param inSv  The input string_view to be split.
- * @param inSep A null-terminated C-string representing the delimiter sequence.
- * @return A `std::vector<std::string>` containing the split tokens in order.
+ * Splits wherever the whole sequence inSep occurs; the delimiter itself is
+ * dropped and consecutive delimiters give empty tokens. The tokens are
+ * copied into std::strings, so they outlive inSv. An empty inSv or a null
+ * inSep gives an empty vector.
  */
 std::vector<String> Split( StringView inSv, const char* inSep );
 
 /**
- * @brief UTF-8 encoder for \uXXXX and \UXXXXXXXX
- * @param inCp The unsigned 32-bit integer to encode into a string
- * @return The encoded string
+ * @brief UTF-8 encoder for code points such as those written as 4 or 8 hex digit escapes.
+ *
+ * Encodes inCp into 1 to 4 bytes. Used by the TOML parser to expand
+ * unicode escapes in strings.
  */
 String EncodeUtf8( std::uint32_t inCp ) noexcept;
 
 /**
- * @brief Converts UTF-8 string into a simple string
+ * @brief Converts a std::u8string into a plain std::string with the same bytes.
+ *
+ * A reinterpretation of the bytes, no transcoding: char8_t and char hold the
+ * same UTF-8 sequence afterwards.
  */
 String ToUtf8( U8String const& inStr ) noexcept;
 
@@ -89,8 +98,12 @@ String ToUtf8( U8String const& inStr ) noexcept;
  */
 std::size_t CodePointLength( StringView inStr ) noexcept;
 
-/** @brief Decodes one UTF-8 code point at ioPos and advances ioPos past it. 
- *  Malformed bytes decode as U+FFFD. 
+/**
+ * @brief Decodes one UTF-8 code point at ioPos and advances ioPos past it.
+ *
+ * ioPos is updated by reference to just after the consumed bytes, so loops
+ * must not increment it again. Malformed bytes decode as U+FFFD (and still
+ * advance), which keeps such loops terminating.
  */
 int DecodeUtf8( StringView inText, std::size_t& ioPos ) noexcept;
 

@@ -95,11 +95,12 @@ template<typename T>
 inline constexpr std::size_t arity_v = std::tuple_size_v<args_type_t<T>>;
 
 /**
- * @brief True if function_trait<T> can actually describe T's call
- *        signature. False for a generic (templated) call operator, where
- *        there is no fixed args_type/return_type to report -- guard
- *        arity_v/arg_t/args_type_t with this in a requires-clause so they
- *        fail cleanly (SFINAE) rather than hard-erroring on such a T.
+ * @brief True if function_trait<T> can actually describe T's call signature.
+ *
+ * False for a generic (templated) call operator, where there is no fixed
+ * args_type/return_type to report. Guard arity_v/arg_t/args_type_t with this
+ * in a requires-clause so they fail cleanly (SFINAE) rather than
+ * hard-erroring on such a T.
  */
 template<typename T>
 concept HasFunctionTrait = requires { typename function_trait<T>::args_type; };
@@ -125,18 +126,13 @@ struct InvocableForAllTypes<std::tuple<Ts...>, F>
 }
 
 /**
- * Creates a callback wrapper that holds a weak reference to an object and
- * safely invokes a member function on that object if it is still alive.
- * 
- * This function accepts a member function pointer and a shared pointer to an object
- * and returns a callable lambda that, when invoked, attempts to lock the weak pointer
- * to the object. If successful, it calls the member function otherwise do nothing.
- * 
- * @tparam T The class type of the object owning the member function
- * @tparam _Callable Type of the member function pointer
- * 
- * @param func The member function pointer to invoke on the object
- * @param ptr  Shared pointer to the object instance
+ * @brief Wraps a member function and a weakly-held object into a callable.
+ *
+ * Takes a member function pointer and a shared_ptr to the object and returns
+ * a lambda that, when invoked, locks the weak_ptr to the object. If the
+ * object is still alive it calls the member function with the lambda's
+ * arguments, otherwise it silently does nothing. The lambda never keeps the
+ * object alive, so it is safe to store in a signal slot.
  */
 template<typename T, typename Callable>
 requires _internal::MemberFunctionOf<Callable, T>
@@ -153,9 +149,11 @@ auto MakeCallback( Callable&& inFunc, std::shared_ptr<T> inPtr )
 }
 
 /**
- * The same MakeCallback with smart pointers, but using raw pointers, which means
- * that the lifetime of the object pointed to must be managed carefully, otherwise
- * segmentation fault would occur.
+ * @brief Raw-pointer overload of MakeCallback.
+ *
+ * Same wrapper, but inPtr is not tracked: the object must outlive every
+ * invocation of the returned callable, otherwise calling it is undefined
+ * behavior (typically a crash).
  */
 template<typename T, typename Callable>
 requires _internal::MemberFunctionOf<Callable, T>
@@ -167,16 +165,28 @@ auto MakeCallback( Callable&& inFunc, T* inPtr )
     };
 }
 
+/**
+ * @brief A callable bundled with its arguments, invoked later with no arguments.
+ *
+ * Stores decayed copies of the function and its arguments (a deferred call,
+ * like std::bind without placeholders). Call() applies them; it is virtual so
+ * subclasses can wrap the invocation.
+ */
 template<typename _Callable, typename... _Args>
 class Callable
 {
 protected:
-    std::decay_t<_Callable>            m_Func;
-    std::tuple<std::decay_t<_Args>...> m_Args;
+    std::decay_t<_Callable>            m_Func; // The stored function
+    std::tuple<std::decay_t<_Args>...> m_Args; // The stored arguments
 
     // Take the return type from function signature
     using return_type = typename _internal::return_type_t<std::decay_t<_Callable>>;
 public:
+    /**
+     * @brief Stores inFn and inArgs for a later Call().
+     *
+     * Both are forwarded into decayed storage (moved when passed as rvalues).
+     */
     Callable( _Callable&& inFn, _Args&&... inArgs )
     : m_Func( std::forward<_Callable>( inFn ) )
     , m_Args( std::forward<_Args>(inArgs)... )
@@ -187,11 +197,20 @@ public:
     Callable( Callable&& )            = default;
     Callable& operator=( Callable&& ) = default;
 
+    /**
+     * @brief Invokes the stored function with the stored arguments.
+     *
+     * Uses std::apply and returns whatever the function returns. It can be
+     * called more than once, so arguments are not consumed.
+     */
     virtual return_type Call()
     {
         return std::apply( m_Func, m_Args );
     }
 
+    /**
+     * @brief Same as Call(), so the object can be used like a nullary function.
+     */
     return_type operator()()
     {
         return Call();
@@ -223,17 +242,10 @@ auto ReduceTupleImpl( Tuple const& t, BinOp&& b )
  * then applied moving leftward one element at a time. For a 3-tuple
  * (c0, c1, c2) this computes @c b(b(c2, c1), c0).
  *
- * Every value passed to @c b — the accumulator and each element alike —
+ * Every value passed to @c b -- the accumulator and each element alike --
  * is typed as Tuple's fold type: the shared element type if every element
  * has the same type, or a @c std::variant of the element types otherwise.
- * @c b must return that same type.
- *
- * @tparam Tuple A std::tuple<Ts...> with at least 2 elements.
- * @tparam BinOp Callable invoked as @c b(accumulator, element), both
- *               typed as Tuple's fold type.
- * @param t Tuple to fold; must have tuple_size >= 2.
- * @param b Combines the running accumulator with the next element.
- * @return The final accumulator, typed as Tuple's fold type.
+ * @c b must return that same type. The tuple needs at least 2 elements.
  */
 template<typename Tuple, typename BinOp>
 requires (std::tuple_size_v<Tuple> >= 2)
@@ -270,13 +282,8 @@ auto MapTupleImpl( Tuple&& t, Callable&& c, std::index_sequence<Is...> )
  * Each element is passed to @c c independently via std::invoke, so @c c may
  * be generic or overloaded when Tuple is heterogeneous. The result tuple's
  * element types are whatever @c c returns for each input, decayed the same
- * way std::make_tuple decays its arguments.
- *
- * @tparam Tuple A tuple-like forwarding reference.
- * @tparam Callable Invoked once per element as @c c(element).
- * @param t Tuple whose elements are transformed.
- * @param c Callable applied to each element.
- * @return A new tuple holding std::invoke(c, element) for every element of t.
+ * way std::make_tuple decays its arguments. Returns a new tuple holding
+ * std::invoke(c, element) for every element of t.
  */
 template<typename Tuple, typename Callable>
 auto MapTuple( Tuple&& t, Callable&& c )
@@ -291,11 +298,8 @@ auto MapTuple( Tuple&& t, Callable&& c )
 /**
  * @brief Concatenates two tuples into one, preserving element order.
  *
- * @tparam Tuple1 First tuple-like forwarding reference.
- * @tparam Tuple2 Second tuple-like forwarding reference.
- * @param t1 Tuple contributing the leading elements.
- * @param t2 Tuple contributing the trailing elements.
- * @return A new tuple holding t1's elements followed by t2's elements.
+ * Returns a new tuple holding t1's elements followed by t2's. A thin wrapper
+ * over std::tuple_cat that forwards both arguments.
  */
 template<typename Tuple1, typename Tuple2>
 auto ConcatTuples( Tuple1&& t1, Tuple2&& t2 )
@@ -306,11 +310,8 @@ auto ConcatTuples( Tuple1&& t1, Tuple2&& t2 )
 /**
  * @brief Returns a new tuple with value inserted at the front of t.
  *
- * @tparam T Type of the value to prepend; decayed as std::make_tuple decays it.
- * @tparam Tuple Tuple-like forwarding reference to prepend onto.
- * @param value Value to place before t's elements.
- * @param t Tuple whose elements follow value.
- * @return A new tuple: (value, t...).
+ * The result is (value, t...). value is decayed the way std::make_tuple
+ * decays it, and t's elements follow unchanged.
  */
 template<typename T, typename Tuple>
 auto PrependToTuple( T&& value, Tuple&& t )
