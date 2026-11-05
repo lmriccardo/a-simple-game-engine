@@ -441,14 +441,16 @@ public:
     }
 
     /**
-     * @brief Scalar divided by vector; evaluates vec / scalar.
+     * @brief Scalar divided by vector, component-wise.
      *
-     * Note the operand order is not preserved.
+     * Each component of the result is scalar / vec[i].
      */
     template<_internal::Numeric U>
     friend auto operator/(U const& scalar, actual_derived const& vec) noexcept 
     {
-        return vec / scalar;
+        rebind_actual_derived_t<std::common_type_t<T,U>> result;
+        for (size_type ii = 0; ii < N; ++ii) result.Data()[ii] = scalar / vec.Data()[ii];
+        return result;
     }
 };
 

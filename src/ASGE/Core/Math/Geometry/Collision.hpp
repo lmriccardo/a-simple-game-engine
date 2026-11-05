@@ -34,11 +34,11 @@ std::optional<Float2> PenetrationVector( Rect const& inA, Rect const& inB ) noex
 /**
  * @brief Minimum translation vector to separate two overlapping circles.
  *
- * Points along the line between the two centers, with a length equal to the
- * penetration depth. Note that the direction runs from inA's center toward
- * inB's center, the opposite sign of the Rect overloads, so subtract it to
- * move inA away. std::nullopt if they don't overlap; if the centers exactly
- * coincide, the result is (summed radii, 0) arbitrarily along +X.
+ * Points along the line between the two centers, from inB's center toward
+ * inA's, with a length equal to the penetration depth. Like the Rect
+ * overloads, adding it to inA moves inA away. std::nullopt if they don't
+ * overlap; if the centers exactly coincide, the result is (summed radii, 0)
+ * arbitrarily along +X.
  */
 std::optional<Float2> PenetrationVector( Circle const& inA, Circle const& inB ) noexcept;
 

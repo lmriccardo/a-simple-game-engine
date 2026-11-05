@@ -146,6 +146,17 @@ TEST(PenetrationVectorTest, CircleRect_IsTheOppositeOfRectCircle)
     EXPECT_FLOAT_EQ(circlePushed->y(), -rectPushed->y());
 }
 
+TEST(PenetrationVectorTest, CircleCircle_PointsAAwayFromB)
+{
+    Circle const a{Float2{0.0f, 0.0f}, 5.0f};
+    Circle const b{Float2{8.0f, 0.0f}, 5.0f};
+
+    auto const mtv = PenetrationVector(a, b);
+    ASSERT_TRUE(mtv.has_value());
+    EXPECT_FLOAT_EQ(mtv->x(), -2.0f); // depth 2, a is to the left of b
+    EXPECT_FLOAT_EQ(mtv->y(), 0.0f);
+}
+
 // ─── Contains ────────────────────────────────────────────────────────────────
 
 TEST(ContainsTest, PointWellInside_ReturnsTrue)

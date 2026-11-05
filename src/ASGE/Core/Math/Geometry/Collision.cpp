@@ -30,7 +30,7 @@ std::optional<asge::math::Float2> asge::math::PenetrationVector(Circle const &in
     if ( distance == 0.0f ) return Float2{ rSum, 0.0f };
 
     float const depth = rSum - distance;
-    return Float2{ ( dx / distance ) * depth, ( dy / distance ) * depth };
+    return Float2{ -( dx / distance ) * depth, -( dy / distance ) * depth };
 }
 
 std::optional<asge::math::Float2> asge::math::PenetrationVector(Rect const &inRect, Circle const &inCircle) noexcept

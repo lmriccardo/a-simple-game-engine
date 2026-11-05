@@ -1,5 +1,7 @@
 #include "AudioClip.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <span>
 #include <stb_vorbis.c>
 #include <SDL3/SDL_iostream.h>
@@ -89,8 +91,12 @@ asge::media::AudioClip::Load(filesystem::Path const &inPath) noexcept
     auto byteResult = filesystem::ReadBinary( inPath );
     if ( !byteResult ) return Result<AudioClip>::Err( byteResult.Error() );
 
-    if ( inPath.extension() == ".ogg" ) return DecodeOgg( byteResult.Value() );
-    if ( inPath.extension() == ".wav" ) return DecodeWav( byteResult.Value() );
+    auto ext = inPath.extension().u8string();
+    std::transform( ext.begin(), ext.end(), ext.begin(),
+        []( char8_t c ) { return static_cast<char8_t>( std::tolower( c ) ); } );
+
+    if ( ext == u8".ogg" ) return DecodeOgg( byteResult.Value() );
+    if ( ext == u8".wav" ) return DecodeWav( byteResult.Value() );
     return Result<AudioClip>::Err( 
         make_error_code( errors::AudioError::InvalidFormat ),
         str::ToUtf8( inPath.extension().u8string() )
