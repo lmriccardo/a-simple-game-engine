@@ -251,7 +251,7 @@ Result<str::String> ParseString( std::istringstream* inStream, std::string_view 
 StringType DetectStringType( std::string_view inSv ) noexcept;
 
 /**
- * @brief Resolves TOML escape sequences (\n, \t, \uXXXX, ...) in inSv.
+ * @brief Resolves TOML escape sequences (`\n`, `\t`, `\uXXXX`, ...) in inSv.
  *
  * isMultiline additionally honors the line-ending backslash of multi-line
  * basic strings.
