@@ -20,13 +20,14 @@ struct Path
     std::vector<math::Float2> m_Waypoints  {};        // Control points the path passes through, in order, local to this entity
     std::size_t               m_Resolution { 32 };    // Arc-length samples per segment, passed to CatmullRomSpline
     bool                      m_Loop       { false }; // Whether a follower reaching the end wraps to the start instead of stopping
+    bool                      m_Linear     { false }; // Straight segments with sharp corners instead of a Catmull-Rom curve (m_Resolution then unused)
 
     // Runtime values only
     math::CatmullRomSpline m_Path; // Built from m_Waypoints by asset::Resolver<Path>; no segments until then
 };
 
 /**
- * @brief Rebuilds inPath.m_Path from its current m_Waypoints/m_Resolution.
+ * @brief Rebuilds inPath.m_Path from its current m_Waypoints/m_Resolution/m_Linear.
  *
  * Call it after mutating either field, since the resolver only builds the
  * spline once.
@@ -39,7 +40,7 @@ namespace asge::game::scene
 {
 
 /**
- * @brief Round-trips m_Waypoints/m_Loop/m_Resolution only.
+ * @brief Round-trips m_Waypoints/m_Loop/m_Resolution/m_Linear only.
  *
  * FromToml leaves m_Path at its default, built later by
  * asset::Resolver<Path>.

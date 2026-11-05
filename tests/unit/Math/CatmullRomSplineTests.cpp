@@ -322,6 +322,45 @@ TEST(CatmullRomSplineTest, TimeAtDistance_RoundTripsThroughPointAtToMatchPointAt
     EXPECT_NEAR(viaDistance.y(), viaTime.y(), 1e-1f);
 }
 
+// ─── Linear mode ─────────────────────────────────────────────────────────────
+
+TEST(CatmullRomSplineLinearTest, LengthIsExactSumOfWaypointDistances)
+{
+    CatmullRomSpline const spline({Float2{0.0f, 0.0f}, Float2{3.0f, 4.0f}, Float2{3.0f, 14.0f}}, 32, true);
+
+    EXPECT_FLOAT_EQ(spline.Length(), 15.0f);
+}
+
+TEST(CatmullRomSplineLinearTest, PointAtDistance_StaysOnStraightSegmentsWithSharpCorner)
+{
+    CatmullRomSpline const spline({Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f}, Float2{10.0f, 10.0f}}, 32, true);
+
+    Float2 const mid = spline.PointAtDistance(5.0f);
+    EXPECT_FLOAT_EQ(mid.x(), 5.0f);
+    EXPECT_FLOAT_EQ(mid.y(), 0.0f);
+
+    Float2 const corner = spline.PointAtDistance(10.0f);
+    EXPECT_NEAR(corner.x(), 10.0f, 1e-4f);
+    EXPECT_NEAR(corner.y(), 0.0f, 1e-4f);
+
+    Float2 const after = spline.PointAtDistance(15.0f);
+    EXPECT_FLOAT_EQ(after.x(), 10.0f);
+    EXPECT_FLOAT_EQ(after.y(), 5.0f);
+}
+
+TEST(CatmullRomSplineLinearTest, TangentIsSegmentDirectionAndJumpsAtCorner)
+{
+    CatmullRomSpline const spline({Float2{0.0f, 0.0f}, Float2{10.0f, 0.0f}, Float2{10.0f, 10.0f}}, 32, true);
+
+    Float2 const first = spline.TangentAt(0.25f);
+    EXPECT_FLOAT_EQ(first.x(), 1.0f);
+    EXPECT_FLOAT_EQ(first.y(), 0.0f);
+
+    Float2 const second = spline.TangentAt(0.75f);
+    EXPECT_FLOAT_EQ(second.x(), 0.0f);
+    EXPECT_FLOAT_EQ(second.y(), 1.0f);
+}
+
 TEST(CatmullRomSplineTest, TimeAtDistance_EmptySpline_ReturnsZeroWithoutProducingNaN)
 {
     CatmullRomSpline const empty(std::vector<Float2>{});

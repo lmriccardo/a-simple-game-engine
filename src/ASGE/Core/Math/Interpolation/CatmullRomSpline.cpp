@@ -109,8 +109,14 @@ std::pair<std::size_t, float> asge::math::CatmullRomSpline::LocateByDistance(flo
     return { segIdx, localT };
 }
 
+asge::math::Float2 asge::math::CatmullRomSpline::EvalSegment(Segment const& inSeg, float inT) noexcept
+{
+    if ( inSeg.m_Linear ) return inSeg.m_P1 + ( inSeg.m_P2 - inSeg.m_P1 ) * inT;
+    return Hermite( inSeg.m_P0, inSeg.m_P1, inSeg.m_P2, inSeg.m_P3, inT );
+}
+
 asge::math::CatmullRomSpline::CatmullRomSpline(
-    std::vector<Float2> inWp, std::size_t inResolution)
+    std::vector<Float2> inWp, std::size_t inResolution, bool inLinear)
     : m_Waypoints(std::move(inWp))
 {
     const int n = static_cast<int>(m_Waypoints.size());
@@ -128,11 +134,22 @@ asge::math::CatmullRomSpline::CatmullRomSpline(
         seg.m_P2 = m_Waypoints[ii + 1];
         seg.m_P3 = m_Waypoints[std::min(ii + 2, n - 1)];
 
+        seg.m_Linear = inLinear;
+
         // Build this segment's local arc-length table
-        seg.m_Table.reserve( inResolution + 1 );
-        seg.m_Length = BuildArcLengthTable(
-            seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, inResolution, seg.m_Table
-        );
+        if ( inLinear )
+        {
+            // Exact: two samples, the chord length is the arc length
+            seg.m_Length = math::Length( seg.m_P2 - seg.m_P1 );
+            seg.m_Table = { { 0.0f, 0.0f }, { 1.0f, seg.m_Length } };
+        }
+        else
+        {
+            seg.m_Table.reserve( inResolution + 1 );
+            seg.m_Length = BuildArcLengthTable(
+                seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, inResolution, seg.m_Table
+            );
+        }
 
         seg.m_StartDistance = accumulated;
         accumulated += seg.m_Length;
@@ -168,16 +185,14 @@ asge::math::Float2 asge::math::CatmullRomSpline::PointAt(float inTime) const noe
 {
     if ( m_Segments.empty() ) return Float2{};
     auto [ segIdx, localT ] = LocateSegment( inTime );
-    Segment const& seg = m_Segments[ segIdx ];
-    return Hermite( seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, localT );
+    return EvalSegment( m_Segments[ segIdx ], localT );
 }
 
 asge::math::Float2 asge::math::CatmullRomSpline::PointAtDistance(float inDistance) const noexcept
 {
     if ( m_Segments.empty() ) return Float2{};
     auto [ segIdx, localT ] = LocateByDistance( inDistance );
-    auto const& seg = m_Segments[segIdx];
-    return Hermite( seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, localT );
+    return EvalSegment( m_Segments[ segIdx ], localT );
 }
 
 asge::math::Float2 asge::math::CatmullRomSpline::TangentAt(float inTime) const noexcept
@@ -185,7 +200,8 @@ asge::math::Float2 asge::math::CatmullRomSpline::TangentAt(float inTime) const n
     if ( m_Segments.empty() ) return Float2{};
     auto [ segIdx, localT ] = LocateSegment( inTime );
     Segment const& seg = m_Segments[ segIdx ];
-    return NormalizeVec( HermiteDerivative( 
+    if ( seg.m_Linear ) return NormalizeVec( seg.m_P2 - seg.m_P1 );
+    return NormalizeVec( HermiteDerivative(
         seg.m_P0, seg.m_P1, seg.m_P2, seg.m_P3, localT ) );
 }
 

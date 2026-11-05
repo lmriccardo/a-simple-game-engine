@@ -652,6 +652,18 @@ TEST(PathSerializerTest, RoundTripsWaypointsAndFieldsThroughToTomlAndFromToml)
     EXPECT_EQ(restored.m_Resolution, original.m_Resolution);
 }
 
+TEST(PathSerializerTest, RoundTrip_LinearPreservedAndDefaultsToFalse)
+{
+    Path original;
+    original.m_Linear = true;
+    TOMLBuilder builder;
+    Serializer<Path>::ToToml(original, builder, asge::game::scene::SaveContext{});
+    EXPECT_TRUE(Serializer<Path>::FromToml(builder, asge::game::scene::LoadContext{}).m_Linear);
+
+    TOMLBuilder empty;
+    EXPECT_FALSE(Serializer<Path>::FromToml(empty, asge::game::scene::LoadContext{}).m_Linear);
+}
+
 TEST(PathSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
 {
     // Regression test: m_Resolution used to read via table.Get<int>("m_Resolution")

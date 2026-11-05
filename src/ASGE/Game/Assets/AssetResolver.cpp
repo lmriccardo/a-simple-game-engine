@@ -69,7 +69,7 @@ void asge::game::asset::Resolver<asge::game::components::Path>::operator()(
     video::IRenderer &inRenderer, C &inPath) const noexcept
 {
     if ( inPath.m_Path.HasSegments() || inPath.m_Waypoints.empty() ) return;
-    math::CatmullRomSpline spline( inPath.m_Waypoints, inPath.m_Resolution );
+    math::CatmullRomSpline spline( inPath.m_Waypoints, inPath.m_Resolution, inPath.m_Linear );
     if ( !spline.HasSegments() ) return;
     inPath.m_Path = std::move( spline );
     inPath.m_Waypoints = inPath.m_Path.Waypoints();
