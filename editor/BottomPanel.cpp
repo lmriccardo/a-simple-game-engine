@@ -14,6 +14,7 @@ constexpr float kMinHeight = 80.0f;
 constexpr float kReservedAbove = 60.0f; // menu bar and a little room above the panel, never covered by it
 
 bool g_Minimized = false;
+bool g_ForceHeight = false;    // set on restore: the window still has its minimized size, so g_Height must be applied once
 float g_Height = 240.0f;       // last user-dragged height, kept so the forced anchor below doesn't undo a drag
 float g_MountsWidth = 280.0f;  // VFS column
 float g_AssetsWidth = 380.0f;  // asset browser column; the Log gets the rest
@@ -61,7 +62,8 @@ AssetBrowserResult DrawBottomPanel(
     }
     else
     {
-        ImGui::SetNextWindowSize( ImVec2( width, g_Height ), ImGuiCond_FirstUseEver );
+        ImGui::SetNextWindowSize( ImVec2( width, g_Height ), g_ForceHeight ? ImGuiCond_Always : ImGuiCond_FirstUseEver );
+        g_ForceHeight = false;
         ImGui::SetNextWindowSizeConstraints(
             ImVec2( width, kMinHeight ), ImVec2( width, std::max( kMinHeight, io.DisplaySize.y - kReservedAbove ) ) );
     }
@@ -73,7 +75,11 @@ AssetBrowserResult DrawBottomPanel(
     AssetBrowserResult result;
     ImGui::Begin( "Bottom Panel", nullptr, flags );
 
-    if ( ImGui::ArrowButton( "##minimize", g_Minimized ? ImGuiDir_Up : ImGuiDir_Down ) ) g_Minimized = !g_Minimized;
+    if ( ImGui::ArrowButton( "##minimize", g_Minimized ? ImGuiDir_Up : ImGuiDir_Down ) )
+    {
+        g_Minimized = !g_Minimized;
+        g_ForceHeight = !g_Minimized;
+    }
     if ( ImGui::IsItemHovered() ) ImGui::SetTooltip( g_Minimized ? "Restore the bottom panel" : "Minimize the bottom panel" );
     ImGui::SameLine();
     ImGui::TextUnformatted( "Assets & Log" );
@@ -82,7 +88,7 @@ AssetBrowserResult DrawBottomPanel(
     {
         // Picks up this frame's drag-resize (if any) for next frame's anchor.
         // Not read while minimized, or the header-only height would stick.
-        g_Height = ImGui::GetWindowSize().y;
+        if ( !g_ForceHeight ) g_Height = ImGui::GetWindowSize().y; // not on the restore frame: the window still has its minimized size
 
         ImGui::Separator();
         float const columnsHeight = std::max( 1.0f, ImGui::GetContentRegionAvail().y );
