@@ -23,6 +23,10 @@ namespace _internal
 struct IExecuter
 {
     virtual ~IExecuter() = default;
+
+    /**
+     * @brief Runs the unit of work; called by a pool worker.
+     */
     virtual void Execute() = 0;
 };
 
@@ -44,12 +48,9 @@ using job_queue = MPMCQueue<MAX_JOB_QUEUE_SIZE, executor_pointer>;
  * is produced. Otherwise, the return value is set on the promise at execution time
  * and can be retrieved via the std::future returned by GetFuture().
  *
- * @note GetFuture() must be called before the job is submitted to the queue,
- *       since once ownership is transferred via unique_ptr the job is no longer
- *       accessible from the submitting thread.
- *
- * @tparam _Callable The type of the callable to be executed.
- * @tparam _Args     The types of the arguments bound to the callable.
+ * GetFuture() must be called before the job is submitted to the queue,
+ * since once ownership is transferred via unique_ptr the job is no longer
+ * accessible from the submitting thread.
  */
 template<typename _Callable, typename... _Args>
 class WorkerJob : public IExecuter, 
@@ -59,7 +60,7 @@ private:
     using CallableBase = functools::Callable<_Callable, _Args...>;
     using return_type  = typename CallableBase::return_type;
 
-    std::promise<return_type> m_RetPromise;
+    std::promise<return_type> m_RetPromise; // Delivers the result to the future
 public:
     using future_type = std::future<return_type>;
     using CallableBase::CallableBase;
@@ -67,11 +68,22 @@ public:
     
     ~WorkerJob() override = default;
 
+    /**
+     * @brief Returns the future that receives the callable's result.
+     *
+     * Call it once, before submitting; a second call throws
+     * std::future_error. A void callable gives a future that never gets a value.
+     */
     future_type GetFuture()
     {
         return m_RetPromise.get_future();
     }
 
+    /**
+     * @brief Calls the callable and stores its result in the promise.
+     *
+     * An exception thrown by the callable is not caught here.
+     */
     void Execute() override
     {
         // Here we need to check if the return type is void. If it
@@ -103,9 +115,9 @@ WorkerJob(_Callable&&, _Args&&...)
  * Workers are move-constructible to allow storage in a std::vector, but are
  * non-copyable since they hold a mutable queue reference and manage a live thread.
  *
- * @note The static ID counter (s_Id) is not thread-safe. Workers are expected
- *       to be constructed sequentially during ThreadPool initialisation, not
- *       concurrently.
+ * The static ID counter (s_Id) is not thread-safe, so workers are expected
+ * to be constructed sequentially during ThreadPool initialisation. Note that
+ * Run() polls the queue without sleeping, so an idle worker keeps spinning.
  *
  * @see ThreadPool  — owns the queue and the worker vector.
  * @see IExecuter   — the interface each dequeued job implements.
@@ -113,13 +125,23 @@ WorkerJob(_Callable&&, _Args&&...)
 class Worker : public Thread
 {
 private:
-    inline static std::size_t s_Id{0};
-    
-    using job_queue_ref = job_queue&;
-    job_queue_ref m_JobQueue;
+    inline static std::size_t s_Id{0}; // Counter for worker names
 
+    using job_queue_ref = job_queue&;
+    job_queue_ref m_JobQueue; // The shared queue this worker drains
+
+    /**
+     * @brief One loop pass: pops at most one job and executes it.
+     *
+     * Returns at once when the queue is empty, and the Thread loop calls it again.
+     */
     void Run(context_pointer& inCtx) override;
 public:
+    /**
+     * @brief Creates worker Worker_N reading from inQueue under inCtx.
+     *
+     * The queue must outlive the worker. Call Start() to begin draining it.
+     */
     Worker( job_queue_ref inQueue, context_pointer inCtx ) 
     : Thread( "Worker_" + std::to_string(++s_Id), inCtx )
     , m_JobQueue( inQueue )
@@ -162,9 +184,8 @@ using future_or_void_t = std::conditional_t<
  * Lifetime: the destructor is responsible for signalling workers to stop and
  * joining all threads before the queue is destroyed.
  *
- * @note The default worker count is HardwareConcurrency(), which maps to
- *       std::thread::hardware_concurrency(). Consider passing an explicit count
- *       for latency-sensitive or IO-heavy workloads.
+ * The default worker count is HardwareConcurrency(); pass an explicit count
+ * for latency-sensitive or IO-heavy workloads.
  *
  * @see Worker      — consumes jobs from the queue.
  * @see WorkerJob   — wraps a callable into an IExecuter.
@@ -176,6 +197,11 @@ private:
     std::vector<_internal::Worker> m_Workers; // Vectors of all workers
     context_pointer                m_Ctx;     // The parent context of the entire pool
 public:
+    /**
+     * @brief Creates the pool and starts nWorkers worker threads.
+     *
+     * Each worker begins draining the shared queue immediately.
+     */
     ThreadPool( std::size_t nWorkers = HardwareConcurrency() );
 
     ThreadPool( ThreadPool&& )      = delete;
@@ -184,21 +210,21 @@ public:
     ThreadPool& operator=( ThreadPool const& ) = delete;
     ThreadPool& operator=( ThreadPool&& )      = delete;
 
+    /**
+     * @brief Cancels the pool context and joins every worker.
+     *
+     * Jobs still queued at that point are not run.
+     */
     ~ThreadPool();
 
     /**
      * @brief Submits a work to the Thread Pool
-     * 
-     * The works cames into the format of a callable with respective arguments.
-     * It is then converted into a Worker Job and put inside the queue, which will
-     * be eventually executed by one of the workers. If the input callable also
-     * presents a return value, then a std::future<T> is returned, void otherwise.
-     * 
-     * @param inFunc The input function
-     * @param inArgs Arguments to be passed to the function
-     * 
-     * @tparam _Callable The input function type
-     * @tparam _Args The input variadic arguments types pack
+     *
+     * The work comes as a callable with its arguments. It is converted into a
+     * WorkerJob and put inside the queue, to be executed by one of the workers.
+     * If the callable has a return value a std::future<T> is returned, void
+     * otherwise. The queue is bounded (MAX_JOB_QUEUE_SIZE): when it is full
+     * the push fails silently, the job is dropped and its future never completes.
      */
     template<typename _Callable, typename ..._Args>
     auto Submit( _Callable&& inFunc, _Args&& ...inArgs ) 
@@ -221,7 +247,11 @@ public:
         }
     }
     
-    /* Returns the root thread pool context to create new contexts */
+    /**
+     * @brief Returns the root thread pool context to create new contexts.
+     *
+     * Contexts derived from it are cancelled when the pool shuts down.
+     */
     context_pointer& GetPoolContext() noexcept;
 };
 

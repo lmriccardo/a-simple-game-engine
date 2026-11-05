@@ -45,6 +45,9 @@ namespace asge::concurrent
  */
 class Thread
 {
+    /**
+     * @brief The thread body: calls Run() until the context is done.
+     */
     void _Run()
     {
         while (!m_Ctx->Done())
@@ -54,14 +57,14 @@ class Thread
     }
 
 protected:
-    context_pointer              m_Ctx{nullptr};
-    std::unique_ptr<std::thread> m_Thread{nullptr};
+    context_pointer              m_Ctx{nullptr};    // Cancellation context driving the loop
+    std::unique_ptr<std::thread> m_Thread{nullptr}; // The OS thread, null until started
 
-    std::thread::id m_ThreadId;
-    std::string     m_Name;
-    bool            m_Daemon {false};
+    std::thread::id m_ThreadId;       // Id of the OS thread once started
+    std::string     m_Name;           // Name used for debugging
+    bool            m_Daemon {false}; // True once the thread is detached
 
-    inline static std::uint64_t s_ThreadCounter{0};
+    inline static std::uint64_t s_ThreadCounter{0}; // Counter for default names
 
     /**
      * @brief Implements the internal thread logic
@@ -75,17 +78,34 @@ protected:
      */
     virtual void Run( context_pointer& ) = 0;
 
-    // Functions executed when the thread is cancelled
+    /**
+     * @brief Hook run by Join() after the OS thread has finished.
+     *
+     * Does nothing by default. It runs on the joining thread, not the worker,
+     * and not at all for a daemon (detached) thread.
+     */
     virtual void TearDown() {};
 public:
     using thread_pointer = std::unique_ptr<Thread>;
 
+    /**
+     * @brief Creates a stopped thread named ASGE_Thread_N.
+     *
+     * Its context is a child of inCtx (Background() if null), so cancelling
+     * inCtx stops this thread too. Call Start() to launch it.
+     */
     Thread( context_pointer inCtx = nullptr )
     : m_Ctx( WithCancel(inCtx) ), 
       m_Name("ASGE_Thread_" + std::to_string(s_ThreadCounter++))
     {}
 
-    Thread(std::string const& inName, 
+    /**
+     * @brief Creates a stopped thread with a custom name.
+     *
+     * inDaemon makes Start() detach the thread right away. Otherwise same as
+     * the other constructor.
+     */
+    Thread(std::string const& inName,
         context_pointer inCtx=nullptr, bool inDaemon=false)
     : Thread( inCtx )
     {
@@ -101,6 +121,12 @@ public:
     Thread(Thread&&) = default;
     Thread& operator=(Thread&&) = default;
 
+    /**
+     * @brief Cancels and joins the thread as a last-resort safety net.
+     *
+     * Subclasses must do this themselves, see the class warning; the base
+     * destructor asserts in debug builds if the thread is still joinable.
+     */
     virtual ~Thread();
 
     /**
@@ -113,22 +139,43 @@ public:
      */
     bool Joinable() const noexcept;
 
+    /**
+     * @brief True once the thread is detached (a daemon).
+     */
     bool Daemon() const noexcept;
+
+    /**
+     * @brief True once Start() created the OS thread.
+     */
     bool Started() const noexcept;
 
+    /**
+     * @brief The thread's name, used for identification and debugging.
+     */
     const std::string& GetName() const noexcept;
+
+    /**
+     * @brief The OS thread id; a default id until the thread is started.
+     */
     std::thread::id GetThreadId() const noexcept;
 
     /**
      * @brief Starts and create a new thread from an input function
      * 
-     * The input function can take a variadic number of input parameters,
-     * but the first input parameter must always be a ThreadContext
-     * reference.
+     * The function is called repeatedly until the context is cancelled. It
+     * receives the thread's context_pointer as first argument, followed by the
+     * given arguments. inDaemon detaches the thread right after it starts.
+     * Returns the owning pointer; keep it alive for as long as the thread runs.
      */
     template<typename _Callable, typename... _Args>
     static thread_pointer Start(bool, context_pointer, _Callable&&, _Args&& ...);
 
+    /**
+     * @brief Waits for the thread to finish, then runs TearDown().
+     *
+     * Does nothing if the thread was never started, is detached, or was
+     * already joined. It does not cancel: call Cancel() first or this blocks.
+     */
     void Join();
 
     /**
@@ -141,7 +188,19 @@ public:
      */
     void Detach();
 
+    /**
+     * @brief Launches the OS thread and starts the Run() loop.
+     *
+     * Does nothing if already started. A daemon thread is detached right away.
+     */
     void Start();
+
+    /**
+     * @brief Asks the thread to stop by cancelling its context.
+     *
+     * Cooperative: the loop exits after the current Run() returns. Does
+     * nothing if the thread was never started or the context is already done.
+     */
     void Cancel();
 };
 
@@ -149,15 +208,11 @@ namespace _internal
 {
 
 /**
- * This is a thread implementation for simple thread logic. It takes as input
- * a function with all parameters and just implements the run method. I would
- * like to point out that the only purpouse of this class is to use it as a
- * middle point in the static "start" method of the Thread class, therefore
- * it is suggested to not use it to create generic threads. Just use the "start"
- * method of Thread class.
- * 
- * @tparam _Callable The function type
- * @tparam _Args     Types for each function parameter
+ * @brief Thread implementation that runs a stored callable on each loop pass.
+ *
+ * Takes a function with all its parameters and implements Run() by calling
+ * it with the thread context first. Its only purpose is to back the static
+ * Thread::Start; use that instead of creating a ThreadImpl directly.
  */
 template<typename _Callable, typename ..._Args>
 class ThreadImpl : public Thread
@@ -166,6 +221,9 @@ private:
     _Callable            m_Func; // Callable function
     std::tuple<_Args...> m_Args; // Arguments to the callable
 
+    /**
+     * @brief Calls the stored function with inCtx followed by the stored arguments.
+     */
     void Run( context_pointer& inCtx ) override
     {
         std::apply( m_Func, std::tuple_cat(
@@ -174,6 +232,9 @@ private:
         ));
     }
 public:
+    /**
+     * @brief Stores inFunc and inArgs; the thread is started by Thread::Start.
+     */
     ThreadImpl( context_pointer inCtx, _Callable&& inFunc, _Args&&... inArgs )
     : Thread(inCtx), m_Func( std::forward<_Callable>(inFunc) ),
       m_Args( std::forward<_Args>(inArgs)... )
@@ -201,7 +262,12 @@ inline thread_pointer Thread::Start(bool inDaemon,
     return cThread;
 }
 
-/* Get the hardware concurrency of the current system */
+/**
+ * @brief Get the hardware concurrency of the current system.
+ *
+ * Wraps std::thread::hardware_concurrency(), so it may return 0 when the
+ * platform cannot tell.
+ */
 inline std::size_t HardwareConcurrency() noexcept 
 { 
     return std::thread::hardware_concurrency(); 
