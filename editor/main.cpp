@@ -53,6 +53,7 @@
 #include "AssetBrowser.hpp"
 #include "AssetInspector.hpp"
 #include "VfsPanel.hpp"
+#include "BottomPanel.hpp"
 #include "ProjectManager.hpp"
 
 namespace
@@ -2713,7 +2714,8 @@ int main(int, char**)
         // opens the Asset Inspector below on that entry; a Sprite gets its
         // texture by picking one at Add Component time instead (see
         // Inspector.hpp's DrawInspectorPanel).
-        auto const assetBrowserResult = DrawAssetBrowserPanel(sceneManager.GetRegistry(), vfs, window, freshHasProject);
+        auto const assetBrowserResult = DrawBottomPanel(
+            sceneManager.GetRegistry(), vfs, assets, videoSys.GetRenderer(), window, freshHasProject);
         if (assetBrowserResult.m_Pick.m_Kind != AssetPickKind::None) selectedAsset = assetBrowserResult.m_Pick;
         DrawAssetInspectorPanel(
             selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry(),
@@ -2765,14 +2767,6 @@ int main(int, char**)
             break;
         }
 
-        // Always-on panel: lists/adds VirtualFileSystem mounts, and surfaces
-        // any root the current scene's assets reference but isn't mounted --
-        // resolves internally right after a successful mount (see its own
-        // doc comment), same "call on change, not every frame" reasoning as
-        // the ComponentsChanged/asset-browser resolves above.
-        DrawVfsPanel(vfs, sceneManager.GetRegistry(), assets, videoSys.GetRenderer(), window, freshHasProject);
-
-        DrawConsolePanel(window);
         if (showBuildOutput) DrawBuildOutputPanel(showBuildOutput);
 
         // Flushes this frame's gizmo-drag/inspector edits (and any Hierarchy

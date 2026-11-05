@@ -70,7 +70,7 @@ void RequestMountFolder( std::string const& inName, SDL_Window* inWindow ) noexc
 // actually has the requested file, an overlay/search-path style setup
 // (e.g. a base "assets" mount plus a DLC/mod folder layered under the same
 // name). So adding a mount just adds it; grouping same-named entries for
-// display is DrawVfsPanel's job below, not this function's.
+// display is DrawVfsContents's job below, not this function's.
 void AddMount( asge::filesystem::VirtualFileSystem& inVfs, std::string const& inName, std::string const& inRealDir ) noexcept
 {
     if ( auto const r = inVfs.Mount( inName, inRealDir ); !r ) r.LogError();
@@ -117,7 +117,7 @@ void DrawUnmountButton(
 }
 }
 
-void DrawVfsPanel(
+void DrawVfsContents(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
     SDL_Window* inWindow, bool inHasProject ) noexcept
@@ -134,12 +134,6 @@ void DrawVfsPanel(
             g_PendingMountName.clear();
         }
     }
-
-    // FirstUseEver, same reasoning as AssetBrowser's own panel above it --
-    // see its comment.
-    ImGui::SetNextWindowPos( ImVec2( 10.0f, 360.0f ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( ImVec2( 280.0f, 220.0f ), ImGuiCond_FirstUseEver );
-    ImGui::Begin( "Virtual File System" );
 
     ImGui::TextUnformatted( "Mounted:" );
     {
@@ -213,6 +207,4 @@ void DrawVfsPanel(
         RequestMountFolder( g_NewMountNameBuf, inWindow );
     }
     if ( !inHasProject ) ImGui::EndDisabled();
-
-    ImGui::End();
 }

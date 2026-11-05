@@ -12,7 +12,7 @@ struct SDL_Window;
 enum class AssetPickKind { None, Texture, Animation, Audio, Font };
 
 /**
- * @brief This frame's pick (if any) from DrawAssetBrowserPanel -- which
+ * @brief This frame's pick (if any) from DrawAssetBrowserContents -- which
  *        entry the user clicked, for the caller (main.cpp) to inspect via
  *        DrawAssetInspectorPanel. Clicking an entry here no longer assigns
  *        it to whatever entity is selected; see editor/Inspector.hpp's
@@ -35,7 +35,7 @@ struct AssetPick
 enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadTexture };
 
 /**
- * @brief DrawAssetBrowserPanel's full per-frame report. m_Pick is the
+ * @brief DrawAssetBrowserContents's full per-frame report. m_Pick is the
  *        pre-Phase-14 "clicked an entry to preview it" signal, unchanged;
  *        m_OpenCreateClip and m_ContextAction/m_ContextKind/m_ContextPath/
  *        m_ContextTarget (Phase 14) come from a row's right-click menu
@@ -90,12 +90,12 @@ struct AssetBrowserResult
  *        SceneId to tag it into anything without an active project/scene,
  *        same reasoning as the Entities panel's own "Create Entity" button.
  */
-AssetBrowserResult DrawAssetBrowserPanel(
+AssetBrowserResult DrawAssetBrowserContents(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
     bool inHasProject ) noexcept;
 
 /**
- * @brief The same texture virtual paths DrawAssetBrowserPanel's "Textures"
+ * @brief The same texture virtual paths DrawAssetBrowserContents's "Textures"
  *        section would list (scene usage unioned with "Load Asset..."
  *        imports), for editor/Inspector.hpp's Sprite dropdown (both at
  *        Add-Component time and when editing an existing Sprite) to pick

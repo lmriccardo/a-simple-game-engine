@@ -306,7 +306,7 @@ void ClearKnownAssets() noexcept
     g_LoadedFonts.clear();
 }
 
-AssetBrowserResult DrawAssetBrowserPanel(
+AssetBrowserResult DrawAssetBrowserContents(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
     bool inHasProject ) noexcept
 {
@@ -388,15 +388,6 @@ AssetBrowserResult DrawAssetBrowserPanel(
 
     AssetBrowserResult result;
 
-    // FirstUseEver, not Always -- (10, 30) is a constant, not derived from
-    // DisplaySize, so there's nothing a resize could invalidate here; unlike
-    // the right-edge panels (Scene/Entities/Inspector), forcing this every
-    // frame bought nothing but made the panel undraggable.
-    ImGui::SetNextWindowPos( ImVec2( 10.0f, 30.0f ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( ImVec2( 280.0f, 320.0f ), ImGuiCond_FirstUseEver );
-
-    ImGui::Begin( "Assets" );
-
     if ( !inHasProject ) ImGui::BeginDisabled();
     if ( ImGui::Button( "Load Asset..." ) ) ImGui::OpenPopup( "LoadAssetMountPicker" );
     if ( !inHasProject ) ImGui::EndDisabled();
@@ -441,6 +432,5 @@ AssetBrowserResult DrawAssetBrowserPanel(
     DrawAssetSection( "Audio Clips", audio, audioCtx );
     DrawAssetSection( "Fonts", fonts, fontCtx );
 
-    ImGui::End();
     return result;
 }

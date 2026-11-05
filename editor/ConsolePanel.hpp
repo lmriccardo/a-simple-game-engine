@@ -3,15 +3,16 @@
 struct SDL_Window;
 
 /**
- * @brief Subscribes to Logger's OnLog signal so DrawConsolePanel has a
+ * @brief Subscribes to Logger's OnLog signal so DrawConsoleContents has a
  *        running history to show -- call once at startup, before the first
- *        DrawConsolePanel.
+ *        DrawConsoleContents.
  */
 void InitConsolePanel() noexcept;
 
 /**
- * @brief Floating panel listing recent Logger entries, color-coded by level.
+ * @brief Draws the recent Logger entries, color-coded by level, into the
+ *        current ImGui window or child (BottomPanel hosts it).
  * @param inWindow Passed through to the "Save Log" button's native save
  *                 dialog, so it can be shown modal to the editor window.
  */
-void DrawConsolePanel( SDL_Window* inWindow ) noexcept;
+void DrawConsoleContents( SDL_Window* inWindow ) noexcept;

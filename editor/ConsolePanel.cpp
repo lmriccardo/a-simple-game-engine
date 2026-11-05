@@ -18,7 +18,7 @@ using asge::logger::LogRecord;
 
 // Logger's OnLog signal can fire from any thread (e.g. the editor's own
 // native file-dialog callback logs from a non-main thread, see main.cpp's
-// OnFileDialogResult), so appends are mutex-guarded; DrawConsolePanel takes
+// OnFileDialogResult), so appends are mutex-guarded; DrawConsoleContents takes
 // a snapshot under the same lock rather than holding it while drawing.
 constexpr std::size_t kMaxEntries = 500;
 
@@ -110,7 +110,7 @@ void InitConsolePanel() noexcept
     [[maybe_unused]] static auto const connection = asge::logger::Logger::Instance().OnLogConnect( OnLog );
 }
 
-void DrawConsolePanel( SDL_Window* inWindow ) noexcept
+void DrawConsoleContents( SDL_Window* inWindow ) noexcept
 {
     std::vector<LogRecord> snapshot;
     {
@@ -147,26 +147,6 @@ void DrawConsolePanel( SDL_Window* inWindow ) noexcept
             else LOG_INFO( "Log saved to ", path.string() );
         }
     }
-
-    // Anchored flush to the bottom and both side edges of the whole editor
-    // window -- forced every frame (ImGuiCond_Always) since DisplaySize can
-    // change (Phase 7's planned resizable window) and the panel must stay
-    // flush regardless. Height alone stays user-draggable: the size
-    // constraint's min/max width are equal (locking that axis) while height
-    // ranges freely, and g_Height persists whatever the user last dragged it
-    // to across frames -- without that, next frame's forced position/size
-    // would immediately overwrite a drag before it could ever show.
-    static float g_Height = 200.0f;
-    float const width = ImGui::GetIO().DisplaySize.x;
-    float const y = ImGui::GetIO().DisplaySize.y - g_Height;
-
-    ImGui::SetNextWindowPos( ImVec2( 0.0f, y ), ImGuiCond_Always );
-    ImGui::SetNextWindowSize( ImVec2( width, g_Height ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSizeConstraints(
-        ImVec2( width, 80.0f ), ImVec2( width, ImGui::GetIO().DisplaySize.y - 60.0f ) );
-
-    ImGui::Begin( "Log", nullptr, ImGuiWindowFlags_NoMove );
-    g_Height = ImGui::GetWindowSize().y; // picks up this frame's drag-resize (if any) for next frame's position
 
     if ( ImGui::Button( "Clear" ) )
     {
@@ -216,5 +196,4 @@ void DrawConsolePanel( SDL_Window* inWindow ) noexcept
     // an earlier entry isn't yanked back down by the next log line.
     if ( ImGui::GetScrollY() >= ImGui::GetScrollMaxY() ) ImGui::SetScrollHereY( 1.0f );
     ImGui::EndChild();
-    ImGui::End();
 }

@@ -8,7 +8,8 @@
 struct SDL_Window;
 
 /**
- * @brief Always-on panel (not tied to a loaded scene): lists inVfs's current
+ * @brief Draws, into the current ImGui window or child (BottomPanel hosts it),
+ *        the always-on VFS view (not tied to a loaded scene): lists inVfs's current
  *        mounts, lets the user add new ones (a name plus a native folder
  *        picker), and surfaces any virtual root the currently-loaded
  *        scene's Sprite/Animation/AudioSource paths reference but isn't
@@ -33,7 +34,7 @@ struct SDL_Window;
  *        assets, and there's nowhere for a fresh mount to actually persist
  *        to without one (see main.cpp's SaveProject).
  */
-void DrawVfsPanel(
+void DrawVfsContents(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
     SDL_Window* inWindow, bool inHasProject ) noexcept;
