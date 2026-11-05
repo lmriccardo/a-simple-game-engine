@@ -10,15 +10,17 @@ namespace asge::game::components
 namespace details
 {
 
-/** @brief The three fill colors a widget cycles through by its sibling 
- *         Interactable's m_Hovered/m_Held -- embedded in UIButton, not 
- *         a standalone component. 
+/**
+ * @brief The three fill colors a widget cycles through by its sibling Interactable.
+ *
+ * Chosen by Interactable's m_Hovered/m_Held. Embedded in UIButton and the
+ * other widgets, not a standalone component.
  */
 struct StateColors
 {
-    graphics::RGBA_Color m_Color        { graphics::colors::s_ButtonLight };
-    graphics::RGBA_Color m_HoverColor   { graphics::colors::s_ButtonLightHover };
-    graphics::RGBA_Color m_PressedColor { graphics::colors::s_ButtonLightPressed };
+    graphics::RGBA_Color m_Color        { graphics::colors::s_ButtonLight };        // Normal fill
+    graphics::RGBA_Color m_HoverColor   { graphics::colors::s_ButtonLightHover };   // Fill while the pointer is over it
+    graphics::RGBA_Color m_PressedColor { graphics::colors::s_ButtonLightPressed }; // Fill while held down
 };
 
 }
@@ -35,7 +37,7 @@ struct StateColors
 struct UIRect
 {
     // Serialized
-    math::Float2 m_Size{80.0f, 24.0f};
+    math::Float2 m_Size{80.0f, 24.0f}; // Width and height of the footprint
 };
 
 /**
@@ -52,12 +54,12 @@ struct UIRect
 struct Interactable
 {
     // Serialized
-    bool m_Enabled{true};
+    bool m_Enabled{true}; // Whether the widget reacts to the pointer at all
 
     // Runtime
-    bool m_Hovered  { false };
-    bool m_Held     { false };
-    bool m_Clicked  { false };
+    bool m_Hovered  { false }; // The pointer is over the widget
+    bool m_Held     { false }; // The pointer is pressed down on the widget
+    bool m_Clicked  { false }; // True only on the frame a press completes over the widget
 };
 
 }
@@ -70,11 +72,23 @@ struct Serializer<components::details::StateColors>
 {
     using T = components::details::StateColors;
     
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
@@ -83,15 +97,27 @@ struct Serializer<components::details::StateColors>
 template<>
 struct Serializer<components::UIRect>
 {
-    static constexpr str::StringView kTableName = "UIRect";
+    static constexpr str::StringView kTableName = "UIRect"; // Name of the TOML subtable (de)serialization uses
 
     using T = components::UIRect;
     
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
@@ -100,15 +126,27 @@ struct Serializer<components::UIRect>
 template<>
 struct Serializer<components::Interactable>
 {
-    static constexpr str::StringView kTableName = "Interactable";
+    static constexpr str::StringView kTableName = "Interactable"; // Name of the TOML subtable (de)serialization uses
 
     using T = components::Interactable;
     
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;

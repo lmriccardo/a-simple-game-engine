@@ -4,8 +4,10 @@ namespace asge::game::components
 {
 
 /**
- * @brief Marks a UILabel entity as a live "FPS / entity count" readout, kept up to date by
- *        systems::UIDebugOverlaySystem. Runtime-only: never serialized.
+ * @brief Marks a UILabel entity as a live "FPS / entity count" readout.
+ *
+ * Kept up to date by systems::UIDebugOverlaySystem. Runtime-only: never
+ * serialized.
  */
 struct UIDebugOverlay
 {

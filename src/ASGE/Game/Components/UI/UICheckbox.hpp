@@ -22,9 +22,9 @@ namespace asge::game::components
 struct UICheckbox
 {
     // Serialized fields
-    details::StateColors m_BoxColors;
-    graphics::RGBA_Color m_CheckColor   { graphics::colors::s_Black };
-    bool                 m_Checked      { false };
+    details::StateColors m_BoxColors;                                  // Box fill colors for normal, hover and pressed
+    graphics::RGBA_Color m_CheckColor   { graphics::colors::s_Black }; // Color of the inset check square
+    bool                 m_Checked      { false };                     // Whether the box is currently checked
 
     // Runtime attributes
     signals::Signal<bool> m_OnToggled; // Fires when new check state
@@ -38,14 +38,26 @@ namespace asge::game::scene
 template<>
 struct Serializer<components::UICheckbox>
 {
-    static constexpr str::StringView kTableName = "UICheckbox";
+    static constexpr str::StringView kTableName = "UICheckbox"; // Name of the TOML subtable (de)serialization uses
     using T = components::UICheckbox;
 
+    /**
+     * @brief Writes the component's persisted fields into its TOML subtable.
+     *
+     * Part of the Serializer contract; the struct's own comment lists exactly
+     * which fields are saved.
+     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
+    /**
+     * @brief Rebuilds the component from its TOML subtable.
+     *
+     * Fields that are runtime-only are left at their defaults; see the
+     * struct's own comment for which ones are read.
+     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
