@@ -16,10 +16,9 @@ namespace asge::game::asset
 {
 
 /**
- * @brief Owns the per-asset-type `AssetPool`s and resolves/loads through a
- * `VirtualFileSystem` the caller keeps alive.
+ * @brief Owns the per-asset-type `AssetPool`s and loads through a VFS.
  *
- * The one entry point for loading assets by virtual path: `GetImage`/
+ * The caller keeps the `VirtualFileSystem` alive. The one entry point for loading assets by virtual path: `GetImage`/
  * `GetFont`/`GetFrameTable`/`GetAudio` each forward to their own
  * `AssetPool`, which caches by virtual path (plus, for fonts, the bake
  * pixel height) and only calls the underlying `Load` on a cache miss.
@@ -70,31 +69,38 @@ public:
     // LoadImageA/W, same reason FileIO's Copy isn't named CopyFile.
     /**
      * @brief Loads (or returns the cached) `Image` at a virtual path.
+     *
      * Fails if the path doesn't resolve through the VFS or fails to decode.
      */
     [[nodiscard]] Result<asset_ptr<media::Image>> GetImage( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) `Font` baked at @p inPixelHeight.
-     * A different @p inPixelHeight for the same path is a separate cache entry.
+     *
+     * A different @p inPixelHeight for the same path is a separate cache
+     * entry.
      */
     [[nodiscard]] Result<asset_ptr<media::Font>> GetFont(str::StringCRef inVirtualPath, int inPixelHeight );
 
     /**
-     * @brief Loads (or returns the cached) `FrameTable` at a virtual path —
-     * the meta-file a `components::Animation::m_ClipPath` points at.
+     * @brief Loads (or returns the cached) `FrameTable` at a virtual path.
+     *
+     * This is the meta-file a `components::Animation::m_ClipPath` points at.
+     * Fails if the path doesn't resolve through the VFS or fails to parse.
      */
     [[nodiscard]] Result<asset_ptr<FrameTable>> GetFrameTable( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) `AudioClip` at a virtual path.
+     *
      * Fails if the path doesn't resolve through the VFS or fails to decode.
      */
     [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
 
     /**
-     * @brief Loads (or returns the cached) GPU texture for a virtual path,
-     *        creating it via inRenderer on first request.
+     * @brief Loads (or returns the cached) GPU texture for a virtual path.
+     *
+     * The texture is created via inRenderer on first request.
      *
      * Cached by virtual path like GetImage — later calls for the same path
      * return the same `ITexture*` rather than allocating a new one. A
@@ -106,22 +112,25 @@ public:
 
     /**
      * @brief Frees the GPU texture cached for inVirtualPath, if any.
+     *
      * No-op if nothing is cached for that path; a later GetTexture() call
      * recreates it.
      */
     void UnloadTexture( str::StringCRef inVirtualPath ) noexcept;
 
     /**
-     * @brief Drops the decoded Image and GPU texture cached for inVirtualPath
-     *        and un-resolves every Sprite in inRegistry using it.
-     * The next ResolveAssets() re-reads the file from disk, so those sprites
-     * pick up its new pixels instead of the stale cached ones.
+     * @brief Drops the cached Image and GPU texture for inVirtualPath.
+     *
+     * Also un-resolves every Sprite in inRegistry using it. The next
+     * ResolveAssets() re-reads the file from disk, so those sprites pick up
+     * its new pixels instead of the stale cached ones.
      */
     void ReloadTexture( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept;
 
     /**
-     * @brief Loads (or returns the cached) GPU texture for inFont's baked
-     *        glyph atlas, creating it via inRenderer on first request.
+     * @brief Loads (or returns the cached) GPU texture for inFont's baked glyph atlas.
+     *
+     * The texture is created via inRenderer on first request.
      *
      * Cached by Font address (see m_FontAtlasCache's own doc comment), not
      * a virtual path -- there is no separate atlas image file to load, the
@@ -133,9 +142,9 @@ public:
         media::Font const& inFont, video::IRenderer& inRenderer ) noexcept;
 
     /**
-     * @brief Deferred-loads every asset-owning component in inRegistry
-     *        whose asset still needs (re)resolving, for every entity that
-     *        has one.
+     * @brief Deferred-loads every asset-owning component that needs (re)resolving.
+     *
+     * Covers every entity in inRegistry that has one.
      *
      * Folds over `components::SerializableComponents` and, for each type T,
      * calls `Resolver<T>{}` on every entity's T — a no-op for most

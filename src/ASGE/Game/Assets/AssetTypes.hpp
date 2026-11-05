@@ -37,6 +37,7 @@ template<typename T> struct GetAssetType
         static constexpr AssetType type = AssetType::Tag;      \
     }
 
+// One specialization per supported asset type.
 DEFINE_ASSET_TYPE(media::Image, Image);
 DEFINE_ASSET_TYPE(media::Font, Font);
 DEFINE_ASSET_TYPE(FrameTable, FrameTable);

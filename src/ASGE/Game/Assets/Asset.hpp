@@ -34,8 +34,10 @@ public:
     using value_type = T;
 
     /**
-     * @brief Passkey-gated constructor; use `Create()` instead of calling
-     * this directly.
+     * @brief Passkey-gated constructor.
+     *
+     * Use `Create()` instead of calling this directly; it is public only so
+     * `make_shared` can reach it.
      */
     Asset( PrivateTag, str::String inVirtualPath, T inValue )
     : m_VirtualPath( std::move(inVirtualPath) )
@@ -48,8 +50,10 @@ public:
     Asset& operator=( Asset&& ) = default;
 
     /**
-     * @brief Wraps an already-loaded value with the virtual path it came
-     * from, returning it `shared_ptr`-managed.
+     * @brief Wraps an already-loaded value with the virtual path it came from.
+     *
+     * Returns it `shared_ptr`-managed, which is the only way to obtain an
+     * Asset since the constructor is passkey-gated.
      */
     static std::shared_ptr<Asset<T>>
     Create( str::String inVirtualPath, T inValue ) noexcept
@@ -59,13 +63,25 @@ public:
         );
     }
 
-    /** @brief Returns the wrapped value. */
+    /**
+     * @brief Returns the wrapped value.
+     *
+     * The reference lives as long as the Asset does.
+     */
     [[nodiscard]] T const& Get() const noexcept { return m_Value; }
 
-    /** @brief Returns the wrapped value. */
+    /**
+     * @brief Returns the wrapped value, mutable.
+     *
+     * The asset is shared, so a change is seen by every holder.
+     */
     [[nodiscard]] T& Get() noexcept { return m_Value; }
 
-    /** @brief Returns the virtual path this asset was loaded from. */
+    /**
+     * @brief Returns the virtual path this asset was loaded from.
+     *
+     * The view points into the Asset and is valid as long as it is.
+     */
     [[nodiscard]] str::StringView VirtualPath() const noexcept
     { return m_VirtualPath; }
 };
