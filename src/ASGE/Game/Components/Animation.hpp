@@ -29,59 +29,49 @@ enum class FinishBehavior
 /**
  * @brief Frame-by-frame playback state for a spritesheet.
  *
- * See systems::AnimationSystem, which steps m_CurrentFrame and writes the
- * current frame of m_Clip's FrameTable into the owning entity's
- * Sprite::m_SourceRect each frame.
+ * systems::AnimationSystem steps m_CurrentFrame and writes the current frame
+ * of m_Clip into the owning entity's Sprite::m_SourceRect each run.
  *
- * The frame list itself lives in m_Clip, a shared, VFS-loaded
- * `asset::FrameTable` — not embedded here — so multiple entities playing the
- * same clip share one loaded frame list instead of each holding a copy.
- * m_ClipPath is what actually round-trips through TOML (see Serializer<
- * Animation> below); m_Clip stays null until asset::AssetManager::
- * ResolveAssets resolves it (the same deferred-load step Sprite::m_Texture
- * goes through), so AnimationSystem has nothing to advance for a freshly
- * loaded/spawned entity until that's run at least once.
+ * Frames live in m_Clip, a shared VFS-loaded asset::FrameTable. Only
+ * m_ClipPath is serialized to TOML; m_Clip stays null until
+ * asset::AssetManager::ResolveAssets resolves it. m_ResolvedClipPath
+ * (runtime-only) records what m_Clip was last resolved from, so
+ * Resolver<Animation> can detect a repointed or cleared path.
  *
- * m_ResolvedClipPath (also runtime-only) is what m_Clip was actually last
- * resolved from — Resolver<Animation> compares it against m_ClipPath to
- * notice a change (repointing to a new clip) or a clear (path emptied out,
- * m_Clip released back to null), rather than resolving once and never again.
+ * Ownership: while playing, the Animation owns Sprite::m_SourceRect. The
+ * Sprite's own crop is saved in m_RestRect on start and restored when
+ * m_Playing goes false (one run later) or m_ClipPath is cleared. With
+ * m_FinishBehavior == HoldLastFrame, the last frame is kept instead, until
+ * the next clip starts or m_ClipPath is cleared.
  *
- * Ownership: this Animation owns the Sprite's m_SourceRect only while it is
- * playing. AnimationSystem saves the Sprite's own crop into m_RestRect when
- * playback starts, overwrites m_SourceRect every frame, and puts m_RestRect
- * back once m_Playing goes false (one system run later, so a finished
- * non-looping clip's last frame is shown for that run) or m_ClipPath is
- * cleared — except that a clip finishing under m_FinishBehavior ==
- * HoldLastFrame keeps ownership (m_HoldingLastFrame) and its last frame
- * stays on the Sprite until the next clip starts or m_ClipPath is cleared.
- * m_RestRect is only saved when ownership is first taken, so a held frame
- * is never mistaken for the Sprite's own crop.
- *
- * Removing the Animation mid-playback is the caller's job: the Sprite keeps the last frame's rect unless m_RestRect is written back first
- * (the level editor's Remove handler does).
+ * Removing the Animation mid-playback is the caller's job: write m_RestRect
+ * back to the Sprite first, or it keeps the last frame's rect (the level
+ * editor's Remove handler does this).
  */
 struct Animation
 {
     using frame_table = std::shared_ptr<asset::Asset<asset::FrameTable>>;
 
-    str::String m_ClipPath{}; // Virtual path of the clip's FrameTable TOML meta-file
-    std::map<str::String, str::String, std::less<>> m_Clips{}; // Serialized. Named clips (idle/run/...) -> clip path, switched to by PlayClip
-    std::map<str::String, float, std::less<>> m_ClipFrameDurations{}; // Serialized. Optional per-clip frame duration (seconds) keyed by a m_Clips name; see EffectiveFrameDuration
-    frame_table m_Clip{};     // Resolved FrameTable asset -- null until AssetManager::ResolveAssets runs
-    str::String m_ResolvedClipPath{}; // Runtime-only: the path m_Clip was actually last resolved from
-
-    float       m_FrameDuration{0.1f}; // Serialized. Seconds each frame is shown before advancing, unless the clip's FrameTable gives that frame its own duration
-    float       m_PlaybackSpeed{1.0f}; // Serialized. Multiplier on playback rate (2 = twice as fast); non-positive stops advancing
-    std::size_t m_CurrentFrame{0};     // Not serialized -- index into m_Clip's FrameTable::m_Frames currently written to Sprite::m_SourceRect
-    float       m_ElapsedTime{0.0f};   // Not serialized -- seconds accumulated toward the next frame advance
-    bool        m_Loop{true};          // Serialized. Wrap to frame 0 at the end instead of stopping there
-    FinishBehavior m_FinishBehavior{FinishBehavior::RestoreSprite}; // Serialized. What a finished non-looping clip leaves on the Sprite
-    bool        m_StartPlaying{true};  // Serialized. Initial m_Playing on load -- a scene can start this Animation paused
-    bool        m_Playing{true};       // Not serialized -- whether AnimationSystem advances this Animation at all (live state, seeded from m_StartPlaying on load)
-    std::optional<math::Rect> m_RestRect{}; // Not serialized -- the Sprite's own m_SourceRect, saved while this Animation owns it
-    bool        m_OwnsSourceRect{false};    // Not serialized -- true between playback starting and the Sprite's crop being restored
-    bool        m_HoldingLastFrame{false};  // Not serialized -- true while a finished HoldLastFrame clip's last frame is kept on the Sprite
+    // Serialized fields
+    std::map<str::String, str::String, std::less<>> m_Clips{}; // Named clips (idle/run/...)
+    std::map<str::String, float, std::less<>>       m_ClipFrameDurations{}; // Optional per-clip frame duration (seconds)
+    
+    str::String     m_ClipPath      {};     // Virtual path of the clip's FrameTable TOML meta-file
+    float           m_FrameDuration {0.1f}; // Seconds each frame is shown before advancing
+    float           m_PlaybackSpeed {1.0f}; // Multiplier on playback rate
+    bool            m_Loop          {true}; // Serialized. Wrap to frame 0 at the end instead of stopping there
+    FinishBehavior  m_FinishBehavior{FinishBehavior::RestoreSprite}; // What a finished non-looping clip leaves on the Sprite
+    bool            m_StartPlaying  {true};  // Initial m_Playing on load
+    
+    // Runtime only values
+    frame_table                 m_Clip              {};      // Resolved FrameTable asset
+    str::String                 m_ResolvedClipPath  {};      // The path m_Clip was actually last resolved from
+    std::size_t                 m_CurrentFrame      {0};     // index into m_Clip's FrameTable::m_Frames
+    float                       m_ElapsedTime       {0.0f};  // seconds accumulated toward the next frame advance
+    bool                        m_Playing           {true};  // whether AnimationSystem advances this Animation at all
+    std::optional<math::Rect>   m_RestRect          {};      // the Sprite's own m_SourceRect, saved while this Animation owns it
+    bool                        m_OwnsSourceRect    {false}; // true between playback starting and the Sprite's crop being restored
+    bool                        m_HoldingLastFrame  {false}; // true while a finished HoldLastFrame clip's last frame is kept on the Sprite
 };
 
 /**
@@ -124,43 +114,18 @@ void StopAnimation( Animation& inAnim ) noexcept;
 namespace asge::game::scene
 {
 
-/**
- * @brief Round-trips the clip selection and playback settings, not the live progress.
- *
- * Saved: m_ClipPath, m_Clips, m_ClipFrameDurations, m_FrameDuration,
- * m_PlaybackSpeed, m_Loop, m_FinishBehavior and m_StartPlaying. FromToml seeds
- * m_Playing from m_StartPlaying, leaves m_Clip null and m_ResolvedClipPath
- * empty (both resolved later by AssetManager::ResolveAssets, same as
- * Sprite::m_Texture) and m_CurrentFrame/m_ElapsedTime at zero; a scene file
- * describes what an entity's animation is, not where a previous run happened
- * to leave it. Missing m_Loop/m_StartPlaying keys default to true,
- * m_PlaybackSpeed to 1 and a missing or unknown m_FinishBehavior to
- * RestoreSprite, so older scene files load as before.
- */
 template<>
 struct Serializer<components::Animation>
 {
-    static constexpr str::StringView kTableName = "Animation"; // Name of the TOML subtable (de)serialization uses
+    static constexpr str::StringView kTableName = "Animation";
 
     using T = components::Animation;
 
-    /**
-     * @brief Writes the component's persisted fields into its TOML subtable.
-     *
-     * Part of the Serializer contract; the struct's own comment lists exactly
-     * which fields are saved.
-     */
     static void ToToml(
                             T inValue,
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
-    /**
-     * @brief Rebuilds the component from its TOML subtable.
-     *
-     * Fields that are runtime-only are left at their defaults; see the
-     * struct's own comment for which ones are read.
-     */
     static T FromToml(
                             asge::config::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
