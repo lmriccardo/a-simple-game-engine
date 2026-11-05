@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AssetBrowser.hpp" // AssetExplorerState
+
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
@@ -8,32 +10,30 @@
 struct SDL_Window;
 
 /**
- * @brief Always-on panel (not tied to a loaded scene): lists inVfs's current
- *        mounts, lets the user add new ones (a name plus a native folder
- *        picker), and surfaces any virtual root the currently-loaded
- *        scene's Sprite/Animation/AudioSource paths reference but isn't
- *        mounted yet.
+ * @brief Draws, into the current ImGui window or child (BottomPanel hosts it),
+ *        the list of inVfs's mountpoints: one equally tall, selectable row per
+ *        virtual root.
  *
- * That last part exists because a scene's own asset paths are only
- * meaningful relative to whatever mounts the *original* project's own code
- * set up (e.g. `vfs.Mount("assets", "C:/myproject/assets")` in that
- * project's `main()`) -- something baked into source the editor has no way
- * to see, and not inferable from the scene file's own location on disk (the
- * whole point of a virtual path is that it's decoupled from physical
- * layout). So rather than guess, this panel asks.
+ * Clicking a row makes it ioState's selected root (and returns to its top
+ * folder), which the asset explorer then shows. Right-clicking a row offers
+ * to unmount each real directory behind it. A virtual root the loaded scene's
+ * Sprite/Animation/AudioSource paths reference but nothing mounts is listed
+ * after them in yellow, with a "Set..." button that picks its folder -- a
+ * scene's asset paths are only meaningful relative to the mounts the original
+ * project's own code set up, which the editor can't see, so it asks.
  *
  * Calls inAssets.ResolveAssets(inRegistry, inRenderer) itself right after
  * any successful mount -- AssetManager/AssetPool never cache a resolve
- * failure (see AssetPool::GetOrLoad's own doc comment), so anything that
- * was failing purely for lack of this mount resolves on the very next call,
- * no further plumbing needed.
+ * failure, so anything that was failing purely for lack of this mount
+ * resolves on the very next call.
  *
- * @param inHasProject The "Add mount:" row is disabled while false -- a
- *        mount only means anything relative to a project's own scenes/
- *        assets, and there's nowhere for a fresh mount to actually persist
- *        to without one (see main.cpp's SaveProject).
+ * @param inHasProject "+ Add mount" is disabled while false -- a mount only
+ *        means anything relative to a project, and there's nowhere for it to
+ *        persist to without one (see main.cpp's SaveProject).
+ * @param ioState Its m_Root is kept valid: if it names a root that is no
+ *        longer mounted it falls back to the first mounted one.
  */
-void DrawVfsPanel(
+void DrawMountList(
     asge::filesystem::VirtualFileSystem& inVfs, asge::ecs::Registry& inRegistry,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    SDL_Window* inWindow, bool inHasProject ) noexcept;
+    SDL_Window* inWindow, bool inHasProject, AssetExplorerState& ioState ) noexcept;
