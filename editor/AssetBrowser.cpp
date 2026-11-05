@@ -7,14 +7,19 @@
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Game/Assets/AssetResolver.hpp>
+#include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Assets/FrameTable.hpp>
+#include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Texture.hpp>
 
 #include <SDL3/SDL_dialog.h>
 
 #include <imgui.h>
 
 #include <filesystem>
+#include <algorithm>
 #include <iterator>
+#include <map>
 #include <set>
 #include <string>
 
@@ -120,10 +125,15 @@ std::set<std::string> MergedFonts( asge::ecs::Registry& inRegistry ) noexcept
 // inOpenCreateClip for the third) rather than done here.
 void DrawAssetContextMenu(
     asge::ecs::Registry& inRegistry, AssetPickKind inKind, std::string const& inPath,
-    bool inAllowCreateClip, bool inHasProject, AssetBrowserResult& ioResult ) noexcept
+    bool inAllowCreateClip, bool inShowActions, bool inHasProject,
+    std::set<std::string>& ioLoaded, std::set<std::string> const& inUsed, AssetBrowserResult& ioResult ) noexcept
 {
+    bool const removable = ioLoaded.count( inPath ) > 0;
+    if ( !inShowActions && !removable ) return; // nothing to offer, so no empty popup
     if ( !ImGui::BeginPopupContextItem() ) return;
 
+    if ( inShowActions )
+    {
     ImGui::BeginDisabled( !inHasProject );
     if ( ImGui::MenuItem( "Create Entity" ) )
     {
@@ -165,90 +175,268 @@ void DrawAssetContextMenu(
         ioResult.m_ContextKind = inKind;
         ioResult.m_ContextPath = inPath;
     }
+    }
+
+    // Only a manually "Load Asset..."-ed entry can be un-loaded -- one
+    // derived purely from scene usage has nothing here to remove; it'd just
+    // reappear next frame from the entity itself.
+    if ( removable )
+    {
+        if ( inShowActions ) ImGui::Separator();
+        if ( ImGui::MenuItem( "Remove from list" ) )
+        {
+            if ( inUsed.count( inPath ) )
+            {
+                LOG_WARNING( "One or more entities are currently using \"", inPath, "\" -- not removed" );
+            }
+            else
+            {
+                ioLoaded.erase( inPath );
+            }
+        }
+    }
 
     ImGui::EndPopup();
 }
 
-// What drawing one section's asset rows needs besides the tree itself.
-struct AssetSectionContext
+// One explorer cell: a square icon with the item's name under it.
+constexpr float kCellWidth = 88.0f;
+constexpr float kIconSize = 56.0f;
+
+enum class ExplorerItem { Folder, Texture, Animation, Audio, Font };
+
+// What drawing one explorer cell needs besides the cell itself.
+struct ExplorerContext
 {
-    asge::ecs::Registry&         m_Registry;
-    AssetPickKind                m_Kind;
-    bool                         m_ContextMenu;      // rows offer Create Entity / Attach To (not fonts)
-    bool                         m_AllowCreateClip;  // ...and Create Clip (textures only)
-    bool                         m_HasProject;
-    std::set<std::string>&       m_Loaded;           // manually "Load Asset..."-ed entries: the only ones an "x" can remove
-    std::set<std::string> const& m_Used;             // paths an entity references right now
-    AssetBrowserResult&          m_Result;
+    asge::game::asset::AssetManager& m_Assets;
+    asge::video::IRenderer&          m_Renderer;
 };
 
-// Draws inNodes: a folder as a collapsible row (closed until opened) holding its children, a file as
-// the asset row -- click to pick, right-click menu, "x" to un-import -- labelled with just its name.
-void DrawAssetNodes( std::vector<AssetTreeNode> const& inNodes, AssetSectionContext& ioCtx ) noexcept
-{
-    for ( auto const& node : inNodes )
-    {
-        if ( node.m_IsFolder )
-        {
-            std::string const label = node.m_Name + "##folder:" + node.m_Path;
-            if ( ImGui::TreeNodeEx( label.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth ) )
-            {
-                DrawAssetNodes( node.m_Children, ioCtx );
-                ImGui::TreePop();
-            }
-            continue;
-        }
+// Texture paths whose thumbnail failed to load, mapped to the frame at which to try again. A
+// path that does not resolve (missing mount) would otherwise be re-read from disk every frame;
+// retrying now and then lets it appear once the mount is fixed.
+std::map<std::string, int> g_ThumbnailRetryAt;
+constexpr int kThumbnailRetryFrames = 120;
 
-        auto const& path = node.m_Path;
-        ImGui::PushID( path.c_str() );
-        // AllowOverlap -- a plain Selectable's hit box otherwise spans
-        // the full row and silently eats clicks meant for the "x"
-        // button drawn on top of it further right (Selectable claims
-        // the click before the button ever sees it without this flag).
-        if ( ImGui::Selectable( node.m_Name.c_str(), false, ImGuiSelectableFlags_AllowOverlap ) )
+// Shortens inText with "..." until it fits inMaxWidth.
+std::string FitText( std::string const& inText, float inMaxWidth ) noexcept
+{
+    if ( ImGui::CalcTextSize( inText.c_str() ).x <= inMaxWidth ) return inText;
+
+    std::string text = inText;
+    while ( !text.empty() && ImGui::CalcTextSize( ( text + "..." ).c_str() ).x > inMaxWidth ) text.pop_back();
+    return text + "...";
+}
+
+void DrawFolderIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    float const s = kIconSize;
+    inList->AddRectFilled(
+        ImVec2( inMin.x, inMin.y + s * 0.14f ), ImVec2( inMin.x + s * 0.42f, inMin.y + s * 0.36f ),
+        IM_COL32( 196, 150, 48, 255 ), 3.0f );
+    inList->AddRectFilled(
+        ImVec2( inMin.x, inMin.y + s * 0.26f ), ImVec2( inMin.x + s, inMin.y + s * 0.88f ),
+        IM_COL32( 232, 188, 72, 255 ), 4.0f );
+}
+
+// A film strip with a play triangle: the animation clip icon.
+void DrawAnimationIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    float const s = kIconSize;
+    ImVec2 const max( inMin.x + s, inMin.y + s );
+    inList->AddRectFilled( inMin, max, IM_COL32( 58, 70, 118, 255 ), 4.0f );
+
+    // Perforations down both long edges.
+    for ( int i = 0; i < 4; ++i )
+    {
+        float const y = inMin.y + s * ( 0.1f + 0.22f * static_cast<float>( i ) );
+        inList->AddRectFilled( ImVec2( inMin.x + s * 0.05f, y ), ImVec2( inMin.x + s * 0.17f, y + s * 0.12f ), IM_COL32( 200, 205, 225, 255 ) );
+        inList->AddRectFilled( ImVec2( max.x - s * 0.17f, y ), ImVec2( max.x - s * 0.05f, y + s * 0.12f ), IM_COL32( 200, 205, 225, 255 ) );
+    }
+    inList->AddTriangleFilled(
+        ImVec2( inMin.x + s * 0.38f, inMin.y + s * 0.28f ), ImVec2( inMin.x + s * 0.38f, inMin.y + s * 0.72f ),
+        ImVec2( inMin.x + s * 0.68f, inMin.y + s * 0.5f ), IM_COL32( 235, 238, 250, 255 ) );
+}
+
+// A musical note: the audio clip icon.
+void DrawAudioIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    float const s = kIconSize;
+    ImU32 const note = IM_COL32( 225, 245, 235, 255 );
+    inList->AddRectFilled( inMin, ImVec2( inMin.x + s, inMin.y + s ), IM_COL32( 48, 112, 92, 255 ), 4.0f );
+    inList->AddCircleFilled( ImVec2( inMin.x + s * 0.4f, inMin.y + s * 0.7f ), s * 0.14f, note );
+    inList->AddLine( ImVec2( inMin.x + s * 0.53f, inMin.y + s * 0.7f ), ImVec2( inMin.x + s * 0.53f, inMin.y + s * 0.22f ), note, 3.0f );
+    inList->AddLine( ImVec2( inMin.x + s * 0.53f, inMin.y + s * 0.22f ), ImVec2( inMin.x + s * 0.78f, inMin.y + s * 0.36f ), note, 3.0f );
+}
+
+// "Aa": the font icon.
+void DrawFontIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    float const s = kIconSize;
+    inList->AddRectFilled( inMin, ImVec2( inMin.x + s, inMin.y + s ), IM_COL32( 96, 72, 128, 255 ), 4.0f );
+
+    float const size = s * 0.5f;
+    ImFont* const font = ImGui::GetFont();
+    ImVec2 const text = font->CalcTextSizeA( size, FLT_MAX, 0.0f, "Aa" );
+    inList->AddText(
+        font, size, ImVec2( inMin.x + ( s - text.x ) * 0.5f, inMin.y + ( s - text.y ) * 0.5f ),
+        IM_COL32( 240, 232, 250, 255 ), "Aa" );
+}
+
+// The texture itself, shrunk to fit the icon square and centered in it. False if it could not
+// be loaded, in which case the caller draws a placeholder.
+bool DrawTextureThumbnail( ImDrawList* inList, ImVec2 inMin, std::string const& inPath, ExplorerContext& ioCtx ) noexcept
+{
+    int const frame = ImGui::GetFrameCount();
+    if ( auto const it = g_ThumbnailRetryAt.find( inPath ); it != g_ThumbnailRetryAt.end() )
+    {
+        if ( frame < it->second ) return false;
+        g_ThumbnailRetryAt.erase( it );
+    }
+
+    // GetTexture is path-cached by AssetManager, so this is only a lookup after the first call.
+    auto loaded = ioCtx.m_Assets.GetTexture( inPath, ioCtx.m_Renderer );
+    if ( !loaded )
+    {
+        g_ThumbnailRetryAt[inPath] = frame + kThumbnailRetryFrames;
+        return false;
+    }
+
+    auto* const texture = loaded.Value();
+    auto const size = texture->Size();
+    float const largest = static_cast<float>( std::max( size.x(), size.y() ) );
+    if ( largest <= 0.0f ) return false;
+
+    float const scale = kIconSize / largest;
+    float const w = static_cast<float>( size.x() ) * scale;
+    float const h = static_cast<float>( size.y() ) * scale;
+    ImVec2 const a( inMin.x + ( kIconSize - w ) * 0.5f, inMin.y + ( kIconSize - h ) * 0.5f );
+
+    inList->AddRectFilled( inMin, ImVec2( inMin.x + kIconSize, inMin.y + kIconSize ), IM_COL32( 36, 36, 40, 255 ), 4.0f );
+    inList->AddImage( texture->NativeHandle(), a, ImVec2( a.x + w, a.y + h ) );
+    return true;
+}
+
+// Stand-in for a texture that could not be loaded (or is not on screen yet): a dim square with a cross.
+void DrawMissingTextureIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    ImVec2 const max( inMin.x + kIconSize, inMin.y + kIconSize );
+    inList->AddRectFilled( inMin, max, IM_COL32( 52, 52, 58, 255 ), 4.0f );
+    inList->AddLine( ImVec2( inMin.x + 12.0f, inMin.y + 12.0f ), ImVec2( max.x - 12.0f, max.y - 12.0f ), IM_COL32( 150, 90, 90, 255 ), 2.0f );
+    inList->AddLine( ImVec2( max.x - 12.0f, inMin.y + 12.0f ), ImVec2( inMin.x + 12.0f, max.y - 12.0f ), IM_COL32( 150, 90, 90, 255 ), 2.0f );
+}
+
+// Draws one explorer cell and returns true the frame it is clicked. The cell is the last ImGui
+// item afterwards, so the caller can bind a context menu to it.
+bool DrawExplorerItem(
+    ExplorerContext& ioCtx, ExplorerItem inType, std::string const& inName, std::string const& inPath,
+    bool inSelected ) noexcept
+{
+    float const labelHeight = ImGui::GetTextLineHeight();
+    ImVec2 const cell( kCellWidth, kIconSize + labelHeight + 14.0f );
+    ImVec2 const origin = ImGui::GetCursorScreenPos();
+
+    bool const clicked = ImGui::Selectable( "##item", inSelected, 0, cell );
+    bool const hovered = ImGui::IsItemHovered();
+
+    ImDrawList* const list = ImGui::GetWindowDrawList();
+    ImVec2 const iconMin( origin.x + ( kCellWidth - kIconSize ) * 0.5f, origin.y + 4.0f );
+    switch ( inType )
+    {
+    case ExplorerItem::Folder:    DrawFolderIcon( list, iconMin ); break;
+    case ExplorerItem::Animation: DrawAnimationIcon( list, iconMin ); break;
+    case ExplorerItem::Audio:     DrawAudioIcon( list, iconMin ); break;
+    case ExplorerItem::Font:      DrawFontIcon( list, iconMin ); break;
+    case ExplorerItem::Texture:
+        // Only a cell that is actually on screen loads its texture, so a folder of hundreds of
+        // sprites does not read them all at once.
+        if ( !ImGui::IsRectVisible( origin, ImVec2( origin.x + cell.x, origin.y + cell.y ) )
+            || !DrawTextureThumbnail( list, iconMin, inPath, ioCtx ) )
         {
-            ioCtx.m_Result.m_Pick = { ioCtx.m_Kind, path };
+            DrawMissingTextureIcon( list, iconMin );
         }
-        if ( ImGui::IsItemHovered() ) ImGui::SetTooltip( "%s", path.c_str() );
-        // Bound to the Selectable just above (BeginPopupContextItem with
-        // no explicit id ties to the last item) -- must come before the
-        // "x" button below, else right-clicking the row would test the
-        // button's own tiny rect instead of the whole row.
-        if ( ioCtx.m_ContextMenu )
-        {
-            DrawAssetContextMenu(
-                ioCtx.m_Registry, ioCtx.m_Kind, path, ioCtx.m_AllowCreateClip, ioCtx.m_HasProject, ioCtx.m_Result );
-        }
-        // Only a manually "Load Asset..."-ed entry can be un-loaded --
-        // one derived purely from scene usage has nothing here to
-        // remove; it'd just reappear next frame from the entity itself.
-        if ( ioCtx.m_Loaded.count( path ) )
-        {
-            ImGui::SameLine( ImGui::GetWindowWidth() - 30.0f );
-            if ( ImGui::SmallButton( "x" ) )
-            {
-                if ( ioCtx.m_Used.count( path ) )
-                {
-                    LOG_WARNING( "One or more entities are currently using \"", path, "\" -- not removed" );
-                }
-                else
-                {
-                    ioCtx.m_Loaded.erase( path );
-                }
-            }
-        }
-        ImGui::PopID();
+        break;
+    }
+
+    std::string const label = FitText( inName, kCellWidth - 6.0f );
+    float const labelWidth = ImGui::CalcTextSize( label.c_str() ).x;
+    list->AddText(
+        ImVec2( origin.x + ( kCellWidth - labelWidth ) * 0.5f, origin.y + kIconSize + 8.0f ),
+        ImGui::GetColorU32( ImGuiCol_Text ), label.c_str() );
+
+    if ( hovered ) ImGui::SetTooltip( "%s", inPath.c_str() );
+    return clicked;
+}
+
+// The loaded and used path sets of one asset kind.
+struct KindSets
+{
+    std::set<std::string>&       m_Loaded; // manually "Load Asset..."-ed: the only ones that can be removed
+    std::set<std::string> const& m_Used;   // paths an entity references right now
+};
+
+KindSets SetsFor(
+    AssetPickKind inKind, std::set<std::string> const& inUsedTextures, std::set<std::string> const& inUsedAnimations,
+    std::set<std::string> const& inUsedAudio, std::set<std::string> const& inUsedFonts ) noexcept
+{
+    switch ( inKind )
+    {
+    case AssetPickKind::Animation: return { g_LoadedAnimations, inUsedAnimations };
+    case AssetPickKind::Audio:     return { g_LoadedAudio, inUsedAudio };
+    case AssetPickKind::Font:      return { g_LoadedFonts, inUsedFonts };
+    default:                       return { g_LoadedTextures, inUsedTextures };
     }
 }
 
-// One top-level section ("Textures", ...) of the Assets panel: its paths as a folder tree.
-void DrawAssetSection( char const* inTitle, std::set<std::string> const& inPaths, AssetSectionContext& ioCtx ) noexcept
+ExplorerItem ItemTypeFor( AssetPickKind inKind ) noexcept
 {
-    if ( !ImGui::TreeNodeEx( inTitle, ImGuiTreeNodeFlags_DefaultOpen ) ) return;
+    switch ( inKind )
+    {
+    case AssetPickKind::Animation: return ExplorerItem::Animation;
+    case AssetPickKind::Audio:     return ExplorerItem::Audio;
+    case AssetPickKind::Font:      return ExplorerItem::Font;
+    default:                       return ExplorerItem::Texture;
+    }
+}
 
-    DrawAssetNodes( BuildAssetTree( inPaths ), ioCtx );
-    if ( inPaths.empty() ) ImGui::TextDisabled( "(none loaded yet)" );
-    ImGui::TreePop();
+// The path bar: an "up" button, then the mountpoint and every folder below it as a clickable
+// crumb. Clicking a crumb opens that folder; the mountpoint's own crumb returns to its top.
+void DrawBreadcrumbs( AssetExplorerState& ioState ) noexcept
+{
+    ImGui::BeginDisabled( ioState.m_Folder.empty() );
+    if ( ImGui::ArrowButton( "##up", ImGuiDir_Up ) )
+    {
+        auto const slash = ioState.m_Folder.rfind( '/' );
+        ioState.m_Folder = slash == std::string::npos ? std::string{} : ioState.m_Folder.substr( 0, slash );
+    }
+    ImGui::EndDisabled();
+    if ( ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenDisabled ) ) ImGui::SetTooltip( "Parent folder" );
+
+    ImGui::SameLine();
+    ImGui::PushID( "root" );
+    if ( ImGui::SmallButton( ioState.m_Root.c_str() ) ) ioState.m_Folder.clear();
+    ImGui::PopID();
+
+    std::string target;
+    std::string newFolder = ioState.m_Folder;
+    std::size_t start = 0;
+    while ( start < ioState.m_Folder.size() )
+    {
+        auto const slash = ioState.m_Folder.find( '/', start );
+        std::string const segment = ioState.m_Folder.substr( start, slash == std::string::npos ? std::string::npos : slash - start );
+        target += ( target.empty() ? "" : "/" ) + segment;
+
+        ImGui::SameLine();
+        ImGui::TextDisabled( "/" );
+        ImGui::SameLine();
+        ImGui::PushID( target.c_str() );
+        if ( ImGui::SmallButton( segment.c_str() ) ) newFolder = target;
+        ImGui::PopID();
+
+        if ( slash == std::string::npos ) break;
+        start = slash + 1;
+    }
+    ioState.m_Folder = newFolder;
 }
 }
 
@@ -304,11 +492,13 @@ void ClearKnownAssets() noexcept
     g_LoadedAnimations.clear();
     g_LoadedAudio.clear();
     g_LoadedFonts.clear();
+    g_ThumbnailRetryAt.clear();
 }
 
-AssetBrowserResult DrawAssetBrowserContents(
-    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
-    bool inHasProject ) noexcept
+AssetBrowserResult DrawAssetExplorer(
+    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs,
+    asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer, SDL_Window* inWindow,
+    bool inHasProject, AssetExplorerState& ioState, AssetPick const& inSelected ) noexcept
 {
     // Drained before drawing, same convention as every other panel with a
     // pending native dialog (VfsPanel, main.cpp's Save/Open).
@@ -378,11 +568,11 @@ AssetBrowserResult DrawAssetBrowserContents(
     std::set<std::string> const fonts = MergedFonts( inRegistry );
 
     // Whether an entity's Sprite/Animation/AudioSource/UILabel actually
-    // references a path right now -- checked before the "x" is allowed to
-    // remove it. The already-loaded ITexture/clip/Font an entity is using
-    // stays cached regardless of this panel's own bookkeeping, so silently
-    // un-importing a path still in use wouldn't stop it rendering/playing;
-    // it would just make the panel lie about what's actually bound.
+    // references a path right now -- checked before "Remove from list" is
+    // allowed to un-import it. The already-loaded ITexture/clip/Font an entity
+    // is using stays cached regardless of this panel's own bookkeeping, so
+    // silently un-importing a path still in use wouldn't stop it rendering/
+    // playing; it would just make the panel lie about what's actually bound.
     std::set<std::string> usedTextures, usedAnimations, usedAudio, usedFonts;
     CollectUsedPaths( inRegistry, usedTextures, usedAnimations, usedAudio, usedFonts );
 
@@ -412,25 +602,85 @@ AssetBrowserResult DrawAssetBrowserContents(
         }
         if ( inVfs.ListMounts().empty() )
         {
-            ImGui::TextDisabled( "(no mounts -- add one in the Virtual File System panel)" );
+            ImGui::TextDisabled( "(no mounts -- add one with + Add mount)" );
         }
         ImGui::EndPopup();
     }
 
+    if ( ioState.m_Root.empty() )
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled( "Select a mountpoint to browse its assets." );
+        return result;
+    }
+
+    ImGui::SameLine();
+    DrawBreadcrumbs( ioState );
     ImGui::Separator();
 
-    // Fonts get no context menu -- unlike a texture/clip/audio path, a font path alone isn't a
-    // component gameplay code ever attaches by itself (see this file's own header doc comment);
-    // pick-to-inspect and un-import are all a font row offers.
-    AssetSectionContext textureCtx{ inRegistry, AssetPickKind::Texture, true, true, inHasProject, g_LoadedTextures, usedTextures, result };
-    AssetSectionContext animationCtx{ inRegistry, AssetPickKind::Animation, true, false, inHasProject, g_LoadedAnimations, usedAnimations, result };
-    AssetSectionContext audioCtx{ inRegistry, AssetPickKind::Audio, true, false, inHasProject, g_LoadedAudio, usedAudio, result };
-    AssetSectionContext fontCtx{ inRegistry, AssetPickKind::Font, false, false, inHasProject, g_LoadedFonts, usedFonts, result };
+    // Every known asset path with its kind, so one folder listing covers all four kinds at once.
+    std::map<std::string, AssetPickKind> kinds;
+    std::set<std::string> allPaths;
+    for ( auto const& path : textures )   { kinds[path] = AssetPickKind::Texture;   allPaths.insert( path ); }
+    for ( auto const& path : animations ) { kinds[path] = AssetPickKind::Animation; allPaths.insert( path ); }
+    for ( auto const& path : audio )      { kinds[path] = AssetPickKind::Audio;     allPaths.insert( path ); }
+    for ( auto const& path : fonts )      { kinds[path] = AssetPickKind::Font;      allPaths.insert( path ); }
 
-    DrawAssetSection( "Textures", textures, textureCtx );
-    DrawAssetSection( "Animation Clips", animations, animationCtx );
-    DrawAssetSection( "Audio Clips", audio, audioCtx );
-    DrawAssetSection( "Fonts", fonts, fontCtx );
+    std::string const folderPath = ioState.m_Folder.empty() ? ioState.m_Root : ioState.m_Root + "/" + ioState.m_Folder;
+    FolderListing const listing = ListFolder( allPaths, folderPath );
+
+    ExplorerContext ctx{ inAssets, inRenderer };
+
+    ImGui::BeginChild( "##explorerGrid" );
+    float const spacing = ImGui::GetStyle().ItemSpacing.x;
+    int const columns = std::max( 1, static_cast<int>( ( ImGui::GetContentRegionAvail().x + spacing ) / ( kCellWidth + spacing ) ) );
+    int placed = 0;
+    auto const nextCell = [&]
+    {
+        if ( placed % columns != 0 ) ImGui::SameLine();
+        ++placed;
+    };
+
+    // Folders first: a click enters the folder.
+    std::string enterFolder;
+    for ( auto const& name : listing.m_Folders )
+    {
+        nextCell();
+        ImGui::PushID( ( "folder:" + name ).c_str() );
+        if ( DrawExplorerItem( ctx, ExplorerItem::Folder, name, folderPath + "/" + name, false ) ) enterFolder = name;
+        ImGui::PopID();
+    }
+
+    for ( auto const& name : listing.m_Files )
+    {
+        std::string const path = folderPath + "/" + name;
+        AssetPickKind const kind = kinds[path];
+
+        nextCell();
+        ImGui::PushID( path.c_str() );
+        bool const selected = inSelected.m_Kind == kind && inSelected.m_VirtualPath == path;
+        if ( DrawExplorerItem( ctx, ItemTypeFor( kind ), name, path, selected ) )
+        {
+            result.m_Pick = { kind, path };
+        }
+        // Bound to the cell just drawn (BeginPopupContextItem with no explicit id ties to the last item).
+        auto const sets = SetsFor( kind, usedTextures, usedAnimations, usedAudio, usedFonts );
+        DrawAssetContextMenu(
+            inRegistry, kind, path, kind == AssetPickKind::Texture, kind != AssetPickKind::Font,
+            inHasProject, sets.m_Loaded, sets.m_Used, result );
+        ImGui::PopID();
+    }
+
+    if ( listing.m_Folders.empty() && listing.m_Files.empty() )
+    {
+        ImGui::TextDisabled( "Nothing known in this folder -- use Load Asset... to bring a file in." );
+    }
+    ImGui::EndChild();
+
+    if ( !enterFolder.empty() )
+    {
+        ioState.m_Folder = ioState.m_Folder.empty() ? enterFolder : ioState.m_Folder + "/" + enterFolder;
+    }
 
     return result;
 }

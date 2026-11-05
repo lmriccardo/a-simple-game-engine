@@ -2,6 +2,8 @@
 
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
+#include <ASGE/Game/Assets/AssetManager.hpp>
+#include <ASGE/Video/Graphics/Renderer.hpp>
 
 #include <string>
 #include <vector>
@@ -12,7 +14,7 @@ struct SDL_Window;
 enum class AssetPickKind { None, Texture, Animation, Audio, Font };
 
 /**
- * @brief This frame's pick (if any) from DrawAssetBrowserContents -- which
+ * @brief This frame's pick (if any) from DrawAssetExplorer -- which
  *        entry the user clicked, for the caller (main.cpp) to inspect via
  *        DrawAssetInspectorPanel. Clicking an entry here no longer assigns
  *        it to whatever entity is selected; see editor/Inspector.hpp's
@@ -46,7 +48,7 @@ struct AssetExplorerState
 };
 
 /**
- * @brief DrawAssetBrowserContents's full per-frame report. m_Pick is the
+ * @brief DrawAssetExplorer's full per-frame report. m_Pick is the
  *        pre-Phase-14 "clicked an entry to preview it" signal, unchanged;
  *        m_OpenCreateClip and m_ContextAction/m_ContextKind/m_ContextPath/
  *        m_ContextTarget (Phase 14) come from a row's right-click menu
@@ -64,15 +66,31 @@ struct AssetBrowserResult
 };
 
 /**
- * @brief Panel listing every texture/animation-clip/audio-clip/font virtual
- *        path known to the editor: every distinct, non-empty
- *        Sprite::m_VirtualPath/Animation::m_ClipPath/
- *        AudioSource::m_VirtualClipPath/UILabel::m_FontPath currently in
- *        inRegistry (see asset::CollectAssetRefs), unioned with whatever's
- *        been explicitly imported via "Load Asset..." -- the latter exists
- *        so an empty, freshly-opened scene (no entities, so nothing to
- *        derive usage from) still has a way to bring an asset into the list
- *        before any entity references it.
+ * @brief The asset explorer: a file-explorer view of the selected mountpoint
+ *        (ioState.m_Root), one folder at a time, drawn into the current ImGui
+ *        window or child (BottomPanel hosts it).
+ *
+ * It lists every distinct, non-empty Sprite::m_VirtualPath/
+ * Animation::m_ClipPath/AudioSource::m_VirtualClipPath/UILabel::m_FontPath
+ * currently in inRegistry (see asset::CollectAssetRefs), unioned with
+ * whatever's been explicitly imported via "Load Asset..." -- the latter exists
+ * so an empty, freshly-opened scene (no entities, so nothing to derive usage
+ * from) still has a way to bring an asset into the list before any entity
+ * references it. Only the paths below ioState.m_Root's mountpoint show.
+ *
+ * Each cell is an icon with the item's name under it: a folder icon for a
+ * folder (clicking it opens it, and the path bar's up button and crumbs lead
+ * back to the mountpoint), a thumbnail for a texture, and a drawn icon for an
+ * animation clip, audio clip or font. Clicking a file returns it in m_Pick --
+ * the caller shows it in DrawAssetInspectorPanel, nothing is assigned.
+ * Right-clicking a texture/animation/audio cell opens Create Entity/Attach To
+ * plus Create Clip and Reload Asset (textures only) -- same "this file only
+ * reports what was asked, the caller (main.cpp) performs the actual Registry
+ * calls" separation DrawEntityListPanel's EntityListResult already uses. A
+ * font has no such menu: a font path alone isn't a component gameplay code
+ * would ever attach -- it only exists as part of a UILabel, which "Create UI
+ * Element" (see editor/Inspector.hpp) authors. A cell that was imported by
+ * hand also offers "Remove from list".
  *
  * "Load Asset..." first asks which mount to browse (native dialogs have no
  * notion of a virtual root, so the mount picks the real starting directory
@@ -85,28 +103,23 @@ struct AssetBrowserResult
  * extension dispatch; ".ttf" -> font, matching media::Font::Load's own
  * documented "loads a TTF file" contract).
  *
- * Clicking an entry (of any kind) just returns it in m_Pick -- the caller
- * shows it in DrawAssetInspectorPanel, it doesn't assign anything.
- * Right-clicking a texture/animation/audio row opens Create Entity/Attach To
- * plus Create Clip (textures only) -- same "this file only reports what was
- * asked, the caller (main.cpp) performs the actual Registry calls"
- * separation DrawEntityListPanel's EntityListResult already uses for Phase
- * 13. A font row has no such menu: unlike a texture/clip/audio path, a font
- * path alone isn't a component gameplay code would ever attach by itself --
- * it only ever exists as part of a UILabel, which "Create UI Element" (see
- * editor/Inspector.hpp) is what actually authors.
- *
+ * @param inAssets, inRenderer Used to load the textures the thumbnails show;
+ *        AssetManager caches them by path.
  * @param inHasProject "Load Asset...", "Create Entity" and "Attach To" are
  *        disabled while false -- a created/attached-to entity gets no
  *        SceneId to tag it into anything without an active project/scene,
  *        same reasoning as the Entities panel's own "Create Entity" button.
+ * @param ioState Which mountpoint and folder to show; the explorer moves
+ *        m_Folder when a folder is entered or a crumb clicked.
+ * @param inSelected The asset last picked, drawn highlighted.
  */
-AssetBrowserResult DrawAssetBrowserContents(
-    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs, SDL_Window* inWindow,
-    bool inHasProject ) noexcept;
+AssetBrowserResult DrawAssetExplorer(
+    asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem const& inVfs,
+    asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer, SDL_Window* inWindow,
+    bool inHasProject, AssetExplorerState& ioState, AssetPick const& inSelected ) noexcept;
 
 /**
- * @brief The same texture virtual paths DrawAssetBrowserContents's "Textures"
+ * @brief The same texture virtual paths DrawAssetExplorer's "Textures"
  *        section would list (scene usage unioned with "Load Asset..."
  *        imports), for editor/Inspector.hpp's Sprite dropdown (both at
  *        Add-Component time and when editing an existing Sprite) to pick

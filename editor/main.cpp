@@ -2715,7 +2715,7 @@ int main(int, char**)
         // texture by picking one at Add Component time instead (see
         // Inspector.hpp's DrawInspectorPanel).
         auto const assetBrowserResult = DrawBottomPanel(
-            sceneManager.GetRegistry(), vfs, assets, videoSys.GetRenderer(), window, freshHasProject);
+            sceneManager.GetRegistry(), vfs, assets, videoSys.GetRenderer(), window, freshHasProject, selectedAsset);
         if (assetBrowserResult.m_Pick.m_Kind != AssetPickKind::None) selectedAsset = assetBrowserResult.m_Pick;
         DrawAssetInspectorPanel(
             selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry(),

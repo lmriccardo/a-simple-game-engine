@@ -10,7 +10,7 @@
 struct SDL_Window;
 
 /**
- * @brief The editor's bottom panel: the VFS mounts, the asset browser and
+ * @brief The editor's bottom panel: the VFS mountpoints, the asset explorer and
  *        the Log side by side, anchored flush to the bottom and both side
  *        edges of the window.
  *
@@ -18,10 +18,10 @@ struct SDL_Window;
  * to its header row. The three columns are separated by draggable
  * splitters; the Log takes whatever width the other two leave.
  *
- * Returns the asset browser's per-frame report unchanged, for the caller
+ * Returns the asset explorer's per-frame report unchanged, for the caller
  * (main.cpp) to act on.
  */
 AssetBrowserResult DrawBottomPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem& inVfs,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    SDL_Window* inWindow, bool inHasProject ) noexcept;
+    SDL_Window* inWindow, bool inHasProject, AssetPick const& inSelectedAsset ) noexcept;

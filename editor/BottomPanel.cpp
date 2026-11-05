@@ -43,7 +43,7 @@ void Splitter( char const* inId, float& ioWidth, float inHeight, float inMaxWidt
 AssetBrowserResult DrawBottomPanel(
     asge::ecs::Registry& inRegistry, asge::filesystem::VirtualFileSystem& inVfs,
     asge::game::asset::AssetManager& inAssets, asge::video::IRenderer& inRenderer,
-    SDL_Window* inWindow, bool inHasProject ) noexcept
+    SDL_Window* inWindow, bool inHasProject, AssetPick const& inSelectedAsset ) noexcept
 {
     ImGuiIO const& io = ImGui::GetIO();
     ImGuiStyle const& style = ImGui::GetStyle();
@@ -103,7 +103,8 @@ AssetBrowserResult DrawBottomPanel(
 
         if ( ImGui::BeginChild( "##assets", ImVec2( g_AssetsWidth, columnsHeight ), ImGuiChildFlags_Borders ) )
         {
-            result = DrawAssetBrowserContents( inRegistry, inVfs, inWindow, inHasProject );
+            result = DrawAssetExplorer(
+                inRegistry, inVfs, inAssets, inRenderer, inWindow, inHasProject, g_Explorer, inSelectedAsset );
         }
         ImGui::EndChild();
 
