@@ -77,4 +77,7 @@ struct tuple_fold_type<std::tuple<Ts...>, false>
 template<typename Tuple>
 using tuple_fold_type_t = typename tuple_fold_type<Tuple>::type;
 
+template<typename T>
+concept ParsableNumber = std::is_arithmetic_v<T> && !std::is_same_v<T, bool>;
+
 }

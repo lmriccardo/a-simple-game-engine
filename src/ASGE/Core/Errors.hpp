@@ -390,6 +390,10 @@ enum class ConfError : std::uint8_t
     InvalidInputPath = 1,
     ConfigurationNotLoaded,
 
+    // Generic Parse Error
+    NumberParseTrailingJunk,
+    NonFiniteNumber,
+
     // TOML ERRORS
     TomlExpectedNestedArray,
     TomlTypeMismatch,
@@ -398,7 +402,10 @@ enum class ConfError : std::uint8_t
     TomlInvalidString,
     TomlBadFormatting,
     TomlUnexpectedToken,
-    TomlNoAttribute
+    TomlNoAttribute,
+
+    // XML Errors
+    XmlAttributeNotFound
 };
 
 /**
@@ -420,6 +427,9 @@ inline str::String ToErrorString(ConfError e) noexcept
     case ConfError::TomlBadFormatting: return "bad toml configuration formatting";
     case ConfError::TomlUnexpectedToken: return "unexpected token in toml configuration";
     case ConfError::TomlNoAttribute: return "no existing attribute";
+    case ConfError::XmlAttributeNotFound: return "no existing xml attribute";
+    case ConfError::NumberParseTrailingJunk: return "partial num parsing left from trailing junk";
+    case ConfError::NonFiniteNumber: return "parsing non finite number";
     }
     return "uknown configuration error";
 }
