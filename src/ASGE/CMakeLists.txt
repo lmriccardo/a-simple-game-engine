@@ -108,6 +108,7 @@ add_library(ASGE STATIC
     Game/Systems/AudioSystem.cpp
     Game/Systems/TransformPropagationSystem.cpp
     Game/Systems/UISystem.cpp
+    Game/Systems/AnimatorSystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp

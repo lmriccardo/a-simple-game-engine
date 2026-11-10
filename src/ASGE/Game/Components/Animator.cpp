@@ -63,3 +63,24 @@ bool asge::game::components::Fire(
     ioAnimator.m_Dirty = true;
     return true;
 }
+
+void asge::game::components::Stop(Animator &ioAnimator) noexcept
+{
+    if ( ioAnimator.m_Status == AnimStatus::Playing ) 
+    {
+        ioAnimator.m_Status = AnimStatus::Stopped;
+    }
+}
+
+void asge::game::components::Resume(Animator &ioAnimator) noexcept
+{
+    if ( ioAnimator.m_Status == AnimStatus::Stopped ) 
+    {
+        ioAnimator.m_Status = AnimStatus::Playing;
+    }
+}
+
+bool asge::game::components::IsFinished(Animator const &inAnimator) noexcept
+{
+    return inAnimator.m_Status == AnimStatus::Finished;
+}

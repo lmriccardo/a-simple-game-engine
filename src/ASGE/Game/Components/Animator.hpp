@@ -9,7 +9,7 @@
 namespace asge::game::components
 {
 
-enum class AnimStatus : std::uint8_t { Playing, Paused, Finished };
+enum class AnimStatus : std::uint8_t { Playing, Stopped, Finished };
 
 using FlagId    = std::uint8_t;
 using TriggerId = std::uint8_t;
@@ -38,16 +38,17 @@ struct Animator
     bool        m_StartPlaying  {true}; // Initial status on first entry.
 
     // Runtime only fields
-    float          m_Elapsed   {0.0f};   // seconds accumulated toward the next frame advance
-    std::uint32_t  m_Frame     {0};      // index into the current clip's FrameTable::m_Frames
-    std::uint32_t  m_Flags     {0};      // persistent conditions, set by game code
-    std::uint32_t  m_Triggers  {0};      // pending one-shots, consumed by transitions
-    std::uint16_t  m_State     {0};      // current state id in the machine
-    AnimStatus     m_Status    {AnimStatus::Playing};
-    bool           m_Dirty     {true};   // re-evaluate transitions next update
-    bool           m_Started   {false};  // false until the system enters the initial state
-    math::Rect     m_RestRect  {};       // Sprite's own source rect, captured on first entry
-    clip_set       m_ClipSet   {};       // owns the clip set (and through it the machine)
+    float                       m_Elapsed   {0.0f};   // seconds accumulated toward the next frame advance
+    std::uint32_t               m_Frame     {0};      // index into the current clip's FrameTable::m_Frames
+    std::uint32_t               m_Flags     {0};      // persistent conditions, set by game code
+    std::uint32_t               m_Triggers  {0};      // pending one-shots, consumed by transitions
+    std::uint16_t               m_State     {0};      // current state id in the machine
+    AnimStatus                  m_Status    {AnimStatus::Playing};
+    bool                        m_Dirty     {true};   // re-evaluate transitions next update
+    bool                        m_Started   {false};  // false until the system enters the initial state
+    std::optional<math::Rect>   m_RestRect  {};       // Sprite's own source rect, captured on first entry
+    clip_set                    m_ClipSet   {};       // owns the clip set (and through it the machine)
+    bool                        m_OwnsRect  {false};  // The Sprite's crop is currently ours
 };
 
 /**
@@ -71,6 +72,14 @@ bool SetFlag( Animator& ioAnimator, str::StringView inFlagName, bool inValue ) n
  * trigger (the error is logged).
  */
 bool Fire( Animator& ioAnimator, str::StringView inTriggerName ) noexcept;
+
+/** @brief Stop a playing animator. Does nothing if it is paused or finished. */
+void Stop( Animator& ioAnimator ) noexcept;
+
+/** @brief Resumes a stopped animator. Does nothing if it is playing or finished. */
+void Resume( Animator& ioAnimator ) noexcept;
+
+bool IsFinished( Animator const& inAnimator ) noexcept;
 
 }
 
