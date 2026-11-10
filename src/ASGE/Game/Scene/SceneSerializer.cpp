@@ -10,7 +10,7 @@
 asge::BoolResult asge::game::scene::SceneSerializer::Save(
     ecs::Registry const &inRegistry, filesystem::Path const &inPath, SaveContext* outCtx) const noexcept
 {
-    config::toml::TOMLBuilder builder;
+    formats::toml::TOMLBuilder builder;
     
     // First I need to create the SaveContext and save newly created ids
     std::uint32_t nextId{ 0 };
@@ -73,9 +73,9 @@ asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
     if ( !readResult ) return BoolResult::Err( readResult.Error() );
 
     // Parse the TOML file to construct the TOML Table
-    auto parseResult = config::toml::Parse( readResult.Value() );
+    auto parseResult = formats::toml::Parse( readResult.Value() );
     if ( !parseResult ) return BoolResult::Err( parseResult.Error() );
-    auto sceneTable = config::toml::TOMLTableView( parseResult.Value() );
+    auto sceneTable = formats::toml::TOMLTableView( parseResult.Value() );
 
     // Only entities *this call* creates get rolled back on failure --
     // whatever was already in dstRegistry before Load() was called is
@@ -112,7 +112,7 @@ asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
             return BoolResult::Err( getResult.Error() );
         }
 
-        config::toml::TOMLTableView entityTable = getResult.Value();
+        formats::toml::TOMLTableView entityTable = getResult.Value();
         auto createResult = dstRegistry.CreateEntity();
         if ( !createResult )
         {
@@ -142,7 +142,7 @@ asge::BoolResult asge::game::scene::SceneSerializer::LoadResolved(
             rollback();
             return BoolResult::Err( entityTableResult.Error() );
         }
-        config::toml::TOMLTableView entityTable = entityTableResult.Value();
+        formats::toml::TOMLTableView entityTable = entityTableResult.Value();
         bool result{true};
         errors::_internal::ErrorInfo errInfo;
 

@@ -19,7 +19,7 @@ bool asge::game::components::PathFollowResume( ecs::Registry& inRegistry, ecs::E
 }
 
 void asge::game::scene::Serializer<asge::game::components::PathFollow>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String( kTableName ) )
            .Set( "m_Speed", inValue.m_Speed )
@@ -30,7 +30,7 @@ void asge::game::scene::Serializer<asge::game::components::PathFollow>::ToToml(
 
 asge::game::components::PathFollow
 asge::game::scene::Serializer<asge::game::components::PathFollow>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 

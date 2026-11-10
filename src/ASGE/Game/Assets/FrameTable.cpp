@@ -29,10 +29,10 @@ constexpr asge::str::StringView OrderToString( GridOrder inOrder ) noexcept
 asge::Result<asge::game::asset::FrameTable> asge::game::asset::FrameTable::Load(
     asge::filesystem::Path const& inPath )
 {
-    auto parsed = asge::config::toml::Parse( inPath );
+    auto parsed = asge::formats::toml::Parse( inPath );
     if ( !parsed ) return Result<FrameTable>::Err( parsed.Error() );
 
-    asge::config::toml::TOMLTableView root( parsed.Value() );
+    asge::formats::toml::TOMLTableView root( parsed.Value() );
     auto table = root.Table( str::String(kTableName) );
 
     // A negative value would wrap to a huge size_t, so clamp to 0 first.
@@ -77,7 +77,7 @@ asge::Result<asge::game::asset::FrameTable> asge::game::asset::FrameTable::Load(
 asge::BoolResult asge::game::asset::FrameTable::Save(
     filesystem::Path const& inPath, GridSpec const& inSpec, str::StringView inOriginAsset, std::vector<float> const& inFrameDurations ) noexcept
 {
-    asge::config::toml::TOMLBuilder builder;
+    asge::formats::toml::TOMLBuilder builder;
     auto table = builder.Table( str::String( kTableName ) );
     table.Set( "x", inSpec.m_Cell.m_X );
     table.Set( "y", inSpec.m_Cell.m_Y );
@@ -96,10 +96,10 @@ asge::BoolResult asge::game::asset::FrameTable::Save(
 
 bool asge::game::asset::FrameTable::IsFrameTable(filesystem::Path const &inPath)
 {
-    auto parsed = asge::config::toml::Parse( inPath );
+    auto parsed = asge::formats::toml::Parse( inPath );
     if ( !parsed ) return false;
 
-    asge::config::toml::TOMLTableView const root( parsed.Value() );
+    asge::formats::toml::TOMLTableView const root( parsed.Value() );
     return root.HasTable( str::String(kTableName) );
 }
 

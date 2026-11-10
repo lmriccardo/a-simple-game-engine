@@ -1,7 +1,7 @@
 #include "UICheckbox.hpp"
 
 void asge::game::scene::Serializer<asge::game::components::UICheckbox>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
     Serializer<components::details::StateColors>::ToToml( inValue.m_BoxColors, table, inCtx );
@@ -11,7 +11,7 @@ void asge::game::scene::Serializer<asge::game::components::UICheckbox>::ToToml(
 
 asge::game::components::UICheckbox
 asge::game::scene::Serializer<asge::game::components::UICheckbox>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 

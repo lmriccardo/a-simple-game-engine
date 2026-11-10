@@ -40,7 +40,7 @@ void asge::game::components::StopAnimation( Animation& inAnim ) noexcept
 }
 
 void asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     std::vector<std::string> clipNames, clipPaths; // parallel arrays: TOMLTableView can't enumerate a table's keys
     for ( auto const& [name, path] : inValue.m_Clips )
@@ -71,7 +71,7 @@ void asge::game::scene::Serializer<asge::game::components::Animation>::ToToml(
 }
 
 asge::game::components::Animation asge::game::scene::Serializer<asge::game::components::Animation>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table(std::string(kTableName));
 

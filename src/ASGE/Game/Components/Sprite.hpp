@@ -87,7 +87,7 @@ struct Serializer<components::Sprite>
      */
     static void ToToml(
                             components::Sprite inSprite,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
@@ -97,7 +97,7 @@ struct Serializer<components::Sprite>
      * struct's own comment for which ones are read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inEnttView,
+                            asge::formats::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

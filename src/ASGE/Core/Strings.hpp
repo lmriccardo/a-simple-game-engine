@@ -19,7 +19,7 @@ using WStringView = std::wstring_view;
 
 using U8String = std::u8string;
 
-/** @brief How Justify pads a string to a target width; None pads nothing (see Justify's default case). */
+/** @brief How Justify pads a string to a target width */
 enum class TextAlign
 {
     None = 0,

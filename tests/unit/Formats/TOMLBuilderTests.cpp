@@ -14,6 +14,7 @@
 namespace
 {
 
+using namespace asge::formats;
 using namespace asge::config;
 
 // ─── Set / SetArray on the root table ──────────────────────────────────────────

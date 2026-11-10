@@ -46,7 +46,7 @@ struct Serializer<components::UIButton>
      */
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
@@ -56,7 +56,7 @@ struct Serializer<components::UIButton>
      * struct's own comment for which ones are read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

@@ -24,7 +24,7 @@ namespace asge::config
 class ConfigurationManager
 {
 private:
-    using table_pointer_t = toml::table_pointer;
+    using table_pointer_t = formats::toml::table_pointer;
 
     filesystem::Path             m_ConfigPath;                  // Path of the loaded configuration file
     filesystem::FileWatcher      m_FileWatcher;                 // Watches the file for hot reload

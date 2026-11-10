@@ -8,7 +8,7 @@
 
 #include "TOML_Parser.hpp"
 
-namespace asge::config::toml
+namespace asge::formats::toml
 {
 
 /**

@@ -8,7 +8,7 @@ void asge::game::components::RebuildPath(Path &inPath) noexcept
 }
 
 void asge::game::scene::Serializer<asge::game::components::Path>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 
@@ -30,7 +30,7 @@ void asge::game::scene::Serializer<asge::game::components::Path>::ToToml(
 
 asge::game::components::Path
 asge::game::scene::Serializer<asge::game::components::Path>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 

@@ -54,6 +54,7 @@ add_library(ASGE STATIC
 
     # Configuration utilities
     Core/Formats/TOML/TOML_Parser.cpp
+    Core/Formats/XML/XML.cpp
     Core/Configuration/ConfigurationManager.cpp
 
     # String utilities

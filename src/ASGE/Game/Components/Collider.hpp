@@ -107,11 +107,11 @@ struct Serializer<components::Collider>
 
     static void ToToml(
                             components::Collider inCollider,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     static T FromToml(
-                            asge::config::toml::TOMLTableView inEnttView,
+                            asge::formats::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

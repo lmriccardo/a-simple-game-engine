@@ -32,7 +32,7 @@ struct Serializer
      */
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept
     {
         static_assert( false && "Not Implemented" );
@@ -44,7 +44,7 @@ struct Serializer
      * Expects the layout previously written by ToToml.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept
     {
         static_assert( false && "Not Implemented" );
@@ -68,14 +68,14 @@ struct Serializer<math::Rect>
      *
      * Keys: m_OffsetX, m_OffsetY, m_Width and m_Height.
      */
-    static void ToToml( math::Rect inShape, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static void ToToml( math::Rect inShape, asge::formats::toml::TOMLTableView inTview ) noexcept;
 
     /**
      * @brief Reads a Rect back from inTview.
      *
      * Missing keys read as 0.
      */
-    static math::Rect FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+    static math::Rect FromToml( asge::formats::toml::TOMLTableView inTview ) noexcept;
 };
 
 /**
@@ -93,14 +93,14 @@ struct Serializer<math::Circle>
      *
      * Keys: m_OffsetX, m_OffsetY and m_Radius.
      */
-    static void ToToml( math::Circle inShape, asge::config::toml::TOMLTableView inTview ) noexcept;
+    static void ToToml( math::Circle inShape, asge::formats::toml::TOMLTableView inTview ) noexcept;
 
     /**
      * @brief Reads a Circle back from inTview.
      *
      * Missing keys read as 0.
      */
-    static math::Circle FromToml( asge::config::toml::TOMLTableView inTview ) noexcept;
+    static math::Circle FromToml( asge::formats::toml::TOMLTableView inTview ) noexcept;
 };
 
 /**
@@ -119,14 +119,14 @@ struct Serializer<ecs::markers::Disable>
      */
     static void ToToml(
         [[maybe_unused]]    T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
      * @brief Rebuilds the marker; there is nothing to read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

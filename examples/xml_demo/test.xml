@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Player animation state machine -->
+<AnimStateMachine initial="idle">
+  <Flags>
+    <Flag name="running"/>    <!-- bit 0 -->
+    <Flag name="on_ground"/>  <!-- bit 1 -->
+  </Flags>
+  <Triggers>
+    <Trigger name="attack"/>  <!-- bit 0 -->
+    <Trigger name="hurt"/>    <!-- bit 1 -->
+  </Triggers>
+
+  <State name="idle" clip="anim/player_idle.toml" frameDuration="0.12" end="loop">
+    <Transition to="hurt"   trigger="hurt" priority="10"/>
+    <Transition to="attack" trigger="attack"/>
+    <Transition to="jump"   when="!on_ground"/>
+    <Transition to="run"    when="running on_ground"/>
+  </State>
+
+  <State name="run" clip="anim/player_run.toml" frameDuration="0.08" end="loop">
+    <Transition to="hurt"   trigger="hurt" priority="10"/>
+    <Transition to="attack" trigger="attack"/>
+    <Transition to="jump"   when="!on_ground"/>
+    <Transition to="idle"   when="!running"/>
+  </State>
+
+  <State name="jump" clip="anim/player_jump.toml" frameDuration="0.10" end="hold">
+    <Transition to="hurt" trigger="hurt" priority="10"/>
+    <Transition to="run"  when="on_ground running"/>
+    <Transition to="idle" when="on_ground !running"/>
+  </State>
+
+  <State name="attack" clip="anim/player_attack.toml" frameDuration="0.06" end="hold">
+    <Transition to="hurt" trigger="hurt" priority="10"/>
+    <Transition to="run"  atEnd="true" when="running on_ground" priority="1"/>
+    <Transition to="idle" atEnd="true"/>
+  </State>
+
+  <State name="hurt" clip="anim/player_hurt.toml" frameDuration="0.08" end="restore">
+    <Transition to="idle" atEnd="true"/>
+  </State>
+</AnimStateMachine>

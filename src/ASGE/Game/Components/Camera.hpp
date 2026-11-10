@@ -35,11 +35,11 @@ struct Serializer<components::Camera>
 
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

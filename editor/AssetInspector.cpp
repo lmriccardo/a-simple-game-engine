@@ -283,14 +283,14 @@ void DrawAssetInspectorPanel(
         // AssetManager::GetFrameTable -- that returns the already-expanded
         // per-frame rect list, not the raw x/y/w/h/columns/count fields the
         // requirement (and the "Create Clip" modal below) actually author.
-        auto parsedClip = asge::config::toml::Parse( resolved.Value() );
+        auto parsedClip = asge::formats::toml::Parse( resolved.Value() );
         if ( !parsedClip )
         {
             ImGui::TextDisabled( "(preview unavailable)" );
         }
         else
         {
-            asge::config::toml::TOMLTableView root( parsedClip.Value() );
+            asge::formats::toml::TOMLTableView root( parsedClip.Value() );
             auto table = root.Table( "FrameTable" );
             std::string const origin = table.Get( "m_OriginAsset", std::string{} );
             ImGui::Text( "Origin Asset: %s", origin.empty() ? "(none)" : origin.c_str() );

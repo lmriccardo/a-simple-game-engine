@@ -16,7 +16,7 @@ using namespace asge::ecs::components;
 using namespace asge::ecs::markers;
 using namespace asge::game::components;
 using namespace asge::game::scene;
-using asge::config::toml::TOMLBuilder;
+using asge::formats::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
@@ -1323,10 +1323,10 @@ TEST(UIPanelSerializerTest, FromToml_ParsedTransparentBackgroundStaysTransparent
 {
     // A packed color with alpha 0 fits in 32 bits, so the parser stores it as
     // `int` -- it must not fall back to the struct default (s_ShadowBlack).
-    auto parsed = asge::config::toml::Parse( std::string( "[UIPanel]\nm_Background = 0\n" ) );
+    auto parsed = asge::formats::toml::Parse( std::string( "[UIPanel]\nm_Background = 0\n" ) );
     ASSERT_TRUE( parsed.IsOk() );
 
-    asge::config::toml::TOMLTableView const root( parsed.Value() );
+    asge::formats::toml::TOMLTableView const root( parsed.Value() );
     UIPanel const restored = Serializer<UIPanel>::FromToml( root, asge::game::scene::LoadContext{} );
     EXPECT_EQ( restored.m_Background.a, 0 );
 }

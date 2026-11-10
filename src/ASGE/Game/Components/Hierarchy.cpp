@@ -31,7 +31,7 @@ void asge::game::components::DetachChild(ecs::Registry &inReg, ecs::Entity inChi
 }
 
 void asge::game::scene::Serializer<asge::ecs::components::Hierarchy>::ToToml(
-    ecs::components::Hierarchy inHierarchy, asge::config::toml::TOMLTableView inTview, 
+    ecs::components::Hierarchy inHierarchy, asge::formats::toml::TOMLTableView inTview, 
     SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String(kTableName) )
@@ -44,7 +44,7 @@ void asge::game::scene::Serializer<asge::ecs::components::Hierarchy>::ToToml(
 
 asge::ecs::components::Hierarchy 
 asge::game::scene::Serializer<asge::ecs::components::Hierarchy>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     auto table = inEnttView.Table( str::String(kTableName) );
     ecs::components::Hierarchy result;

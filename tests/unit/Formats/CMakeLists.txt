@@ -1,6 +1,7 @@
 add_executable(ASGE_FormatsTests
     TOMLParserTests.cpp
     TOMLBuilderTests.cpp
+    XMLParserTests.cpp
 )
 
 target_link_libraries(ASGE_FormatsTests
