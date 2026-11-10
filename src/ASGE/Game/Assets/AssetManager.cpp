@@ -31,6 +31,18 @@ asge::game::asset::AssetManager::GetAudio(str::StringCRef inVirtualPath)
     return m_AudioPool.GetOrLoad( m_Vfs, inVirtualPath );
 }
 
+asge::Result<asge::game::asset::AssetManager::asset_ptr<asge::game::asset::AnimationClipSet>> 
+asge::game::asset::AssetManager::GetClipSet(str::StringCRef inVirtualPath)
+{
+    return m_AnimClipSet.GetOrLoad( m_Vfs, inVirtualPath );
+}
+
+asge::Result<asge::game::asset::AssetManager::asset_ptr<asge::game::asset::AnimationStateMachine>>
+asge::game::asset::AssetManager::GetStateMachine(str::StringCRef inVirtualPath)
+{
+    return m_AnimStateMachines.GetOrLoad( m_Vfs, inVirtualPath );
+}
+
 asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetTexture(
     str::StringCRef inVirtualPath, video::IRenderer &inRenderer) noexcept
 {

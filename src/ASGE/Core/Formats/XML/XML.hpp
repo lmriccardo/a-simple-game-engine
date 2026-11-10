@@ -161,11 +161,17 @@ public:
      */
     Result<node_reference> Child( std::size_t inChildIdx ) const noexcept;
 
-    /** @brief Iterator to the first child; enables range-for over a non-const node. */
+    /** @brief Iterator to the first child; enables range-for over a node. */
     std::vector<XMLNode>::iterator begin() noexcept;
+
+    /** @brief Const iterator to the first child; enables range-for over a const node. */
+    std::vector<XMLNode>::const_iterator begin() const noexcept;
 
     /** @brief Past-the-end iterator over the children. */
     std::vector<XMLNode>::iterator end  () noexcept;
+
+    /** @brief Const past-the-end iterator over the children. */
+    std::vector<XMLNode>::const_iterator end() const noexcept;
 
     /** @brief Const iterator to the first child. */
     std::vector<XMLNode>::const_iterator cbegin() const noexcept;

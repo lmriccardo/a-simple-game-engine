@@ -111,6 +111,9 @@ add_library(ASGE STATIC
     # Asset Manager
     Game/Assets/AssetManager.cpp
     Game/Assets/AssetResolver.cpp
+    Game/Assets/AnimXml.cpp
+    Game/Assets/AnimStateMachine.cpp
+    Game/Assets/AnimationClipSet.cpp
     Game/Assets/FrameTable.cpp
 
     # Scene management and component TOML (de)serialization

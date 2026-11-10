@@ -11,6 +11,8 @@
 #include "Asset.hpp"
 #include "AssetPool.hpp"
 #include "FrameTable.hpp"
+#include "AnimationClipSet.hpp"
+#include "AnimStateMachine.hpp"
 
 namespace asge::game::asset
 {
@@ -31,13 +33,15 @@ class AssetManager
 {
     filesystem::VirtualFileSystem const& m_Vfs;
 
-    AssetPool<media::Image>      m_ImagePool  { &media::Image::Load     };
-    AssetPool<media::Font, int>  m_FontPool   { &media::Font::Load      };
-    AssetPool<FrameTable>        m_FrameTables{ &FrameTable::Load       };
-    AssetPool<media::AudioClip>  m_AudioPool  { &media::AudioClip::Load };
+    AssetPool<media::Image>          m_ImagePool        { &media::Image::Load           };
+    AssetPool<media::Font, int>      m_FontPool         { &media::Font::Load            };
+    AssetPool<FrameTable>            m_FrameTables      { &FrameTable::Load             };
+    AssetPool<media::AudioClip>      m_AudioPool        { &media::AudioClip::Load       };
+    AssetPool<AnimationClipSet>      m_AnimClipSet      { &AnimationClipSet::Load       };
+    AssetPool<AnimationStateMachine> m_AnimStateMachines{ &AnimationStateMachine::Load  };
 
-    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache; // GetTexture()'s cache by virtual path; sole owner of its GPU textures
-    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache; // Font atlas textures keyed by Font address (m_FontPool never evicts)
+    std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache;
+    std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache; 
 
     template<typename T> using asset_ptr = std::shared_ptr<Asset<T>>;
 
@@ -111,6 +115,10 @@ public:
      * Fails if the path doesn't resolve through the VFS or fails to decode.
      */
     [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
+
+    [[nodiscard]] Result<asset_ptr<AnimationClipSet>> GetClipSet( str::StringCRef inVirtualPath );
+    
+    [[nodiscard]] Result<asset_ptr<AnimationStateMachine>> GetStateMachine( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) GPU texture for a virtual path.

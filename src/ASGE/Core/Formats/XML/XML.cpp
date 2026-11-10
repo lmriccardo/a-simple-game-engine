@@ -487,10 +487,22 @@ asge::formats::xml::XMLNode::begin() noexcept
     return m_Children.begin();
 }
 
+std::vector<asge::formats::xml::XMLNode>::const_iterator 
+asge::formats::xml::XMLNode::begin() const noexcept
+{
+    return cbegin();
+}
+
 std::vector<asge::formats::xml::XMLNode>::iterator 
 asge::formats::xml::XMLNode::end() noexcept
 {
     return m_Children.end();
+}
+
+std::vector<asge::formats::xml::XMLNode>::const_iterator 
+asge::formats::xml::XMLNode::end() const noexcept
+{
+    return cend();
 }
 
 std::vector<asge::formats::xml::XMLNode>::const_iterator 
