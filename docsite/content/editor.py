@@ -239,22 +239,41 @@ TASKS = [
 <p>Previous: <a href="arrange-the-ui.html">Arrange the UI</a> &middot; Next: <a href="animate-a-sprite.html">Animate a sprite</a>.</p>
 """),
     ("animate-a-sprite", "Animate a sprite",
-     "Slice a spritesheet into a clip and play it with an Animation component.",
+     "Slice a spritesheet into clips, wire them into a state machine and play it with an Animator.",
      f"""
 <h1>Animate a sprite</h1>
-<p class="lede">Turn a spritesheet into something an Animation component can play, without an external tool or hand-written TOML.</p>
+<p class="lede">Turn a spritesheet into clips and a state machine an Animator can play, without an external tool or hand-written TOML or XML.</p>
 {shot("create-clip-modal.png", "The Create Clip modal with a grid overlay")}
 <h2>Steps</h2>
 <ol>
   <li>Right-click the spritesheet texture in the <a href="import-and-inspect-assets.html">asset explorer</a> and choose <strong>Create Clip</strong>.</li>
   <li>In the modal, give the clip a <strong>Name</strong> (letters, digits, <code>_</code> and <code>-</code>) and set <strong>Rows</strong> and <strong>Columns</strong>. Margins, spacing, row- or column-major order, the first frame and the frame count are optional. A bigger thumbnail shows a live grid overlay and the computed per-cell pixel size.</li>
-  <li>Click <strong>Apply</strong>. The editor writes <code>&lt;image&gt;_clip_&lt;name&gt;.toml</code> next to the texture (a name that already exists is refused), then registers and selects it as a new animation clip.</li>
-  <li>Add an <code>Animation</code> component to an entity, choose the clip path and frame duration, and press <strong>Play</strong>.</li>
+  <li>Click <strong>Apply</strong>. The editor writes <code>&lt;image&gt;_clip_&lt;name&gt;.toml</code> next to the texture (a name that already exists is refused), then registers and selects it as a new frame table.</li>
 </ol>
-{shot("animation-clip-preview.png", "The animation clip preview cycling through frames")}
-<h2>Named clips</h2>
-<p>An Animation can hold several named clips. Click <strong>Edit Clips</strong> in its Inspector section to open a modal: every clip is listed on the left, and for the selected one you choose its animation, then <strong>Play</strong> or <strong>Remove</strong> it. New clips can be added straight from an animation picker. Tick the frame-duration option to give that clip its own speed; left off, it uses the component's own Frame Duration.</p>
-<p>A clip records which texture it slices (<code>m_OriginAsset</code>), so once one exists the texture's button becomes <strong>Open Clip</strong> and jumps straight to it. Importing a <code>.toml</code> by hand via Load Asset... that doesn't identify its own texture this way is rejected rather than imported half-configured.</p>
+{shot("animation-clip-preview.png", "The frame table preview cycling through frames")}
+<p>A frame table records which texture it slices (<code>m_OriginAsset</code>), so once one exists the texture's button becomes <strong>Open Clip</strong> and jumps straight to it. Importing a <code>.toml</code> by hand via Load Asset... that doesn't identify its own texture this way is rejected rather than imported half-configured.</p>
+<h2>Author the state machine</h2>
+<p>A frame table is one clip. Choosing between clips is the job of an animation graph, a <code>.animsm</code> file. In the asset explorer, click <strong>Add</strong>, then <strong>Create</strong> &rarr; <strong>Animation Graph</strong> (or <strong>Load Asset</strong> for an existing file). Double-click it, or use <strong>Open in Animation Graph</strong> from its row menu.</p>
+<ul>
+  <li>The window draws the machine as a node graph: draggable state boxes and arrows for transitions, labelled with their trigger, <code>@end</code> and flags.</li>
+  <li>A side column holds the initial state, the flag, trigger and clip lists, and the selected state with its transitions. Renaming or deleting a flag, trigger, clip or state updates everything that refers to it.</li>
+  <li>The engine's own loader validates every edit and shows its error inline; a machine it rejects is never written. Box positions are saved in a <code>.layout</code> file next to the machine, which the engine ignores.</li>
+</ul>
+{shot("animation-graph.png", "The Animation Graph window showing states, transitions and the side column")}
+<h2>Bind clips to frame tables</h2>
+<p>Create an <strong>Animation Clip Set</strong> from the same <strong>Create</strong> menu for a loaded machine. The clip set window lists every clip the machine declares: bind each to a loaded frame table and a frame duration. A clip the machine no longer declares is flagged. It validates and saves like the graph.</p>
+<p>For a character that faces several ways, give a clip up to 8 directions with its directions combo. Each direction gets a frame table dropdown labelled by compass name or bearing, spread clockwise from north. A clip with one direction is saved as a plain <code>path</code>.</p>
+{shot("clip-set-directions.png", "The Animation Clip Set window with a clip bound to several directions")}
+<h2>Play it on an entity</h2>
+<ol>
+  <li>Add an <code>Animator</code> component to an entity that has a Sprite.</li>
+  <li>Pick its <strong>Clip Set</strong> from the loaded clip sets, and set <strong>Playback Speed</strong> and <strong>Start Playing</strong>. The state and frame show read-only once the clip set resolves.{shot("animator-inspector.png", "The Animator section of the Inspector")}</li>
+  <li>Open the Animation Graph window and turn on <strong>Preview</strong>. Only then does the animator run in the viewport, so editing never animates by itself.</li>
+</ol>
+<p>With the preview on and the entity selected, its current state is outlined in the graph, with its frame and status. A checkbox per flag and a button per trigger let you drive it by hand. The Live section also shows the heading and variant, with buttons that face the animator from N to NW to check each direction. Turning the preview off restores every animator's state and every sprite's source rect.</p>
+{shot("animation-preview.png", "The Animation Graph window with Preview on, driving the selected entity")}
+<p>While an Animator is playing it owns its Sprite's source rect, so the Sprite inspector shows that field as driven by the Animator. Use <strong>Reload Asset</strong> on a row after editing a file outside the editor; animators that use it are re-resolved.</p>
+
 <p>Previous: <a href="add-a-collider.html">Add a collider</a> &middot; Next: <a href="follow-a-path.html">Make an entity follow a path</a>.</p>
 """),
     ("follow-a-path", "Make an entity follow a path",

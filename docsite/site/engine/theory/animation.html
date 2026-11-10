@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Animation · ASGE</title>
+<meta name="description" content="How sprite animation is driven by a state machine: flags and triggers set by gameplay code, transitions that pick the clip, how AnimatorSystem advances frames into the Sprite, and directional variants chosen from a heading."/>
+<meta property="og:title" content="Animation · ASGE"/>
+<meta property="og:description" content="How sprite animation is driven by a state machine: flags and triggers set by gameplay code, transitions that pick the clip, how AnimatorSystem advances frames into the Sprite, and directional variants chosen from a heading."/>
+<link rel="icon" type="image/svg+xml" href="../../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../../assets/css/style.css"/>
+
+</head>
+<body data-root="../../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../../index.html"><img src="../../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../../index.html">Overview</a>
+    <a href="../../engine/getting-started.html" aria-current="page">Engine</a>
+    <a href="../../editor/index.html">Editor</a>
+    <a href="../../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/animation.html" aria-current="page">Animation</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Components</h4><ul><li><a href="../../engine/components/index.html">Components</a></li><li><a href="../../engine/components/core.html">Core components</a></li><li><a href="../../engine/components/rendering.html">Rendering and animation components</a></li><li><a href="../../engine/components/physics.html">Physics components</a></li><li><a href="../../engine/components/audio.html">Audio components</a></li><li><a href="../../engine/components/path.html">Path components</a></li><li><a href="../../engine/components/ui.html">UI components</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animator_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/ui_demo.html">UI</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Start</h4><ul><li><a href="../../engine/getting-started.html">Getting Started</a></li></ul></div>
+<div class="side-group"><h4>Theory</h4><ul><li><a href="../../engine/theory/index.html">Engine theory</a></li><li><a href="../../engine/theory/ecs.html">Entity-Component-System</a></li><li><a href="../../engine/theory/game-loop.html">Game loop &amp; timing</a></li><li><a href="../../engine/theory/events-signals.html">Events &amp; signals</a></li><li><a href="../../engine/theory/memory-threading.html">Memory &amp; threading</a></li><li><a href="../../engine/theory/input.html">Input</a></li><li><a href="../../engine/theory/rendering.html">Rendering</a></li><li><a href="../../engine/theory/audio.html">Audio</a></li><li><a href="../../engine/theory/filesystem.html">Filesystem &amp; VFS</a></li><li><a href="../../engine/theory/assets.html">Assets</a></li><li><a href="../../engine/theory/animation.html" aria-current="page">Animation</a></li><li><a href="../../engine/theory/scenes.html">Scenes</a></li><li><a href="../../engine/theory/physics.html">Physics</a></li><li><a href="../../engine/theory/ui.html">UI</a></li><li><a href="../../engine/theory/math.html">Math</a></li></ul></div>
+<div class="side-group"><h4>Components</h4><ul><li><a href="../../engine/components/index.html">Components</a></li><li><a href="../../engine/components/core.html">Core components</a></li><li><a href="../../engine/components/rendering.html">Rendering and animation components</a></li><li><a href="../../engine/components/physics.html">Physics components</a></li><li><a href="../../engine/components/audio.html">Audio components</a></li><li><a href="../../engine/components/path.html">Path components</a></li><li><a href="../../engine/components/ui.html">UI components</a></li></ul></div>
+<div class="side-group"><h4>Reference</h4><ul><li><a href="../../engine/api/index.html">API Reference</a></li></ul></div>
+<div class="side-group"><h4>Examples</h4><ul><li><a href="../../engine/examples/index.html">All examples</a></li><li><a href="../../engine/examples/shapes_demo.html">Shapes</a></li><li><a href="../../engine/examples/moving_box.html">Moving Box</a></li><li><a href="../../engine/examples/texture_demo.html">Textures</a></li><li><a href="../../engine/examples/text_demo.html">Text Rendering</a></li><li><a href="../../engine/examples/animator_demo.html">Sprite Animation</a></li><li><a href="../../engine/examples/ecs_demo.html">ECS</a></li><li><a href="../../engine/examples/camera_demo.html">Camera &amp; Viewport</a></li><li><a href="../../engine/examples/camera_follow_demo.html">Camera Follow</a></li><li><a href="../../engine/examples/rotation_demo.html">Sprite Rotation</a></li><li><a href="../../engine/examples/input_demo.html">Input System</a></li><li><a href="../../engine/examples/scene_demo.html">Scene Management</a></li><li><a href="../../engine/examples/physics_demo.html">Physics</a></li><li><a href="../../engine/examples/path_following_demo.html">Path Following</a></li><li><a href="../../engine/examples/ui_demo.html">UI</a></li><li><a href="../../engine/examples/audio_demo.html">Audio</a></li><li><a href="../../engine/examples/background_changer.html">Background Changer</a></li><li><a href="../../engine/examples/configuration_reader.html">Configuration Reader</a></li><li><a href="../../engine/examples/configuration_writer.html">Configuration Writer</a></li><li><a href="../../engine/examples/file_watching.html">File Watching</a></li><li><a href="../../engine/examples/image_info.html">Image Info</a></li><li><a href="../../engine/examples/scoped_profiler.html">Scoped Profiler</a></li></ul></div></aside>
+<article class="article">
+<h1>Animation</h1>
+<p class="lede">A 2D character is a spritesheet and a rule for which part of it to show. Animation is that rule, kept
+out of gameplay code.</p>
+
+<h2 id="the-concept">The concept</h2>
+<p>Sprite animation is flipbook playback: a list of frames (rectangles on a spritesheet) shown one after another, each for
+a short time. Playing one clip is easy. The hard part is <em>choosing</em> the clip: idle becomes run when the player
+moves, run becomes attack on a button press, attack returns to idle when it finishes. Written as <code>if</code>
+chains in gameplay code, that logic spreads and breaks.</p>
+
+<h3 id="state-machines">State machines</h3>
+<p>Engines model it as a <strong>state machine</strong>: each state plays one clip, and <strong>transitions</strong> between
+states fire on conditions. Gameplay code stops saying "play run" and only reports facts; the machine decides. The facts come
+in two kinds:</p>
+<ul>
+  <li><strong>Flags</strong> are persistent conditions that stay true until changed ("running").</li>
+  <li><strong>Triggers</strong> are one-shot events ("attack pressed") that wait until a transition consumes them, so a press is never lost or handled twice.</li>
+</ul>
+<h3 id="ending-priority-and-direction">Ending, priority and direction</h3>
+<p>A clip needs a rule for its last frame: loop, freeze on it, or give the sprite back its original image. Transitions are
+tested in priority order, so "hurt" can override everything else. And a character that walks in several directions needs
+one set of frames per direction, chosen from the way it is facing.</p>
+
+<h2 id="how-asge-does-it">How ASGE does it</h2>
+<figure class="diagram">
+<div class="diagram-scroll">
+<svg viewBox="0 40 760 252" role="img" aria-labelledby="an-title an-desc" style="min-width:640px">
+<title id="an-title">How an Animator picks the frame to draw</title>
+<desc id="an-desc">Game code sets flags and fires triggers on the Animator. The state machine's transitions pick a state, whose clip is looked up in the clip set to get a frame table. The chosen frame is written into the Sprite's source rect. A PathFollow or Velocity supplies the heading that selects a directional variant.</desc>
+<defs>
+<marker id="an-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head"/></marker>
+<marker id="an-arrow-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" class="d-head-b"/></marker>
+</defs>
+<rect x="14" y="56" width="124" height="72" rx="6" class="d-node"/><text x="76" y="88" text-anchor="middle" class="d-name">Game code</text><text x="76" y="108" text-anchor="middle" class="d-sub">SetFlag / Fire</text><path class="d-arrow" d="M138 92H168" marker-end="url(#an-arrow)"/><rect x="168" y="56" width="124" height="72" rx="6" class="d-node"/><text x="230" y="88" text-anchor="middle" class="d-name">Animator</text><text x="230" y="108" text-anchor="middle" class="d-sub">flags, triggers</text><path class="d-arrow" d="M292 92H322" marker-end="url(#an-arrow)"/><rect x="322" y="56" width="124" height="72" rx="6" class="d-node d-focal"/><text x="384" y="88" text-anchor="middle" class="d-name">State machine</text><text x="384" y="108" text-anchor="middle" class="d-sub">.animsm</text><path class="d-arrow" d="M446 92H476" marker-end="url(#an-arrow)"/><rect x="476" y="56" width="124" height="72" rx="6" class="d-node"/><text x="538" y="88" text-anchor="middle" class="d-name">Clip set</text><text x="538" y="108" text-anchor="middle" class="d-sub">.animset</text><path class="d-arrow" d="M600 92H630" marker-end="url(#an-arrow)"/><rect x="630" y="56" width="124" height="72" rx="6" class="d-node"/><text x="692" y="88" text-anchor="middle" class="d-name">Sprite</text><text x="692" y="108" text-anchor="middle" class="d-sub">m_SourceRect</text><path class="d-arrow d-b d-dash" d="M230 176V132" marker-end="url(#an-arrow-b)"/><text x="242" y="158" class="d-sub">heading</text><rect x="168" y="176" width="124" height="48" rx="6" class="d-node d-ghost"/><text x="230" y="196" text-anchor="middle" class="d-name">PathFollow</text><text x="230" y="216" text-anchor="middle" class="d-sub">or Velocity</text><rect x="14" y="240" width="14" height="14" rx="2" class="d-node d-focal"/><text x="36" y="252" class="d-sub">chooses the state</text><path class="d-arrow d-dash d-b" d="M300 247H336"/><text x="346" y="252" class="d-sub">picks a directional variant</text>
+</svg>
+</div>
+<figcaption><code>AnimatorSystem</code> runs the whole chain once per frame for every entity with an <code>Animator</code> and a <code>Sprite</code>.</figcaption>
+</figure>
+<h3 id="three-assets-one-component">Three assets, one component</h3>
+<p>The data is split so each piece is reused independently:</p>
+<ul>
+  <li>A <code>FrameTable</code> (TOML) is the list of source rects for one clip, as described on <a href="assets.html">Assets</a>.</li>
+  <li>An <code>asset::AnimationStateMachine</code> (<code>.animsm</code> XML) declares the flags, triggers, clip names, states and transitions. Up to 32 flags and 32 triggers, each a bit of a mask.</li>
+  <li>An <code>asset::AnimationClipSet</code> (<code>.animset</code> XML) names its machine and binds each clip name to its frame table(s) and a frame duration.</li>
+</ul>
+<p>A <code>components::Animator</code> stores only the clip set path, a playback speed and a start-playing flag; those are
+what a scene file saves. <code>AssetManager::ResolveAssets</code> loads the set, its machine and the frame tables once,
+shared by every animator that names them. Until then <code>SetFlag</code> and <code>Fire</code> do nothing and return false.
+Everything else on the component (state, frame, flags, triggers, heading) is runtime state.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>player.animsm</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-xml">&lt;AnimStateMachine initial=&quot;idle&quot;&gt;
+  &lt;Flags&gt;&lt;Flag name=&quot;running&quot;/&gt;&lt;/Flags&gt;
+  &lt;Triggers&gt;&lt;Trigger name=&quot;attack&quot;/&gt;&lt;Trigger name=&quot;hurt&quot;/&gt;&lt;/Triggers&gt;
+  &lt;Clips&gt;&lt;Clip name=&quot;idle&quot;/&gt;&lt;Clip name=&quot;run&quot;/&gt;&lt;Clip name=&quot;attack&quot;/&gt;&lt;Clip name=&quot;hurt&quot;/&gt;&lt;/Clips&gt;
+
+  &lt;State name=&quot;idle&quot; clip=&quot;idle&quot; end=&quot;loop&quot;&gt;
+    &lt;Transition to=&quot;hurt&quot;   trigger=&quot;hurt&quot; priority=&quot;10&quot;/&gt;
+    &lt;Transition to=&quot;attack&quot; trigger=&quot;attack&quot;/&gt;
+    &lt;Transition to=&quot;run&quot;    when=&quot;running&quot;/&gt;
+  &lt;/State&gt;
+  &lt;State name=&quot;attack&quot; clip=&quot;attack&quot; end=&quot;hold&quot;&gt;
+    &lt;Transition to=&quot;run&quot;  atEnd=&quot;true&quot; when=&quot;running&quot; priority=&quot;1&quot;/&gt;
+    &lt;Transition to=&quot;idle&quot; atEnd=&quot;true&quot;/&gt;
+  &lt;/State&gt;
+  &lt;!-- run and hurt omitted --&gt;
+&lt;/AnimStateMachine&gt;</code></pre>
+</div>
+<h3 id="what-a-frame-of-animatorsystem-does">What a frame of AnimatorSystem does</h3>
+<p><code>systems::AnimatorSystem</code> visits every entity with an <code>Animator</code> and a <code>Sprite</code>. For
+each one, in order:</p>
+<ol>
+  <li><strong>Update the heading</strong> from a moving <code>PathFollow</code>, else a nonzero <code>Velocity</code>, else keep the last one.</li>
+  <li><strong>Start</strong> on first sight: enter the machine's initial state, or stay stopped if <code>m_StartPlaying</code> is false.</li>
+  <li><strong>Advance time</strong> by <code>dt</code> times the playback speed, stepping through frames whose duration (the frame table's own, else the clip's) has elapsed.</li>
+  <li><strong>Try transitions</strong> when something changed: the first transition of the current state, highest priority first, whose conditions hold is taken and its trigger consumed.</li>
+  <li><strong>Write the frame</strong> into <code>Sprite::m_SourceRect</code>.</li>
+</ol>
+<p>The animator never draws anything: <code>RenderSystem</code> just sees whatever source rect was last written.
+<code>RenderPipeline</code> runs <code>AnimatorSystem</code>, <code>CameraSystem</code> then <code>RenderSystem</code> in that order.</p>
+
+<h3 id="transitions-and-end-modes">Transitions and end modes</h3>
+<p>A transition can require flags to be set (<code>when="running"</code>) or clear (<code>when="!running"</code>), a pending
+trigger, and optionally that the clip has finished (<code>atEnd</code>). A state's <code>end</code> picks what happens on its
+last frame:</p>
+<ul>
+  <li><code>loop</code> wraps to the first frame.</li>
+  <li><code>hold</code> stays on the last frame and marks the animator finished; an <code>atEnd</code> transition can then leave.</li>
+  <li><code>restore</code> gives the sprite its original source rect back.</li>
+</ul>
+<p>Each finished playback emits <code>events::OnAnimationFinished()</code> with the entity, a <a href="events-signals.html">signal</a>
+gameplay code can connect to. While playing, the animator owns the sprite's source rect; <code>Stop</code> releases it and
+<code>Resume</code> takes it back.</p>
+
+<h3 id="directional-clips">Directional clips</h3>
+<p>Instead of a <code>path</code>, a clip of the clip set can hold 1 to 8 <code>&lt;Variant path&gt;</code> children, one frame
+table per direction, spread evenly clockwise from north: four variants are N/E/S/W, eight add the diagonals. All variants
+share the clip's frame duration. <code>Animator::m_Heading</code> (a screen-space vector, south until set) picks the nearest
+one; a small hysteresis stops a heading sitting on a boundary from flickering. A heading change swaps the frame table
+<em>without restarting</em> the clip, so the walk cycle keeps its frame. Set the heading by hand with
+<code>components::SetHeading</code>; a zero vector is ignored, so an entity that stops keeps facing the way it moved.</p>
+<div class="code-card">
+  <div class="code-card-head"><span>hero.animset</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-xml">&lt;AnimClipSet machine=&quot;anim/humanoid.animsm&quot;&gt;
+  &lt;Clip name=&quot;run&quot; frameDuration=&quot;0.10&quot;&gt;
+    &lt;Variant path=&quot;anim/hero_run_n.toml&quot;/&gt;
+    &lt;Variant path=&quot;anim/hero_run_e.toml&quot;/&gt;
+    &lt;Variant path=&quot;anim/hero_run_s.toml&quot;/&gt;
+    &lt;Variant path=&quot;anim/hero_run_w.toml&quot;/&gt;
+  &lt;/Clip&gt;
+  &lt;Clip name=&quot;death&quot; path=&quot;anim/hero_death.toml&quot; frameDuration=&quot;0.10&quot;/&gt;
+&lt;/AnimClipSet&gt;</code></pre>
+</div><div class="code-card">
+  <div class="code-card-head"><span>animator.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
+  <pre><code class="language-cpp">SetFlag( animator, &quot;running&quot;, moving );          // persistent: keeps its value until set again
+if ( attackPressed ) Fire( animator, &quot;attack&quot; ); // one-shot: consumed by the transition that listens</code></pre>
+</div>
+<h2 id="see-also">See also</h2>
+<p><a href="../examples/animator_demo.html">Animator demo</a> &middot; <a href="assets.html">Assets</a> &middot;
+<a href="../components/index.html">Components reference</a></p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#the-concept">The concept</a></li><li class="l3"><a href="#state-machines">State machines</a></li><li class="l3"><a href="#ending-priority-and-direction">Ending, priority and direction</a></li><li class="l2"><a href="#how-asge-does-it">How ASGE does it</a></li><li class="l3"><a href="#three-assets-one-component">Three assets, one component</a></li><li class="l3"><a href="#what-a-frame-of-animatorsystem-does">What a frame of AnimatorSystem does</a></li><li class="l3"><a href="#transitions-and-end-modes">Transitions and end modes</a></li><li class="l3"><a href="#directional-clips">Directional clips</a></li><li class="l2"><a href="#see-also">See also</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../../index.html#roadmap">Roadmap</a>
+      <a href="../../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../../assets/js/main.js"></script>
+<script src="../../assets/js/search.js"></script>
+
+</body>
+</html>

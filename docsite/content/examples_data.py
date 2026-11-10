@@ -50,19 +50,20 @@ EXAMPLES = [
         controls=[], source_files=["Game.hpp", "Game.cpp"],
     ),
     dict(
-        slug="animation_demo", title="Sprite Animation", tagline="Spritesheets via a shared frame table",
+        slug="animator_demo", title="Sprite Animation", tagline="A state machine picks the clip",
         tags=["Rendering", "ECS", "Assets"], kind="window", playable=False,
         description=[
-            "Showcase for <code>components::Animation</code> and "
-            "<code>systems::AnimationSystem</code>/<code>RenderPipeline</code>: playing back "
-            "a spritesheet through per-entity frame state, with the frame list itself loaded "
-            "as a shared <code>asset::FrameTable</code> (<code>walk.toml</code>) rather than "
-            "embedded per-entity.",
+            "Showcase for <code>components::Animator</code>, <code>asset::AnimationStateMachine</code>, "
+            "<code>asset::AnimationClipSet</code> and <code>systems::AnimatorSystem</code>: the game only "
+            "raises a flag or fires a trigger, and the machine's transitions choose between the idle, run, "
+            "attack and hurt clips. Every animator shares one loaded clip set; the right sprite plays it at "
+            "half speed.",
         ],
         controls=[
-            ("Left Click", "Spawn another animated sprite at the cursor"),
-            ("SPACE", "Play/pause every sprite's animation"),
-            ("R", "Reset"),
+            ("A / D", "Hold to raise the running flag"),
+            ("J", "Fire the attack trigger"),
+            ("K", "Fire the hurt trigger"),
+            ("SPACE", "Stop/resume both animators"),
         ],
         source_files=["Game.hpp", "Game.cpp"],
     ),

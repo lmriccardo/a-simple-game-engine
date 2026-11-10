@@ -6,6 +6,7 @@ Type and function names are checked against src/ASGE. Each entry of PAGES is
 import html
 
 from _shared import GITHUB_URL, code_card
+from content.theory_animation import ANIMATION_BODY
 from content.diagrams import PHYSICS as PHYSICS_DIAGRAM, SCENES as SCENES_DIAGRAM, RENDERING as RENDERING_DIAGRAM, ASSETS as ASSETS_DIAGRAM, INPUT as INPUT_DIAGRAM, AUDIO as AUDIO_DIAGRAM
 
 SRC = f"{GITHUB_URL}/blob/main/src/ASGE"
@@ -280,18 +281,18 @@ auto again = assets.GetImage( "textures/hero.png" );   // cached: same asset, no
 <h3>Resolving components</h3>
 <p>A <code>Sprite</code> stores its <code>m_VirtualPath</code> and <code>m_SourceRect</code>; those are what round-trip
 through a scene file. Each frame <code>ResolveAssets</code> (called from <code>Game::Render</code>) turns the paths of
-sprites and animations back into live textures. A sprite's texture therefore points into the manager's cache and must
+sprites and animation clip sets back into live textures. A sprite's texture therefore points into the manager's cache and must
 not outlive it.</p>
 
 <h3>Spritesheets and animation clips</h3>
 <p>A <code>FrameTable</code> is a named sequence of source rects into a spritesheet, loaded from a small TOML file.
 A <code>GridSpec</code> describes a contiguous range of cells over a regular grid (row-major or column-major), and
 <code>MakeGridFrames</code> does the grid math. An optional <code>frame_durations</code> array gives frames their own
-display time.</p>
+display time. How frame tables are played is covered on the <a href="animation.html">Animation</a> page.</p>
 
 <h2>See also</h2>
 <p>Source: """ + src("Game/Assets/AssetManager.hpp") + ", " + src("Game/Assets/AssetPool.hpp") + ", " + src("Game/Assets/FrameTable.hpp") + """.
-<a href="../examples/texture_demo.html">Texture demo</a> &middot; <a href="../examples/animation_demo.html">Animation demo</a></p>
+<a href="../examples/texture_demo.html">Texture demo</a> &middot; <a href="../examples/animator_demo.html">Animator demo</a></p>
 """
 
 SCENES = """
@@ -527,6 +528,7 @@ PAGES = [
     ("audio", "Audio", "How ASGE opens the audio device and mixes several clips at once through a pool of streams, and how AudioSource components and the AudioSystem drive playback from the scene.", AUDIO),
     ("filesystem", "Filesystem & VFS", "How virtual paths are mounted onto real directories so game data does not depend on where it lives, plus the file IO helpers and the file watcher used to detect changes on disk.", FILESYSTEM),
     ("assets", "Assets", "How the AssetManager loads each file once and caches it by virtual path, how sprites are resolved into textures, and how spritesheet frame tables describe animation frames.", ASSETS),
+    ("animation", "Animation", "How sprite animation is driven by a state machine: flags and triggers set by gameplay code, transitions that pick the clip, how AnimatorSystem advances frames into the Sprite, and directional variants chosen from a heading.", ANIMATION_BODY),
     ("scenes", "Scenes", "How a level's entities are saved to a scene file and loaded back by the SceneSerializer, and how the SceneManager keeps one active scene and caches visited ones for instant switching.", SCENES),
     ("physics", "Physics", "How movement, gravity and collisions work: colliders with layers and masks, a QuadTree broad phase feeding a shape-accurate narrow phase, solid push-out, and trigger enter/stay/exit events.", PHYSICS),
     ("ui", "UI", "How menus and HUDs are built from ordinary entities with UI components, created through the Create* helpers, then laid out and made clickable by the layout and interaction systems.", UI),

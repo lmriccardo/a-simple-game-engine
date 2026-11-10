@@ -267,6 +267,29 @@ ASSETS = _figure(
     top=64,
 )
 
+# --- Animation: game code -> Animator -> machine -> clips -> Sprite ----------------
+
+ANIMATION = _figure(
+    "an", "How an Animator picks the frame to draw",
+    "Game code sets flags and fires triggers on the Animator. The state machine's transitions pick a state, whose clip is looked up in the clip set to get a frame table. The chosen frame is written into the Sprite's source rect. A PathFollow or Velocity supplies the heading that selects a directional variant.",
+    252,
+    _node(14, 56, 124, 72, "Game code", "SetFlag / Fire")
+    + _arrow("an", "M138 92H168")
+    + _node(168, 56, 124, 72, "Animator", "flags, triggers")
+    + _arrow("an", "M292 92H322")
+    + _node(322, 56, 124, 72, "State machine", ".animsm", focal=True)
+    + _arrow("an", "M446 92H476")
+    + _node(476, 56, 124, 72, "Clip set", ".animset")
+    + _arrow("an", "M600 92H630")
+    + _node(630, 56, 124, 72, "Sprite", "m_SourceRect")
+    + _arrow("an", "M230 176V132", teal=True, dash=True)
+    + '<text x="242" y="158" class="d-sub">heading</text>'
+    + _node(168, 176, 124, 48, "PathFollow", "or Velocity", ghost=True)
+    + _legend(240, "chooses the state", "picks a directional variant"),
+    "<code>AnimatorSystem</code> runs the whole chain once per frame for every entity with an <code>Animator</code> and a <code>Sprite</code>.",
+    top=40,
+)
+
 # --- Input: one event stream, two consumers ----------------------------------------
 
 INPUT = _figure(
