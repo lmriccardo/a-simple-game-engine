@@ -648,6 +648,14 @@ to check them, instead of writing the XML by hand.
       checkbox per flag and a button per trigger. Turning the preview off
       restores every Animator's runtime state and every Sprite's source rect.
 
+- [x] A clip can bind up to 8 directional variants, one per direction clockwise
+      from north. The clip set window has a directions combo per clip and one
+      frame table dropdown per variant, labelled with its compass name or
+      bearing; the editor model reads and writes the `<Variant>` form (a single
+      variant stays a `path` attribute). The graph's Live section shows the
+      Animator's heading and variant and has buttons that face it N to NW, so
+      each direction can be checked in the preview.
+
 - [ ] Scenes saved with the removed `[Animation]` component load as `[Animator]`.
 
 ## Explicitly deferred — do not build until a concrete need forces it
