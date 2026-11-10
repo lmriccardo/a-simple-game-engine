@@ -1,5 +1,8 @@
 ﻿#include <ASGE/Game/Systems/RenderSystem.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
+#include <ASGE/Game/Systems/AnimatorSystem.hpp>
+#include <ASGE/Game/Assets/AssetManager.hpp>
+#include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Game/Events.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
@@ -18,6 +21,7 @@
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <vector>
 
 namespace
@@ -26,7 +30,8 @@ namespace
 using asge::Result;
 using asge::ecs::Entity;
 using asge::ecs::Registry;
-using asge::game::components::Animation;
+using asge::game::components::Animator;
+using asge::game::components::AnimStatus;
 using asge::game::components::AttachChild;
 using asge::game::components::Camera;
 using asge::game::components::RenderInfo;
@@ -1981,550 +1986,254 @@ TEST(CameraSystemTest, PositiveSmoothing_RepeatedTicksConvergeOnTheTarget)
     EXPECT_NEAR(renderer.GetCamera().m_Y, 0.0f, 0.01f);   // 300 - 600/2
 }
 
-// ─── AnimationSystem ─────────────────────────────────────────────────────────────
+// ─── AnimatorSystem ──────────────────────────────────────────────────────────────
 
-namespace
+class AnimatorSystemTest : public ::testing::Test
 {
-// Wraps a plain frame list into an already-resolved Animation::m_Clip, the
-// same shape asset::AssetManager::ResolveAssets would hand back -- these
-// tests exercise AnimationSystem in isolation, so they build the resolved
-// asset directly rather than going through a real VFS/AssetManager.
-Animation::frame_table MakeClip(std::vector<asge::math::Rect> inFrames)
+protected:
+    std::filesystem::path m_Dir;
+    asge::filesystem::VirtualFileSystem m_Vfs;
+    asge::game::asset::AssetManager m_Assets{ m_Vfs };
+    FakeTexture m_Texture{ asge::math::Int2{ 32, 32 } };
+    Registry m_Registry;
+
+    static void WriteText(std::filesystem::path const& inPath, std::string const& inContent)
+    {
+        std::ofstream file(inPath, std::ios::trunc);
+        file << inContent;
+    }
+
+    void SetUp() override
+    {
+        m_Dir = std::filesystem::temp_directory_path() / ("asge_animator_test_"
+            + std::to_string(reinterpret_cast<std::uintptr_t>(this)));
+        std::filesystem::create_directories(m_Dir);
+
+        // a: 2 frames of 8x8 at x = 0, 8. b: 3 frames at x = 0, 8, 16.
+        WriteText(m_Dir / "a.toml", "[FrameTable]\nx = 0.0\ny = 0.0\nw = 8.0\nh = 8.0\ncolumns = 2\ncount = 2\n");
+        WriteText(m_Dir / "b.toml", "[FrameTable]\nx = 0.0\ny = 0.0\nw = 8.0\nh = 8.0\ncolumns = 3\ncount = 3\n");
+        WriteText(m_Dir / "m.animsm",
+            "<AnimStateMachine initial=\"idle\">\n"
+            "<Flags>\n<Flag name=\"go\"/>\n</Flags>\n"
+            "<Triggers>\n<Trigger name=\"hit\"/>\n</Triggers>\n"
+            "<Clips>\n<Clip name=\"a\"/>\n<Clip name=\"b\"/>\n</Clips>\n"
+            "<State name=\"idle\" clip=\"a\" end=\"loop\">\n"
+            "<Transition to=\"act\" when=\"go\"/>\n"
+            "<Transition to=\"act\" trigger=\"hit\"/>\n"
+            "</State>\n"
+            "<State name=\"act\" clip=\"b\" end=\"hold\"/>\n"
+            "</AnimStateMachine>\n");
+        WriteText(m_Dir / "set.xml",
+            "<AnimClipSet machine=\"t/m.animsm\">\n"
+            "<Clip name=\"a\" path=\"t/a.toml\" frameDuration=\"0.1\"/>\n"
+            "<Clip name=\"b\" path=\"t/b.toml\" frameDuration=\"0.1\"/>\n"
+            "</AnimClipSet>\n");
+        ASSERT_TRUE(m_Vfs.Mount("t", m_Dir.string()).IsOk());
+    }
+
+    void TearDown() override
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(m_Dir, ec);
+    }
+
+    // Spawns a Sprite + Animator, with the clip set resolved unless told otherwise.
+    Entity Spawn(Animator inAnimator = {}, bool inResolved = true)
+    {
+        auto entity = m_Registry.CreateEntity();
+        EXPECT_TRUE(entity.IsOk());
+        EXPECT_TRUE(m_Registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &m_Texture }).IsOk());
+        if (inResolved)
+        {
+            auto set = m_Assets.GetClipSet("t/set.xml");
+            EXPECT_TRUE(set.IsOk());
+            EXPECT_TRUE(set.Value()->Get().IsResolved() || set.Value()->Get().ResolveAssets(m_Assets).IsOk());
+            inAnimator.m_ClipSet = set.Value();
+        }
+        EXPECT_TRUE(m_Registry.AddComponent(entity.Value(), std::move(inAnimator)).IsOk());
+        return entity.Value();
+    }
+
+    Animator& AnimatorOf(Entity inEntity)
+    {
+        return m_Registry.GetComponent<Animator>(inEntity).Value().get();
+    }
+
+    Sprite& SpriteOf(Entity inEntity)
+    {
+        return m_Registry.GetComponent<Sprite>(inEntity).Value().get();
+    }
+
+    std::uint16_t StateId(Entity inEntity, asge::str::StringView inName)
+    {
+        return AnimatorOf(inEntity).m_ClipSet->Get().Machine().FindState(inName).Value();
+    }
+};
+
+TEST_F(AnimatorSystemTest, FirstUpdateEntersInitialStateAndAdvancesOnceFrameDurationElapses)
 {
-    using asge::game::asset::Asset;
-    using asge::game::asset::FrameTable;
-    return Asset<FrameTable>::Create( "test/clip.toml", FrameTable{ std::move(inFrames) } );
-}
-}
+    Entity entity = Spawn();
 
-TEST(AnimationSystemTest, AdvancesToNextFrameOnceFrameDurationElapses)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    asge::game::systems::AnimatorSystem(m_Registry, 0.1f);
 
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 1u);
-    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
-    auto const& sprite = spriteResult.Value().get();
-    ASSERT_TRUE(sprite.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f);
-}
-
-TEST(AnimationSystemTest, LoopingAnimationWrapsToFrameZeroPastTheLastFrame)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Loop = true,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    // Two full frame-durations from frame 0 lands back on frame 0.
-    asge::game::systems::AnimationSystem(registry, 0.2f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 0u);
-    EXPECT_TRUE(anim.m_Playing);
-}
-
-TEST(AnimationSystemTest, NonLoopingAnimationClampsOnLastFrameAndStopsPlaying)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Loop = false,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    asge::game::systems::AnimationSystem(registry, 0.5f); // Well past the end.
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 1u); // Clamped to the last frame, not wrapped.
-    EXPECT_FALSE(anim.m_Playing);
-}
-
-// Spawns an entity with a 2-frame Animation; returns it.
-Entity SpawnTwoFrameAnimation(Registry& inRegistry, FakeTexture* inTexture, bool inLoop)
-{
-    auto entity = inRegistry.CreateEntity();
-    EXPECT_TRUE(entity.IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Sprite{ .m_Texture = inTexture }).IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Loop = inLoop,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-    return entity.Value();
+    EXPECT_TRUE(AnimatorOf(entity).m_Started);
+    EXPECT_EQ(AnimatorOf(entity).m_State, StateId(entity, "idle"));
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 1u);
+    ASSERT_TRUE(SpriteOf(entity).m_SourceRect.has_value());
+    EXPECT_FLOAT_EQ(SpriteOf(entity).m_SourceRect->m_X, 8.0f);
 }
 
-TEST(AnimationSystemTest, NonLoopingAnimationEmitsFinishedOnceWithItsEntity)
+TEST_F(AnimatorSystemTest, LoopingStateWrapsToFrameZeroPastTheLastFrame)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    Entity entity = SpawnTwoFrameAnimation(registry, &texture, false);
+    Entity entity = Spawn();
 
-    std::vector<Entity> finished;
-    auto conn = asge::game::events::OnAnimationFinished().Connect(
-        [&finished](Entity inEntity) { finished.push_back(inEntity); });
+    asge::game::systems::AnimatorSystem(m_Registry, 0.2f);
 
-    asge::game::systems::AnimationSystem(registry, 0.5f);
-    asge::game::systems::AnimationSystem(registry, 0.5f); // Already stopped -- must not re-emit.
-    conn.Disconnect();
-
-    ASSERT_EQ(finished.size(), 1u);
-    EXPECT_EQ(finished[0], entity);
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 0u);
+    EXPECT_NE(AnimatorOf(entity).m_Status, AnimStatus::Finished);
 }
 
-TEST(AnimationSystemTest, LoopingAnimationNeverEmitsFinished)
+TEST_F(AnimatorSystemTest, PlaybackSpeedScalesAdvancement)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    SpawnTwoFrameAnimation(registry, &texture, true);
+    Entity entity = Spawn(Animator{ .m_PlaybackSpeed = 2.0f });
 
-    int count = 0;
-    auto conn = asge::game::events::OnAnimationFinished().Connect([&count](Entity) { ++count; });
+    asge::game::systems::AnimatorSystem(m_Registry, 0.05f);
 
-    asge::game::systems::AnimationSystem(registry, 1.0f);
-    conn.Disconnect();
-
-    EXPECT_EQ(count, 0);
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 1u);
 }
 
-TEST(AnimationSystemTest, PerFrameDurationOverridesAnimationFrameDuration)
+TEST_F(AnimatorSystemTest, NonPositivePlaybackSpeedDoesNotAdvance)
 {
-    using asge::game::asset::Asset;
-    using asge::game::asset::FrameTable;
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    FrameTable table{ { asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 }, asge::math::Rect{ 16, 0, 8, 8 } } };
-    table.m_FrameDurations = { 0.5f, 0.0f }; // frame 0 slow, frame 1 falls back, frame 2 falls back
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = Asset<FrameTable>::Create("test/clip.toml", std::move(table))
-    }).IsOk());
+    Entity entity = Spawn(Animator{ .m_PlaybackSpeed = 0.0f });
 
-    asge::game::systems::AnimationSystem(registry, 0.3f); // < 0.5 -> still frame 0
-    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 0u);
-    asge::game::systems::AnimationSystem(registry, 0.25f); // 0.55 total -> frame 1 with 0.05 left
-    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 1u);
-    asge::game::systems::AnimationSystem(registry, 0.05f); // fallback 0.1 elapsed -> frame 2
-    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 2u);
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f);
+
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 0u);
 }
 
-TEST(AnimationSystemTest, PlaybackSpeedScalesAdvancement)
+TEST_F(AnimatorSystemTest, SettingAFlagTransitionsToTheNextState)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_PlaybackSpeed = 2.0f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 }, asge::math::Rect{ 16, 0, 8, 8 } })
-    }).IsOk());
+    Entity entity = Spawn();
+    asge::game::systems::AnimatorSystem(m_Registry, 0.0f);
+    ASSERT_TRUE(asge::game::components::SetFlag(AnimatorOf(entity), "go", true));
 
-    asge::game::systems::AnimationSystem(registry, 0.1f); // 0.2 effective -> two frames
-    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 2u);
+    asge::game::systems::AnimatorSystem(m_Registry, 0.0f);
+
+    EXPECT_EQ(AnimatorOf(entity).m_State, StateId(entity, "act"));
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 0u);
 }
 
-TEST(AnimationSystemTest, NonPositivePlaybackSpeedDoesNotAdvance)
+TEST_F(AnimatorSystemTest, FiredTriggerTransitionsAndIsConsumed)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_PlaybackSpeed = 0.0f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0, 0, 8, 8 }, asge::math::Rect{ 8, 0, 8, 8 } })
-    }).IsOk());
+    Entity entity = Spawn();
+    asge::game::systems::AnimatorSystem(m_Registry, 0.0f);
+    ASSERT_TRUE(asge::game::components::Fire(AnimatorOf(entity), "hit"));
 
-    asge::game::systems::AnimationSystem(registry, 10.0f);
-    EXPECT_EQ(registry.GetComponent<Animation>(entity.Value()).Value().get().m_CurrentFrame, 0u);
+    asge::game::systems::AnimatorSystem(m_Registry, 0.0f);
+
+    EXPECT_EQ(AnimatorOf(entity).m_State, StateId(entity, "act"));
+    EXPECT_EQ(AnimatorOf(entity).m_Triggers, 0u);
 }
 
-TEST(AnimationSystemTest, NotPlayingAnimationIsNotAdvanced)
+TEST_F(AnimatorSystemTest, HoldStateClampsOnLastFrameAndFinishesOnce)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_Playing = false
-    }).IsOk());
-
-    asge::game::systems::AnimationSystem(registry, 10.0f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 0u);
-    EXPECT_FLOAT_EQ(anim.m_ElapsedTime, 0.0f);
-}
-
-TEST(AnimationSystemTest, StoppingRestoresTheSpritesOwnSourceRect)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture, .m_SourceRect = idle }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    auto& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
-    auto& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
-
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f); // Playing: the clip drives the crop.
-
-    asge::game::components::StopAnimation(anim);
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    ASSERT_TRUE(sprite.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f); // Stopped: the Sprite's own crop is back...
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_Y, 16.0f);
-
-    sprite.m_SourceRect = asge::math::Rect{ 24.0f, 0.0f, 8.0f, 8.0f };
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 24.0f); // ...and stays editable: the Animation leaves it alone.
-}
-
-TEST(AnimationSystemTest, ClearingTheClipPathWhilePlayingRestoresTheSpritesOwnSourceRect)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk()); // whole texture: no rect
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    auto& sprite = registry.GetComponent<Sprite>(entity.Value()).Value().get();
-    auto& anim = registry.GetComponent<Animation>(entity.Value()).Value().get();
-
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    ASSERT_TRUE(sprite.m_SourceRect.has_value());
-
-    anim.m_ClipPath.clear(); // Still m_Playing, as the editor's "None" clip selection leaves it.
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    EXPECT_FALSE(sprite.m_SourceRect.has_value());
-}
-
-// A 2-frame non-looping Animation on a Sprite whose own crop is `idle`, with the given finish behavior.
-Entity SpawnFinishingAnimation(Registry& inRegistry, FakeTexture* inTexture, asge::math::Rect inIdle,
-                               asge::game::components::FinishBehavior inBehavior)
-{
-    auto entity = inRegistry.CreateEntity();
-    EXPECT_TRUE(entity.IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Sprite{ .m_Texture = inTexture, .m_SourceRect = inIdle }).IsOk());
-    EXPECT_TRUE(inRegistry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Loop = false,
-        .m_FinishBehavior = inBehavior,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-    return entity.Value();
-}
-
-TEST(AnimationSystemTest, FinishedClipRestoresTheSpriteCropByDefault)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
-    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::RestoreSprite);
-    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
-
-    asge::game::systems::AnimationSystem(registry, 0.5f); // finishes, last frame shown
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f);
-    asge::game::systems::AnimationSystem(registry, 0.1f); // next run hands the crop back
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f);
-}
-
-TEST(AnimationSystemTest, HoldLastFrameKeepsTheLastFrameAfterTheClipFinishes)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
-    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::HoldLastFrame);
-    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
-    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+    Entity entity = Spawn();
+    asge::game::systems::AnimatorSystem(m_Registry, 0.0f);
+    ASSERT_TRUE(asge::game::components::SetFlag(AnimatorOf(entity), "go", true));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.0f); // enters "act"
 
     int finished = 0;
-    auto conn = asge::game::events::OnAnimationFinished().Connect([&finished](Entity) { ++finished; });
-    for ( int i = 0; i < 4; ++i ) asge::game::systems::AnimationSystem(registry, 0.5f);
-    conn.Disconnect();
+    Entity finishedEntity = Entity::Null();
+    auto conn = asge::game::events::OnAnimationFinished().Connect(
+        [&](Entity inEntity) { ++finished; finishedEntity = inEntity; });
 
-    EXPECT_FALSE(anim.m_Playing); // Still reports finished...
-    EXPECT_EQ(finished, 1);       // ...and the signal still fires exactly once...
-    ASSERT_TRUE(sprite.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 8.0f); // ...but the last frame stays on the Sprite.
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f); // well past the end
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f); // already finished: must not re-emit
+
+    EXPECT_EQ(AnimatorOf(entity).m_Status, AnimStatus::Finished);
+    EXPECT_TRUE(asge::game::components::IsFinished(AnimatorOf(entity)));
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 2u);
+    EXPECT_EQ(finished, 1);
+    EXPECT_EQ(finishedEntity, entity);
+    EXPECT_FLOAT_EQ(SpriteOf(entity).m_SourceRect->m_X, 16.0f);
 }
 
-TEST(AnimationSystemTest, HeldFrameIsNotSavedAsTheRestCropWhenTheNextClipStarts)
+TEST_F(AnimatorSystemTest, LoopingStateNeverEmitsFinished)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
-    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::HoldLastFrame);
-    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
-    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+    Spawn();
+    int finished = 0;
+    auto conn = asge::game::events::OnAnimationFinished().Connect([&](Entity) { ++finished; });
 
-    asge::game::systems::AnimationSystem(registry, 0.5f);
-    asge::game::systems::AnimationSystem(registry, 0.1f); // held
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f);
 
-    // Start a second clip, as PlayClip would once its FrameTable is resolved.
-    anim.m_ClipPath = "test/other.toml";
-    anim.m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 8.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 8.0f, 8.0f, 8.0f } });
-    anim.m_CurrentFrame = 0;
-    anim.m_ElapsedTime = 0.0f;
-    anim.m_Playing = true;
-    asge::game::systems::AnimationSystem(registry, 0.05f);
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_Y, 8.0f); // The new clip drives the crop.
-
-    anim.m_ClipPath.clear(); // Clearing the clip restores the scene crop, not the held frame.
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    ASSERT_TRUE(sprite.m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f);
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_Y, 16.0f);
+    EXPECT_EQ(finished, 0);
 }
 
-TEST(AnimationSystemTest, ClearingTheClipPathReleasesAHeldFrame)
+TEST_F(AnimatorSystemTest, StartPlayingFalseLeavesTheSpriteCropUntouched)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    asge::math::Rect const idle{ 16.0f, 16.0f, 8.0f, 8.0f };
-    Entity entity = SpawnFinishingAnimation(registry, &texture, idle, asge::game::components::FinishBehavior::HoldLastFrame);
-    auto& sprite = registry.GetComponent<Sprite>(entity).Value().get();
-    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
+    Entity entity = Spawn(Animator{ .m_StartPlaying = false });
 
-    asge::game::systems::AnimationSystem(registry, 0.5f);
-    anim.m_ClipPath.clear();
-    asge::game::systems::AnimationSystem(registry, 0.1f);
-    EXPECT_FLOAT_EQ(sprite.m_SourceRect->m_X, 16.0f);
-    EXPECT_FALSE(anim.m_HoldingLastFrame);
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f);
+
+    EXPECT_EQ(AnimatorOf(entity).m_Status, AnimStatus::Stopped);
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 0u);
+    EXPECT_FALSE(SpriteOf(entity).m_SourceRect.has_value());
 }
 
-TEST(AnimationSystemTest, HoldLastFrameDoesNotAffectLoopingClips)
+TEST_F(AnimatorSystemTest, StoppingRestoresTheSpritesOwnSourceRectAndResumeContinues)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-    Entity entity = SpawnFinishingAnimation(registry, &texture, asge::math::Rect{ 16.0f, 16.0f, 8.0f, 8.0f },
-                                            asge::game::components::FinishBehavior::HoldLastFrame);
-    auto& anim = registry.GetComponent<Animation>(entity).Value().get();
-    anim.m_Loop = true;
+    Entity entity = Spawn();
+    SpriteOf(entity).m_SourceRect = asge::math::Rect{ 1.0f, 2.0f, 3.0f, 4.0f };
+    asge::game::systems::AnimatorSystem(m_Registry, 0.1f);
+    ASSERT_FLOAT_EQ(SpriteOf(entity).m_SourceRect->m_X, 8.0f);
 
-    asge::game::systems::AnimationSystem(registry, 0.5f);
-    EXPECT_TRUE(anim.m_Playing);
-    EXPECT_FALSE(anim.m_HoldingLastFrame);
+    asge::game::components::Stop(AnimatorOf(entity));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.1f);
+
+    EXPECT_FLOAT_EQ(SpriteOf(entity).m_SourceRect->m_X, 1.0f);
+    EXPECT_FLOAT_EQ(SpriteOf(entity).m_SourceRect->m_Width, 3.0f);
+
+    asge::game::components::Resume(AnimatorOf(entity));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.1f);
+
+    EXPECT_EQ(AnimatorOf(entity).m_Status, AnimStatus::Playing);
+    EXPECT_FLOAT_EQ(SpriteOf(entity).m_SourceRect->m_Width, 8.0f);
 }
 
-TEST(AnimationSystemTest, EmptyFramesListIsSkippedRatherThanCrashing)
+TEST_F(AnimatorSystemTest, UnresolvedClipSetIsSkippedRatherThanCrashing)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    Entity entity = Spawn(Animator{}, false);
 
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml", .m_Clip = MakeClip({})
-    }).IsOk());
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f);
 
-    asge::game::systems::AnimationSystem(registry, 1.0f);
-
-    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
-    auto const& sprite = spriteResult.Value().get();
-    EXPECT_FALSE(sprite.m_SourceRect.has_value());
+    EXPECT_FALSE(AnimatorOf(entity).m_Started);
+    EXPECT_FALSE(SpriteOf(entity).m_SourceRect.has_value());
 }
 
-TEST(AnimationSystemTest, UnresolvedClipIsSkippedRatherThanCrashing)
+TEST_F(AnimatorSystemTest, NullTextureIsSkipped)
 {
-    // Regression guard: an entity whose Animation::m_Clip hasn't been
-    // resolved yet (asset::AssetManager::ResolveAssets never ran, or ran
-    // before this entity existed) must be left alone, not dereferenced.
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    Entity entity = Spawn();
+    SpriteOf(entity).m_Texture = nullptr;
 
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml", .m_FrameDuration = 0.1f, .m_Clip = nullptr
-    }).IsOk());
+    asge::game::systems::AnimatorSystem(m_Registry, 1.0f);
 
-    asge::game::systems::AnimationSystem(registry, 1.0f);
-
-    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
-    auto const& sprite = spriteResult.Value().get();
-    EXPECT_FALSE(sprite.m_SourceRect.has_value());
-}
-
-TEST(AnimationSystemTest, NullTextureIsSkipped)
-{
-    Registry registry;
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = nullptr }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    asge::game::systems::AnimationSystem(registry, 1.0f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 0u);
-}
-
-TEST(AnimationSystemTest, NonPositiveFrameDurationIsSkippedRatherThanLoopingForever)
-{
-    // Regression guard: the advance loop is `while (elapsed >= duration)`,
-    // so a zero/negative duration must be treated as "not animating" --
-    // otherwise this call never returns.
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.0f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    asge::game::systems::AnimationSystem(registry, 1.0f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 0u);
-}
-
-TEST(AnimationSystemTest, LargeDeltaTimeStepsThroughMultipleFramesInOneCall)
-{
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Loop = true,
-        .m_Clip = MakeClip({
-            asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f },
-            asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f },
-            asge::math::Rect{ 16.0f, 0.0f, 8.0f, 8.0f }
-        })
-    }).IsOk());
-
-    // 0.35s / 0.1s per frame = 3 whole steps -> frame (0 + 3) % 3 == 0, 0.05s left over.
-    asge::game::systems::AnimationSystem(registry, 0.35f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_CurrentFrame, 0u);
-    EXPECT_NEAR(anim.m_ElapsedTime, 0.05f, 1e-5f);
-}
-
-TEST(AnimationSystemTest, OutOfRangeCurrentFrameFromLongerClipIsWrappedToZero)
-{
-    // Regression for #120: swapping an 8-frame clip at frame 6 for a 2-frame
-    // one must not index past the new clip.
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
-
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } }),
-        .m_CurrentFrame = 6
-    }).IsOk());
-
-    asge::game::systems::AnimationSystem(registry, 0.01f);
-
-    auto animResult = registry.GetComponent<Animation>(entity.Value());
-    EXPECT_EQ(animResult.Value().get().m_CurrentFrame, 0u);
-    auto spriteResult = registry.GetComponent<Sprite>(entity.Value());
-    ASSERT_TRUE(spriteResult.Value().get().m_SourceRect.has_value());
-    EXPECT_FLOAT_EQ(spriteResult.Value().get().m_SourceRect->m_X, 0.0f);
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 0u);
+    EXPECT_FALSE(SpriteOf(entity).m_SourceRect.has_value());
 }
 
 // ─── RenderPipeline ──────────────────────────────────────────────────────────────
 
-TEST(RenderPipelineTest, AdvancesAnimationThenDrawsTheUpdatedFrame)
+TEST_F(AnimatorSystemTest, RenderPipelineAdvancesTheAnimatorThenDrawsTheUpdatedFrame)
 {
-    Registry registry;
-    FakeTexture texture(asge::math::Int2{ 32, 32 });
     RecordingRenderer renderer;
+    Entity entity = Spawn();
+    ASSERT_TRUE(m_Registry.AddComponent(entity, Transform{}).IsOk());
 
-    auto entity = registry.CreateEntity();
-    ASSERT_TRUE(entity.IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{}).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
-    ASSERT_TRUE(registry.AddComponent(entity.Value(), Animation{
-        .m_ClipPath = "test/clip.toml",
-        .m_FrameDuration = 0.1f,
-        .m_Clip = MakeClip({ asge::math::Rect{ 0.0f, 0.0f, 8.0f, 8.0f }, asge::math::Rect{ 8.0f, 0.0f, 8.0f, 8.0f } })
-    }).IsOk());
-
-    asge::game::systems::RenderPipeline(registry, renderer, 0.1f);
+    asge::game::systems::RenderPipeline(m_Registry, renderer, 0.1f);
 
     ASSERT_EQ(renderer.m_Calls.size(), 1u);
     EXPECT_TRUE(renderer.m_Calls[0].m_HadSourceRect);
-    EXPECT_FLOAT_EQ(renderer.m_Calls[0].m_DestRect.m_Width, 8.0f); // The 2nd (advanced-to) frame's width.
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 1u);
 }
 
 }

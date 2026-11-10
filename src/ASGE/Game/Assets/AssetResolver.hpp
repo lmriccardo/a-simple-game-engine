@@ -85,30 +85,6 @@ struct Resolver<components::Sprite>
 };
 
 /**
- * @brief Resolves Animation::m_ClipPath into m_Clip via AssetManager::GetFrameTable.
- *
- * Re-resolves whenever m_ClipPath differs from m_ResolvedClipPath — so
- * repointing it to a new clip loads it, and clearing it to empty releases
- * m_Clip back to null — rather than resolving once and never again.
- */
-template<>
-struct Resolver<components::Animation>
-{
-    using C = components::Animation;
-    /**
-     * @brief Resolves one Animation's asset.
-     *
-     * See the Resolver<Animation> comment above for when it (re)loads.
-     */
-    void operator()(
-                         AssetManager&      inAssetManager,
-        [[maybe_unused]] ecs::Registry&     inRegistry,
-        [[maybe_unused]] video::IRenderer&  inRenderer,
-                         C&                 inAnimation
-    ) const noexcept;
-};
-
-/**
  * @brief Resolves Animator::m_ClipSetPath into m_ClipSet via AssetManager::GetClipSet.
  *
  * Re-resolves whenever m_ClipSetPath differs from the path m_ClipSet was
@@ -243,20 +219,6 @@ struct AssetRefs<components::Sprite>
      * @brief The sprite's texture reference, or nullopt if its path is empty.
      */
     std::optional<AssetRef> operator()( components::Sprite const& inSprite ) const noexcept;
-};
-
-/**
- * @brief Reports Animation::m_ClipPath as an AssetKind::AnimationClip reference.
- *
- * Nothing is reported while the path is empty.
- */
-template<>
-struct AssetRefs<components::Animation>
-{
-    /**
-     * @brief The animation's clip reference, or nullopt if its path is empty.
-     */
-    std::optional<AssetRef> operator()( components::Animation const& inAnimation ) const noexcept;
 };
 
 /**

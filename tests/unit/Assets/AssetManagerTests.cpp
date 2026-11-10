@@ -2,7 +2,6 @@
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/Path.hpp>
@@ -642,51 +641,6 @@ TEST_F(ResolveAssetsTest, TwoSpritesWithTheSameVirtualPathShareOneTexture)
     EXPECT_EQ(FakeTexture::s_LiveCount, 1); // one texture shared, not two
 }
 
-TEST_F(ResolveAssetsTest, AnimationWithClipPathGetsClipAssigned)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
-
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    ASSERT_NE(anim.m_Clip, nullptr);
-    EXPECT_EQ(anim.m_Clip->Get().m_Frames.size(), 4u);
-}
-
-TEST_F(ResolveAssetsTest, AnimationAlreadyHavingAClipIsLeftUntouched)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    auto preResolved = mgr.GetFrameTable("images/walk.toml");
-    ASSERT_TRUE(preResolved.IsOk());
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml", .m_Clip = preResolved.Value(),
-            .m_ResolvedClipPath = "images/walk.toml" }).IsOk());
-
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_Clip, preResolved.Value());
-}
-
-TEST_F(ResolveAssetsTest, AnimationWithEmptyClipPathIsSkipped)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(entity.Value(), {}).IsOk());
-
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_Clip, nullptr);
-}
-
 TEST_F(ResolveAssetsTest, AudioSourceWithVirtualClipPathGetsClipAssigned)
 {
     AssetManager mgr(m_Vfs);
@@ -915,44 +869,6 @@ TEST_F(ResolveAssetsTest, Sprite_FailedRepointLeavesOldTextureAndRetriesNextCall
     EXPECT_EQ(sprite.m_ResolvedVirtualPath, "images/other.bmp");
 }
 
-TEST_F(ResolveAssetsTest, Animation_RepointingClipPathResolvesTheNewClip)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-    ASSERT_NE(m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip, nullptr);
-
-    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath = "images/walk2.toml";
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    ASSERT_NE(anim.m_Clip, nullptr);
-    EXPECT_EQ(anim.m_Clip->VirtualPath(), "images/walk2.toml");
-    EXPECT_EQ(anim.m_Clip->Get().m_Frames.size(), 6u);
-    EXPECT_EQ(anim.m_ResolvedClipPath, "images/walk2.toml");
-}
-
-TEST_F(ResolveAssetsTest, Animation_ClearingClipPathReleasesTheClip)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-    ASSERT_NE(m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip, nullptr);
-
-    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath.clear();
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_EQ(anim.m_Clip, nullptr);
-    EXPECT_TRUE(anim.m_ResolvedClipPath.empty());
-}
-
 TEST_F(ResolveAssetsTest, Animator_ClipSetPathResolvesSetMachineAndFrameTables)
 {
     WriteText(m_ImagesDir / "m.animsm",
@@ -1011,53 +927,6 @@ TEST_F(ResolveAssetsTest, Animator_ClearingClipSetPathReleasesTheClipSet)
 
     EXPECT_EQ(animator.m_ClipSet, nullptr);
     EXPECT_FALSE(animator.m_Started);
-}
-
-TEST_F(ResolveAssetsTest, Animation_UnchangedClipPathDoesNotReResolve)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto otherClip = mgr.GetFrameTable("images/walk2.toml");
-    ASSERT_TRUE(otherClip.IsOk());
-    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip = otherClip.Value();
-
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    EXPECT_EQ(animResult.Value().get().m_Clip, otherClip.Value());
-}
-
-TEST_F(ResolveAssetsTest, Animation_FailedRepointLeavesOldClipAndRetriesNextCall)
-{
-    AssetManager mgr(m_Vfs);
-    auto entity = m_Registry.CreateEntity();
-    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animation>(
-        entity.Value(), { .m_ClipPath = "images/walk.toml" }).IsOk());
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-    auto originalClip = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_Clip;
-    ASSERT_NE(originalClip, nullptr);
-
-    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath = "images/missing.toml";
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    {
-        auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-        auto const& anim = animResult.Value().get();
-        EXPECT_EQ(anim.m_Clip, originalClip);
-        EXPECT_EQ(anim.m_ResolvedClipPath, "images/walk.toml");
-    }
-
-    m_Registry.GetComponent<asge::game::components::Animation>(entity.Value()).Value().get().m_ClipPath = "images/walk2.toml";
-    mgr.ResolveAssets(m_Registry, m_Renderer);
-
-    auto animResult = m_Registry.GetComponent<asge::game::components::Animation>(entity.Value());
-    auto const& anim = animResult.Value().get();
-    EXPECT_NE(anim.m_Clip, originalClip);
-    EXPECT_EQ(anim.m_ResolvedClipPath, "images/walk2.toml");
 }
 
 TEST_F(ResolveAssetsTest, AudioSource_RepointingVirtualClipPathResolvesTheNewClip)

@@ -20,33 +20,32 @@ using asge::formats::toml::TOMLBuilder;
 
 // ─── SerializableComponents / kTableName contract ──────────────────────────
 
-TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
+TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAudioSourceCameraPathPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 24);
+    static_assert(std::tuple_size_v<SerializableComponents> == 23);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
     static_assert(std::is_same_v<std::tuple_element_t<3, SerializableComponents>, Collider>);
     static_assert(std::is_same_v<std::tuple_element_t<4, SerializableComponents>, Rigidbody>);
-    static_assert(std::is_same_v<std::tuple_element_t<5, SerializableComponents>, Animation>);
-    static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, AudioSource>);
-    static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Camera>);
-    static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, Path>);
-    static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, PathFollow>);
-    static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Name>);
-    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, Hierarchy>);
-    static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, Disable>);
-    static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, UIButton>);
-    static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, RenderInfo>);
-    static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, UIRect>);
-    static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, Interactable>);
-    static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UILabel>);
-    static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UICheckbox>);
-    static_assert(std::is_same_v<std::tuple_element_t<19, SerializableComponents>, UISlider>);
-    static_assert(std::is_same_v<std::tuple_element_t<20, SerializableComponents>, UIPanel>);
-    static_assert(std::is_same_v<std::tuple_element_t<21, SerializableComponents>, UILayoutItem>);
-    static_assert(std::is_same_v<std::tuple_element_t<22, SerializableComponents>, UIProgressBar>);
-    static_assert(std::is_same_v<std::tuple_element_t<23, SerializableComponents>, Animator>);
+    static_assert(std::is_same_v<std::tuple_element_t<5, SerializableComponents>, AudioSource>);
+    static_assert(std::is_same_v<std::tuple_element_t<6, SerializableComponents>, Camera>);
+    static_assert(std::is_same_v<std::tuple_element_t<7, SerializableComponents>, Path>);
+    static_assert(std::is_same_v<std::tuple_element_t<8, SerializableComponents>, PathFollow>);
+    static_assert(std::is_same_v<std::tuple_element_t<9, SerializableComponents>, Name>);
+    static_assert(std::is_same_v<std::tuple_element_t<10, SerializableComponents>, Hierarchy>);
+    static_assert(std::is_same_v<std::tuple_element_t<11, SerializableComponents>, Disable>);
+    static_assert(std::is_same_v<std::tuple_element_t<12, SerializableComponents>, UIButton>);
+    static_assert(std::is_same_v<std::tuple_element_t<13, SerializableComponents>, RenderInfo>);
+    static_assert(std::is_same_v<std::tuple_element_t<14, SerializableComponents>, UIRect>);
+    static_assert(std::is_same_v<std::tuple_element_t<15, SerializableComponents>, Interactable>);
+    static_assert(std::is_same_v<std::tuple_element_t<16, SerializableComponents>, UILabel>);
+    static_assert(std::is_same_v<std::tuple_element_t<17, SerializableComponents>, UICheckbox>);
+    static_assert(std::is_same_v<std::tuple_element_t<18, SerializableComponents>, UISlider>);
+    static_assert(std::is_same_v<std::tuple_element_t<19, SerializableComponents>, UIPanel>);
+    static_assert(std::is_same_v<std::tuple_element_t<20, SerializableComponents>, UILayoutItem>);
+    static_assert(std::is_same_v<std::tuple_element_t<21, SerializableComponents>, UIProgressBar>);
+    static_assert(std::is_same_v<std::tuple_element_t<22, SerializableComponents>, Animator>);
     SUCCEED();
 }
 
@@ -58,7 +57,6 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<Sprite>::kTableName, "Sprite");
     EXPECT_EQ(Serializer<Collider>::kTableName, "Collider");
     EXPECT_EQ(Serializer<Rigidbody>::kTableName, "Rigidbody");
-    EXPECT_EQ(Serializer<Animation>::kTableName, "Animation");
     EXPECT_EQ(Serializer<AudioSource>::kTableName, "AudioSource");
     EXPECT_EQ(Serializer<Camera>::kTableName, "Camera");
     EXPECT_EQ(Serializer<Path>::kTableName, "Path");
@@ -338,189 +336,6 @@ TEST(ColliderSerializerTest, FromToml_MissingLayerAndMaskKeysDefaultToCollideWit
     Collider const restored = Serializer<Collider>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_EQ(restored.m_Layer, 1u);
     EXPECT_EQ(restored.m_Mask, ~CollisionLayer{0});
-}
-
-// ─── Animation ──────────────────────────────────────────────────────────────
-
-TEST(AnimationSerializerTest, ToToml_WritesClipPathAndFrameDurationUnderAnimationTable)
-{
-    TOMLBuilder builder;
-    Animation const anim{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.2f };
-    Serializer<Animation>::ToToml(anim, builder, asge::game::scene::SaveContext{});
-
-    auto const dump = builder.ToString();
-    EXPECT_NE(dump.find("[Animation]"), std::string::npos);
-    EXPECT_NE(dump.find(R"(m_ClipPath = "clips/walk.toml")"), std::string::npos);
-    EXPECT_NE(dump.find("m_FrameDuration = 0.2"), std::string::npos);
-}
-
-TEST(AnimationSerializerTest, RoundTrip_ClipPathAndDurationPreserved)
-{
-    TOMLBuilder builder;
-    Animation const original{ .m_ClipPath = "clips/walk.toml", .m_FrameDuration = 0.15f };
-    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_EQ(restored.m_ClipPath, original.m_ClipPath);
-    EXPECT_FLOAT_EQ(restored.m_FrameDuration, original.m_FrameDuration);
-}
-
-TEST(AnimationSerializerTest, RoundTrip_PlaybackSpeedPreservedAndDefaultsToOne)
-{
-    TOMLBuilder builder;
-    Serializer<Animation>::ToToml(Animation{ .m_PlaybackSpeed = 2.5f }, builder, asge::game::scene::SaveContext{});
-    EXPECT_FLOAT_EQ(Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{}).m_PlaybackSpeed, 2.5f);
-
-    TOMLBuilder legacy;
-    legacy.Table("Animation").Set("m_FrameDuration", 0.1f);
-    EXPECT_FLOAT_EQ(Serializer<Animation>::FromToml(legacy, asge::game::scene::LoadContext{}).m_PlaybackSpeed, 1.0f);
-}
-
-TEST(AnimationSerializerTest, FromToml_ClipAndPlaybackProgressAlwaysResetToStructDefaults)
-{
-    // m_Clip (a resolved asset) and playback progress are never something a
-    // scene file describes, so FromToml must not carry them over.
-    TOMLBuilder builder;
-    Serializer<Animation>::ToToml(Animation{ .m_ClipPath = "clips/walk.toml" }, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_EQ(restored.m_Clip, nullptr);
-    EXPECT_EQ(restored.m_CurrentFrame, 0u);
-    EXPECT_FLOAT_EQ(restored.m_ElapsedTime, 0.0f);
-    EXPECT_TRUE(restored.m_Loop);
-    EXPECT_TRUE(restored.m_Playing);
-}
-
-TEST(AnimationSerializerTest, RoundTrip_LoopAndStartPlayingPreserved)
-{
-    TOMLBuilder builder;
-    Animation const original{ .m_ClipPath = "clips/attack.toml", .m_Loop = false, .m_StartPlaying = false };
-    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_FALSE(restored.m_Loop);
-    EXPECT_FALSE(restored.m_StartPlaying);
-    EXPECT_FALSE(restored.m_Playing); // seeded from m_StartPlaying
-}
-
-TEST(AnimationSerializerTest, RoundTrip_FinishBehaviorPreserved)
-{
-    using asge::game::components::FinishBehavior;
-    for ( auto const behavior : { FinishBehavior::RestoreSprite, FinishBehavior::HoldLastFrame } )
-    {
-        TOMLBuilder builder;
-        Animation const original{ .m_ClipPath = "clips/up.toml", .m_Loop = false, .m_FinishBehavior = behavior };
-        Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
-
-        Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-        EXPECT_EQ(restored.m_FinishBehavior, behavior);
-    }
-}
-
-TEST(AnimationSerializerTest, FromToml_MissingOrUnknownFinishBehaviorDefaultsToRestoreSprite)
-{
-    using asge::game::components::FinishBehavior;
-    TOMLBuilder missing;
-    missing.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml");
-    EXPECT_EQ(Serializer<Animation>::FromToml(missing, asge::game::scene::LoadContext{}).m_FinishBehavior,
-              FinishBehavior::RestoreSprite);
-
-    TOMLBuilder unknown;
-    unknown.Table("Animation").Set<std::string>("m_FinishBehavior", "Bogus");
-    EXPECT_EQ(Serializer<Animation>::FromToml(unknown, asge::game::scene::LoadContext{}).m_FinishBehavior,
-              FinishBehavior::RestoreSprite);
-}
-
-TEST(AnimationSerializerTest, ToToml_SavesStartPlayingNotLiveMPlaying)
-{
-    // The editor stops animations on load; saving the live m_Playing would
-    // turn every editor-saved animation into a paused one.
-    TOMLBuilder builder;
-    Animation anim{ .m_ClipPath = "clips/walk.toml" };
-    StopAnimation(anim);
-    Serializer<Animation>::ToToml(anim, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_TRUE(restored.m_StartPlaying);
-    EXPECT_TRUE(restored.m_Playing);
-}
-
-TEST(AnimationSerializerTest, FromToml_MissingLoopAndStartPlayingKeysDefaultToTrue)
-{
-    // Scene files written before these were serialized must load as before.
-    TOMLBuilder builder;
-    builder.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml").Set("m_FrameDuration", 0.1f);
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_TRUE(restored.m_Loop);
-    EXPECT_TRUE(restored.m_StartPlaying);
-    EXPECT_TRUE(restored.m_Playing);
-}
-
-TEST(AnimationSerializerTest, RoundTrip_NamedClipsPreserved)
-{
-    TOMLBuilder builder;
-    Animation original{ .m_ClipPath = "clips/idle.toml" };
-    original.m_Clips = { { "idle", "clips/idle.toml" }, { "run", "clips/run.toml" } };
-    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_EQ(restored.m_Clips, original.m_Clips);
-}
-
-TEST(AnimationSerializerTest, RoundTrip_ClipFrameDurationsPreserved)
-{
-    TOMLBuilder builder;
-    Animation original{ .m_ClipPath = "clips/idle.toml" };
-    original.m_Clips = { { "idle", "clips/idle.toml" }, { "run", "clips/run.toml" } };
-    original.m_ClipFrameDurations = { { "run", 0.05f } };
-    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_EQ(restored.m_ClipFrameDurations, original.m_ClipFrameDurations);
-}
-
-TEST(AnimationSerializerTest, ToToml_DropsDurationOfRemovedClip)
-{
-    TOMLBuilder builder;
-    Animation original{ .m_ClipPath = "clips/idle.toml" };
-    original.m_Clips = { { "idle", "clips/idle.toml" } };
-    original.m_ClipFrameDurations = { { "idle", 0.2f }, { "gone", 0.9f } };
-    Serializer<Animation>::ToToml(original, builder, asge::game::scene::SaveContext{});
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    ASSERT_EQ(restored.m_ClipFrameDurations.size(), 1u);
-    EXPECT_TRUE(restored.m_ClipFrameDurations.contains("idle"));
-}
-
-TEST(AnimationSerializerTest, FromToml_MissingClipDurationsDefaultsToNoOverrides)
-{
-    TOMLBuilder builder;
-    builder.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml");
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_TRUE(restored.m_ClipFrameDurations.empty());
-}
-
-TEST(AnimationSerializerTest, FromToml_MissingClipNamesDefaultsToNoNamedClips)
-{
-    TOMLBuilder builder;
-    builder.Table("Animation").Set<std::string>("m_ClipPath", "clips/walk.toml");
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_TRUE(restored.m_Clips.empty());
-}
-
-TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
-{
-    // A hand-written or pre-Animation scene file has no "m_ClipPath" key at
-    // all -- AnimationSystem already treats an empty m_ClipPath as "not
-    // animating" (see RenderSystemTests.cpp), so this must not error.
-    TOMLBuilder builder;
-    builder.Table("Animation").Set("m_FrameDuration", 0.1f);
-
-    Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
-    EXPECT_TRUE(restored.m_ClipPath.empty());
 }
 
 // ─── Animator ───────────────────────────────────────────────────────────────

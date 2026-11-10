@@ -9,17 +9,6 @@ namespace asge::game::systems
 {
 
 /**
- * @brief Advances every entity's Animation and writes the current frame into its Sprite.
- *
- * The frame goes into Sprite::m_SourceRect. Entities whose clip or texture is
- * not resolved yet are left untouched. Elapsed time (scaled by m_PlaybackSpeed)
- * steps m_CurrentFrame once per frame duration; at the end it wraps (m_Loop) or
- * clamps and clears m_Playing, emitting events::OnAnimationFinished. A
- * non-positive duration or speed means "not animating".
- */
-void AnimationSystem( ecs::Registry& inRegistry, float inDeltaTime ) noexcept;
-
-/**
  * @brief Points inRenderer's camera at resources::ActiveCamera's entity, if any.
  *
  * A no-op unless ActiveCamera is a live entity with a Camera and a Transform.
@@ -41,7 +30,7 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 
 /**
- * @brief The single per-frame entry point: AnimationSystem, CameraSystem, RenderSystem.
+ * @brief The single per-frame entry point: AnimatorSystem, CameraSystem, RenderSystem.
  *
  * Equivalent to calling the three in that order. CameraSystem runs before
  * RenderSystem so this frame's camera move is what gets culled and drawn.

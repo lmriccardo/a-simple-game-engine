@@ -14,7 +14,7 @@ namespace asge::game::components
  * @brief An entity's audio clip plus its current playback state.
  *
  * m_VirtualClipPath (set directly or via scene deserialization) is resolved
- * to m_Clip by asset::AssetManager::ResolveAssets, same as Sprite/Animation
+ * to m_Clip by asset::AssetManager::ResolveAssets, same as Sprite/Animator
  * resolve their own paths. m_Stream is left null until systems::AudioSystem
  * first plays this source -- once assigned, it points into the owning
  * audio::AudioDevice's stream pool and stays valid for this source's

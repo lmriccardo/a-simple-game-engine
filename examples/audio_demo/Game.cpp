@@ -23,7 +23,7 @@ AudioDemoState::AudioDemoState(
 
 void AudioDemoState::SpawnSources()
 {
-    // Unlike Sprite/Animation, resolving an AudioClip doesn't need a
+    // Unlike Sprite/Animator, resolving an AudioClip doesn't need a
     // renderer -- so both sources are resolved eagerly here instead of
     // going through AssetManager::ResolveAssets' deferred per-frame pass.
     auto ambient = m_Registry.CreateEntity();

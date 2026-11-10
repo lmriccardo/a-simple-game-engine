@@ -22,29 +22,6 @@ void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(
     inSprite.m_ResolvedVirtualPath = inSprite.m_VirtualPath;
 }
 
-void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(
-    AssetManager &inAssetManager, ecs::Registry &inRegistry,
-    video::IRenderer &inRenderer, C &inAnimation) const noexcept
-{
-    if ( inAnimation.m_ClipPath == inAnimation.m_ResolvedClipPath ) return;
-
-    if ( inAnimation.m_ClipPath.empty() )
-    {
-        inAnimation.m_Clip = nullptr;
-        inAnimation.m_ResolvedClipPath.clear();
-        inAnimation.m_CurrentFrame = 0;
-        inAnimation.m_ElapsedTime = 0.0f;
-        return;
-    }
-
-    auto frameTable = inAssetManager.GetFrameTable( inAnimation.m_ClipPath );
-    if ( !frameTable ) { frameTable.LogError(); return; }
-    inAnimation.m_Clip = frameTable.Value();
-    inAnimation.m_ResolvedClipPath = inAnimation.m_ClipPath;
-    inAnimation.m_CurrentFrame = 0;
-    inAnimation.m_ElapsedTime = 0.0f;
-}
-
 void asge::game::asset::Resolver<asge::game::components::Animator>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
     video::IRenderer &inRenderer, C &inAnimator) const noexcept
@@ -154,14 +131,6 @@ asge::game::asset::AssetRefs<asge::game::components::Sprite>::operator()(
 {
     if ( inSprite.m_VirtualPath.empty() ) return std::nullopt;
     return AssetRef{ AssetKind::Texture, inSprite.m_VirtualPath };
-}
-
-std::optional<asge::game::asset::AssetRef>
-asge::game::asset::AssetRefs<asge::game::components::Animation>::operator()(
-    components::Animation const &inAnimation) const noexcept
-{
-    if ( inAnimation.m_ClipPath.empty() ) return std::nullopt;
-    return AssetRef{ AssetKind::AnimationClip, inAnimation.m_ClipPath };
 }
 
 std::optional<asge::game::asset::AssetRef>

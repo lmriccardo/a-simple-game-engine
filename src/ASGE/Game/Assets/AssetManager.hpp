@@ -104,7 +104,7 @@ public:
     /**
      * @brief Loads (or returns the cached) `FrameTable` at a virtual path.
      *
-     * This is the meta-file a `components::Animation::m_ClipPath` points at.
+     * This is the meta-file a `components::Animator` clip set binds to a clip name.
      * Fails if the path doesn't resolve through the VFS or fails to parse.
      */
     [[nodiscard]] Result<asset_ptr<FrameTable>> GetFrameTable( str::StringCRef inVirtualPath );
@@ -168,7 +168,7 @@ public:
      * @brief Deferred-loads every asset-owning component that needs (re)resolving.
      *
      * Folds over `components::SerializableComponents` and runs `Resolver<T>` on
-     * each entity's T: a no-op for most, a real resolve for Sprite, Animation,
+     * each entity's T: a no-op for most, a real resolve for Sprite, Animator,
      * AudioSource and Path (see AssetResolver.hpp). A failed resolve is logged and
      * retried on the next call. Disabled entities are walked too
      * (`IncludeDisabled()`) so re-enabling one finds its assets ready.

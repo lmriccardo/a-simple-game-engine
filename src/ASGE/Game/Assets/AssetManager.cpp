@@ -1,6 +1,5 @@
 #include "AssetManager.hpp"
 
-#include <ASGE/Game/Components/Animation.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Video/Graphics/Rendering/RenderError.hpp>

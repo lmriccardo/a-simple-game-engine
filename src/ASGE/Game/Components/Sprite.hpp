@@ -29,10 +29,10 @@ namespace asge::game::components
  * still needs one. Draw order isn't a Sprite concern -- see
  * components::RenderInfo for layer/y-sort/screen-space.
  *
- * m_SourceRect is owned by components::Animation only while it is playing:
- * AnimationSystem overwrites it every frame then, and restores the crop it
- * found (a hand-set rect, or whole-texture nullopt) once the Animation stops
- * or its clip is cleared. While nothing plays, the Sprite's own m_SourceRect
+ * m_SourceRect is owned by components::Animator only while it is playing:
+ * AnimatorSystem overwrites it every frame then, and restores the crop it
+ * found (a hand-set rect, or whole-texture nullopt) once the Animator stops
+ * or finishes a restoring state. While nothing plays, the Sprite's own m_SourceRect
  * is what is drawn.
  */
 struct Sprite

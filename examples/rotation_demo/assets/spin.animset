@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnimClipSet machine="textures/spin.animsm">
+  <Clip name="spin" path="textures/walk.toml" frameDuration="0.12"/>
+</AnimClipSet>

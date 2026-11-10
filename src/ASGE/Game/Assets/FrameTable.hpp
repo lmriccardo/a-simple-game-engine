@@ -37,9 +37,9 @@ struct GridSpec
 /**
  * @brief A named sequence of source rects into a spritesheet.
  *
- * One entry per animation frame, shared by every components::Animation whose
- * m_ClipPath resolves to the same virtual path (see
- * asset::AssetManager::GetFrameTable/ResolveAssets).
+ * One entry per animation frame, shared by every asset::AnimationClipSet
+ * binding that points at the same virtual path (see
+ * asset::AssetManager::GetFrameTable).
  *
  * Load() reads a small TOML meta-file (its own `[FrameTable]` table, keyed
  * by kTableName) describing a contiguous run of cells on one regular grid
