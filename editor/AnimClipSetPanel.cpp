@@ -18,6 +18,7 @@ namespace
 
 namespace fs = std::filesystem;
 
+constexpr float kPi = 3.14159265f;
 constexpr std::size_t kMaxVariants = 8; // the engine's limit; its loader is what enforces it
 constexpr SDL_DialogFileFilter kSetFilters[]{ { "Clip set (*.animset)", "animset" } };
 
@@ -97,19 +98,85 @@ void SaveTo( fs::path const& inPath )
     g.m_Status = "Saved " + inPath.filename().string();
 }
 
-// Compass name for a variant of inCount evenly spaced clockwise from north, or its bearing.
+// Compass name for 4 or 8 directions, a bearing in degrees clockwise from north otherwise.
 std::string DirectionLabel( int inIndex, int inCount )
 {
     static char const* const kNames[]{ "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
     if ( inCount <= 1 ) return "";
-
-    float const degrees = 360.0f * static_cast<float>( inIndex ) / static_cast<float>( inCount );
-    int const rounded = static_cast<int>( degrees + 0.5f );
-    if ( rounded % 45 == 0 && std::abs( degrees - static_cast<float>( rounded ) ) < 0.01f ) return kNames[rounded / 45];
+    if ( inCount == 4 ) return kNames[inIndex * 2];
+    if ( inCount == 8 ) return kNames[inIndex];
 
     char buf[32];
-    std::snprintf( buf, sizeof buf, "%d deg", rounded );
+    std::snprintf( buf, sizeof buf, "%.0f deg", 360.0f * static_cast<float>( inIndex ) / static_cast<float>( inCount ) );
     return buf;
+}
+
+std::string ShortName( std::string const& inPath, std::size_t inMax )
+{
+    if ( inPath.empty() ) return "-";
+    std::string stem = fs::path( inPath ).stem().string();
+    if ( stem.size() > inMax ) stem = stem.substr( 0, inMax - 1 ) + "~";
+    return stem;
+}
+
+// A circle cut into one sector per variant, north at the top and clockwise, each showing its direction and frame table.
+void DrawDirectionWheel( AnimClipBinding const& inClip )
+{
+    constexpr float kSize = 190.0f;
+    int const n = static_cast<int>( inClip.m_Variants.size() );
+    ImVec2 const origin = ImGui::GetCursorScreenPos();
+    ImGui::Dummy( ImVec2( kSize, kSize ) );
+
+    ImDrawList* const list = ImGui::GetWindowDrawList();
+    ImVec2 const center( origin.x + kSize * 0.5f, origin.y + kSize * 0.5f );
+    float const radius = kSize * 0.5f - 2.0f;
+    float const half = kPi / static_cast<float>( n );
+
+    int hovered = -1;
+    if ( ImGui::IsItemHovered() )
+    {
+        ImVec2 const m = ImGui::GetMousePos();
+        float const dx = m.x - center.x, dy = m.y - center.y;
+        if ( dx * dx + dy * dy <= radius * radius )
+        {
+            float bearing = std::atan2( dx, -dy );
+            if ( bearing < 0.0f ) bearing += 2.0f * kPi;
+            hovered = static_cast<int>( std::lround( bearing / ( 2.0f * half ) ) ) % n;
+        }
+    }
+
+    std::size_t const maxChars = n <= 2 ? 14 : n <= 4 ? 9 : 6;
+    for ( int i = 0; i < n; ++i )
+    {
+        float const mid = 2.0f * half * static_cast<float>( i ) - kPi * 0.5f; // ImGui angles: 0 is east, clockwise
+        bool const empty = inClip.m_Variants[i].empty();
+        float const value = empty ? 0.22f : ( i == hovered ? 0.85f : 0.6f );
+        ImU32 const fill = ImColor::HSV( static_cast<float>( i ) / static_cast<float>( n ), empty ? 0.0f : 0.5f, value );
+
+        list->PathLineTo( center );
+        list->PathArcTo( center, radius, mid - half, mid + half );
+        list->PathFillConvex( fill );
+        list->AddLine( center, ImVec2( center.x + std::cos( mid - half ) * radius, center.y + std::sin( mid - half ) * radius ),
+                       IM_COL32( 20, 20, 24, 255 ), 1.5f );
+
+        ImVec2 const dir( std::cos( mid ), std::sin( mid ) );
+        float const at = n == 1 ? 0.0f : 0.62f;
+        auto const draw = [&]( std::string const& inText, float inRadius, ImU32 inColor )
+        {
+            ImVec2 const size = ImGui::CalcTextSize( inText.c_str() );
+            list->AddText( ImVec2( center.x + dir.x * radius * inRadius - size.x * 0.5f, center.y + dir.y * radius * inRadius - size.y * 0.5f ),
+                           inColor, inText.c_str() );
+        };
+        draw( DirectionLabel( i, n ), 0.85f, IM_COL32( 255, 255, 255, 255 ) );
+        draw( ShortName( inClip.m_Variants[i], maxChars ), at, IM_COL32( 235, 235, 235, 255 ) );
+    }
+    list->AddCircle( center, radius, IM_COL32( 20, 20, 24, 255 ), 0, 2.0f );
+
+    if ( hovered >= 0 )
+    {
+        auto const& path = inClip.m_Variants[hovered];
+        ImGui::SetTooltip( "%s: %s", DirectionLabel( hovered, n ).c_str(), path.empty() ? "(no frame table)" : path.c_str() );
+    }
 }
 
 bool DeclaredByMachine( std::string const& inName ) noexcept
@@ -144,7 +211,7 @@ void DrawAnimClipSetPanel(
     }
 
     ImGui::SetNextWindowPos( ImVec2( 80.0f, 100.0f ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( ImVec2( 700.0f, 420.0f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 780.0f, 480.0f ), ImGuiCond_FirstUseEver );
     if ( !ImGui::Begin( "Animation Clip Set", &ioOpen ) ) { ImGui::End(); return; }
 
     if ( g.m_NeedSync ) SyncWithMachine( inVfs );
@@ -187,8 +254,8 @@ void DrawAnimClipSetPanel(
         if ( clip.m_Variants.empty() ) clip.m_Variants.emplace_back();
 
         ImGui::SameLine( 170.0f );
-        ImGui::SetNextItemWidth( 90.0f );
-        int count = static_cast<int>( clip.m_Variants.size() );
+        ImGui::SetNextItemWidth( 100.0f );
+        int const count = static_cast<int>( clip.m_Variants.size() );
         char preview[24];
         std::snprintf( preview, sizeof preview, count == 1 ? "%d direction" : "%d directions", count );
         if ( ImGui::BeginCombo( "##dirs", preview ) )
@@ -201,6 +268,14 @@ void DrawAnimClipSetPanel(
             }
             ImGui::EndCombo();
         }
+
+        if ( count == 1 )
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth( 300.0f );
+            if ( PathCombo( "##table", clip.m_Variants.front(), tables ) ) Touch();
+        }
+
         ImGui::SameLine();
         ImGui::SetNextItemWidth( 80.0f );
         if ( ImGui::InputFloat( "##dur", &clip.m_FrameDuration, 0.0f, 0.0f, "%.3f s" ) ) Touch();
@@ -210,17 +285,25 @@ void DrawAnimClipSetPanel(
             if ( ImGui::SmallButton( "Remove" ) ) removeAt = i;
         }
 
-        ImGui::Indent();
-        for ( int v = 0; v < static_cast<int>( clip.m_Variants.size() ); ++v )
+        if ( count > 1 )
         {
-            ImGui::PushID( v );
-            ImGui::SetNextItemWidth( 360.0f );
-            auto const label = DirectionLabel( v, static_cast<int>( clip.m_Variants.size() ) );
-            if ( PathCombo( "##table", clip.m_Variants[v], tables ) ) Touch();
-            if ( !label.empty() ) { ImGui::SameLine(); ImGui::TextDisabled( "%s", label.c_str() ); }
-            ImGui::PopID();
+            ImGui::Indent();
+            ImGui::BeginGroup();
+            for ( int v = 0; v < count; ++v )
+            {
+                ImGui::PushID( v );
+                ImGui::SetNextItemWidth( 300.0f );
+                if ( PathCombo( "##table", clip.m_Variants[v], tables ) ) Touch();
+                ImGui::SameLine();
+                ImGui::TextDisabled( "%s", DirectionLabel( v, count ).c_str() );
+                ImGui::PopID();
+            }
+            ImGui::EndGroup();
+            ImGui::SameLine();
+            DrawDirectionWheel( clip );
+            ImGui::Unindent();
         }
-        ImGui::Unindent();
+        ImGui::Separator();
         ImGui::PopID();
     }
     if ( removeAt >= 0 ) { g.m_Doc.m_Clips.erase( g.m_Doc.m_Clips.begin() + removeAt ); Touch(); }
