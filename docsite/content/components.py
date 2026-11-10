@@ -35,7 +35,7 @@ CATEGORIES = [
              text="A marker with no fields. Disabled entities are skipped by every view unless it asks for <code>IncludeDisabled()</code>. Disabling an entity disables everything under it; <code>Registry::IsDisabled</code> reports the derived state.",
              fields=[]),
     ]),
-    ("rendering", "Rendering and animation components", "Sprite, RenderInfo, Camera and Animation.",
+    ("rendering", "Rendering and animation components", "Sprite, RenderInfo, Camera and Animator.",
      "What gets drawn, in what order, and from where.", [
         dict(name="Sprite", header="Game/Components/Sprite.hpp", toml="Sprite", systems="RenderSystem",
              text="Draws a texture at the entity's world transform. The texture is loaded from a virtual path when assets are resolved.",
@@ -55,16 +55,13 @@ CATEGORIES = [
              text="Makes an entity a camera that follows its Transform. The active camera is held in the <code>ActiveCamera</code> resource.",
              fields=[("m_Zoom", "1", "Uniform zoom."),
                      ("m_Smoothing", "0", "Catch-up rate toward the target; 0 snaps immediately, higher eases in faster.")]),
-        dict(name="Animation", header="Game/Components/Animation.hpp", toml="Animation", systems="AnimationSystem",
-             text="Plays a spritesheet clip by writing each frame into the entity's <code>Sprite::m_SourceRect</code>. The frame list lives in a shared, VFS-loaded FrameTable, so many entities can play one clip. While playing, the Animation owns the Sprite's source rect and restores it afterwards.",
-             fields=[("m_ClipPath", "empty", "Virtual path of the clip's FrameTable TOML."),
-                     ("m_Clips", "empty", "Named clips (idle, run, ...) mapped to clip paths; switch with <code>PlayClip</code>."),
-                     ("m_ClipFrameDurations", "empty", "Optional per-clip frame duration in seconds, keyed by clip name."),
-                     ("m_FrameDuration", "0.1", "Seconds each frame is shown, unless the FrameTable gives a frame its own duration."),
+        dict(name="Animator", header="Game/Components/Animator.hpp", toml="Animator", systems="AnimatorSystem",
+             text="Plays a state machine through a clip set and writes the current frame into the entity's <code>Sprite::m_SourceRect</code>. Game code only sets flags (<code>SetFlag</code>) and fires triggers (<code>Fire</code>); the machine's transitions choose the state. The clip set, its machine and the frame tables are shared by every animator that names the same path. See the <a href='../theory/animation.html'>Animation theory page</a>.",
+             fields=[("m_ClipSetPath", "empty", "Virtual path of the <code>.animset</code> XML."),
                      ("m_PlaybackSpeed", "1", "Playback-rate multiplier; non-positive stops advancing."),
-                     ("m_Loop", "true", "Wrap to frame 0 at the end instead of stopping."),
                      ("m_StartPlaying", "true", "Whether a freshly loaded scene starts it playing."),
-                     ("m_Playing / m_CurrentFrame / m_ElapsedTime", "runtime", "Live playback state. Not saved.")]),
+                     ("m_Heading", "(0, 1)", "Facing direction in screen space that picks a clip's directional variant; south until set. Not saved."),
+                     ("m_State / m_Frame / m_Flags / m_Triggers", "runtime", "Live machine and playback state. Not saved.")]),
     ]),
     ("physics", "Physics components", "Collider, Rigidbody and Velocity.",
      "Collision shapes and motion. See the <a href='../theory/physics.html'>Physics theory page</a> for how they are used.", [
@@ -203,7 +200,7 @@ INDEX_BODY = """
 <h1>Components</h1>
 <p class="lede">An entity in ASGE is just an id; its components are the data that gives it behaviour. These are all the
 components the engine ships. Each is plain data, saved to a scene as a TOML table of the same name, and acted on by a
-system. Mix them freely: a sprite that animates and collides is an entity with a Transform, Sprite, Animation and Collider.</p>
+system. Mix them freely: a sprite that animates and collides is an entity with a Transform, Sprite, Animator and Collider.</p>
 <p>New to the model? Read <a href="../theory/ecs.html">Entity-Component-System</a> first. Add components in the
 <a href="../../editor/add-entities-and-components.html">level editor</a> or from code through the <code>Registry</code>.</p>
 """ + "\n".join(

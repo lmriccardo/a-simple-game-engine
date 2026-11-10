@@ -90,7 +90,7 @@ all of <code>Ts</code>. It iterates the smallest contributing pool and filters t
 """ + code_card("ecs.cpp", "cpp", ECS_SNIPPET) + """
 
 <h3>Components the engine provides</h3>
-<p>The engine ships Transform, Sprite, Collider, Animation, the UI widgets and more: see the <a href="../components/index.html">Components reference</a> for each one and its fields.</p>
+<p>The engine ships Transform, Sprite, Collider, Animator, the UI widgets and more: see the <a href="../components/index.html">Components reference</a> for each one and its fields.</p>
 
 <h3>Systems in the Game layer</h3>
 <p>Systems are plain functions over a <code>Registry</code>, such as <code>MovementSystem</code>,
