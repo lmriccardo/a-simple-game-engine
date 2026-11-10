@@ -114,6 +114,11 @@ asge::BoolResult asge::game::asset::AnimationClipSet::ResolveAssets(AssetManager
     return BoolResult::Ok();
 }
 
+bool asge::game::asset::AnimationClipSet::IsResolved() const noexcept
+{
+    return m_Machine != nullptr;
+}
+
 asge::game::asset::AnimationStateMachine const&
 asge::game::asset::AnimationClipSet::Machine() const noexcept
 {

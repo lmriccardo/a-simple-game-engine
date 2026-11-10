@@ -85,6 +85,7 @@ add_library(ASGE STATIC
     Game/Components/Sprite.cpp
     Game/Utils/SpriteGeometry.cpp
     Game/Components/Animation.cpp
+    Game/Components/Animator.cpp
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp
     Game/Components/Path.cpp

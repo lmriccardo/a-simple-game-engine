@@ -22,7 +22,7 @@ using asge::formats::toml::TOMLBuilder;
 
 TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigidbodyAnimationAudioSourceCameraPathPathFollowNameHierarchyDisableUIButtonRenderInfoUIRectInteractableUILabelUICheckbox)
 {
-    static_assert(std::tuple_size_v<SerializableComponents> == 23);
+    static_assert(std::tuple_size_v<SerializableComponents> == 24);
     static_assert(std::is_same_v<std::tuple_element_t<0, SerializableComponents>, Transform>);
     static_assert(std::is_same_v<std::tuple_element_t<1, SerializableComponents>, Velocity>);
     static_assert(std::is_same_v<std::tuple_element_t<2, SerializableComponents>, Sprite>);
@@ -46,6 +46,7 @@ TEST(SerializableComponentsTest, ListsExactlyTransformVelocitySpriteColliderRigi
     static_assert(std::is_same_v<std::tuple_element_t<20, SerializableComponents>, UIPanel>);
     static_assert(std::is_same_v<std::tuple_element_t<21, SerializableComponents>, UILayoutItem>);
     static_assert(std::is_same_v<std::tuple_element_t<22, SerializableComponents>, UIProgressBar>);
+    static_assert(std::is_same_v<std::tuple_element_t<23, SerializableComponents>, Animator>);
     SUCCEED();
 }
 
@@ -75,6 +76,7 @@ TEST(SerializerKTableNameTest, EachSpecializationNamesItsOwnTable)
     EXPECT_EQ(Serializer<UIPanel>::kTableName, "UIPanel");
     EXPECT_EQ(Serializer<UILayoutItem>::kTableName, "UILayoutItem");
     EXPECT_EQ(Serializer<UIProgressBar>::kTableName, "UIProgressBar");
+    EXPECT_EQ(Serializer<Animator>::kTableName, "Animator");
 }
 
 // ─── Transform ──────────────────────────────────────────────────────────────
@@ -519,6 +521,79 @@ TEST(AnimationSerializerTest, FromToml_MissingClipPathKeyDefaultsToEmptyString)
 
     Animation const restored = Serializer<Animation>::FromToml(builder, asge::game::scene::LoadContext{});
     EXPECT_TRUE(restored.m_ClipPath.empty());
+}
+
+// ─── Animator ───────────────────────────────────────────────────────────────
+
+TEST(AnimatorSerializerTest, ToToml_WritesSerializedFieldsUnderAnimatorTable)
+{
+    TOMLBuilder builder;
+    Animator animator{};
+    animator.m_ClipSetPath = "anim/goblin.animset";
+    animator.m_PlaybackSpeed = 2.0f;
+    animator.m_StartPlaying = false;
+    Serializer<Animator>::ToToml(animator, builder, asge::game::scene::SaveContext{});
+
+    auto const dump = builder.ToString();
+    EXPECT_NE(dump.find("[Animator]"), std::string::npos);
+    EXPECT_NE(dump.find(R"(m_ClipSetPath = "anim/goblin.animset")"), std::string::npos);
+    EXPECT_NE(dump.find("m_PlaybackSpeed = 2.0"), std::string::npos);
+    EXPECT_NE(dump.find("m_StartPlaying = false"), std::string::npos);
+}
+
+TEST(AnimatorSerializerTest, RoundTrip_SerializedFieldsPreserved)
+{
+    TOMLBuilder builder;
+    Animator animator{};
+    animator.m_ClipSetPath = "anim/goblin.animset";
+    animator.m_PlaybackSpeed = 0.5f;
+    animator.m_StartPlaying = false;
+    Serializer<Animator>::ToToml(animator, builder, asge::game::scene::SaveContext{});
+
+    Animator const restored = Serializer<Animator>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_EQ(restored.m_ClipSetPath, "anim/goblin.animset");
+    EXPECT_FLOAT_EQ(restored.m_PlaybackSpeed, 0.5f);
+    EXPECT_FALSE(restored.m_StartPlaying);
+}
+
+TEST(AnimatorSerializerTest, FromToml_MissingKeysFallBackToStructDefaults)
+{
+    TOMLBuilder builder;
+    builder.Table("Animator"); // present but empty
+    Animator const restored = Serializer<Animator>::FromToml(builder, asge::game::scene::LoadContext{});
+
+    EXPECT_TRUE(restored.m_ClipSetPath.empty());
+    EXPECT_FLOAT_EQ(restored.m_PlaybackSpeed, 1.0f);
+    EXPECT_TRUE(restored.m_StartPlaying);
+}
+
+TEST(AnimatorSerializerTest, FromToml_RuntimeStateAlwaysResetToStructDefaults)
+{
+    // A scene file only describes the serialized fields: playback progress,
+    // flags, triggers and the resolved clip set must come back untouched.
+    TOMLBuilder builder;
+    Animator animator{};
+    animator.m_ClipSetPath = "anim/goblin.animset";
+    animator.m_Elapsed = 3.0f;
+    animator.m_Frame = 7;
+    animator.m_Flags = 0b11;
+    animator.m_Triggers = 0b1;
+    animator.m_State = 4;
+    animator.m_Status = AnimStatus::Finished;
+    animator.m_Dirty = false;
+    animator.m_Started = true;
+    Serializer<Animator>::ToToml(animator, builder, asge::game::scene::SaveContext{});
+
+    Animator const restored = Serializer<Animator>::FromToml(builder, asge::game::scene::LoadContext{});
+    EXPECT_FLOAT_EQ(restored.m_Elapsed, 0.0f);
+    EXPECT_EQ(restored.m_Frame, 0u);
+    EXPECT_EQ(restored.m_Flags, 0u);
+    EXPECT_EQ(restored.m_Triggers, 0u);
+    EXPECT_EQ(restored.m_State, 0);
+    EXPECT_EQ(restored.m_Status, AnimStatus::Playing);
+    EXPECT_TRUE(restored.m_Dirty);
+    EXPECT_FALSE(restored.m_Started);
+    EXPECT_EQ(restored.m_ClipSet, nullptr);
 }
 
 // ─── AudioSource ────────────────────────────────────────────────────────────

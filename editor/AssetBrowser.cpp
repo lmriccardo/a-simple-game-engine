@@ -78,6 +78,7 @@ void CollectUsedPaths(
         {
         case AssetKind::Texture:       outTextures.insert( ref.m_VirtualPath ); break;
         case AssetKind::AnimationClip: outAnimations.insert( ref.m_VirtualPath ); break;
+        case AssetKind::AnimationClipSet: break; // not browsed in the editor
         case AssetKind::AudioClip:     outAudio.insert( ref.m_VirtualPath ); break;
         case AssetKind::Font:          outFonts.insert( ref.m_VirtualPath ); break;
         }

@@ -48,6 +48,9 @@ public:
      */
     [[nodiscard]] BoolResult ResolveAssets( AssetManager& inAssetManager );
 
+    /** @brief True once ResolveAssets() has succeeded, i.e. Machine() is safe to call. */
+    [[nodiscard]] bool IsResolved() const noexcept;
+
     /**
      * @brief Returns the state machine this set binds clips for.
      *

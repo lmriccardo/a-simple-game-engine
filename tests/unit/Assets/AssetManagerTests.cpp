@@ -3,6 +3,7 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/Path.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
@@ -950,6 +951,66 @@ TEST_F(ResolveAssetsTest, Animation_ClearingClipPathReleasesTheClip)
     auto const& anim = animResult.Value().get();
     EXPECT_EQ(anim.m_Clip, nullptr);
     EXPECT_TRUE(anim.m_ResolvedClipPath.empty());
+}
+
+TEST_F(ResolveAssetsTest, Animator_ClipSetPathResolvesSetMachineAndFrameTables)
+{
+    WriteText(m_ImagesDir / "m.animsm",
+        "<AnimStateMachine initial=\"idle\">\n<Clips>\n<Clip name=\"idle\"/>\n</Clips>\n"
+        "<State name=\"idle\" clip=\"idle\"/>\n</AnimStateMachine>\n");
+    WriteText(m_ImagesDir / "set.xml",
+        "<AnimClipSet machine=\"images/m.animsm\">\n<Clip name=\"idle\" path=\"images/walk.toml\"/>\n</AnimClipSet>\n");
+
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animator>(
+        entity.Value(), { .m_ClipSetPath = "images/set.xml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto result = m_Registry.GetComponent<asge::game::components::Animator>(entity.Value());
+    auto const& animator = result.Value().get();
+    ASSERT_NE(animator.m_ClipSet, nullptr);
+    EXPECT_TRUE(animator.m_ClipSet->Get().IsResolved());
+    ASSERT_EQ(animator.m_ClipSet->Get().Bindings().size(), 1u);
+    EXPECT_NE(animator.m_ClipSet->Get().Bindings()[0].m_Clip, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, Animator_EmptyOrMissingClipSetPathLeavesClipSetNull)
+{
+    AssetManager mgr(m_Vfs);
+    auto empty = m_Registry.CreateEntity();
+    auto missing = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animator>(empty.Value(), {}).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animator>(
+        missing.Value(), { .m_ClipSetPath = "images/nope.xml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    EXPECT_EQ(m_Registry.GetComponent<asge::game::components::Animator>(empty.Value()).Value().get().m_ClipSet, nullptr);
+    EXPECT_EQ(m_Registry.GetComponent<asge::game::components::Animator>(missing.Value()).Value().get().m_ClipSet, nullptr);
+}
+
+TEST_F(ResolveAssetsTest, Animator_ClearingClipSetPathReleasesTheClipSet)
+{
+    WriteText(m_ImagesDir / "m.animsm",
+        "<AnimStateMachine initial=\"idle\">\n<Clips>\n<Clip name=\"idle\"/>\n</Clips>\n"
+        "<State name=\"idle\" clip=\"idle\"/>\n</AnimStateMachine>\n");
+    WriteText(m_ImagesDir / "set.xml",
+        "<AnimClipSet machine=\"images/m.animsm\">\n<Clip name=\"idle\" path=\"images/walk.toml\"/>\n</AnimClipSet>\n");
+
+    AssetManager mgr(m_Vfs);
+    auto entity = m_Registry.CreateEntity();
+    ASSERT_TRUE(m_Registry.AddComponent<asge::game::components::Animator>(
+        entity.Value(), { .m_ClipSetPath = "images/set.xml" }).IsOk());
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    auto& animator = m_Registry.GetComponent<asge::game::components::Animator>(entity.Value()).Value().get();
+    ASSERT_NE(animator.m_ClipSet, nullptr);
+    animator.m_Started = true;
+    animator.m_ClipSetPath.clear();
+    mgr.ResolveAssets(m_Registry, m_Renderer);
+
+    EXPECT_EQ(animator.m_ClipSet, nullptr);
+    EXPECT_FALSE(animator.m_Started);
 }
 
 TEST_F(ResolveAssetsTest, Animation_UnchangedClipPathDoesNotReResolve)

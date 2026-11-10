@@ -2,6 +2,7 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 
@@ -49,6 +50,24 @@ TEST(AssetRefsTest, Animation_WithEmptyClipPathReturnsNullopt)
 {
     Animation animation{};
     EXPECT_FALSE(AssetRefs<Animation>{}( animation ).has_value());
+}
+
+// ─── AssetRefs<Animator> ────────────────────────────────────────────────────
+
+TEST(AssetRefsTest, Animator_WithClipSetPathReturnsClipSetRef)
+{
+    Animator animator{ .m_ClipSetPath = "anim/goblin.animset" };
+    auto ref = AssetRefs<Animator>{}( animator );
+
+    ASSERT_TRUE(ref.has_value());
+    EXPECT_EQ(ref->m_Kind, AssetKind::AnimationClipSet);
+    EXPECT_EQ(ref->m_VirtualPath, "anim/goblin.animset");
+}
+
+TEST(AssetRefsTest, Animator_WithEmptyClipSetPathReturnsNullopt)
+{
+    Animator animator{};
+    EXPECT_FALSE(AssetRefs<Animator>{}( animator ).has_value());
 }
 
 // ─── AssetRefs<AudioSource> ─────────────────────────────────────────────────

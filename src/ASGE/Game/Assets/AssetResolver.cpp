@@ -45,6 +45,44 @@ void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(
     inAnimation.m_ElapsedTime = 0.0f;
 }
 
+void asge::game::asset::Resolver<asge::game::components::Animator>::operator()(
+    AssetManager &inAssetManager, ecs::Registry &inRegistry,
+    video::IRenderer &inRenderer, C &inAnimator) const noexcept
+{
+    // Flags, triggers and the state id only mean something for one machine,
+    // so a new (or cleared) clip set starts the animator from scratch
+    auto const reset = [&inAnimator]( C::clip_set inClipSet ) {
+        inAnimator.m_ClipSet  = std::move( inClipSet );
+        inAnimator.m_State    = 0;
+        inAnimator.m_Frame    = 0;
+        inAnimator.m_Elapsed  = 0.0f;
+        inAnimator.m_Flags    = 0;
+        inAnimator.m_Triggers = 0;
+        inAnimator.m_Dirty    = true;
+        inAnimator.m_Started  = false;
+    };
+
+    if ( inAnimator.m_ClipSetPath.empty() )
+    {
+        if ( inAnimator.m_ClipSet ) reset( nullptr );
+        return;
+    }
+
+    if ( inAnimator.m_ClipSet && inAnimator.m_ClipSet->VirtualPath() == inAnimator.m_ClipSetPath ) return;
+
+    auto clipSet = inAssetManager.GetClipSet( inAnimator.m_ClipSetPath );
+    if ( !clipSet ) { clipSet.LogError(); return; }
+
+    // The clip set is shared, so only the first Animator pays for resolving it
+    if ( !clipSet.Value()->Get().IsResolved() )
+    {
+        auto resolved = clipSet.Value()->Get().ResolveAssets( inAssetManager );
+        if ( !resolved ) { resolved.LogError(); return; }
+    }
+
+    reset( clipSet.Value() );
+}
+
 void asge::game::asset::Resolver<asge::game::components::AudioSource>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
     video::IRenderer &inRenderer, C &inAudioSource) const noexcept
@@ -124,6 +162,14 @@ asge::game::asset::AssetRefs<asge::game::components::Animation>::operator()(
 {
     if ( inAnimation.m_ClipPath.empty() ) return std::nullopt;
     return AssetRef{ AssetKind::AnimationClip, inAnimation.m_ClipPath };
+}
+
+std::optional<asge::game::asset::AssetRef>
+asge::game::asset::AssetRefs<asge::game::components::Animator>::operator()(
+    components::Animator const &inAnimator) const noexcept
+{
+    if ( inAnimator.m_ClipSetPath.empty() ) return std::nullopt;
+    return AssetRef{ AssetKind::AnimationClipSet, inAnimator.m_ClipSetPath };
 }
 
 std::optional<asge::game::asset::AssetRef>
