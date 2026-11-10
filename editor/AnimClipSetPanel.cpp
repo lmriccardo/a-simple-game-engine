@@ -248,6 +248,8 @@ void DrawAnimClipSetPanel(
     {
         auto& clip = g.m_Doc.m_Clips[i];
         bool const declared = DeclaredByMachine( clip.m_Name );
+        float const rowWidth = ImGui::GetContentRegionAvail().x;
+        float const gap = ImGui::GetStyle().ItemSpacing.x;
         ImGui::PushID( i );
         if ( declared ) ImGui::TextUnformatted( clip.m_Name.c_str() );
         else ImGui::TextColored( ImVec4( 1.0f, 0.7f, 0.3f, 1.0f ), "%s (not in machine)", clip.m_Name.c_str() );
@@ -272,7 +274,7 @@ void DrawAnimClipSetPanel(
         if ( count == 1 )
         {
             ImGui::SameLine();
-            ImGui::SetNextItemWidth( 300.0f );
+            ImGui::SetNextItemWidth( std::max( 150.0f, rowWidth - 170.0f - 100.0f - 80.0f - ( declared ? 0.0f : 70.0f ) - gap * 4.0f ) );
             if ( PathCombo( "##table", clip.m_Variants.front(), tables ) ) Touch();
         }
 
@@ -292,7 +294,7 @@ void DrawAnimClipSetPanel(
             for ( int v = 0; v < count; ++v )
             {
                 ImGui::PushID( v );
-                ImGui::SetNextItemWidth( 300.0f );
+                ImGui::SetNextItemWidth( std::max( 200.0f, rowWidth - ImGui::GetStyle().IndentSpacing - 190.0f - 70.0f - gap * 3.0f ) );
                 if ( PathCombo( "##table", clip.m_Variants[v], tables ) ) Touch();
                 ImGui::SameLine();
                 ImGui::TextDisabled( "%s", DirectionLabel( v, count ).c_str() );
