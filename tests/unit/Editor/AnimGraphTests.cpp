@@ -428,7 +428,7 @@ TEST_F(AnimGraphTest, ClipSet_WriteThenEngineLoadAndReadBack)
 {
     AnimClipSetDoc doc;
     doc.m_Machine = "anim/humanoid.animsm";
-    doc.m_Clips = { { "idle", "anim/idle.toml", 0.15f }, { "run", "anim/run.toml", 0.1f } };
+    doc.m_Clips = { { "idle", { "anim/idle.toml" }, 0.15f }, { "run", { "anim/run.toml" }, 0.1f } };
     auto const path = m_Dir / "set.animset";
 
     ASSERT_TRUE(WriteClipSet(doc, path).IsOk());
@@ -443,14 +443,15 @@ TEST_F(AnimGraphTest, ClipSet_WriteThenEngineLoadAndReadBack)
     EXPECT_EQ(read.Value().m_Machine, "anim/humanoid.animsm");
     ASSERT_EQ(read.Value().m_Clips.size(), 2u);
     EXPECT_EQ(read.Value().m_Clips[1].m_Name, "run");
-    EXPECT_EQ(read.Value().m_Clips[1].m_Path, "anim/run.toml");
+    ASSERT_EQ(read.Value().m_Clips[1].m_Variants.size(), 1u);
+    EXPECT_EQ(read.Value().m_Clips[1].m_Variants[0], "anim/run.toml");
     EXPECT_FLOAT_EQ(read.Value().m_Clips[0].m_FrameDuration, 0.15f);
 }
 
 TEST_F(AnimGraphTest, ClipSet_EmptyMachineIsMissingAttribute)
 {
     AnimClipSetDoc doc;
-    doc.m_Clips = { { "idle", "anim/idle.toml", 0.1f } };
+    doc.m_Clips = { { "idle", { "anim/idle.toml" }, 0.1f } };
 
     auto result = ValidateClipSet(doc);
     ASSERT_FALSE(result.IsOk());
@@ -461,7 +462,7 @@ TEST_F(AnimGraphTest, ClipSet_EmptyClipPathIsMissingAttribute)
 {
     AnimClipSetDoc doc;
     doc.m_Machine = "anim/m.animsm";
-    doc.m_Clips = { { "idle", "", 0.1f } };
+    doc.m_Clips = { { "idle", { "" }, 0.1f } };
 
     auto result = ValidateClipSet(doc);
     ASSERT_FALSE(result.IsOk());
@@ -472,7 +473,7 @@ TEST_F(AnimGraphTest, ClipSet_NonPositiveFrameDurationIsInvalidAttribute)
 {
     AnimClipSetDoc doc;
     doc.m_Machine = "anim/m.animsm";
-    doc.m_Clips = { { "idle", "anim/idle.toml", 0.0f } };
+    doc.m_Clips = { { "idle", { "anim/idle.toml" }, 0.0f } };
 
     auto result = ValidateClipSet(doc);
     ASSERT_FALSE(result.IsOk());
@@ -483,11 +484,78 @@ TEST_F(AnimGraphTest, ClipSet_DuplicateClipNameIsDuplicateName)
 {
     AnimClipSetDoc doc;
     doc.m_Machine = "anim/m.animsm";
-    doc.m_Clips = { { "idle", "anim/a.toml", 0.1f }, { "idle", "anim/b.toml", 0.1f } };
+    doc.m_Clips = { { "idle", { "anim/a.toml" }, 0.1f }, { "idle", { "anim/b.toml" }, 0.1f } };
 
     auto result = ValidateClipSet(doc);
     ASSERT_FALSE(result.IsOk());
     EXPECT_EQ(result.Code(), make_error_code(AnimStateMachineErrors::DuplicateName));
+}
+
+TEST_F(AnimGraphTest, ClipSet_VariantsRoundTripThroughTheEngineLoader)
+{
+    AnimClipSetDoc doc;
+    doc.m_Machine = "anim/humanoid.animsm";
+    doc.m_Clips = { { "run", { "n.toml", "e.toml", "s.toml", "w.toml" }, 0.1f }, { "death", { "death.toml" }, 0.2f } };
+    auto const path = m_Dir / "dir.animset";
+
+    ASSERT_TRUE(WriteClipSet(doc, path).IsOk());
+
+    auto loaded = asge::game::asset::AnimationClipSet::Load(path);
+    ASSERT_TRUE(loaded.IsOk());
+    ASSERT_EQ(loaded.Value().ClipPaths()[0].size(), 4u);
+    EXPECT_EQ(loaded.Value().ClipPaths()[0][2], "s.toml");
+    EXPECT_EQ(loaded.Value().ClipPaths()[1].size(), 1u);
+
+    auto read = ReadClipSet(path);
+    ASSERT_TRUE(read.IsOk());
+    ASSERT_EQ(read.Value().m_Clips[0].m_Variants.size(), 4u);
+    EXPECT_EQ(read.Value().m_Clips[0].m_Variants[3], "w.toml");
+    EXPECT_EQ(read.Value().m_Clips[1].m_Variants.size(), 1u);
+}
+
+TEST_F(AnimGraphTest, ClipSet_OneVariantIsWrittenAsAPathAttribute)
+{
+    AnimClipSetDoc doc;
+    doc.m_Machine = "anim/m.animsm";
+    doc.m_Clips = { { "idle", { "idle.toml" }, 0.1f } };
+
+    auto const xml = BuildClipSetXml(doc);
+    auto const* clip = &*xml.begin();
+    EXPECT_NE(clip->Find("path"), nullptr);
+    EXPECT_EQ(clip->begin(), clip->end());
+}
+
+TEST_F(AnimGraphTest, ClipSet_NineVariantsIsLimitExceeded)
+{
+    AnimClipSetDoc doc;
+    doc.m_Machine = "anim/m.animsm";
+    doc.m_Clips = { { "run", std::vector<std::string>(9, "v.toml"), 0.1f } };
+
+    auto result = ValidateClipSet(doc);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(AnimStateMachineErrors::LimitExceeded));
+}
+
+TEST_F(AnimGraphTest, ClipSet_EmptyVariantPathIsMissingAttributeNotSilentlyDropped)
+{
+    AnimClipSetDoc doc;
+    doc.m_Machine = "anim/m.animsm";
+    doc.m_Clips = { { "run", { "n.toml", "" }, 0.1f } };
+
+    auto result = ValidateClipSet(doc);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(AnimStateMachineErrors::MissingAttribute));
+}
+
+TEST_F(AnimGraphTest, ClipSet_NoVariantsIsMissingAttribute)
+{
+    AnimClipSetDoc doc;
+    doc.m_Machine = "anim/m.animsm";
+    doc.m_Clips = { { "run", {}, 0.1f } };
+
+    auto result = ValidateClipSet(doc);
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(AnimStateMachineErrors::MissingAttribute));
 }
 
 TEST_F(AnimGraphTest, ClipSet_InvalidModelWritesNothing)

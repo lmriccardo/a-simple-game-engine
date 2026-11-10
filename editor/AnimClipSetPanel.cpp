@@ -72,6 +72,7 @@ void SyncWithMachine( asge::filesystem::VirtualFileSystem const& inVfs )
         if ( bound ) continue;
         AnimClipBinding b;
         b.m_Name = name;
+        b.m_Variants.emplace_back();
         g.m_Doc.m_Clips.push_back( std::move( b ) );
         Touch();
     }
@@ -168,7 +169,8 @@ void DrawAnimClipSetPanel(
         else ImGui::TextColored( ImVec4( 1.0f, 0.7f, 0.3f, 1.0f ), "%s (not in machine)", clip.m_Name.c_str() );
         ImGui::SameLine( 170.0f );
         ImGui::SetNextItemWidth( 260.0f );
-        if ( PathCombo( "##table", clip.m_Path, tables ) ) Touch();
+        if ( clip.m_Variants.empty() ) clip.m_Variants.emplace_back();
+        if ( PathCombo( "##table", clip.m_Variants.front(), tables ) ) Touch();
         ImGui::SameLine();
         ImGui::SetNextItemWidth( 80.0f );
         if ( ImGui::InputFloat( "##dur", &clip.m_FrameDuration, 0.0f, 0.0f, "%.3f s" ) ) Touch();

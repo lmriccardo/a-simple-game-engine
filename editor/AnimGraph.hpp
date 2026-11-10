@@ -50,9 +50,9 @@ struct AnimMachineDoc
 /** @brief One clip of a clip set file. */
 struct AnimClipBinding
 {
-    std::string m_Name;                  // Clip name
-    std::string m_Path;                  // FrameTable virtual path
-    float       m_FrameDuration = 0.1f;  // Seconds per frame
+    std::string              m_Name;                  // Clip name
+    std::vector<std::string> m_Variants;              // FrameTable virtual paths, one per direction clockwise from north
+    float                    m_FrameDuration = 0.1f;  // Seconds per frame, shared by every variant
 };
 
 /** @brief The editor's own copy of a clip set file; see AnimMachineDoc. */
@@ -126,10 +126,17 @@ using AnimLayout = std::map<std::string, AnimNodePos, std::less<>>;
  */
 void AutoLayout( AnimMachineDoc const& inDoc, AnimLayout& ioLayout );
 
-/** @brief Reads a clip set XML file into the editor's model; same rules as ReadMachine. */
+/** @brief Reads a clip set XML file into the editor's model; same rules as ReadMachine. A `path` attribute is read as the one variant. */
 [[nodiscard]] asge::Result<AnimClipSetDoc> ReadClipSet( std::filesystem::path const& inPath );
 
-/** @brief Builds the XML tree of a clip set; empty values are left out. */
+/**
+ * @brief Builds the XML tree of a clip set; empty values are left out.
+ *
+ * A clip with one variant is written with a `path` attribute, so files
+ * without directions look as they always did; two or more become `<Variant>`
+ * children. An empty variant path is kept as a `<Variant>` without a path, so
+ * the engine reports it instead of the clip silently losing a direction.
+ */
 [[nodiscard]] asge::formats::xml::XMLNode BuildClipSetXml( AnimClipSetDoc const& inDoc );
 
 /** @brief Checks a clip set file with AnimationClipSet::Load; the machine and frame tables are not opened. */

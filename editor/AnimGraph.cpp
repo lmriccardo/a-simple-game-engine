@@ -324,7 +324,11 @@ asge::Result<AnimClipSetDoc> ReadClipSet( std::filesystem::path const& inPath )
 
         AnimClipBinding clip;
         clip.m_Name = AttrOf( child, "name" );
-        clip.m_Path = AttrOf( child, "path" );
+        if ( child.Find( "path" ) ) clip.m_Variants.push_back( AttrOf( child, "path" ) );
+        for ( auto const& variant : child )
+        {
+            if ( variant.Name() == "Variant" ) clip.m_Variants.push_back( AttrOf( variant, "path" ) );
+        }
         if ( auto const* attr = child.Find( "frameDuration" ) )
         {
             if ( auto value = attr->AsFloat() ) clip.m_FrameDuration = value.Value();
@@ -345,8 +349,19 @@ asge::formats::xml::XMLNode BuildClipSetXml( AnimClipSetDoc const& inDoc )
         XMLNode& node = root.AddChild();
         node.SetName( "Clip" );
         SetAttr( node, "name", clip.m_Name );
-        SetAttr( node, "path", clip.m_Path );
         SetAttr( node, "frameDuration", std::format( "{}", clip.m_FrameDuration ) );
+
+        if ( clip.m_Variants.size() == 1 ) SetAttr( node, "path", clip.m_Variants.front() );
+        else if ( clip.m_Variants.empty() ) SetAttr( node, "path", std::string{} );
+        else
+        {
+            for ( auto const& path : clip.m_Variants )
+            {
+                XMLNode& variant = node.AddChild();
+                variant.SetName( "Variant" );
+                SetAttr( variant, "path", path );
+            }
+        }
     }
 
     return root;
