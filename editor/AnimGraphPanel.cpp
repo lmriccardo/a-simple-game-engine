@@ -169,6 +169,7 @@ enum class ListKind { Flag, Trigger, Clip };
 
 void RenameEntry( ListKind inKind, std::string const& inOld, std::string const& inNew )
 {
+    if ( inOld.empty() || inOld == inNew ) return;
     auto swap = [&]( std::string& s ) { if ( s == inOld ) s = inNew; };
     if ( inKind == ListKind::Clip ) { for ( auto& s : g.m_Doc.m_States ) swap( s.m_Clip ); return; }
     ForEachRef( [&]( AnimTransition& t )
@@ -195,13 +196,23 @@ void DrawNameList( char const* inTitle, ListKind inKind, std::vector<std::string
     ImGui::PushID( inTitle );
     if ( ImGui::CollapsingHeader( inTitle ) )
     {
+        static std::string editStart; // name of the entry being edited, before the edit
         int removeAt = -1;
         for ( int i = 0; i < static_cast<int>( ioList.size() ); ++i )
         {
             ImGui::PushID( i );
             std::string const before = ioList[i];
             ImGui::SetNextItemWidth( 180.0f );
-            if ( EditText( "##n", ioList[i] ) ) { RenameEntry( inKind, before, ioList[i] ); Touch(); }
+            if ( EditText( "##n", ioList[i] ) ) Touch();
+            if ( ImGui::IsItemActivated() ) editStart = before;
+            if ( ImGui::IsItemDeactivatedAfterEdit() )
+            {
+                // References follow the name only once it is final; an empty or taken name goes back.
+                bool const taken = std::count( ioList.begin(), ioList.end(), ioList[i] ) > 1;
+                if ( ioList[i].empty() || taken ) ioList[i] = editStart;
+                else RenameEntry( inKind, editStart, ioList[i] );
+                Touch();
+            }
             ImGui::SameLine();
             if ( ImGui::SmallButton( "x" ) ) removeAt = i;
             ImGui::PopID();
