@@ -1,0 +1,10 @@
+# Cells 2-5 of spritesheet.bmp (6x1 grid of 32x32)
+[FrameTable]
+x = 0.0
+y = 0.0
+w = 32.0
+h = 32.0
+columns = 6
+rows = 1
+first = 2
+count = 4

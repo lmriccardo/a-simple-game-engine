@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnimClipSet machine="anim/player.animsm">
+  <Clip name="idle"   path="anim/idle.toml"   frameDuration="0.35"/>
+  <Clip name="run"    path="anim/run.toml"    frameDuration="0.1"/>
+  <Clip name="attack" path="anim/attack.toml" frameDuration="0.12"/>
+  <Clip name="hurt"   path="anim/hurt.toml"   frameDuration="0.2"/>
+</AnimClipSet>
