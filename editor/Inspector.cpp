@@ -7,7 +7,7 @@
 #include <ASGE/Game/Components/Collider.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Components/Path.hpp>
 #include <ASGE/Game/Components/PathFollow.hpp>
 #include <ASGE/Game/Components/Name.hpp>
@@ -182,8 +182,8 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 
 // m_SourceRect editing is out of scope here (asset-browsing/viewport gizmo
 // territory); it's only shown, read-only, and greyed out with a hint while
-// inAnimationOwned -- the entity's Animation has a resolved clip and so
-// overwrites it every frame (see components::Animation). m_VirtualPath is a dropdown restricted to inKnownTextures
+// inAnimationOwned -- the entity's Animator has a resolved clip set and so
+// overwrites it every frame (see components::Animator). m_VirtualPath is a dropdown restricted to inKnownTextures
 // (Phase 10) -- its return reports only whether the path selection changed,
 // since only a path change needs AssetManager::ResolveAssets re-run (see the
 // DrawInspector doc comment above for why that trigger has to stay this
@@ -191,11 +191,11 @@ bool DrawInspector( Rigidbody& inRigidbody ) noexcept
 // components::RenderInfo section, below.
 bool DrawColorField( char const* inLabel, asge::graphics::RGBA_Color& ioColor ) noexcept;
 
-/** @brief True while inEntity's Animation is playing and so owns its Sprite's m_SourceRect. */
-bool SpriteCropOwnedByAnimation( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
+/** @brief True while inEntity's Animator is playing and so owns its Sprite's m_SourceRect. */
+bool SpriteCropOwnedByAnimator( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
 {
-    auto anim = inRegistry.GetComponent<Animation>( inEntity );
-    return anim && anim.Value().get().m_OwnsSourceRect;
+    auto anim = inRegistry.GetComponent<Animator>( inEntity );
+    return anim && anim.Value().get().m_OwnsRect;
 }
 
 /**
@@ -362,7 +362,7 @@ bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTex
     }
     ImGui::EndDisabled();
     outRectChanged |= DrawSourceRectPicker( inSprite, inAnimationOwned );
-    if ( inAnimationOwned ) ImGui::TextDisabled( "Source Rect is driven by the Animation." );
+    if ( inAnimationOwned ) ImGui::TextDisabled( "Source Rect is driven by the Animator." );
     DrawColorField( "Tint", inSprite.m_Tint ); // not an asset change, so not part of the return
     return changed;
 }
@@ -494,163 +494,36 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
     return DrawAssetPathCombo( "Clip Path", inAudioSource.m_VirtualClipPath, inKnownAudio );
 }
 
-// A button that opens the "Named Clips" modal: every inAnimation.m_Clips entry in a list on
-// the left, and on the right the selected clip's animation (a path dropdown), its frame
-// duration override (Animation::m_ClipFrameDurations, off = use the component's own
-// m_FrameDuration), Play and Remove. Below the list a picker registers another known animation
-// as a clip named after it. A name is fixed once added -- remove and re-add to rename, since
-// it's the map key. Returns true when a clip was added, removed, repointed, played or had its
-// duration changed, i.e. m_ClipPath may have changed and AssetManager::ResolveAssets needs
-// re-running (and the scene is dirty).
-bool DrawNamedClips( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
+// Only m_ClipSetPath/m_PlaybackSpeed/m_StartPlaying round-trip (see
+// Serializer<Animator>'s doc comment); the rest is runtime state, shown read-only
+// below. m_ClipSetPath is typed and committed with Enter (every keystroke would
+// try to resolve a half-typed path); the return reports only whether the path
+// changed, since only that needs AssetManager::ResolveAssets re-run.
+bool DrawInspector( Animator& inAnimator ) noexcept
 {
-    constexpr char const* kPopup = "Named Clips";
-    static std::string s_Selected;
-
-    if ( ImGui::Button( ( "Edit Clips... (" + std::to_string( inAnimation.m_Clips.size() ) + ")" ).c_str() ) )
-    {
-        s_Selected = inAnimation.m_Clips.empty() ? std::string{} : inAnimation.m_Clips.begin()->first;
-        ImGui::OpenPopup( kPopup );
-    }
-
-    if ( !ImGui::BeginPopupModal( kPopup, nullptr, ImGuiWindowFlags_AlwaysAutoResize ) ) return false;
     bool changed = false;
-
-    if ( !inAnimation.m_Clips.contains( s_Selected ) )
+    std::string path = inAnimator.m_ClipSetPath;
+    if ( ImGui::InputText( "Clip Set", &path, ImGuiInputTextFlags_EnterReturnsTrue ) )
     {
-        s_Selected = inAnimation.m_Clips.empty() ? std::string{} : inAnimation.m_Clips.begin()->first;
+        inAnimator.m_ClipSetPath = path;
+        changed = true;
     }
+    ImGui::DragFloat( "Playback Speed", &inAnimator.m_PlaybackSpeed, 0.05f, 0.0f, 10.0f );
+    ImGui::Checkbox( "Start Playing", &inAnimator.m_StartPlaying );
 
-    ImGui::BeginChild( "##clips", ImVec2( 180.0f, 240.0f ), ImGuiChildFlags_Borders );
-    for ( auto const& [name, path] : inAnimation.m_Clips )
+    ImGui::BeginDisabled();
+    if ( inAnimator.m_ClipSet )
     {
-        if ( ImGui::Selectable( name.c_str(), name == s_Selected ) ) s_Selected = name;
-    }
-    ImGui::EndChild();
-    ImGui::SameLine();
-
-    ImGui::BeginGroup();
-    ImGui::BeginChild( "##clipdetail", ImVec2( 320.0f, 240.0f ), ImGuiChildFlags_Borders );
-    auto const it = inAnimation.m_Clips.find( s_Selected );
-    if ( it == inAnimation.m_Clips.end() )
-    {
-        ImGui::TextDisabled( "No clips yet. Add one below." );
+        ImGui::Text( "State: %u", static_cast<unsigned>( inAnimator.m_State ) );
+        ImGui::Text( "Frame: %u", inAnimator.m_Frame );
     }
     else
     {
-        ImGui::TextUnformatted( it->first.c_str() );
-        ImGui::SetNextItemWidth( -FLT_MIN );
-        if ( DrawClipCombo( "##path", it->second, inKnownAnimations ) ) changed = true;
-
-        // Overriding is opt-in: off, the clip plays at the component's own Frame Duration.
-        auto durationIt = inAnimation.m_ClipFrameDurations.find( it->first );
-        bool overridden = durationIt != inAnimation.m_ClipFrameDurations.end();
-        if ( ImGui::Checkbox( "Own frame duration", &overridden ) )
-        {
-            if ( overridden ) inAnimation.m_ClipFrameDurations[it->first] = inAnimation.m_FrameDuration;
-            else inAnimation.m_ClipFrameDurations.erase( it->first );
-            changed = true;
-        }
-        if ( overridden )
-        {
-            ImGui::SetNextItemWidth( -FLT_MIN );
-            if ( ImGui::DragFloat( "##duration", &inAnimation.m_ClipFrameDurations[it->first], 0.01f, 0.001f, 10.0f, "%.3f s" ) )
-            {
-                changed = true;
-            }
-        }
-        else
-        {
-            ImGui::TextDisabled( "Uses the component's %.3f s", inAnimation.m_FrameDuration );
-        }
-
-        if ( ImGui::Button( "Play" ) ) changed |= PlayClip( inAnimation, it->first );
-        ImGui::SameLine();
-        if ( ImGui::Button( "Remove" ) )
-        {
-            inAnimation.m_ClipFrameDurations.erase( it->first );
-            inAnimation.m_Clips.erase( it );
-            changed = true;
-        }
+        ImGui::TextUnformatted( "Clip set not resolved" );
     }
-    ImGui::EndChild();
-    ImGui::EndGroup();
+    ImGui::EndDisabled();
 
-    // Picking an animation registers it at once under its own name (ClipNameFromPath), so the
-    // name is never typed a second time. Animations already registered by that name are skipped.
-    ImGui::SetNextItemWidth( 180.0f );
-    if ( ImGui::BeginCombo( "##addclip", "Add clip from animation..." ) )
-    {
-        for ( auto const& path : inKnownAnimations )
-        {
-            auto const name = ClipNameFromPath( path );
-            if ( inAnimation.m_Clips.contains( name ) ) continue;
-            ImGui::PushID( path.c_str() ); // two animations can share a name
-            if ( ImGui::Selectable( name.c_str() ) )
-            {
-                inAnimation.m_Clips[name] = path;
-                s_Selected = name;
-                changed = true;
-            }
-            ImGui::PopID();
-        }
-        ImGui::EndCombo();
-    }
-
-    ImGui::SameLine( ImGui::GetContentRegionMax().x - 60.0f );
-    if ( ImGui::Button( "Close" ) ) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
     return changed;
-}
-
-// m_ClipPath/m_FrameDuration/m_PlaybackSpeed/m_Loop/m_FinishBehavior/m_StartPlaying round-trip (see
-// Serializer<Animation>'s doc comment) -- playback progress is runtime-only. m_ClipPath is a
-// dropdown restricted to inKnownAnimations (Phase 10); the return reports
-// only whether that selection changed, not a m_FrameDuration edit, since
-// only a clip change needs AssetManager::ResolveAssets re-run (same
-// narrow-trigger reasoning as Sprite's own DrawInspector above).
-// ponytail: same gap as Sprite's -- a m_FrameDuration-only edit doesn't
-// mark the scene dirty on its own.
-bool DrawInspector( Animation& inAnimation, std::vector<std::string> const& inKnownAnimations ) noexcept
-{
-    bool const clipChanged = DrawClipCombo( "Clip Path", inAnimation.m_ClipPath, inKnownAnimations );
-    ImGui::DragFloat( "Frame Duration", &inAnimation.m_FrameDuration, 0.01f, 0.0f, 10.0f );
-    ImGui::DragFloat( "Playback Speed", &inAnimation.m_PlaybackSpeed, 0.05f, 0.0f, 10.0f );
-    bool const clipsChanged = DrawNamedClips( inAnimation, inKnownAnimations );
-    ImGui::Checkbox( "Loop", &inAnimation.m_Loop );
-
-    // Only meaningful for a non-looping clip, but kept editable either way so it can be set before Loop is turned off.
-    int finish = static_cast<int>( inAnimation.m_FinishBehavior );
-    if ( ImGui::Combo( "On Finish", &finish, "Restore sprite\0Hold last frame\0" ) )
-    {
-        inAnimation.m_FinishBehavior = static_cast<FinishBehavior>( finish );
-    }
-    if ( ImGui::IsItemHovered() )
-    {
-        ImGui::SetTooltip( "What a finished non-looping clip leaves on the Sprite:\n"
-                           "Restore sprite: snaps back to the Sprite's own crop.\n"
-                           "Hold last frame: stays on the clip's last frame until another clip starts." );
-    }
-
-    ImGui::Checkbox( "Start Playing", &inAnimation.m_StartPlaying );
-
-    // Added components start stopped (see MakeComponentEntry's Add lambda
-    // above), and every scene load/switch stops them too (see
-    // SwitchToScene) -- this button is the only remaining way to turn one
-    // on. Purely a live, runtime m_Playing flip for previewing, same as
-    // PlayAnimation/StopAnimation always were; only m_StartPlaying (the
-    // checkbox above) round-trips through TOML. Label/action flips with the live state so a currently-
-    // playing clip shows "Stop", not a stale "Play".
-    if ( inAnimation.m_Playing )
-    {
-        if ( ImGui::Button( "Stop" ) ) StopAnimation( inAnimation );
-    }
-    else
-    {
-        if ( ImGui::Button( "Play" ) ) PlayAnimation( inAnimation );
-    }
-
-    return clipChanged || clipsChanged;
 }
 
 // Waypoints are authored by clicking the viewport ("Select Waypoints" mode),
@@ -1014,33 +887,10 @@ constexpr ComponentEntry MakeComponentEntry( char const* inName ) noexcept
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
         {
             T component{};
-            // A freshly-added Animation shouldn't start cycling frames in
-            // the editor's own viewport (RenderPipeline runs AnimationSystem
-            // every frame) the moment a clip path is picked -- AudioSource
-            // already defaults m_Playing to false for the same reason;
-            // Animation's own in-code default (true) is right for a game
-            // spawning one ready-to-go, just not for this editor action.
-            if constexpr ( std::is_same_v<T, Animation> ) StopAnimation( component );
             inRegistry.AddComponent<T>( inEntity, component );
         },
         []( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity ) noexcept
         {
-            // A playing Animation has overwritten the Sprite's m_SourceRect
-            // with its current frame -- removing it doesn't undo that, so put
-            // back the crop it saved when playback started. A stopped one
-            // already handed the crop back, so there is nothing to restore.
-            // A clip held on its last frame (FinishBehavior::HoldLastFrame)
-            // still owns the crop and m_RestRect still holds the scene crop
-            // (never the held frame), so it takes this same path.
-            if constexpr ( std::is_same_v<T, Animation> )
-            {
-                auto anim = inRegistry.GetComponent<Animation>( inEntity );
-                auto sprite = inRegistry.GetComponent<Sprite>( inEntity );
-                if ( anim && sprite && anim.Value().get().m_OwnsSourceRect )
-                {
-                    sprite.Value().get().m_SourceRect = anim.Value().get().m_RestRect;
-                }
-            }
             if ( auto const result = inRegistry.RemoveComponent<T>( inEntity ); !result ) result.LogError();
         }
     };
@@ -1056,7 +906,7 @@ ComponentEntry const kComponentEntries[]{
     MakeComponentEntry<Collider>( "Collider" ),
     MakeComponentEntry<Camera>( "Camera" ),
     MakeComponentEntry<AudioSource>( "AudioSource" ),
-    MakeComponentEntry<Animation>( "Animation" ),
+    MakeComponentEntry<Animator>( "Animator" ),
     MakeComponentEntry<Path>( "Path" ),
     MakeComponentEntry<PathFollow>( "PathFollow" ),
     MakeComponentEntry<UILayoutItem>( "UILayoutItem" ),
@@ -1754,7 +1604,6 @@ EntityListResult DrawEntityListPanel(
 InspectorResult DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
     std::vector<std::string> const& inKnownTextures,
-    std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
     std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
@@ -1836,7 +1685,7 @@ InspectorResult DrawInspectorPanel(
     bool const rigidbodyChanged = DrawSection<Rigidbody>( inRegistry, inSelected, "Rigidbody" );
     fieldChanged |= rigidbodyChanged;
     bool spriteRectChanged = false;
-    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures, SpriteCropOwnedByAnimation( inRegistry, inSelected ), spriteRectChanged );
+    bool const spriteChanged = DrawSection<Sprite>( inRegistry, inSelected, "Sprite", inKnownTextures, SpriteCropOwnedByAnimator( inRegistry, inSelected ), spriteRectChanged );
     componentsChanged |= spriteChanged; fieldChanged |= spriteChanged || spriteRectChanged;
     bool const renderInfoChanged = DrawSection<RenderInfo>(
         inRegistry, inSelected, "RenderInfo", ParentOf( inRegistry, inSelected ) != asge::ecs::Entity::Null() );
@@ -1847,7 +1696,7 @@ InspectorResult DrawInspectorPanel(
     fieldChanged |= cameraChanged;
     bool const audioChanged = DrawSection<AudioSource>( inRegistry, inSelected, "AudioSource", inKnownAudio );
     componentsChanged |= audioChanged; fieldChanged |= audioChanged;
-    bool const animationChanged = DrawSection<Animation>( inRegistry, inSelected, "Animation", inKnownAnimations );
+    bool const animationChanged = DrawSection<Animator>( inRegistry, inSelected, "Animator" );
     componentsChanged |= animationChanged; fieldChanged |= animationChanged;
     bool const pathChanged = DrawSection<Path>( inRegistry, inSelected, "Path", inSelected, ioWaypointEdit );
     fieldChanged |= pathChanged;

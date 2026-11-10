@@ -62,8 +62,6 @@ using asge::game::components::Transform;
 using asge::game::components::Path;
 using asge::game::components::PathFollow;
 using asge::game::components::Collider;
-using asge::game::components::Animation;
-using asge::game::components::StopAnimation;
 using asge::game::components::Sprite;
 using asge::game::components::AudioSource;
 using asge::game::components::RenderInfo;
@@ -300,11 +298,8 @@ asge::ecs::Entity DuplicateEntity(
 /**
  * @brief Phase 14: attaches inEntity the component "corresponding" to an
  *        asset of inKind, pointed at inPath -- Sprite::m_VirtualPath for a
- *        Texture, an Animation clip for an Animation clip (registered under
- *        its file name in Animation::m_Clips, and made the active
- *        m_ClipPath if the entity had none -- an entity that already has an
- *        Animation keeps it and just gains the clip),
- *        AudioSource::m_VirtualClipPath for Audio. Backs both the Assets
+ *        Texture, AudioSource::m_VirtualClipPath for Audio. A frame table
+ *        (Animation clip) has no component of its own and is only logged. Backs both the Assets
  *        panel's "Create Entity" and "Attach To" context-menu actions, which
  *        differ only in whether inEntity is freshly created.
  *
@@ -326,30 +321,8 @@ void AttachAssetComponent(
         break;
     }
     case AssetPickKind::Animation:
-    {
-        auto const stem = ClipNameFromPath( inPath ); // the name given in the Create Clip modal
-
-        if ( auto existing = inRegistry.GetComponent<Animation>( inEntity ) )
-        {
-            auto& animation = existing.Value().get();
-            // A stem already taken by a different clip gets a numeric suffix rather than overwriting it.
-            std::string name = stem;
-            for ( int n = 2; animation.m_Clips.contains( name ) && animation.m_Clips[name] != inPath; ++n )
-            {
-                name = stem + "_" + std::to_string( n );
-            }
-            animation.m_Clips[name] = inPath;
-            if ( animation.m_ClipPath.empty() ) animation.m_ClipPath = inPath;
-            break;
-        }
-
-        Animation animation{};
-        animation.m_ClipPath = inPath;
-        animation.m_Clips[stem] = inPath;
-        StopAnimation( animation ); // same "don't auto-play in the editor" reasoning as Inspector's Add Component
-        inRegistry.AddComponent<Animation>( inEntity, animation );
+        LOG_WARNING( "\"", inPath, "\" is a frame table: add an Animator and point it at a clip set that uses it" );
         break;
-    }
     case AssetPickKind::Audio:
     {
         AudioSource audioSource{};
@@ -497,20 +470,6 @@ void SwitchToScene(
 
     inAssets.ResolveAssets( inSceneManager.GetRegistry(), inRenderer );
     RegisterSceneAssets( inSceneManager.GetRegistry() );
-
-    // Serializer<Animation>::ToToml never writes m_Playing (see its own doc
-    // comment -- a scene file describes what an entity's animation IS, not
-    // where a previous run left it), so FromToml always leaves every loaded
-    // Animation at the struct's in-code default, m_Playing=true. Correct for
-    // a real game loading a level; wrong here, where RenderPipeline runs
-    // AnimationSystem every frame purely to render the viewport -- every
-    // animated entity would otherwise start cycling the instant a scene
-    // loads/switches, the same unwanted auto-play this editor's "Add
-    // Component" already guards against for a freshly-added one.
-    for ( auto [ entity, animation ] : inSceneManager.GetRegistry().View<Animation>() )
-    {
-        StopAnimation( animation.get() );
-    }
 
     // Phase 14: a scene saved before RenderInfo existed (or a Sprite that
     // otherwise ended up on an entity without going through this editor's
@@ -2675,7 +2634,6 @@ int main(int, char**)
         auto const inspectorResult = DrawInspectorPanel(
             sceneManager.GetRegistry(), selectedEntity,
             KnownTexturePaths(sceneManager.GetRegistry()),
-            KnownAnimationPaths(sceneManager.GetRegistry()),
             KnownAudioPaths(sceneManager.GetRegistry()),
             KnownFontPaths(sceneManager.GetRegistry()),
             waypointEdit, colliderDraw);
@@ -2835,8 +2793,10 @@ int main(int, char**)
             asge::game::resources::ScreenSpaceCamera{ videoSys.GetRenderer().GetCamera() });
 
         videoSys.GetRenderer().Clear({ 15, 15, 20, 255 });
-        asge::game::systems::RenderPipeline(
+        // Not RenderPipeline: AnimatorSystem must not animate sprites while editing
+        asge::game::systems::CameraSystem(
             sceneManager.GetRegistry(), videoSys.GetRenderer(), asge::time::DeltaTime());
+        asge::game::systems::RenderSystem(sceneManager.GetRegistry(), videoSys.GetRenderer());
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer);
         videoSys.GetRenderer().Present();
 

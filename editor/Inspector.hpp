@@ -182,8 +182,6 @@ struct ColliderDrawState
  *        both Sprite Add-Component and an existing Sprite's "Virtual Path"
  *        dropdown are restricted to these (plus "None" for the latter)
  *        instead of a hand-typed, unresolved m_VirtualPath.
- * @param inKnownAnimations Same as inKnownTextures, for Animation::m_ClipPath
- *        (see KnownAnimationPaths).
  * @param inKnownAudio Same as inKnownTextures, for
  *        AudioSource::m_VirtualClipPath (see KnownAudioPaths).
  * @param inKnownFonts Same as inKnownTextures, for UILabel::m_FontPath (see
@@ -195,7 +193,6 @@ struct ColliderDrawState
 InspectorResult DrawInspectorPanel(
     asge::ecs::Registry& inRegistry, asge::ecs::Entity inSelected,
     std::vector<std::string> const& inKnownTextures,
-    std::vector<std::string> const& inKnownAnimations,
     std::vector<std::string> const& inKnownAudio,
     std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
