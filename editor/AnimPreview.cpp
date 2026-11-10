@@ -43,6 +43,8 @@ void BeginAnimPreview( asge::ecs::Registry& inRegistry ) noexcept
         animator.m_Started = false;
         animator.m_OwnsRect = false;
         animator.m_RestRect.reset();
+        animator.m_Heading = { 0.0f, 1.0f };
+        animator.m_Variant = 0;
     }
 }
 

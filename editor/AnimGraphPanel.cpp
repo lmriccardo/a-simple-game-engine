@@ -9,6 +9,8 @@
 #include <SDL3/SDL.h>
 #include <imgui.h>
 
+#include <ASGE/Core/Math/Geometry/Angle.hpp>
+
 #include "AnimGraph.hpp"
 #include "FileDialog.hpp"
 
@@ -450,6 +452,18 @@ void DrawLive()
     char const* status = a.m_Status == asge::game::components::AnimStatus::Playing ? "playing"
                        : a.m_Status == asge::game::components::AnimStatus::Stopped ? "stopped" : "finished";
     ImGui::Text( "State: %s  frame %u  %s", g.m_LiveState.c_str(), a.m_Frame, status );
+    float const bearing = std::fmod( std::atan2( a.m_Heading.x(), -a.m_Heading.y() ) * 180.0f / asge::math::kPi + 360.0f, 360.0f );
+    ImGui::Text( "Heading: %.0f deg  variant %u", bearing, static_cast<unsigned>( a.m_Variant ) );
+    static constexpr struct { char const* m_Name; float m_X; float m_Y; } kFace[]{
+        { "N", 0, -1 }, { "NE", 1, -1 }, { "E", 1, 0 }, { "SE", 1, 1 },
+        { "S", 0, 1 }, { "SW", -1, 1 }, { "W", -1, 0 }, { "NW", -1, -1 } };
+    for ( auto const& f : kFace )
+    {
+        if ( ImGui::SmallButton( f.m_Name ) ) asge::game::components::SetHeading( a, { f.m_X, f.m_Y } );
+        ImGui::SameLine();
+    }
+    ImGui::NewLine();
+    ImGui::TextDisabled( "A moving PathFollow or Velocity overrides the heading" );
     if ( ImGui::SmallButton( "Stop" ) ) asge::game::components::Stop( a );
     ImGui::SameLine();
     if ( ImGui::SmallButton( "Resume" ) ) asge::game::components::Resume( a );
