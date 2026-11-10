@@ -2070,6 +2070,20 @@ protected:
     }
 };
 
+TEST_F(AnimatorSystemTest, ReloadAssetOfAFrameTableDropsTheClipSetAnimatorsBindingIt)
+{
+    auto entity = Spawn();
+    auto const stale = AnimatorOf(entity).m_ClipSet;
+    ASSERT_NE(stale, nullptr);
+
+    m_Assets.ReloadAsset("t/b.toml", m_Registry);
+
+    EXPECT_EQ(AnimatorOf(entity).m_ClipSet, nullptr);
+    auto fresh = m_Assets.GetClipSet("t/set.xml");
+    ASSERT_TRUE(fresh.IsOk());
+    EXPECT_NE(fresh.Value(), stale); // loaded again, not the cached clip set
+}
+
 TEST_F(AnimatorSystemTest, FirstUpdateEntersInitialStateAndAdvancesOnceFrameDurationElapses)
 {
     Entity entity = Spawn();

@@ -151,6 +151,17 @@ public:
     void ReloadTexture( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept;
 
     /**
+     * @brief Drops every cached asset at inVirtualPath, whatever its kind.
+     *
+     * Covers images and textures, audio clips, fonts, frame tables, clip sets
+     * and state machines. The components in inRegistry that use it (including a
+     * clip set that binds it, or a machine it plays) are un-resolved, so the
+     * next ResolveAssets() re-reads the file from disk. A path that names no
+     * cached asset is a no-op.
+     */
+    void ReloadAsset( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept;
+
+    /**
      * @brief Loads (or returns the cached) GPU texture for inFont's baked glyph atlas.
      *
      * The texture is created via inRenderer on first request.

@@ -2,6 +2,9 @@
 
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
+#include <ASGE/Game/Components/UI/UILabel.hpp>
+#include <algorithm>
 #include <ASGE/Video/Graphics/Rendering/RenderError.hpp>
 
 #include "AssetResolver.hpp"
@@ -79,6 +82,46 @@ void asge::game::asset::AssetManager::ReloadTexture(
 
     UnloadTexture( inVirtualPath );
     m_ImagePool.Remove( inVirtualPath );
+}
+
+void asge::game::asset::AssetManager::ReloadAsset( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept
+{
+    ReloadTexture( inVirtualPath, inRegistry );
+
+    for ( auto [e, audio] : inRegistry.View<components::AudioSource>().IncludeDisabled() )
+    {
+        if ( audio.get().m_ResolvedVirtualClipPath != inVirtualPath ) continue;
+        audio.get().m_Clip = nullptr;
+        audio.get().m_ResolvedVirtualClipPath.clear();
+    }
+    m_AudioPool.Remove( inVirtualPath );
+
+    for ( auto [e, label] : inRegistry.View<components::UILabel>().IncludeDisabled() )
+    {
+        auto& l = label.get();
+        if ( l.m_ResolvedFontPath != inVirtualPath ) continue;
+        if ( l.m_Font ) m_FontAtlasCache.erase( l.m_Font );
+        m_FontPool.Remove( inVirtualPath, l.m_ResolvedFontPixelHeight );
+        l.m_Font = nullptr;
+        l.m_ResolvedFontPath.clear();
+        l.m_ResolvedFontPixelHeight = 0;
+    }
+
+    for ( auto [e, animator] : inRegistry.View<components::Animator>().IncludeDisabled() )
+    {
+        auto& a = animator.get();
+        if ( !a.m_ClipSet ) continue;
+        auto const& set = a.m_ClipSet->Get();
+        auto const paths = set.ClipPaths();
+        bool const uses = a.m_ClipSet->VirtualPath() == inVirtualPath || set.MachinePath() == inVirtualPath
+            || std::ranges::find( paths, inVirtualPath ) != paths.end();
+        if ( !uses ) continue;
+        m_AnimClipSet.Remove( str::String( a.m_ClipSet->VirtualPath() ) );
+        a.m_ClipSet = nullptr;
+    }
+    m_AnimClipSet.Remove( inVirtualPath );
+    m_AnimStateMachines.Remove( inVirtualPath );
+    m_FrameTables.Remove( inVirtualPath );
 }
 
 asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetFontAtlasTexture(
