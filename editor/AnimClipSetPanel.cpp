@@ -1,6 +1,7 @@
 #include "AnimClipSetPanel.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@ namespace
 
 namespace fs = std::filesystem;
 
+constexpr std::size_t kMaxVariants = 8; // the engine's limit; its loader is what enforces it
 constexpr SDL_DialogFileFilter kSetFilters[]{ { "Clip set (*.animset)", "animset" } };
 
 struct PanelState
@@ -95,6 +97,21 @@ void SaveTo( fs::path const& inPath )
     g.m_Status = "Saved " + inPath.filename().string();
 }
 
+// Compass name for a variant of inCount evenly spaced clockwise from north, or its bearing.
+std::string DirectionLabel( int inIndex, int inCount )
+{
+    static char const* const kNames[]{ "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+    if ( inCount <= 1 ) return "";
+
+    float const degrees = 360.0f * static_cast<float>( inIndex ) / static_cast<float>( inCount );
+    int const rounded = static_cast<int>( degrees + 0.5f );
+    if ( rounded % 45 == 0 && std::abs( degrees - static_cast<float>( rounded ) ) < 0.01f ) return kNames[rounded / 45];
+
+    char buf[32];
+    std::snprintf( buf, sizeof buf, "%d deg", rounded );
+    return buf;
+}
+
 bool DeclaredByMachine( std::string const& inName ) noexcept
 {
     return std::ranges::find( g.m_MachineClips, inName ) != g.m_MachineClips.end();
@@ -127,7 +144,7 @@ void DrawAnimClipSetPanel(
     }
 
     ImGui::SetNextWindowPos( ImVec2( 80.0f, 100.0f ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowSize( ImVec2( 640.0f, 360.0f ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 700.0f, 420.0f ), ImGuiCond_FirstUseEver );
     if ( !ImGui::Begin( "Animation Clip Set", &ioOpen ) ) { ImGui::End(); return; }
 
     if ( g.m_NeedSync ) SyncWithMachine( inVfs );
@@ -167,10 +184,23 @@ void DrawAnimClipSetPanel(
         ImGui::PushID( i );
         if ( declared ) ImGui::TextUnformatted( clip.m_Name.c_str() );
         else ImGui::TextColored( ImVec4( 1.0f, 0.7f, 0.3f, 1.0f ), "%s (not in machine)", clip.m_Name.c_str() );
-        ImGui::SameLine( 170.0f );
-        ImGui::SetNextItemWidth( 260.0f );
         if ( clip.m_Variants.empty() ) clip.m_Variants.emplace_back();
-        if ( PathCombo( "##table", clip.m_Variants.front(), tables ) ) Touch();
+
+        ImGui::SameLine( 170.0f );
+        ImGui::SetNextItemWidth( 90.0f );
+        int count = static_cast<int>( clip.m_Variants.size() );
+        char preview[24];
+        std::snprintf( preview, sizeof preview, count == 1 ? "%d direction" : "%d directions", count );
+        if ( ImGui::BeginCombo( "##dirs", preview ) )
+        {
+            for ( int n = 1; n <= static_cast<int>( kMaxVariants ); ++n )
+            {
+                char item[24];
+                std::snprintf( item, sizeof item, n == 1 ? "%d direction" : "%d directions", n );
+                if ( ImGui::Selectable( item, n == count ) ) { clip.m_Variants.resize( n ); Touch(); }
+            }
+            ImGui::EndCombo();
+        }
         ImGui::SameLine();
         ImGui::SetNextItemWidth( 80.0f );
         if ( ImGui::InputFloat( "##dur", &clip.m_FrameDuration, 0.0f, 0.0f, "%.3f s" ) ) Touch();
@@ -179,6 +209,18 @@ void DrawAnimClipSetPanel(
             ImGui::SameLine();
             if ( ImGui::SmallButton( "Remove" ) ) removeAt = i;
         }
+
+        ImGui::Indent();
+        for ( int v = 0; v < static_cast<int>( clip.m_Variants.size() ); ++v )
+        {
+            ImGui::PushID( v );
+            ImGui::SetNextItemWidth( 360.0f );
+            auto const label = DirectionLabel( v, static_cast<int>( clip.m_Variants.size() ) );
+            if ( PathCombo( "##table", clip.m_Variants[v], tables ) ) Touch();
+            if ( !label.empty() ) { ImGui::SameLine(); ImGui::TextDisabled( "%s", label.c_str() ); }
+            ImGui::PopID();
+        }
+        ImGui::Unindent();
         ImGui::PopID();
     }
     if ( removeAt >= 0 ) { g.m_Doc.m_Clips.erase( g.m_Doc.m_Clips.begin() + removeAt ); Touch(); }
