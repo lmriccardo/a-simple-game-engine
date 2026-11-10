@@ -11,10 +11,12 @@ class AssetManager;
 class AnimationClipSet
 {
 public:
+    static constexpr std::size_t kMaxVariants = 8; // Directions a clip can have
+
     struct Binding
     {
-        std::shared_ptr<Asset<FrameTable>> m_Clip{}; // Null until asset resolution
-        float m_FrameDuration{0.1f};                 // Seconds per frame
+        std::vector<std::shared_ptr<Asset<FrameTable>>> m_Variants{}; // One per direction, empty until asset resolution
+        float m_FrameDuration{0.1f};                                  // Seconds per frame, shared by every variant
     };
 private:
     std::vector<Binding> m_Bindings{};
@@ -23,15 +25,18 @@ private:
     // Set up once at load time; same order as m_Bindings
     str::String              m_MachinePath {}; // Path of the state machine file
     std::vector<str::String> m_ClipNames   {}; // Clip names
-    std::vector<str::String> m_ClipPaths   {}; // FrameTable paths
+    std::vector<std::vector<str::String>> m_ClipPaths {}; // FrameTable paths, one list of variants per clip
 public:
     /**
      * @brief Loads a clip set from an XML file.
      *
-     * The root is `<AnimClipSet machine="...">` holding `<Clip name path
-     * [frameDuration]>` elements. Only the file itself is read: the machine
-     * and the frame tables are stored as paths and resolved later. Missing,
-     * blank or malformed attributes, duplicate names and unknown elements
+     * The root is `<AnimClipSet machine="...">` holding `<Clip name
+     * [frameDuration]>` elements. A clip names its frame table either with a
+     * `path` attribute (one variant) or with 1 to kMaxVariants `<Variant
+     * path>` children, one per direction clockwise from north, never both.
+     * Only the file itself is read: the machine and the frame tables are
+     * stored as paths and resolved later. Missing, blank or malformed
+     * attributes, too many variants, duplicate names and unknown elements
      * return a specific AnimStateMachineErrors.
      */
     [[nodiscard]] static Result<AnimationClipSet> Load(filesystem::Path const&);
@@ -62,7 +67,8 @@ public:
     /**
      * @brief Returns the clip bindings.
      *
-     * Binding i belongs to the clip called ClipNames()[i]. That is the
+     * Binding i belongs to the clip called ClipNames()[i], and its m_Variants
+     * are parallel to ClipPaths()[i]. That is the
      * declaration order until ResolveAssets() runs, the machine's clip order
      * afterwards.
      */
@@ -74,8 +80,8 @@ public:
     /** @brief Returns the clip names, parallel to Bindings(). */
     [[nodiscard]] std::span<str::String const> ClipNames() const noexcept;
 
-    /** @brief Returns the frame table paths, parallel to Bindings(). */
-    [[nodiscard]] std::span<str::String const> ClipPaths() const noexcept;
+    /** @brief Returns the frame table paths of each clip's variants, parallel to Bindings(). */
+    [[nodiscard]] std::span<std::vector<str::String> const> ClipPaths() const noexcept;
 };
 
 }

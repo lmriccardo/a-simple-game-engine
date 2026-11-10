@@ -140,7 +140,7 @@ void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDelt
 
         auto const& state   = states[animator.m_State];
         auto const& binding = bindings[state.m_ClipId];
-        auto const& table   = binding.m_Clip->Get();
+        auto const& table   = binding.m_Variants.front()->Get();
         auto const  count   = table.m_Frames.size();
         if ( count == 0 ) continue; // No frames in the current frame table
 
@@ -174,7 +174,7 @@ void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDelt
         }
         else if ( write )
         {
-            auto const& cur = bindings[ states[animator.m_State].m_ClipId ].m_Clip->Get();
+            auto const& cur = bindings[ states[animator.m_State].m_ClipId ].m_Variants.front()->Get();
             sprite.m_SourceRect = cur.m_Frames[animator.m_Frame];
         }
 

@@ -888,7 +888,8 @@ TEST_F(ResolveAssetsTest, Animator_ClipSetPathResolvesSetMachineAndFrameTables)
     ASSERT_NE(animator.m_ClipSet, nullptr);
     EXPECT_TRUE(animator.m_ClipSet->Get().IsResolved());
     ASSERT_EQ(animator.m_ClipSet->Get().Bindings().size(), 1u);
-    EXPECT_NE(animator.m_ClipSet->Get().Bindings()[0].m_Clip, nullptr);
+    ASSERT_EQ(animator.m_ClipSet->Get().Bindings()[0].m_Variants.size(), 1u);
+    EXPECT_NE(animator.m_ClipSet->Get().Bindings()[0].m_Variants[0], nullptr);
 }
 
 TEST_F(ResolveAssetsTest, Animator_EmptyOrMissingClipSetPathLeavesClipSetNull)

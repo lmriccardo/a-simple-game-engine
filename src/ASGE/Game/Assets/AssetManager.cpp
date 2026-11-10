@@ -112,9 +112,9 @@ void asge::game::asset::AssetManager::ReloadAsset( str::StringCRef inVirtualPath
         auto& a = animator.get();
         if ( !a.m_ClipSet ) continue;
         auto const& set = a.m_ClipSet->Get();
-        auto const paths = set.ClipPaths();
         bool const uses = a.m_ClipSet->VirtualPath() == inVirtualPath || set.MachinePath() == inVirtualPath
-            || std::ranges::find( paths, inVirtualPath ) != paths.end();
+            || std::ranges::any_of( set.ClipPaths(), [&]( auto const& variants )
+               { return std::ranges::find( variants, inVirtualPath ) != variants.end(); } );
         if ( !uses ) continue;
         m_AnimClipSet.Remove( str::String( a.m_ClipSet->VirtualPath() ) );
         a.m_ClipSet = nullptr;

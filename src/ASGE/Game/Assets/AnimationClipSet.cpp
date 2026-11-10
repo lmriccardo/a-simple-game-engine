@@ -45,8 +45,41 @@ asge::game::asset::AnimationClipSet::Load(filesystem::Path const &inPath)
 
         str::String const ctx = "<Clip '" + str::String( name.Value() ) + "'>";
 
-        auto path = RequiredAttr( child, "path", ctx );
+        auto path = OptionalAttr( child, "path", ctx );
         if ( !path ) return Out::Err( path.Error() );
+
+        std::vector<str::String> variants;
+        for ( auto const& variant : child )
+        {
+            if ( variant.Name() != "Variant" )
+            {
+                return Out::Err( make_error_code( errors::AnimStateMachineErrors::UnexpectedElement ),
+                    ctx + " can only contain <Variant>, found <" + variant.Name() + ">" );
+            }
+
+            auto variantPath = RequiredAttr( variant, "path", ctx + " <Variant>" );
+            if ( !variantPath ) return Out::Err( variantPath.Error() );
+            variants.emplace_back( variantPath.Value() );
+        }
+
+        if ( path.Value() && !variants.empty() )
+        {
+            return Out::Err( make_error_code( errors::AnimStateMachineErrors::InvalidAttribute ),
+                ctx + " has both a 'path' attribute and <Variant> children" );
+        }
+
+        if ( path.Value() ) variants.emplace_back( *path.Value() );
+        if ( variants.empty() )
+        {
+            return Out::Err( make_error_code( errors::AnimStateMachineErrors::MissingAttribute ),
+                ctx + " needs a 'path' attribute or <Variant> children" );
+        }
+
+        if ( variants.size() > kMaxVariants )
+        {
+            return Out::Err( make_error_code( errors::AnimStateMachineErrors::LimitExceeded ),
+                ctx + " has more than " + std::to_string( kMaxVariants ) + " variants" );
+        }
 
         Binding binding;
         auto duration = ConvertedAttr<float>( child, "frameDuration", ctx, binding.m_FrameDuration,
@@ -59,7 +92,7 @@ asge::game::asset::AnimationClipSet::Load(filesystem::Path const &inPath)
         }
         binding.m_FrameDuration = duration.Value();
 
-        set.m_ClipPaths.emplace_back( path.Value() );
+        set.m_ClipPaths.push_back( std::move( variants ) );
         set.m_Bindings.push_back( std::move( binding ) );
     }
 
@@ -84,8 +117,8 @@ asge::BoolResult asge::game::asset::AnimationClipSet::ResolveAssets(AssetManager
     }
 
     // Build the reordered tables on the side, so a failure leaves *this untouched
-    std::vector<Binding>     bindings;
-    std::vector<str::String> paths;
+    std::vector<Binding>                  bindings;
+    std::vector<std::vector<str::String>> paths;
     bindings.reserve( machineClips.size() );
     paths.reserve( machineClips.size() );
 
@@ -98,11 +131,15 @@ asge::BoolResult asge::game::asset::AnimationClipSet::ResolveAssets(AssetManager
                 "machine clip '" + name + "' has no binding in the clip set" );
         }
 
-        auto table = inAssetManager.GetFrameTable( m_ClipPaths[idx] );
-        if ( !table ) return BoolResult::Err( table.Error() );
-
         Binding binding = m_Bindings[idx];
-        binding.m_Clip = table.Value();
+        binding.m_Variants.clear();
+        for ( auto const& path : m_ClipPaths[idx] )
+        {
+            auto table = inAssetManager.GetFrameTable( path );
+            if ( !table ) return BoolResult::Err( table.Error() );
+            binding.m_Variants.push_back( table.Value() );
+        }
+
         bindings.push_back( std::move( binding ) );
         paths.push_back( m_ClipPaths[idx] );
     }
@@ -141,7 +178,7 @@ std::span<asge::str::String const> asge::game::asset::AnimationClipSet::ClipName
     return m_ClipNames;
 }
 
-std::span<asge::str::String const> asge::game::asset::AnimationClipSet::ClipPaths() const noexcept
+std::span<std::vector<asge::str::String> const> asge::game::asset::AnimationClipSet::ClipPaths() const noexcept
 {
     return m_ClipPaths;
 }

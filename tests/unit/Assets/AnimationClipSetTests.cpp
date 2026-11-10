@@ -77,7 +77,8 @@ TEST_F(AnimationClipSetTest, Load_ValidDocumentReadsEveryClip)
     ASSERT_EQ(set.ClipPaths().size(), 3u);
 
     EXPECT_EQ(set.ClipNames()[1], "run");
-    EXPECT_EQ(set.ClipPaths()[2], "anim/goblin_attack.toml");
+    ASSERT_EQ(set.ClipPaths()[2].size(), 1u);
+    EXPECT_EQ(set.ClipPaths()[2][0], "anim/goblin_attack.toml");
     EXPECT_FLOAT_EQ(set.Bindings()[0].m_FrameDuration, 0.15f);
     EXPECT_FLOAT_EQ(set.Bindings()[2].m_FrameDuration, 0.07f);
 }
@@ -86,7 +87,7 @@ TEST_F(AnimationClipSetTest, Load_BindingsStartUnresolved)
 {
     auto result = LoadText(Doc("<Clip name=\"idle\" path=\"idle.toml\"/>\n"));
     ASSERT_TRUE(result.IsOk());
-    EXPECT_EQ(result.Value().Bindings()[0].m_Clip, nullptr);
+    EXPECT_TRUE(result.Value().Bindings()[0].m_Variants.empty());
 }
 
 TEST_F(AnimationClipSetTest, Load_FrameDurationDefaultsWhenOmitted)
@@ -109,7 +110,37 @@ TEST_F(AnimationClipSetTest, Load_ClipsKeepDeclarationOrder)
         "<Clip name=\"b\" path=\"b.toml\"/>\n<Clip name=\"a\" path=\"a.toml\"/>\n"));
     ASSERT_TRUE(result.IsOk());
     EXPECT_EQ(result.Value().ClipNames()[0], "b");
-    EXPECT_EQ(result.Value().ClipPaths()[1], "a.toml");
+    EXPECT_EQ(result.Value().ClipPaths()[1][0], "a.toml");
+}
+
+TEST_F(AnimationClipSetTest, Load_VariantsAreReadInDeclarationOrder)
+{
+    auto result = LoadText(Doc(
+        "<Clip name=\"run\" frameDuration=\"0.2\">\n"
+        "<Variant path=\"n.toml\"/>\n<Variant path=\"e.toml\"/>\n<Variant path=\"s.toml\"/>\n"
+        "</Clip>\n"));
+    ASSERT_TRUE(result.IsOk());
+    auto const& paths = result.Value().ClipPaths()[0];
+    ASSERT_EQ(paths.size(), 3u);
+    EXPECT_EQ(paths[0], "n.toml");
+    EXPECT_EQ(paths[2], "s.toml");
+    EXPECT_FLOAT_EQ(result.Value().Bindings()[0].m_FrameDuration, 0.2f);
+}
+
+TEST_F(AnimationClipSetTest, Load_PathAttributeIsASingleVariant)
+{
+    auto result = LoadText(Doc("<Clip name=\"idle\" path=\"idle.toml\"/>\n"));
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().ClipPaths()[0].size(), 1u);
+}
+
+TEST_F(AnimationClipSetTest, Load_EightVariantsAreAllowed)
+{
+    std::string variants;
+    for (int i = 0; i < 8; ++i) variants += "<Variant path=\"v" + std::to_string(i) + ".toml\"/>\n";
+    auto result = LoadText(Doc("<Clip name=\"run\">\n" + variants + "</Clip>\n"));
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_EQ(result.Value().ClipPaths()[0].size(), 8u);
 }
 
 // ─── Load — errors ────────────────────────────────────────────────────────────
@@ -161,6 +192,34 @@ TEST_F(AnimationClipSetTest, Load_ClipNameWithSpaceReturnsInvalidAttribute)
 TEST_F(AnimationClipSetTest, Load_ClipWithoutPathReturnsMissingAttribute)
 {
     ExpectLoadError(Doc("<Clip name=\"a\"/>\n"), AnimStateMachineErrors::MissingAttribute);
+}
+
+TEST_F(AnimationClipSetTest, Load_NineVariantsReturnsLimitExceeded)
+{
+    std::string variants;
+    for (int i = 0; i < 9; ++i) variants += "<Variant path=\"v" + std::to_string(i) + ".toml\"/>\n";
+    ExpectLoadError(Doc("<Clip name=\"run\">\n" + variants + "</Clip>\n"), AnimStateMachineErrors::LimitExceeded);
+}
+
+TEST_F(AnimationClipSetTest, Load_PathAndVariantsTogetherReturnsInvalidAttribute)
+{
+    ExpectLoadError(Doc("<Clip name=\"a\" path=\"a.toml\">\n<Variant path=\"b.toml\"/>\n</Clip>\n"),
+        AnimStateMachineErrors::InvalidAttribute);
+}
+
+TEST_F(AnimationClipSetTest, Load_VariantWithoutPathReturnsMissingAttribute)
+{
+    ExpectLoadError(Doc("<Clip name=\"a\">\n<Variant/>\n</Clip>\n"), AnimStateMachineErrors::MissingAttribute);
+}
+
+TEST_F(AnimationClipSetTest, Load_VariantWithBlankPathReturnsEmptyAttribute)
+{
+    ExpectLoadError(Doc("<Clip name=\"a\">\n<Variant path=\" \"/>\n</Clip>\n"), AnimStateMachineErrors::EmptyAttribute);
+}
+
+TEST_F(AnimationClipSetTest, Load_UnknownChildOfClipReturnsUnexpectedElement)
+{
+    ExpectLoadError(Doc("<Clip name=\"a\">\n<Frame path=\"a.toml\"/>\n</Clip>\n"), AnimStateMachineErrors::UnexpectedElement);
 }
 
 TEST_F(AnimationClipSetTest, Load_ClipWithBlankPathReturnsEmptyAttribute)
@@ -265,9 +324,10 @@ TEST_F(AnimationClipSetResolveTest, ResolveAssets_LoadsMachineAndFrameTables)
 
     EXPECT_EQ(set.Machine().States().size(), 2u);
     ASSERT_EQ(set.Bindings().size(), 2u);
-    ASSERT_NE(set.Bindings()[0].m_Clip, nullptr);
-    EXPECT_EQ(set.Bindings()[0].m_Clip->VirtualPath(), "anim/idle.toml");
-    EXPECT_EQ(set.Bindings()[1].m_Clip->Get().m_Frames.size(), 4u);
+    ASSERT_EQ(set.Bindings()[0].m_Variants.size(), 1u);
+    ASSERT_NE(set.Bindings()[0].m_Variants[0], nullptr);
+    EXPECT_EQ(set.Bindings()[0].m_Variants[0]->VirtualPath(), "anim/idle.toml");
+    EXPECT_EQ(set.Bindings()[1].m_Variants[0]->Get().m_Frames.size(), 4u);
 }
 
 TEST_F(AnimationClipSetResolveTest, ResolveAssets_ReordersBindingsToTheMachineClipOrder)
@@ -286,8 +346,37 @@ TEST_F(AnimationClipSetResolveTest, ResolveAssets_ReordersBindingsToTheMachineCl
     EXPECT_EQ(set.ClipNames()[idleId], "idle");
     EXPECT_FLOAT_EQ(set.Bindings()[idleId].m_FrameDuration, 0.2f);
     EXPECT_FLOAT_EQ(set.Bindings()[runId].m_FrameDuration, 0.05f);
-    EXPECT_EQ(set.Bindings()[runId].m_Clip->VirtualPath(), "anim/run.toml");
-    EXPECT_EQ(set.ClipPaths()[runId], "anim/run.toml");
+    EXPECT_EQ(set.Bindings()[runId].m_Variants[0]->VirtualPath(), "anim/run.toml");
+    EXPECT_EQ(set.ClipPaths()[runId][0], "anim/run.toml");
+}
+
+TEST_F(AnimationClipSetResolveTest, ResolveAssets_LoadsEveryVariantAndKeepsThemWithTheirClip)
+{
+    auto set = LoadSet(
+        "<Clip name=\"run\">\n<Variant path=\"anim/run.toml\"/>\n<Variant path=\"anim/idle.toml\"/>\n</Clip>\n"
+        "<Clip name=\"idle\" path=\"anim/idle.toml\"/>\n");
+
+    asge::game::asset::AssetManager mgr(m_Vfs);
+    ASSERT_TRUE(set.ResolveAssets(mgr).IsOk());
+
+    auto const runId = set.Machine().FindClip("run").Value();
+    auto const idleId = set.Machine().FindClip("idle").Value();
+    ASSERT_EQ(set.Bindings()[runId].m_Variants.size(), 2u);
+    EXPECT_EQ(set.Bindings()[runId].m_Variants[0]->VirtualPath(), "anim/run.toml");
+    EXPECT_EQ(set.Bindings()[runId].m_Variants[1]->VirtualPath(), "anim/idle.toml");
+    EXPECT_EQ(set.ClipPaths()[runId].size(), 2u);
+    EXPECT_EQ(set.Bindings()[idleId].m_Variants.size(), 1u);
+}
+
+TEST_F(AnimationClipSetResolveTest, ResolveAssets_MissingVariantFileFailsAndLeavesTheSetUntouched)
+{
+    auto set = LoadSet(
+        "<Clip name=\"run\">\n<Variant path=\"anim/run.toml\"/>\n<Variant path=\"anim/ghost.toml\"/>\n</Clip>\n"
+        "<Clip name=\"idle\" path=\"anim/idle.toml\"/>\n");
+
+    asge::game::asset::AssetManager mgr(m_Vfs);
+    EXPECT_FALSE(set.ResolveAssets(mgr).IsOk());
+    EXPECT_FALSE(set.IsResolved());
 }
 
 TEST_F(AnimationClipSetResolveTest, ResolveAssets_StateClipIdIndexesBindings)
@@ -300,7 +389,7 @@ TEST_F(AnimationClipSetResolveTest, ResolveAssets_StateClipIdIndexesBindings)
     auto const& machine = set.Machine();
     auto const runState = machine.FindState("run").Value();
     auto const clipId = machine.States()[runState].m_ClipId;
-    EXPECT_EQ(set.Bindings()[clipId].m_Clip->VirtualPath(), "anim/run.toml");
+    EXPECT_EQ(set.Bindings()[clipId].m_Variants[0]->VirtualPath(), "anim/run.toml");
 }
 
 TEST_F(AnimationClipSetResolveTest, ResolveAssets_CanRunTwice)
@@ -362,7 +451,7 @@ TEST_F(AnimationClipSetResolveTest, ResolveAssets_MissingFrameTableReturnsErrorA
 
     // Still in declaration order, nothing resolved
     EXPECT_EQ(set.ClipNames()[0], "run");
-    EXPECT_EQ(set.Bindings()[0].m_Clip, nullptr);
+    EXPECT_TRUE(set.Bindings()[0].m_Variants.empty());
 }
 
 } // namespace
