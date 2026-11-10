@@ -1,4 +1,5 @@
 #include "Inspector.hpp"
+#include "AssetBrowser.hpp"
 
 #include <ASGE/Game/Components/Transform.hpp>
 #include <ASGE/Game/Components/Velocity.hpp>
@@ -496,14 +497,13 @@ bool DrawInspector( AudioSource& inAudioSource, std::vector<std::string> const& 
 
 // Only m_ClipSetPath/m_PlaybackSpeed/m_StartPlaying round-trip (see
 // Serializer<Animator>'s doc comment); the rest is runtime state, shown read-only
-// below. m_ClipSetPath is typed and committed with Enter (every keystroke would
-// try to resolve a half-typed path); the return reports only whether the path
+// below. m_ClipSetPath is picked from the loaded clip sets; the return reports only whether the path
 // changed, since only that needs AssetManager::ResolveAssets re-run.
 bool DrawInspector( Animator& inAnimator ) noexcept
 {
     bool changed = false;
     std::string path = inAnimator.m_ClipSetPath;
-    if ( ImGui::InputText( "Clip Set", &path, ImGuiInputTextFlags_EnterReturnsTrue ) )
+    if ( DrawAssetPathCombo( "Clip Set", path, KnownClipSetPaths() ) )
     {
         inAnimator.m_ClipSetPath = path;
         changed = true;

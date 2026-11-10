@@ -45,6 +45,8 @@ asge::BoolResult SaveProject(
     builder.SetArray( "Animations", KnownAnimationPaths( inRegistry ) );
     builder.SetArray( "Audio", KnownAudioPaths( inRegistry ) );
     builder.SetArray( "Fonts", KnownFontPaths( inRegistry ) );
+    builder.SetArray( "StateMachines", KnownMachinePaths() );
+    builder.SetArray( "ClipSets", KnownClipSetPaths() );
 
     std::vector<std::string> scenePaths;
     scenePaths.reserve( inProject.m_Scenes.size() );
@@ -106,7 +108,9 @@ asge::BoolResult LoadProject(
         doc.GetArray<std::string>( "Textures" ),
         doc.GetArray<std::string>( "Animations" ),
         doc.GetArray<std::string>( "Audio" ),
-        doc.GetArray<std::string>( "Fonts" ) );
+        doc.GetArray<std::string>( "Fonts" ),
+        doc.GetArray<std::string>( "StateMachines" ),
+        doc.GetArray<std::string>( "ClipSets" ) );
 
     outProject = Project{};
     outProject.m_FilePath = inPath;

@@ -3,6 +3,10 @@
 #include <ASGE/Game/Assets/AnimStateMachine.hpp>
 #include <ASGE/Game/Assets/AnimationClipSet.hpp>
 
+#include <ASGE/Core/Formats/TOML/TOML_Builder.hpp>
+#include <ASGE/Core/Formats/TOML/TOML_Parser.hpp>
+
+#include <algorithm>
 #include <atomic>
 #include <format>
 #include <sstream>
@@ -204,6 +208,105 @@ asge::BoolResult WriteMachine( AnimMachineDoc const& inDoc, std::filesystem::pat
 {
     if ( auto valid = ValidateMachine( inDoc ); !valid ) return valid;
     return BuildMachineXml( inDoc ).SaveToFile( inPath );
+}
+
+std::filesystem::path LayoutFilePath( std::filesystem::path const& inMachinePath ) noexcept
+{
+    return std::filesystem::path( inMachinePath.string() + ".layout" );
+}
+
+asge::BoolResult SaveLayout( std::filesystem::path const& inMachinePath, AnimLayout const& inLayout )
+{
+    auto const path = LayoutFilePath( inMachinePath );
+
+    if ( inLayout.empty() )
+    {
+        std::error_code ec;
+        std::filesystem::remove( path, ec );
+        return asge::BoolResult::Ok();
+    }
+
+    asge::formats::toml::TOMLBuilder builder;
+    for ( auto const& [name, pos] : inLayout )
+    {
+        auto table = builder.ArrayTable( "State" );
+        table.Set( "Name", name );
+        table.Set( "X", pos.m_X );
+        table.Set( "Y", pos.m_Y );
+    }
+
+    return builder.SaveToFile( path );
+}
+
+AnimLayout LoadLayout( std::filesystem::path const& inMachinePath )
+{
+    AnimLayout layout;
+
+    auto const path = LayoutFilePath( inMachinePath );
+    std::error_code ec;
+    if ( !std::filesystem::exists( path, ec ) ) return layout;
+
+    auto parsed = asge::formats::toml::Parse( path );
+    if ( !parsed ) return layout;
+    asge::formats::toml::TOMLTableView const doc( parsed.Value() );
+
+    for ( int i = 0;; ++i )
+    {
+        auto table = doc.GetTable( "State", i );
+        if ( !table ) break;
+
+        auto name = table.Value().Get<std::string>( "Name", std::string{} );
+        if ( name.empty() ) continue;
+        layout[std::move( name )] = AnimNodePos{ table.Value().Get( "X", 0.0f ), table.Value().Get( "Y", 0.0f ) };
+    }
+
+    return layout;
+}
+
+void AutoLayout( AnimMachineDoc const& inDoc, AnimLayout& ioLayout )
+{
+    constexpr float kColumnWidth = 260.0f;
+    constexpr float kRowHeight   = 140.0f;
+
+    // Forget states that were deleted since the layout was saved
+    for ( auto it = ioLayout.begin(); it != ioLayout.end(); )
+    {
+        bool const exists = std::ranges::any_of( inDoc.m_States,
+            [&]( AnimState const& inState ) { return inState.m_Name == it->first; } );
+        it = exists ? std::next( it ) : ioLayout.erase( it );
+    }
+
+    // Breadth-first distance from the initial state, by state name
+    std::map<std::string, int, std::less<>> depth;
+    std::vector<std::string> queue;
+    if ( !inDoc.m_Initial.empty() ) { depth[inDoc.m_Initial] = 0; queue.push_back( inDoc.m_Initial ); }
+    for ( std::size_t head = 0; head < queue.size(); ++head )
+    {
+        auto const current = queue[head];
+        auto const state = std::ranges::find( inDoc.m_States, current, &AnimState::m_Name );
+        if ( state == inDoc.m_States.end() ) continue;
+
+        for ( auto const& transition : state->m_Transitions )
+        {
+            if ( depth.contains( transition.m_To ) ) continue;
+            depth[transition.m_To] = depth[current] + 1;
+            queue.push_back( transition.m_To );
+        }
+    }
+
+    int lastColumn = 0;
+    for ( auto const& [name, d] : depth ) lastColumn = std::max( lastColumn, d );
+    ++lastColumn; // unreachable states
+
+    std::map<int, int> nextRow;
+    for ( auto const& state : inDoc.m_States )
+    {
+        if ( ioLayout.contains( state.m_Name ) ) continue;
+
+        auto const found = depth.find( state.m_Name );
+        int const column = found != depth.end() ? found->second : lastColumn;
+        ioLayout[state.m_Name] = AnimNodePos{ column * kColumnWidth, static_cast<float>( nextRow[column]++ ) * kRowHeight };
+    }
 }
 
 asge::Result<AnimClipSetDoc> ReadClipSet( std::filesystem::path const& inPath )

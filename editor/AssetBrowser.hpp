@@ -11,7 +11,7 @@
 struct SDL_Window;
 
 /** @brief Which kind of asset an AssetBrowser entry the user clicked names. */
-enum class AssetPickKind { None, Texture, Animation, Audio, Font };
+enum class AssetPickKind { None, Texture, Animation, Audio, Font, StateMachine, ClipSet };
 
 /**
  * @brief This frame's pick (if any) from DrawAssetExplorer -- which
@@ -31,10 +31,10 @@ struct AssetPick
  *        menu requested this frame -- CreateEntity makes a new entity with
  *        the asset's corresponding component (Sprite/Animation/AudioSource);
  *        AttachTo does the same to an existing entity, picked from the
- *        menu's own submenu, instead of creating one; ReloadTexture (texture
- *        rows only) re-reads the file so entities show its updated pixels.
+ *        menu's own submenu, instead of creating one; ReloadAsset (every
+ *        row) re-reads the file so entities show its updated pixels.
  */
-enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadTexture };
+enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadAsset };
 
 /**
  * @brief Where the bottom panel's explorer is looking: which mountpoint is
@@ -63,6 +63,8 @@ struct AssetBrowserResult
     AssetPickKind      m_ContextKind    = AssetPickKind::None;             // asset kind m_ContextAction applies to
     std::string        m_ContextPath;                                     // that asset's virtual path
     asge::ecs::Entity  m_ContextTarget  = asge::ecs::Entity::Null();       // AttachTo only: the entity picked from the submenu
+    std::string        m_OpenClipSet;                                     // clip set the user asked to open in the Clip Set panel
+    std::string        m_OpenStateMachine;                                // state machine the user asked to open in the Animation Graph
 };
 
 /**
@@ -134,6 +136,12 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
 /** @brief Same as KnownTexturePaths, but the "Audio Clips" section's paths. */
 std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept;
 
+/** @brief Virtual paths of the state machines in the asset list, for the clip set panel's machine picker. */
+std::vector<std::string> KnownMachinePaths() noexcept;
+
+/** @brief Virtual paths of the clip sets in the asset list. */
+std::vector<std::string> KnownClipSetPaths() noexcept;
+
 /** @brief Same as KnownTexturePaths, but the "Fonts" section's paths (Phase 16). */
 std::vector<std::string> KnownFontPaths( asge::ecs::Registry& inRegistry ) noexcept;
 
@@ -166,7 +174,9 @@ void ImportAssets(
     std::vector<std::string> const& inTexturePaths,
     std::vector<std::string> const& inAnimationPaths,
     std::vector<std::string> const& inAudioPaths,
-    std::vector<std::string> const& inFontPaths = {} ) noexcept;
+    std::vector<std::string> const& inFontPaths = {},
+    std::vector<std::string> const& inMachinePaths = {},
+    std::vector<std::string> const& inClipSetPaths = {} ) noexcept;
 
 /**
  * @brief Empties the browser's persistent "known asset" set entirely.

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -90,6 +91,40 @@ struct AnimClipSetDoc
  * is not touched, so whatever is on disk always loads.
  */
 [[nodiscard]] asge::BoolResult WriteMachine( AnimMachineDoc const& inDoc, std::filesystem::path const& inPath );
+
+/** @brief Where a state box sits on the graph canvas. */
+struct AnimNodePos
+{
+    float m_X = 0.0f;  // Canvas x
+    float m_Y = 0.0f;  // Canvas y
+};
+
+/** @brief Canvas position of each state box, by state name. */
+using AnimLayout = std::map<std::string, AnimNodePos, std::less<>>;
+
+/** @brief Where a machine's layout is stored: the machine path plus ".layout", next to it. */
+[[nodiscard]] std::filesystem::path LayoutFilePath( std::filesystem::path const& inMachinePath ) noexcept;
+
+/**
+ * @brief Writes the layout of a machine to its sidecar file.
+ *
+ * The layout is editor-only data that the engine never reads. An empty
+ * layout removes the file instead of writing an empty one.
+ */
+[[nodiscard]] asge::BoolResult SaveLayout( std::filesystem::path const& inMachinePath, AnimLayout const& inLayout );
+
+/** @brief Reads a machine's sidecar layout; a missing or unreadable file gives an empty layout. */
+[[nodiscard]] AnimLayout LoadLayout( std::filesystem::path const& inMachinePath );
+
+/**
+ * @brief Places every state of inDoc that has no position in ioLayout.
+ *
+ * States that already have one stay where they are. New ones go in columns by
+ * their distance from the initial state, one row per state, and states that
+ * cannot be reached from it go in a last column. Entries for states that no
+ * longer exist are dropped.
+ */
+void AutoLayout( AnimMachineDoc const& inDoc, AnimLayout& ioLayout );
 
 /** @brief Reads a clip set XML file into the editor's model; same rules as ReadMachine. */
 [[nodiscard]] asge::Result<AnimClipSetDoc> ReadClipSet( std::filesystem::path const& inPath );

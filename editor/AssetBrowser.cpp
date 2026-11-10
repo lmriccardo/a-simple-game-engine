@@ -1,4 +1,5 @@
 #include "AssetBrowser.hpp"
+#include "AnimGraph.hpp"
 #include "FileDialog.hpp"
 #include "AssetTree.hpp"
 #include "Inspector.hpp" // GetEntityLabel, for the "Attach To" submenu's entity list
@@ -36,18 +37,30 @@ std::set<std::string> g_LoadedTextures;
 std::set<std::string> g_LoadedAnimations;
 std::set<std::string> g_LoadedAudio;
 std::set<std::string> g_LoadedFonts;
+std::set<std::string> g_LoadedMachines;
+std::set<std::string> g_LoadedClipSets;
 
 // SDL_ShowOpenFileDialog's async result -- same FileDialogResult/
 // DrainFileDialogResult plumbing main.cpp's scene dialogs use.
 FileDialogResult g_LoadDialogResult;
+FileDialogResult g_CreateDialogResult;
+FileDialogResult g_CreateSetDialogResult;
+std::string      g_PendingSetMachine; // machine the clip set being created binds
+std::string      g_PendingOpenClipSet; // clip set just created, opened this frame
+std::string      g_PendingOpenMachine; // machine just created, opened in the graph this frame
 std::string      g_PendingLoadRoot; // virtual root the picked file's path gets prefixed with
 fs::path         g_PendingLoadDir;  // that root's real directory, for relative-path math once the dialog resolves
+
+constexpr SDL_DialogFileFilter kSetFilter[]{ { "Clip set (*.animset)", "animset" } };
+constexpr SDL_DialogFileFilter kMachineFilter[]{ { "State machine (*.animsm)", "animsm" } };
 
 constexpr SDL_DialogFileFilter kAssetFilters[]{
     { "Images", "png;jpg;jpeg;bmp;tga;gif" },
     { "Animation clip (*.toml)", "toml" },
     { "Audio", "wav;ogg" },
     { "Font", "ttf" },
+    { "State machine (*.animsm)", "animsm" },
+    { "Clip set (*.animset)", "animset" },
 };
 
 // media::AudioClip has no IsSupportedFile equivalent to Image's -- it
@@ -130,8 +143,11 @@ void DrawAssetContextMenu(
     std::set<std::string>& ioLoaded, std::set<std::string> const& inUsed, AssetBrowserResult& ioResult ) noexcept
 {
     bool const removable = ioLoaded.count( inPath ) > 0;
-    if ( !inShowActions && !removable ) return; // nothing to offer, so no empty popup
+    bool const isMachine = inKind == AssetPickKind::StateMachine;
+    bool const isClipSet = inKind == AssetPickKind::ClipSet;
     if ( !ImGui::BeginPopupContextItem() ) return;
+    if ( isMachine && ImGui::MenuItem( "Open in Animation Graph" ) ) ioResult.m_OpenStateMachine = inPath;
+    if ( isClipSet && ImGui::MenuItem( "Open in Clip Set Editor" ) ) ioResult.m_OpenClipSet = inPath;
 
     if ( inShowActions )
     {
@@ -170,12 +186,13 @@ void DrawAssetContextMenu(
         ioResult.m_OpenCreateClip = true;
     }
 
-    if ( inAllowCreateClip && ImGui::MenuItem( "Reload Asset" ) )
+    }
+
+    if ( ImGui::MenuItem( "Reload Asset" ) )
     {
-        ioResult.m_ContextAction = AssetContextAction::ReloadTexture;
+        ioResult.m_ContextAction = AssetContextAction::ReloadAsset;
         ioResult.m_ContextKind = inKind;
         ioResult.m_ContextPath = inPath;
-    }
     }
 
     // Only a manually "Load Asset..."-ed entry can be un-loaded -- one
@@ -183,7 +200,7 @@ void DrawAssetContextMenu(
     // reappear next frame from the entity itself.
     if ( removable )
     {
-        if ( inShowActions ) ImGui::Separator();
+        ImGui::Separator();
         if ( ImGui::MenuItem( "Remove from list" ) )
         {
             if ( inUsed.count( inPath ) )
@@ -204,7 +221,7 @@ void DrawAssetContextMenu(
 constexpr float kCellWidth = 88.0f;
 constexpr float kIconSize = 56.0f;
 
-enum class ExplorerItem { Folder, Texture, Animation, Audio, Font };
+enum class ExplorerItem { Folder, Texture, Animation, Audio, Font, StateMachine };
 
 // What drawing one explorer cell needs besides the cell itself.
 struct ExplorerContext
@@ -327,6 +344,17 @@ void DrawMissingTextureIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
     inList->AddLine( ImVec2( max.x - 12.0f, inMin.y + 12.0f ), ImVec2( inMin.x + 12.0f, max.y - 12.0f ), IM_COL32( 150, 90, 90, 255 ), 2.0f );
 }
 
+void DrawStateMachineIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    ImVec2 const max( inMin.x + kIconSize, inMin.y + kIconSize );
+    inList->AddRectFilled( inMin, max, IM_COL32( 52, 52, 58, 255 ), 4.0f );
+    ImVec2 const a( inMin.x + 16.0f, inMin.y + 18.0f ), b( max.x - 16.0f, inMin.y + 18.0f ), c( inMin.x + kIconSize * 0.5f, max.y - 14.0f );
+    inList->AddLine( a, b, IM_COL32( 150, 150, 160, 255 ), 1.5f );
+    inList->AddLine( b, c, IM_COL32( 150, 150, 160, 255 ), 1.5f );
+    inList->AddLine( c, a, IM_COL32( 150, 150, 160, 255 ), 1.5f );
+    for ( ImVec2 p : { a, b, c } ) inList->AddCircleFilled( p, 6.0f, IM_COL32( 90, 170, 220, 255 ) );
+}
+
 // Draws one explorer cell and returns true the frame it is clicked. The cell is the last ImGui
 // item afterwards, so the caller can bind a context menu to it.
 bool DrawExplorerItem(
@@ -348,6 +376,7 @@ bool DrawExplorerItem(
     case ExplorerItem::Animation: DrawAnimationIcon( list, iconMin ); break;
     case ExplorerItem::Audio:     DrawAudioIcon( list, iconMin ); break;
     case ExplorerItem::Font:      DrawFontIcon( list, iconMin ); break;
+    case ExplorerItem::StateMachine: DrawStateMachineIcon( list, iconMin ); break;
     case ExplorerItem::Texture:
         // Only a cell that is actually on screen loads its texture, so a folder of hundreds of
         // sprites does not read them all at once.
@@ -385,6 +414,8 @@ KindSets SetsFor(
     case AssetPickKind::Animation: return { g_LoadedAnimations, inUsedAnimations };
     case AssetPickKind::Audio:     return { g_LoadedAudio, inUsedAudio };
     case AssetPickKind::Font:      return { g_LoadedFonts, inUsedFonts };
+    case AssetPickKind::StateMachine: return { g_LoadedMachines, inUsedFonts };
+    case AssetPickKind::ClipSet:   return { g_LoadedClipSets, inUsedFonts };
     default:                       return { g_LoadedTextures, inUsedTextures };
     }
 }
@@ -396,6 +427,8 @@ ExplorerItem ItemTypeFor( AssetPickKind inKind ) noexcept
     case AssetPickKind::Animation: return ExplorerItem::Animation;
     case AssetPickKind::Audio:     return ExplorerItem::Audio;
     case AssetPickKind::Font:      return ExplorerItem::Font;
+    case AssetPickKind::StateMachine: return ExplorerItem::StateMachine;
+    case AssetPickKind::ClipSet:   return ExplorerItem::StateMachine;
     default:                       return ExplorerItem::Texture;
     }
 }
@@ -453,6 +486,16 @@ std::vector<std::string> KnownAnimationPaths( asge::ecs::Registry& inRegistry ) 
     return { animations.begin(), animations.end() };
 }
 
+std::vector<std::string> KnownMachinePaths() noexcept
+{
+    return { g_LoadedMachines.begin(), g_LoadedMachines.end() };
+}
+
+std::vector<std::string> KnownClipSetPaths() noexcept
+{
+    return { g_LoadedClipSets.begin(), g_LoadedClipSets.end() };
+}
+
 std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept
 {
     auto const audio = MergedAudio( inRegistry );
@@ -479,12 +522,16 @@ void ImportAssets(
     std::vector<std::string> const& inTexturePaths,
     std::vector<std::string> const& inAnimationPaths,
     std::vector<std::string> const& inAudioPaths,
-    std::vector<std::string> const& inFontPaths ) noexcept
+    std::vector<std::string> const& inFontPaths,
+    std::vector<std::string> const& inMachinePaths,
+    std::vector<std::string> const& inClipSetPaths ) noexcept
 {
     g_LoadedTextures.insert( inTexturePaths.begin(), inTexturePaths.end() );
     g_LoadedAnimations.insert( inAnimationPaths.begin(), inAnimationPaths.end() );
     g_LoadedAudio.insert( inAudioPaths.begin(), inAudioPaths.end() );
     g_LoadedFonts.insert( inFontPaths.begin(), inFontPaths.end() );
+    g_LoadedMachines.insert( inMachinePaths.begin(), inMachinePaths.end() );
+    g_LoadedClipSets.insert( inClipSetPaths.begin(), inClipSetPaths.end() );
 }
 
 void ClearKnownAssets() noexcept
@@ -493,6 +540,8 @@ void ClearKnownAssets() noexcept
     g_LoadedAnimations.clear();
     g_LoadedAudio.clear();
     g_LoadedFonts.clear();
+    g_LoadedMachines.clear();
+    g_LoadedClipSets.clear();
     g_ThumbnailRetryAt.clear();
 }
 
@@ -549,6 +598,16 @@ AssetBrowserResult DrawAssetExplorer(
                     g_LoadedAudio.insert( virtualPath );
                     LOG_INFO( "Loaded audio clip ", virtualPath );
                 }
+                else if ( picked.extension() == ".animset" )
+                {
+                    g_LoadedClipSets.insert( virtualPath );
+                    LOG_INFO( "Loaded clip set ", virtualPath );
+                }
+                else if ( picked.extension() == ".animsm" )
+                {
+                    g_LoadedMachines.insert( virtualPath );
+                    LOG_INFO( "Loaded state machine ", virtualPath );
+                }
                 else if ( HasFontExtension( picked ) )
                 {
                     g_LoadedFonts.insert( virtualPath );
@@ -559,6 +618,52 @@ AssetBrowserResult DrawAssetExplorer(
                     LOG_WARNING(
                         "\"", virtualPath, "\" is not a recognized image, FrameTable clip, audio, or font file" );
                 }
+            }
+        }
+    }
+
+    {
+        std::string created;
+        if ( DrainFileDialogResult( g_CreateDialogResult, created ) && !created.empty() )
+        {
+            fs::path path = created;
+            if ( path.extension() != ".animsm" ) path += ".animsm";
+            AnimMachineDoc doc;
+            doc.m_Clips = { "Clip1" };
+            doc.m_States = { AnimState{ "Idle", "Clip1", AnimEnd::Loop, {} } };
+            doc.m_Initial = "Idle";
+            std::error_code ec;
+            fs::path const relative = fs::relative( path, g_PendingLoadDir, ec );
+            auto const written = WriteMachine( doc, path );
+            if ( !written.IsOk() ) written.LogError();
+            else if ( ec || relative.generic_string().rfind( "..", 0 ) == 0 )
+                LOG_ERROR( "\"", path.string(), "\" is outside \"", g_PendingLoadRoot, "\"'s mounted directory" );
+            else
+            {
+                g_PendingOpenMachine = g_PendingLoadRoot + "/" + relative.generic_string();
+                g_LoadedMachines.insert( g_PendingOpenMachine );
+            }
+        }
+    }
+
+    {
+        std::string created;
+        if ( DrainFileDialogResult( g_CreateSetDialogResult, created ) && !created.empty() )
+        {
+            fs::path path = created;
+            if ( path.extension() != ".animset" ) path += ".animset";
+            AnimClipSetDoc doc;
+            doc.m_Machine = g_PendingSetMachine;
+            std::error_code ec;
+            fs::path const relative = fs::relative( path, g_PendingLoadDir, ec );
+            auto const written = WriteClipSet( doc, path );
+            if ( !written.IsOk() ) written.LogError();
+            else if ( ec || relative.generic_string().rfind( "..", 0 ) == 0 )
+                LOG_ERROR( "\"", path.string(), "\" is outside \"", g_PendingLoadRoot, "\"'s mounted directory" );
+            else
+            {
+                g_PendingOpenClipSet = g_PendingLoadRoot + "/" + relative.generic_string();
+                g_LoadedClipSets.insert( g_PendingOpenClipSet );
             }
         }
     }
@@ -578,10 +683,61 @@ AssetBrowserResult DrawAssetExplorer(
     CollectUsedPaths( inRegistry, usedTextures, usedAnimations, usedAudio, usedFonts );
 
     AssetBrowserResult result;
+    result.m_OpenClipSet = std::move( g_PendingOpenClipSet );
+    g_PendingOpenClipSet.clear();
+    result.m_OpenStateMachine = std::move( g_PendingOpenMachine );
+    g_PendingOpenMachine.clear();
 
     if ( !inHasProject ) ImGui::BeginDisabled();
-    if ( ImGui::Button( "Load Asset..." ) ) ImGui::OpenPopup( "LoadAssetMountPicker" );
+    if ( ImGui::Button( "Add" ) ) ImGui::OpenPopup( "AddAssetMenu" );
     if ( !inHasProject ) ImGui::EndDisabled();
+
+    bool createGraph = false, loadAsset = false;
+    std::string createSetMachine;
+    if ( ImGui::BeginPopup( "AddAssetMenu" ) )
+    {
+        if ( ImGui::MenuItem( "Load Asset" ) ) loadAsset = true;
+        if ( ImGui::BeginMenu( "Create" ) )
+        {
+            if ( ImGui::MenuItem( "Animation Graph" ) ) createGraph = true;
+            if ( ImGui::BeginMenu( "Animation Clip Set", !g_LoadedMachines.empty() ) )
+            {
+                ImGui::TextDisabled( "For machine:" );
+                for ( auto const& m : g_LoadedMachines ) if ( ImGui::MenuItem( m.c_str() ) ) createSetMachine = m;
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
+    if ( !createSetMachine.empty() && !ioState.m_Root.empty() )
+    {
+        for ( auto const& mount : inVfs.ListMounts() )
+        {
+            if ( mount.m_VirtualRoot != ioState.m_Root ) continue;
+            g_PendingLoadRoot = mount.m_VirtualRoot;
+            g_PendingLoadDir = mount.m_RealDirectory;
+            g_PendingSetMachine = createSetMachine;
+            fs::path const dir = ioState.m_Folder.empty() ? mount.m_RealDirectory : mount.m_RealDirectory / ioState.m_Folder;
+            std::string const location = DialogDefaultLocation( dir ) + "NewClipSet.animset";
+            SDL_ShowSaveFileDialog( OnFileDialogResult, &g_CreateSetDialogResult, inWindow, kSetFilter, 1, location.c_str() );
+            break;
+        }
+    }
+    if ( loadAsset ) ImGui::OpenPopup( "LoadAssetMountPicker" );
+    if ( createGraph && !ioState.m_Root.empty() )
+    {
+        for ( auto const& mount : inVfs.ListMounts() )
+        {
+            if ( mount.m_VirtualRoot != ioState.m_Root ) continue;
+            g_PendingLoadRoot = mount.m_VirtualRoot;
+            g_PendingLoadDir = mount.m_RealDirectory;
+            fs::path const dir = ioState.m_Folder.empty() ? mount.m_RealDirectory : mount.m_RealDirectory / ioState.m_Folder;
+            std::string const location = DialogDefaultLocation( dir ) + "NewAnimGraph.animsm";
+            SDL_ShowSaveFileDialog( OnFileDialogResult, &g_CreateDialogResult, inWindow, kMachineFilter, 1, location.c_str() );
+            break;
+        }
+    }
 
     if ( ImGui::BeginPopup( "LoadAssetMountPicker" ) )
     {
@@ -626,6 +782,8 @@ AssetBrowserResult DrawAssetExplorer(
     for ( auto const& path : animations ) { kinds[path] = AssetPickKind::Animation; allPaths.insert( path ); }
     for ( auto const& path : audio )      { kinds[path] = AssetPickKind::Audio;     allPaths.insert( path ); }
     for ( auto const& path : fonts )      { kinds[path] = AssetPickKind::Font;      allPaths.insert( path ); }
+    for ( auto const& path : g_LoadedClipSets ) { kinds[path] = AssetPickKind::ClipSet; allPaths.insert( path ); }
+    for ( auto const& path : g_LoadedMachines ) { kinds[path] = AssetPickKind::StateMachine; allPaths.insert( path ); }
 
     std::string const folderPath = ioState.m_Folder.empty() ? ioState.m_Root : ioState.m_Root + "/" + ioState.m_Folder;
     FolderListing const listing = ListFolder( allPaths, folderPath );
@@ -662,8 +820,12 @@ AssetBrowserResult DrawAssetExplorer(
         bool const selected = inSelected.m_Kind == kind && inSelected.m_VirtualPath == path;
         if ( DrawExplorerItem( ctx, ItemTypeFor( kind ), name, path, selected ) )
         {
-            result.m_Pick = { kind, path };
+            if ( kind != AssetPickKind::StateMachine && kind != AssetPickKind::ClipSet ) result.m_Pick = { kind, path };
         }
+        if ( kind == AssetPickKind::ClipSet && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
+            result.m_OpenClipSet = path;
+        if ( kind == AssetPickKind::StateMachine && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
+            result.m_OpenStateMachine = path;
         // Bound to the cell just drawn (BeginPopupContextItem with no explicit id ties to the last item).
         auto const sets = SetsFor( kind, usedTextures, usedAnimations, usedAudio, usedFonts );
         DrawAssetContextMenu(
@@ -674,7 +836,7 @@ AssetBrowserResult DrawAssetExplorer(
 
     if ( listing.m_Folders.empty() && listing.m_Files.empty() )
     {
-        ImGui::TextDisabled( "Nothing known in this folder -- use Load Asset... to bring a file in." );
+        ImGui::TextDisabled( "Nothing known in this folder -- use Add > Load Asset to bring a file in." );
     }
     ImGui::EndChild();
 

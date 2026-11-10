@@ -6,10 +6,14 @@
 #include <ASGE/Core/Media/Image.hpp>
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Game/Scene/SceneManager.hpp>
+#include <ASGE/Game/Systems/AnimatorSystem.hpp>
 #include <ASGE/Game/Systems/RenderSystem.hpp>
 #include <ASGE/Game/Systems/TransformPropagationSystem.hpp>
 #include <ASGE/Game/Systems/UISystem.hpp>
 #include "BuildOutput.hpp"
+#include "AnimClipSetPanel.hpp"
+#include "AnimPreview.hpp"
+#include "AnimGraphPanel.hpp"
 #include "BuildOutputPanel.hpp"
 #include "CppBuild.hpp"
 #include "CppProject.hpp"
@@ -334,6 +338,8 @@ void AttachAssetComponent(
         // A font path alone isn't a component to attach -- see AssetBrowser.hpp's
         // own doc comment for why the Fonts section offers no such menu item.
         break;
+    case AssetPickKind::StateMachine:
+    case AssetPickKind::ClipSet:
     case AssetPickKind::None:
         break;
     }
@@ -748,6 +754,9 @@ int main(int, char**)
     FileDialogResult createProjectFolderDialogResult;
     FileDialogResult cppAsgeFolderDialogResult;
     CppBuild cppBuild;
+    bool showAnimGraph = false;
+    bool showClipSet = false;
+    bool animPreview = false;
     bool showBuildOutput = false; // opens by itself when a compile or run starts
     enum class CppAction { None, Compile, Run, CompileAndRun };
     CppAction pendingCppAction = CppAction::None; // set by the menu or a shortcut, run once the menu state is known
@@ -2675,6 +2684,18 @@ int main(int, char**)
         auto const assetBrowserResult = DrawBottomPanel(
             sceneManager.GetRegistry(), vfs, assets, videoSys.GetRenderer(), window, freshHasProject, selectedAsset);
         if (assetBrowserResult.m_Pick.m_Kind != AssetPickKind::None) selectedAsset = assetBrowserResult.m_Pick;
+        if (!assetBrowserResult.m_OpenClipSet.empty())
+        {
+            auto const real = vfs.Resolve(assetBrowserResult.m_OpenClipSet);
+            if (real.IsOk()) { OpenAnimClipSet(real.Value()); showClipSet = true; }
+            else real.LogError();
+        }
+        if (!assetBrowserResult.m_OpenStateMachine.empty())
+        {
+            auto const real = vfs.Resolve(assetBrowserResult.m_OpenStateMachine);
+            if (real.IsOk()) { OpenAnimGraph(real.Value()); showAnimGraph = true; }
+            else real.LogError();
+        }
         DrawAssetInspectorPanel(
             selectedAsset, vfs, assets, videoSys.GetRenderer(), audioDevice, sceneManager.GetRegistry(),
             assetBrowserResult.m_OpenCreateClip);
@@ -2717,8 +2738,8 @@ int main(int, char**)
             assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
             MarkActiveSceneDirty(currentProject);
             break;
-        case AssetContextAction::ReloadTexture:
-            assets.ReloadTexture(assetBrowserResult.m_ContextPath, sceneManager.GetRegistry());
+        case AssetContextAction::ReloadAsset:
+            assets.ReloadAsset(assetBrowserResult.m_ContextPath, sceneManager.GetRegistry());
             assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
             break;
         case AssetContextAction::None:
@@ -2726,6 +2747,20 @@ int main(int, char**)
         }
 
         if (showBuildOutput) DrawBuildOutputPanel(showBuildOutput);
+        if (showAnimGraph)
+        {
+            asge::game::components::Animator* liveAnimator = nullptr;
+            if (auto a = sceneManager.GetRegistry().GetComponent<asge::game::components::Animator>(selectedEntity))
+                liveAnimator = &a.Value().get();
+            DrawAnimGraphPanel(showAnimGraph, window, animPreview, liveAnimator, vfs);
+        }
+        else animPreview = false;
+        if (animPreview != IsAnimPreviewing())
+        {
+            if (animPreview) BeginAnimPreview(sceneManager.GetRegistry());
+            else EndAnimPreview(sceneManager.GetRegistry());
+        }
+        if (showClipSet) DrawAnimClipSetPanel(showClipSet, window, vfs, sceneManager.GetRegistry());
 
         // Flushes this frame's gizmo-drag/inspector edits (and any Hierarchy
         // reparenting) from Transform's Local into its World fields -- every
@@ -2793,7 +2828,8 @@ int main(int, char**)
             asge::game::resources::ScreenSpaceCamera{ videoSys.GetRenderer().GetCamera() });
 
         videoSys.GetRenderer().Clear({ 15, 15, 20, 255 });
-        // Not RenderPipeline: AnimatorSystem must not animate sprites while editing
+        // Not RenderPipeline: AnimatorSystem only runs while the Animation Graph's preview is on
+        if (IsAnimPreviewing()) asge::game::systems::AnimatorSystem(sceneManager.GetRegistry(), asge::time::DeltaTime());
         asge::game::systems::CameraSystem(
             sceneManager.GetRegistry(), videoSys.GetRenderer(), asge::time::DeltaTime());
         asge::game::systems::RenderSystem(sceneManager.GetRegistry(), videoSys.GetRenderer());

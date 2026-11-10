@@ -306,6 +306,122 @@ TEST_F(AnimGraphTest, ValidateMachine_LeavesNoTempFileBehind)
     EXPECT_EQ(countFiles(), before);
 }
 
+// ─── Layout sidecar ──────────────────────────────────────────────────────────
+
+TEST_F(AnimGraphTest, LayoutFilePath_AppendsLayoutNextToTheMachine)
+{
+    EXPECT_EQ(LayoutFilePath("anim/player.animsm"), std::filesystem::path("anim/player.animsm.layout"));
+}
+
+TEST_F(AnimGraphTest, Layout_SaveThenLoadKeepsEveryPosition)
+{
+    auto const path = m_Dir / "m.animsm";
+    AnimLayout layout;
+    layout["idle"] = { 10.0f, 20.5f };
+    layout["run"] = { -30.0f, 40.0f };
+
+    ASSERT_TRUE(SaveLayout(path, layout).IsOk());
+    auto const loaded = LoadLayout(path);
+
+    ASSERT_EQ(loaded.size(), 2u);
+    EXPECT_FLOAT_EQ(loaded.at("idle").m_X, 10.0f);
+    EXPECT_FLOAT_EQ(loaded.at("idle").m_Y, 20.5f);
+    EXPECT_FLOAT_EQ(loaded.at("run").m_X, -30.0f);
+}
+
+TEST_F(AnimGraphTest, Layout_MissingFileLoadsEmpty)
+{
+    EXPECT_TRUE(LoadLayout(m_Dir / "none.animsm").empty());
+}
+
+TEST_F(AnimGraphTest, Layout_UnreadableFileLoadsEmpty)
+{
+    auto const path = m_Dir / "m.animsm";
+    Write("m.animsm.layout", "this is [not toml");
+
+    EXPECT_TRUE(LoadLayout(path).empty());
+}
+
+TEST_F(AnimGraphTest, Layout_SavingAnEmptyLayoutRemovesTheFile)
+{
+    auto const path = m_Dir / "m.animsm";
+    AnimLayout layout;
+    layout["idle"] = { 1.0f, 2.0f };
+    ASSERT_TRUE(SaveLayout(path, layout).IsOk());
+    ASSERT_TRUE(std::filesystem::exists(LayoutFilePath(path)));
+
+    ASSERT_TRUE(SaveLayout(path, {}).IsOk());
+
+    EXPECT_FALSE(std::filesystem::exists(LayoutFilePath(path)));
+}
+
+TEST_F(AnimGraphTest, Layout_IsNotReadByTheEngineLoader)
+{
+    auto const path = m_Dir / "saved.animsm";
+    ASSERT_TRUE(WriteMachine(Machine(), path).IsOk());
+    AnimLayout layout;
+    layout["idle"] = { 1.0f, 2.0f };
+    ASSERT_TRUE(SaveLayout(path, layout).IsOk());
+
+    EXPECT_TRUE(asge::game::asset::AnimationStateMachine::Load(path).IsOk());
+}
+
+TEST_F(AnimGraphTest, AutoLayout_PutsEveryStateInAColumnByDistanceFromInitial)
+{
+    AnimLayout layout;
+    AutoLayout(Machine(), layout); // idle -> attack, idle -> run, run -> idle, attack -> idle
+
+    ASSERT_EQ(layout.size(), 3u);
+    EXPECT_FLOAT_EQ(layout.at("idle").m_X, 0.0f);
+    EXPECT_GT(layout.at("attack").m_X, layout.at("idle").m_X);
+    EXPECT_FLOAT_EQ(layout.at("attack").m_X, layout.at("run").m_X);
+    EXPECT_NE(layout.at("attack").m_Y, layout.at("run").m_Y); // same column, different rows
+}
+
+TEST_F(AnimGraphTest, AutoLayout_KeepsExistingPositions)
+{
+    AnimLayout layout;
+    layout["run"] = { 999.0f, 888.0f };
+
+    AutoLayout(Machine(), layout);
+
+    EXPECT_FLOAT_EQ(layout.at("run").m_X, 999.0f);
+    EXPECT_FLOAT_EQ(layout.at("run").m_Y, 888.0f);
+    EXPECT_EQ(layout.size(), 3u);
+}
+
+TEST_F(AnimGraphTest, AutoLayout_DropsStatesThatNoLongerExist)
+{
+    AnimLayout layout;
+    layout["ghost"] = { 1.0f, 1.0f };
+
+    AutoLayout(Machine(), layout);
+
+    EXPECT_FALSE(layout.contains("ghost"));
+}
+
+TEST_F(AnimGraphTest, AutoLayout_UnreachableStateGoesInTheLastColumn)
+{
+    auto doc = Machine();
+    doc.m_States.push_back({ "island", "idle", AnimEnd::Loop, {} });
+    AnimLayout layout;
+
+    AutoLayout(doc, layout);
+
+    EXPECT_GT(layout.at("island").m_X, layout.at("attack").m_X);
+}
+
+TEST_F(AnimGraphTest, AutoLayout_EmptyInitialDoesNotCrash)
+{
+    auto doc = Machine();
+    doc.m_Initial.clear();
+    AnimLayout layout;
+
+    AutoLayout(doc, layout);
+
+    EXPECT_EQ(layout.size(), 3u);
+}
+
 // ─── Clip set ────────────────────────────────────────────────────────────────
 
 TEST_F(AnimGraphTest, ClipSet_WriteThenEngineLoadAndReadBack)
