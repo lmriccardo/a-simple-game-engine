@@ -1,5 +1,9 @@
 #include "AnimatorSystem.hpp"
 
+#include <algorithm>
+#include <cmath>
+
+#include <ASGE/Core/Math/Geometry/Angle.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Events.hpp>
@@ -93,6 +97,32 @@ bool TryTransition( Animator& ioAnimator, AnimationStateMachine const& inMachine
     return false;
 }
 
+// a heading must be this much closer to a new variant to leave the current one
+constexpr float kVariantBias = 1.2f;
+
+struct PickedVariant
+{
+    FrameTable const* m_Table;
+    bool              m_Changed;
+};
+
+PickedVariant PickVariant( Animator& ioAnimator, AnimationClipSet::Binding const& inBinding ) noexcept
+{
+    auto const count = inBinding.m_Variants.size();
+    if ( count <= 1 ) return { &inBinding.m_Variants.front()->Get(), false };
+
+    // Variants run clockwise from north; AngleOf is counter-clockwise from +X with +Y up.
+    float const ccw = asge::math::AngleOf( ioAnimator.m_Heading.x(), -ioAnimator.m_Heading.y() );
+    float const cw  = std::fmod( asge::math::kPi * 0.5f - ccw + asge::math::kTwoPi, asge::math::kTwoPi );
+
+    int const variant = asge::math::QuantizeAngle(
+        cw, static_cast<int>( count ), ioAnimator.m_Variant, kVariantBias );
+
+    bool const changed = variant != ioAnimator.m_Variant;
+    ioAnimator.m_Variant = static_cast<std::uint8_t>( variant );
+    return { &inBinding.m_Variants[variant]->Get(), changed };
+}
+
 }
 
 void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDeltaTime)
@@ -140,11 +170,12 @@ void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDelt
 
         auto const& state   = states[animator.m_State];
         auto const& binding = bindings[state.m_ClipId];
-        auto const& table   = binding.m_Variants.front()->Get();
+        auto const  picked  = PickVariant( animator, binding );
+        auto const& table   = *picked.m_Table;
         auto const  count   = table.m_Frames.size();
         if ( count == 0 ) continue; // No frames in the current frame table
 
-        bool write = false, finishedNow = false, taken = false;
+        bool write = picked.m_Changed, finishedNow = false, taken = false;
         if ( 
                 animator.m_Status == components::AnimStatus::Playing 
             &&  animator.m_PlaybackSpeed > 0.0f )
@@ -152,7 +183,7 @@ void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDelt
             // Advance the time and so the animation by increasing the current
             // animator clip index which will points to the correct frame table
             // clip to animate
-            write = TakeSourceRect( animator, sprite );
+            write = TakeSourceRect( animator, sprite ) || write;
             auto const r = AdvanceTime( animator, state, binding, table, inDeltaTime );
             write = write || r.m_FrameChanged;
             finishedNow = r.m_Finished;
@@ -174,8 +205,15 @@ void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDelt
         }
         else if ( write )
         {
-            auto const& cur = bindings[ states[animator.m_State].m_ClipId ].m_Variants.front()->Get();
-            sprite.m_SourceRect = cur.m_Frames[animator.m_Frame];
+            auto const& cur = *PickVariant( 
+                animator, 
+                bindings[ states[animator.m_State].m_ClipId ] ).m_Table;
+
+            if ( !cur.m_Frames.empty() )
+            {
+                auto frameIdx = std::min<std::size_t>( animator.m_Frame, cur.m_Frames.size() - 1 );
+                sprite.m_SourceRect = cur.m_Frames[frameIdx];
+            }
         }
 
         if ( finishedNow ) events::OnAnimationFinished().Emit( e );

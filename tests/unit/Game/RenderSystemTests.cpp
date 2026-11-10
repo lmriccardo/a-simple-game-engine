@@ -2250,4 +2250,133 @@ TEST_F(AnimatorSystemTest, RenderPipelineAdvancesTheAnimatorThenDrawsTheUpdatedF
     EXPECT_EQ(AnimatorOf(entity).m_Frame, 1u);
 }
 
+
+// ─── Directional variants ─────────────────────────────────────────────────────
+
+// Writes a clip set whose clip "a" has inVariants frame tables (variant i starts at x = i * 100) and "b" the usual table.
+std::string WriteDirectionalSet(std::filesystem::path const& inDir, int inVariants)
+{
+    std::string clip = "<Clip name=\"a\" frameDuration=\"0.1\">\n";
+    for (int i = 0; i < inVariants; ++i)
+    {
+        std::ofstream(inDir / ("v" + std::to_string(i) + ".toml"), std::ios::trunc)
+            << "[FrameTable]\nx = " << i * 100 << ".0\ny = 0.0\nw = 8.0\nh = 8.0\ncolumns = 2\ncount = 2\n";
+        clip += "<Variant path=\"t/v" + std::to_string(i) + ".toml\"/>\n";
+    }
+    clip += "</Clip>\n";
+
+    std::string const name = "dir" + std::to_string(inVariants) + ".xml";
+    std::ofstream(inDir / name, std::ios::trunc)
+        << "<AnimClipSet machine=\"t/m.animsm\">\n" << clip
+        << "<Clip name=\"b\" path=\"t/b.toml\" frameDuration=\"0.1\"/>\n</AnimClipSet>\n";
+    return "t/" + name;
+}
+
+// Screen-space direction of a bearing in degrees clockwise from north.
+asge::math::Float2 Bearing(float inDegrees)
+{
+    float const rad = inDegrees * asge::math::kPi / 180.0f;
+    return { std::sin(rad), -std::cos(rad) };
+}
+
+class DirectionalAnimatorTest : public AnimatorSystemTest
+{
+protected:
+    Entity SpawnFacing(int inVariants, asge::math::Float2 inHeading)
+    {
+        auto set = m_Assets.GetClipSet(WriteDirectionalSet(m_Dir, inVariants));
+        EXPECT_TRUE(set.IsOk());
+        EXPECT_TRUE(set.Value()->Get().ResolveAssets(m_Assets).IsOk());
+
+        Animator animator;
+        animator.m_ClipSet = set.Value();
+        animator.m_Heading = inHeading;
+        auto entity = m_Registry.CreateEntity();
+        EXPECT_TRUE(m_Registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &m_Texture }).IsOk());
+        EXPECT_TRUE(m_Registry.AddComponent(entity.Value(), std::move(animator)).IsOk());
+        return entity.Value();
+    }
+
+    float RectX(Entity inEntity)
+    {
+        return SpriteOf(inEntity).m_SourceRect.value().m_X;
+    }
+};
+
+TEST_F(DirectionalAnimatorTest, FourVariantsFaceNorthEastSouthWest)
+{
+    float const expected[] = { 0.0f, 100.0f, 200.0f, 300.0f };
+    float const bearings[] = { 0.0f, 90.0f, 180.0f, 270.0f };
+    for (int i = 0; i < 4; ++i)
+    {
+        Entity entity = SpawnFacing(4, Bearing(bearings[i]));
+        asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+        EXPECT_FLOAT_EQ(RectX(entity), expected[i]) << "bearing " << bearings[i];
+    }
+}
+
+TEST_F(DirectionalAnimatorTest, EightVariantsIncludeTheDiagonals)
+{
+    Entity northEast = SpawnFacing(8, Bearing(45.0f));
+    Entity southWest = SpawnFacing(8, Bearing(225.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    EXPECT_FLOAT_EQ(RectX(northEast), 100.0f);
+    EXPECT_FLOAT_EQ(RectX(southWest), 500.0f);
+}
+
+TEST_F(DirectionalAnimatorTest, ThreeVariantsSplitTheCircleIntoThirds)
+{
+    Entity entity = SpawnFacing(3, Bearing(130.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    EXPECT_FLOAT_EQ(RectX(entity), 100.0f); // variant 1 is centred on 120 degrees
+}
+
+TEST_F(DirectionalAnimatorTest, ChangingTheHeadingSwitchesVariantAndKeepsTheFrame)
+{
+    Entity entity = SpawnFacing(4, Bearing(180.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.1f);
+    ASSERT_EQ(AnimatorOf(entity).m_Frame, 1u);
+    EXPECT_FLOAT_EQ(RectX(entity), 208.0f);
+
+    asge::game::components::SetHeading(AnimatorOf(entity), Bearing(270.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_EQ(AnimatorOf(entity).m_Frame, 1u);
+    EXPECT_FLOAT_EQ(RectX(entity), 308.0f);
+}
+
+TEST_F(DirectionalAnimatorTest, AHeadingJustPastABoundaryDoesNotFlipTheVariant)
+{
+    Entity entity = SpawnFacing(4, Bearing(90.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    ASSERT_FLOAT_EQ(RectX(entity), 100.0f);
+
+    asge::game::components::SetHeading(AnimatorOf(entity), Bearing(137.0f)); // slightly nearer south
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    EXPECT_FLOAT_EQ(RectX(entity), 100.0f);
+
+    asge::game::components::SetHeading(AnimatorOf(entity), Bearing(160.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    EXPECT_FLOAT_EQ(RectX(entity), 200.0f);
+}
+
+TEST_F(DirectionalAnimatorTest, ASingleVariantClipIgnoresTheHeading)
+{
+    Entity entity = Spawn();
+    asge::game::components::SetHeading(AnimatorOf(entity), Bearing(270.0f));
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    EXPECT_FLOAT_EQ(RectX(entity), 0.0f);
+}
+
+TEST_F(DirectionalAnimatorTest, SetHeadingIgnoresAZeroOrNonFiniteVector)
+{
+    Animator animator;
+    asge::game::components::SetHeading(animator, { 0.0f, 0.0f });
+    asge::game::components::SetHeading(animator, { std::nanf(""), 1.0f });
+    EXPECT_FLOAT_EQ(animator.m_Heading.x(), 0.0f);
+    EXPECT_FLOAT_EQ(animator.m_Heading.y(), 1.0f);
+
+    asge::game::components::SetHeading(animator, { -3.0f, 0.0f });
+    EXPECT_FLOAT_EQ(animator.m_Heading.x(), -3.0f);
+}
 }

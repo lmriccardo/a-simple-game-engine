@@ -1,5 +1,7 @@
 #include "Animator.hpp"
 
+#include <cmath>
+
 void asge::game::scene::Serializer<asge::game::components::Animator>::ToToml(
     T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
@@ -62,6 +64,14 @@ bool asge::game::components::Fire(
     ioAnimator.m_Triggers |= 1u << idxResult.Value();
     ioAnimator.m_Dirty = true;
     return true;
+}
+
+void asge::game::components::SetHeading( Animator& ioAnimator, math::Float2 inHeading ) noexcept
+{
+    if ( !std::isfinite( inHeading.x() ) || !std::isfinite( inHeading.y() ) ) return;
+    if ( inHeading.x() == 0.0f && inHeading.y() == 0.0f ) return;
+
+    ioAnimator.m_Heading = inHeading;
 }
 
 void asge::game::components::Stop(Animator &ioAnimator) noexcept

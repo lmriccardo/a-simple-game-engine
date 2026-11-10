@@ -4,6 +4,7 @@
 #include <ASGE/Game/Assets/Asset.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
+#include <ASGE/Core/Math/LinearAlgebra/Vector2.hpp>
 #include <ASGE/Core/Strings.hpp>
 
 namespace asge::game::components
@@ -27,6 +28,10 @@ using TriggerId = std::uint8_t;
  * m_ClipSet stays null until asset::AssetManager resolves the clip set, and
  * SetFlag()/Fire() do nothing before that. Flags and triggers are bit masks
  * indexed by the machine's flag and trigger ids.
+ *
+ * A clip with several variants shows the one facing m_Heading: the variants
+ * are spread evenly clockwise from north, and the system picks the nearest
+ * direction. Set the heading with SetHeading().
  */
 struct Animator
 {
@@ -43,6 +48,8 @@ struct Animator
     std::uint32_t               m_Flags     {0};      // persistent conditions, set by game code
     std::uint32_t               m_Triggers  {0};      // pending one-shots, consumed by transitions
     std::uint16_t               m_State     {0};      // current state id in the machine
+    math::Float2                m_Heading   {0.0f, 1.0f}; // facing direction in screen space (+Y down); south until set
+    std::uint8_t                m_Variant   {0};      // directional variant of the current clip
     AnimStatus                  m_Status    {AnimStatus::Playing};
     bool                        m_Dirty     {true};   // re-evaluate transitions next update
     bool                        m_Started   {false};  // false until the system enters the initial state
@@ -72,6 +79,15 @@ bool SetFlag( Animator& ioAnimator, str::StringView inFlagName, bool inValue ) n
  * trigger (the error is logged).
  */
 bool Fire( Animator& ioAnimator, str::StringView inTriggerName ) noexcept;
+
+/**
+ * @brief Sets the direction the animator faces.
+ *
+ * inHeading is in screen space, where north is (0, -1); its length does not
+ * matter. A zero or non-finite vector is ignored, so an entity that stops
+ * keeps facing the way it last moved.
+ */
+void SetHeading( Animator& ioAnimator, math::Float2 inHeading ) noexcept;
 
 /** @brief Stop a playing animator. Does nothing if it is paused or finished. */
 void Stop( Animator& ioAnimator ) noexcept;
