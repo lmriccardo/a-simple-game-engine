@@ -339,7 +339,7 @@ protected:
 
     std::filesystem::path WriteProject(std::vector<std::string> const& inScenes, std::string const& inMain = {})
     {
-        asge::config::toml::TOMLBuilder builder;
+        asge::formats::toml::TOMLBuilder builder;
         auto mount = builder.ArrayTable("Mount");
         mount.Set("Name", std::string("assets"));
         mount.Set("RealDirectory", std::string("assets"));

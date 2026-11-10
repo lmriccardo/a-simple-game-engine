@@ -1,7 +1,7 @@
 #include "Serialize.hpp"
 
 void asge::game::scene::Serializer<asge::math::Rect>::ToToml(
-    math::Rect inShape, asge::config::toml::TOMLTableView inTview ) noexcept
+    math::Rect inShape, asge::formats::toml::TOMLTableView inTview ) noexcept
 {
     inTview.Set("m_Width",   inShape.m_Width)
            .Set("m_Height",  inShape.m_Height)
@@ -10,7 +10,7 @@ void asge::game::scene::Serializer<asge::math::Rect>::ToToml(
 }
 
 asge::math::Rect asge::game::scene::Serializer<asge::math::Rect>::FromToml(
-    asge::config::toml::TOMLTableView inTview) noexcept
+    asge::formats::toml::TOMLTableView inTview) noexcept
 {
     return math::Rect{
         inTview.Get("m_OffsetX", 0.0f), inTview.Get("m_OffsetY", 0.0f),
@@ -19,7 +19,7 @@ asge::math::Rect asge::game::scene::Serializer<asge::math::Rect>::FromToml(
 }
 
 void asge::game::scene::Serializer<asge::math::Circle>::ToToml(
-    math::Circle inShape, asge::config::toml::TOMLTableView inTview ) noexcept
+    math::Circle inShape, asge::formats::toml::TOMLTableView inTview ) noexcept
 {
     inTview.Set("m_OffsetX", inShape.m_Center.x())
            .Set("m_OffsetY", inShape.m_Center.y())
@@ -27,7 +27,7 @@ void asge::game::scene::Serializer<asge::math::Circle>::ToToml(
 }
 
 asge::math::Circle asge::game::scene::Serializer<asge::math::Circle>::FromToml(
-    asge::config::toml::TOMLTableView inTview) noexcept
+    asge::formats::toml::TOMLTableView inTview) noexcept
 {
     return math::Circle{
         math::Float2{ inTview.Get("m_OffsetX", 0.0f), inTview.Get("m_OffsetY", 0.0f) },
@@ -36,14 +36,14 @@ asge::math::Circle asge::game::scene::Serializer<asge::math::Circle>::FromToml(
 }
 
 void asge::game::scene::Serializer<asge::ecs::markers::Disable>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String( kTableName ) );
 }
 
 asge::ecs::markers::Disable
 asge::game::scene::Serializer<asge::ecs::markers::Disable>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     return ecs::markers::Disable{};
 }

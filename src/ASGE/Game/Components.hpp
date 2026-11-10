@@ -10,7 +10,7 @@
 #include "Components/Sprite.hpp"
 #include "Components/Collider.hpp"
 #include "Components/Rigidbody.hpp"
-#include "Components/Animation.hpp"
+#include "Components/Animator.hpp"
 #include "Components/AudioSource.hpp"
 #include "Components/Camera.hpp"
 #include "Components/Path.hpp"
@@ -42,10 +42,11 @@ namespace asge::game::components
  * Serializer<T> specialization.
  */
 using SerializableComponents = std::tuple<
-    Transform, Velocity, Sprite, Collider, Rigidbody, Animation,
+    Transform, Velocity, Sprite, Collider, Rigidbody,
     AudioSource, Camera, Path, PathFollow, Name, ecs::components::Hierarchy,
     ecs::markers::Disable, UIButton, RenderInfo, UIRect, Interactable,
-    UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem, UIProgressBar
+    UILabel, UICheckbox, UISlider, UIPanel, UILayoutItem, UIProgressBar,
+    Animator
 >;
 
 /**

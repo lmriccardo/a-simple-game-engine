@@ -46,7 +46,7 @@ bool asge::game::components::HasUnknownResolution(Collider const &inCollider) no
 }
 
 void asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(
-    components::Collider inCollider, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    components::Collider inCollider, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table(std::string(kTableName));
     std::visit( [&table]( auto const& inShape )
@@ -62,7 +62,7 @@ void asge::game::scene::Serializer<asge::game::components::Collider>::ToToml(
 }
 
 asge::game::components::Collider asge::game::scene::Serializer<asge::game::components::Collider>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     auto table = inEnttView.Table(std::string(kTableName));
     // Defaults to "Rect" so a scene file saved before Circle existed --

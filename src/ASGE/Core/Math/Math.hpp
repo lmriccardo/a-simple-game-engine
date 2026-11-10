@@ -5,6 +5,7 @@
 
 #include "Geometry/Rect.hpp"
 #include "Geometry/Circle.hpp"
+#include "Geometry/Angle.hpp"
 #include "LinearAlgebra/Vector2.hpp"
 #include "LinearAlgebra/VectorN.hpp"
 #include "Interpolation/Easing.hpp"

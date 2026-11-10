@@ -4,7 +4,7 @@
 #include <ASGE/Core/Configuration/ConfigurationManager.hpp>
 
 using namespace asge::config;
-using namespace asge::config::toml;
+using namespace asge::formats::toml;
 
 namespace
 {

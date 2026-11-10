@@ -1,7 +1,7 @@
 #include "Velocity.hpp"
 
 void asge::game::scene::Serializer<asge::game::components::Velocity>::ToToml(
-    components::Velocity inVelocity, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    components::Velocity inVelocity, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table(std::string(kTableName))
            .Set("m_DX", inVelocity.m_DX)
@@ -9,7 +9,7 @@ void asge::game::scene::Serializer<asge::game::components::Velocity>::ToToml(
 }
 
 asge::game::components::Velocity asge::game::scene::Serializer<asge::game::components::Velocity>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     auto componentTable = inEnttView.Table(std::string(kTableName));
 

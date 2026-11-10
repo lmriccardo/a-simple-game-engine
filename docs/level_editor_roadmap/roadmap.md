@@ -610,6 +610,54 @@ browsed like files on disk.
       unchanged. The row context menu is unchanged too, except the per-row `x`
       became `Remove from list` (only for hand-imported assets).
 
+## Phase 19 - Animation Graph and Clip Set Editing
+
+**Goal**: Author the engine's animation assets (`.animsm` state machines and
+`.animset` clip sets) in the editor, and drive an entity's `Animator` by hand
+to check them, instead of writing the XML by hand.
+
+- [x] The Animator inspector picks its clip set from the loaded clip sets
+      instead of a typed path; its state and frame are shown read-only.
+
+- [x] The asset explorer's `Add` button opens a menu: `Load Asset` (as before,
+      now also taking `.animsm` and `.animset`) and `Create` with `Animation
+      Graph` and `Animation Clip Set` (for a loaded machine). Machines and clip
+      sets are a tracked asset kind: they open on double-click or `Open in ...`
+      from the row menu, are saved with the project (`StateMachines`,
+      `ClipSets`), and every asset kind has `Reload Asset`
+      (`AssetManager::ReloadAsset`, which also un-resolves the animators that
+      use the file).
+
+- [x] The Animation Graph window shows a machine as a node graph: draggable
+      state boxes, arrows for transitions labelled with trigger, `@end` and
+      flags, and a side column for the initial state, the flag/trigger/clip
+      lists and the selected state and its transitions. Renaming or deleting a
+      flag, trigger, clip or state updates everything that refers to it.
+      The editor keeps its own plain model of the file (`AnimGraph`); the
+      engine's loader is the only validator, run on every edit with its error
+      shown inline, and a machine it rejects is never written. Box positions
+      are saved next to the machine in a `.layout` file the engine never reads.
+
+- [x] The Animation Clip Set window binds each clip the picked machine declares
+      to a loaded frame table and a frame duration, flags clips the machine no
+      longer declares, and validates and saves the same way.
+
+- [x] A `Preview` toggle in the graph window runs `AnimatorSystem` in the
+      viewport (it never runs while editing otherwise). The selected entity's
+      current state is outlined in the graph, with its frame and status, a
+      checkbox per flag and a button per trigger. Turning the preview off
+      restores every Animator's runtime state and every Sprite's source rect.
+
+- [x] A clip can bind up to 8 directional variants, one per direction clockwise
+      from north. The clip set window has a directions combo per clip and one
+      frame table dropdown per variant, labelled with its compass name or
+      bearing; the editor model reads and writes the `<Variant>` form (a single
+      variant stays a `path` attribute). The graph's Live section shows the
+      Animator's heading and variant and has buttons that face it N to NW, so
+      each direction can be checked in the preview.
+
+- [ ] Scenes saved with the removed `[Animation]` component load as `[Animator]`.
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no

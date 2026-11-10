@@ -8,7 +8,7 @@
 #include <tuple>
 
 #include <ASGE/Core/Math/Scalar.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Systems/AnimatorSystem.hpp>
 #include <ASGE/Game/Events.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
@@ -640,76 +640,6 @@ bool asge::game::systems::IsDrawnAbove(
     return ComputeSortKey( inRegistry, inB ) < ComputeSortKey( inRegistry, inA );
 }
 
-void asge::game::systems::AnimationSystem(ecs::Registry &inRegistry, float inDeltaTime) noexcept
-{
-    for ( auto [ entity, sprite, animation ]
-            : inRegistry.View<components::Sprite, components::Animation>() )
-    {
-        auto& animationRef = animation.get();
-        auto& spriteRef = sprite.get();
-
-        // Stopped, or its clip cleared: hand the Sprite its own crop back, so an Animation that isn't playing a clip shows nothing of its own.
-        // A finished HoldLastFrame clip is the exception while its clip is still set: its last frame stays put.
-        bool const holding = animationRef.m_HoldingLastFrame && !animationRef.m_ClipPath.empty() && animationRef.m_Clip;
-        if ( animationRef.m_OwnsSourceRect
-             && ( ( !animationRef.m_Playing && !holding ) || animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) )
-        {
-            spriteRef.m_SourceRect = animationRef.m_RestRect;
-            animationRef.m_OwnsSourceRect = false;
-            animationRef.m_HoldingLastFrame = false;
-            continue;
-        }
-
-        if ( animationRef.m_ClipPath.empty() || !animationRef.m_Clip ) continue;
-
-        std::vector<math::Rect> const& frames = animationRef.m_Clip->Get().m_Frames;
-
-        if ( !animationRef.m_Playing || frames.empty() || !spriteRef.m_Texture
-             || animationRef.m_PlaybackSpeed <= 0.0f )
-        {
-            continue;
-        }
-
-        // Only saved when ownership is first taken: a held last frame must never become the rest crop.
-        if ( !animationRef.m_OwnsSourceRect )
-        {
-            animationRef.m_RestRect = spriteRef.m_SourceRect;
-            animationRef.m_OwnsSourceRect = true;
-        }
-        animationRef.m_HoldingLastFrame = false;
-
-        bool finished = false;
-        auto const nofFrames = frames.size();
-        if ( animationRef.m_CurrentFrame >= nofFrames ) animationRef.m_CurrentFrame = 0;
-
-        auto const& table = animationRef.m_Clip->Get();
-        animationRef.m_ElapsedTime += inDeltaTime * animationRef.m_PlaybackSpeed;
-        float const fallbackDuration = EffectiveFrameDuration( animationRef );
-        while ( true )
-        {
-            float const duration = table.FrameDuration( animationRef.m_CurrentFrame, fallbackDuration );
-            if ( duration <= 0.0f || animationRef.m_ElapsedTime < duration ) break;
-
-            animationRef.m_ElapsedTime -= duration;
-            ++animationRef.m_CurrentFrame;
-            if ( animationRef.m_CurrentFrame >= nofFrames )
-            {
-                animationRef.m_CurrentFrame = animationRef.m_Loop ? 0 : nofFrames - 1;
-                if ( !animationRef.m_Loop )
-                {
-                    animationRef.m_Playing = false;
-                    animationRef.m_HoldingLastFrame = animationRef.m_FinishBehavior == components::FinishBehavior::HoldLastFrame;
-                    finished = true;
-                    break;
-                }
-            }
-        }
-
-        spriteRef.m_SourceRect = frames[animationRef.m_CurrentFrame];
-        if ( finished ) events::OnAnimationFinished().Emit( entity );
-    }
-}
-
 void asge::game::systems::CameraSystem(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
 {
@@ -809,7 +739,7 @@ void asge::game::systems::RenderSystem(
 void asge::game::systems::RenderPipeline(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
 {
-    AnimationSystem( inRegistry, inDeltaTime );
+    AnimatorSystem( inRegistry, inDeltaTime );
     CameraSystem( inRegistry, inRenderer, inDeltaTime );
     RenderSystem( inRegistry, inRenderer );
 }

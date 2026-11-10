@@ -390,6 +390,10 @@ enum class ConfError : std::uint8_t
     InvalidInputPath = 1,
     ConfigurationNotLoaded,
 
+    // Generic Parse Error
+    NumberParseTrailingJunk,
+    NonFiniteNumber,
+
     // TOML ERRORS
     TomlExpectedNestedArray,
     TomlTypeMismatch,
@@ -398,7 +402,14 @@ enum class ConfError : std::uint8_t
     TomlInvalidString,
     TomlBadFormatting,
     TomlUnexpectedToken,
-    TomlNoAttribute
+    TomlNoAttribute,
+
+    // XML Errors
+    XmlAttributeNotFound,
+    XmlDuplicatedAttribute,
+    XmlNestingTooDeep,
+    XmlNonMatchingClosingTag,
+    XmlBadFormat
 };
 
 /**
@@ -420,6 +431,13 @@ inline str::String ToErrorString(ConfError e) noexcept
     case ConfError::TomlBadFormatting: return "bad toml configuration formatting";
     case ConfError::TomlUnexpectedToken: return "unexpected token in toml configuration";
     case ConfError::TomlNoAttribute: return "no existing attribute";
+    case ConfError::XmlAttributeNotFound: return "no existing xml attribute";
+    case ConfError::NumberParseTrailingJunk: return "partial num parsing left from trailing junk";
+    case ConfError::NonFiniteNumber: return "parsing non finite number";
+    case ConfError::XmlDuplicatedAttribute: return "attribute already exists";
+    case ConfError::XmlNestingTooDeep: return "nesting too deep";
+    case ConfError::XmlNonMatchingClosingTag: return "closing tag does not match expected name";
+    case ConfError::XmlBadFormat: return "bad formatted xml";
     }
     return "uknown configuration error";
 }
@@ -612,3 +630,6 @@ REGISTER_ASGE_ERROR(asge::errors::EcsError, "asge.ecs")
 REGISTER_ASGE_ERROR(asge::errors::VfsError, "asge.filesystem.vfs")
 REGISTER_ASGE_ERROR(asge::errors::AudioError, "asge.media.audio")
 REGISTER_ASGE_ERROR(asge::errors::SceneError, "asge.scene")
+
+#define BEGIN_ASGE_ERROR_NS namespace asge::errors {
+#define END_ASGE_ERRORS_NS }

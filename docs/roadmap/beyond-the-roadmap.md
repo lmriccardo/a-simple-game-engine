@@ -35,7 +35,7 @@ position/opacity interpolation for retained-mode widgets) and a passing
 mention of "physics + AI + animation" as a hypothetical justification for ECS
 archetypes ([03.2-entity-component-system](phase-2/03.2-entity-component-system.md)).
 Nothing covered playing back a spritesheet — a walk cycle, an idle/attack
-state switch — until `components::Animation` + `systems::AnimationSystem`
+state switch — until `components::Animator` + `systems::AnimatorSystem`
 landed; see [10.1-rendering-system](phase-1/10.1-rendering-system.md), which
 now tracks it alongside layer-based draw ordering.
 

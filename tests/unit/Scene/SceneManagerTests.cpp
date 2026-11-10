@@ -247,7 +247,7 @@ TEST_F(SceneManagerTest, GetRegistry_HoldsOnlyTheActiveScenesEntitiesNotOtherRes
     ASSERT_TRUE(manager.LoadScene("scenes/b.toml").IsOk()); // scene.toml suspended, not live
 
     // Only b.toml's entity is actually live -- a consumer that just
-    // enumerates the whole Registry (RenderSystem, AnimationSystem, ...)
+    // enumerates the whole Registry (RenderSystem, AnimatorSystem, ...)
     // sees exactly one scene's entities, never a mix of two.
     EXPECT_EQ(manager.GetRegistry().AllEntities().size(), 1u);
     EXPECT_EQ(manager.ActiveEntities().size(), 1u);

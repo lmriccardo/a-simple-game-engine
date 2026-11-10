@@ -1,7 +1,7 @@
 #include "Common.hpp"
 
 void asge::game::scene::Serializer<asge::game::components::details::StateColors>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Set( "m_Color",        static_cast<std::int64_t>(graphics::RGBATo32A(inValue.m_Color)) )
            .Set( "m_HoverColor",   static_cast<std::int64_t>(graphics::RGBATo32A(inValue.m_HoverColor)) )
@@ -10,7 +10,7 @@ void asge::game::scene::Serializer<asge::game::components::details::StateColors>
 
 asge::game::components::details::StateColors
 asge::game::scene::Serializer<asge::game::components::details::StateColors>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     components::details::StateColors result;
 
@@ -26,7 +26,7 @@ asge::game::scene::Serializer<asge::game::components::details::StateColors>::Fro
 }
 
 void asge::game::scene::Serializer<asge::game::components::UIRect>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table(str::String( kTableName ))
            .Set( "m_SizeX", inValue.m_Size.x() )
@@ -35,7 +35,7 @@ void asge::game::scene::Serializer<asge::game::components::UIRect>::ToToml(
 
 asge::game::components::UIRect
 asge::game::scene::Serializer<asge::game::components::UIRect>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
     components::UIRect result;
@@ -47,14 +47,14 @@ asge::game::scene::Serializer<asge::game::components::UIRect>::FromToml(
 }
 
 void asge::game::scene::Serializer<asge::game::components::Interactable>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table(str::String( kTableName )).Set( "m_Enabled", inValue.m_Enabled );
 }
 
 asge::game::components::Interactable
 asge::game::scene::Serializer<asge::game::components::Interactable>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     components::Interactable result;
     result.m_Enabled = inTview.Table( str::String(kTableName) ).Get( "m_Enabled", result.m_Enabled );

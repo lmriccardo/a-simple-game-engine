@@ -13,7 +13,7 @@ asge::BoolResult asge::config::ConfigurationManager::ReadConfiguration( filesyst
         return BoolResult::Err( read_result.Error() );
     }
     
-    auto result = toml::Parse( read_result.Value() );
+    auto result = formats::toml::Parse( read_result.Value() );
     if (!result) {
         return BoolResult::Err( result.Error() );
     }

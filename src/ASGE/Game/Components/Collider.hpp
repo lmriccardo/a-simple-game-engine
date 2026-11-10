@@ -99,37 +99,19 @@ bool HasUnknownResolution( Collider const& inCollider ) noexcept;
 namespace asge::game::scene
 {
 
-/**
- * @brief Round-trips every field (m_LocalBounds, m_Resolution, m_Layer, m_Mask).
- *
- * The per-entity trigger signals (m_OnEnter/m_OnExit/m_OnStay) are
- * runtime-only and never serialized.
- */
 template<>
 struct Serializer<components::Collider>
 {
     using T = components::Collider;
     static constexpr str::StringView kTableName = "Collider"; // Name of the TOML subtable (de)serialization uses
 
-    /**
-     * @brief Writes the component's persisted fields into its TOML subtable.
-     *
-     * Part of the Serializer contract; the struct's own comment lists exactly
-     * which fields are saved.
-     */
     static void ToToml(
                             components::Collider inCollider,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
-    /**
-     * @brief Rebuilds the component from its TOML subtable.
-     *
-     * Fields that are runtime-only are left at their defaults; see the
-     * struct's own comment for which ones are read.
-     */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inEnttView,
+                            asge::formats::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

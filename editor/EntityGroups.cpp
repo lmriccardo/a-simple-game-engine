@@ -72,7 +72,7 @@ asge::BoolResult SaveGroupsFile(
         return asge::BoolResult::Ok();
     }
 
-    asge::config::toml::TOMLBuilder builder;
+    asge::formats::toml::TOMLBuilder builder;
     for ( auto const& group : inGroups )
     {
         int parentId = -1;
@@ -106,9 +106,9 @@ EntityGroupList LoadGroupsFile(
     std::error_code ec;
     if ( !std::filesystem::exists( path, ec ) ) return groups;
 
-    auto parsed = asge::config::toml::Parse( path );
+    auto parsed = asge::formats::toml::Parse( path );
     if ( !parsed ) return groups;
-    asge::config::toml::TOMLTableView const doc( parsed.Value() );
+    asge::formats::toml::TOMLTableView const doc( parsed.Value() );
 
     for ( int i = 0;; ++i )
     {

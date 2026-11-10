@@ -3,6 +3,8 @@ add_executable(ASGE_AssetsTests
     AssetManagerTests.cpp
     AssetResolverTests.cpp
     FrameTableTests.cpp
+    AnimStateMachineTests.cpp
+    AnimationClipSetTests.cpp
 )
 
 target_link_libraries(ASGE_AssetsTests

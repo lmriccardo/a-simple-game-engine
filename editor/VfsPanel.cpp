@@ -4,7 +4,7 @@
 
 #include <ASGE/Core/Logger/Logger.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 
 #include <SDL3/SDL_dialog.h>
@@ -19,7 +19,7 @@
 namespace
 {
 using asge::game::components::Sprite;
-using asge::game::components::Animation;
+using asge::game::components::Animator;
 using asge::game::components::AudioSource;
 
 // SDL_ShowOpenFolderDialog shares SDL_ShowSaveFileDialog/SDL_ShowOpenFileDialog's
@@ -31,7 +31,7 @@ std::string      g_PendingMountName; // set right before opening the dialog, con
 char g_NewMountNameBuf[64] = "";
 
 // Every distinct, non-empty virtual root the current scene's asset-owning
-// components reference. Sprite/Animation/AudioSource are the only
+// components reference. Sprite/Animator/AudioSource are the only
 // SerializableComponents types with a virtual-path field (see
 // AssetResolver.hpp) -- Path builds its own runtime path from
 // waypoints, nothing else owns an asset.
@@ -46,9 +46,9 @@ std::set<std::string> ReferencedRoots( asge::ecs::Registry& inRegistry ) noexcep
         {
             roots.insert( VirtualFileSystem::SplitRoot( r.Value().get().m_VirtualPath ).m_Root );
         }
-        if ( auto r = inRegistry.GetComponent<Animation>( entity ); r && !r.Value().get().m_ClipPath.empty() )
+        if ( auto r = inRegistry.GetComponent<Animator>( entity ); r && !r.Value().get().m_ClipSetPath.empty() )
         {
-            roots.insert( VirtualFileSystem::SplitRoot( r.Value().get().m_ClipPath ).m_Root );
+            roots.insert( VirtualFileSystem::SplitRoot( r.Value().get().m_ClipSetPath ).m_Root );
         }
         if ( auto r = inRegistry.GetComponent<AudioSource>( entity ); r && !r.Value().get().m_VirtualClipPath.empty() )
         {

@@ -21,6 +21,7 @@ enum class AssetKind
 {
     Texture,
     AnimationClip,
+    AnimationClipSet,
     AudioClip,
     Font,
 };
@@ -84,26 +85,32 @@ struct Resolver<components::Sprite>
 };
 
 /**
- * @brief Resolves Animation::m_ClipPath into m_Clip via AssetManager::GetFrameTable.
+ * @brief Resolves Animator::m_ClipSetPath into m_ClipSet via AssetManager::GetClipSet.
  *
- * Re-resolves whenever m_ClipPath differs from m_ResolvedClipPath — so
- * repointing it to a new clip loads it, and clearing it to empty releases
- * m_Clip back to null — rather than resolving once and never again.
+ * Re-resolves whenever m_ClipSetPath differs from the path m_ClipSet was
+ * loaded from (Asset::VirtualPath), so repointing it loads the new clip set
+ * and clearing it releases m_ClipSet back to null. The clip set is shared
+ * between every Animator pointing at the same path, so it is resolved
+ * (machine and frame tables loaded) once, by the first one to need it.
+ * Whenever m_ClipSet changes, the runtime state tied to the old machine
+ * (state, frame, flags, triggers) is reset and m_Started cleared so the
+ * Animator enters the new machine's initial state again. On a failure the
+ * Animator is left as it was.
  */
 template<>
-struct Resolver<components::Animation>
+struct Resolver<components::Animator>
 {
-    using C = components::Animation;
+    using C = components::Animator;
     /**
-     * @brief Resolves one Animation's asset.
+     * @brief Resolves one Animator's clip set.
      *
-     * See the Resolver<Animation> comment above for when it (re)loads.
+     * See the Resolver<Animator> comment above for when it (re)loads.
      */
     void operator()(
                          AssetManager&      inAssetManager,
         [[maybe_unused]] ecs::Registry&     inRegistry,
         [[maybe_unused]] video::IRenderer&  inRenderer,
-                         C&                 inAnimation
+                         C&                 inAnimator
     ) const noexcept;
 };
 
@@ -215,17 +222,18 @@ struct AssetRefs<components::Sprite>
 };
 
 /**
- * @brief Reports Animation::m_ClipPath as an AssetKind::AnimationClip reference.
+ * @brief Reports Animator::m_ClipSetPath as an AssetKind::AnimationClipSet reference.
  *
- * Nothing is reported while the path is empty.
+ * Nothing is reported while the path is empty. Only the clip set file is
+ * reported, not the machine and frame tables it points at.
  */
 template<>
-struct AssetRefs<components::Animation>
+struct AssetRefs<components::Animator>
 {
     /**
-     * @brief The animation's clip reference, or nullopt if its path is empty.
+     * @brief The animator's clip set reference, or nullopt if its path is empty.
      */
-    std::optional<AssetRef> operator()( components::Animation const& inAnimation ) const noexcept;
+    std::optional<AssetRef> operator()( components::Animator const& inAnimator ) const noexcept;
 };
 
 /**

@@ -1,5 +1,4 @@
 add_executable(ASGE_ComponentsTest
-    AnimationTests.cpp
     SerializeTests.cpp
     SpriteTests.cpp
     HierarchyTests.cpp

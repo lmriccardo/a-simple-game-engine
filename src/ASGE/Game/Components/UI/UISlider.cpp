@@ -1,7 +1,7 @@
 #include "UISlider.hpp"
 
 void asge::game::scene::Serializer<asge::game::components::UISlider>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
     Serializer<components::details::StateColors>::ToToml( inValue.m_ThumbColor, table, inCtx );
@@ -13,7 +13,7 @@ void asge::game::scene::Serializer<asge::game::components::UISlider>::ToToml(
 
 asge::game::components::UISlider
 asge::game::scene::Serializer<asge::game::components::UISlider>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 

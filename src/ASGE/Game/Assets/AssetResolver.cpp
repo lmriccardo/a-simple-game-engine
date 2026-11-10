@@ -22,27 +22,42 @@ void asge::game::asset::Resolver<asge::game::components::Sprite>::operator()(
     inSprite.m_ResolvedVirtualPath = inSprite.m_VirtualPath;
 }
 
-void asge::game::asset::Resolver<asge::game::components::Animation>::operator()(
+void asge::game::asset::Resolver<asge::game::components::Animator>::operator()(
     AssetManager &inAssetManager, ecs::Registry &inRegistry,
-    video::IRenderer &inRenderer, C &inAnimation) const noexcept
+    video::IRenderer &inRenderer, C &inAnimator) const noexcept
 {
-    if ( inAnimation.m_ClipPath == inAnimation.m_ResolvedClipPath ) return;
+    // Flags, triggers and the state id only mean something for one machine,
+    // so a new (or cleared) clip set starts the animator from scratch
+    auto const reset = [&inAnimator]( C::clip_set inClipSet ) {
+        inAnimator.m_ClipSet  = std::move( inClipSet );
+        inAnimator.m_State    = 0;
+        inAnimator.m_Frame    = 0;
+        inAnimator.m_Elapsed  = 0.0f;
+        inAnimator.m_Flags    = 0;
+        inAnimator.m_Triggers = 0;
+        inAnimator.m_Dirty    = true;
+        inAnimator.m_Started  = false;
+    };
 
-    if ( inAnimation.m_ClipPath.empty() )
+    if ( inAnimator.m_ClipSetPath.empty() )
     {
-        inAnimation.m_Clip = nullptr;
-        inAnimation.m_ResolvedClipPath.clear();
-        inAnimation.m_CurrentFrame = 0;
-        inAnimation.m_ElapsedTime = 0.0f;
+        if ( inAnimator.m_ClipSet ) reset( nullptr );
         return;
     }
 
-    auto frameTable = inAssetManager.GetFrameTable( inAnimation.m_ClipPath );
-    if ( !frameTable ) { frameTable.LogError(); return; }
-    inAnimation.m_Clip = frameTable.Value();
-    inAnimation.m_ResolvedClipPath = inAnimation.m_ClipPath;
-    inAnimation.m_CurrentFrame = 0;
-    inAnimation.m_ElapsedTime = 0.0f;
+    if ( inAnimator.m_ClipSet && inAnimator.m_ClipSet->VirtualPath() == inAnimator.m_ClipSetPath ) return;
+
+    auto clipSet = inAssetManager.GetClipSet( inAnimator.m_ClipSetPath );
+    if ( !clipSet ) { clipSet.LogError(); return; }
+
+    // The clip set is shared, so only the first Animator pays for resolving it
+    if ( !clipSet.Value()->Get().IsResolved() )
+    {
+        auto resolved = clipSet.Value()->Get().ResolveAssets( inAssetManager );
+        if ( !resolved ) { resolved.LogError(); return; }
+    }
+
+    reset( clipSet.Value() );
 }
 
 void asge::game::asset::Resolver<asge::game::components::AudioSource>::operator()(
@@ -119,11 +134,11 @@ asge::game::asset::AssetRefs<asge::game::components::Sprite>::operator()(
 }
 
 std::optional<asge::game::asset::AssetRef>
-asge::game::asset::AssetRefs<asge::game::components::Animation>::operator()(
-    components::Animation const &inAnimation) const noexcept
+asge::game::asset::AssetRefs<asge::game::components::Animator>::operator()(
+    components::Animator const &inAnimator) const noexcept
 {
-    if ( inAnimation.m_ClipPath.empty() ) return std::nullopt;
-    return AssetRef{ AssetKind::AnimationClip, inAnimation.m_ClipPath };
+    if ( inAnimator.m_ClipSetPath.empty() ) return std::nullopt;
+    return AssetRef{ AssetKind::AnimationClipSet, inAnimator.m_ClipSetPath };
 }
 
 std::optional<asge::game::asset::AssetRef>

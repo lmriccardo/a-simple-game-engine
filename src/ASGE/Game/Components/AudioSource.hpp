@@ -14,7 +14,7 @@ namespace asge::game::components
  * @brief An entity's audio clip plus its current playback state.
  *
  * m_VirtualClipPath (set directly or via scene deserialization) is resolved
- * to m_Clip by asset::AssetManager::ResolveAssets, same as Sprite/Animation
+ * to m_Clip by asset::AssetManager::ResolveAssets, same as Sprite/Animator
  * resolve their own paths. m_Stream is left null until systems::AudioSystem
  * first plays this source -- once assigned, it points into the owning
  * audio::AudioDevice's stream pool and stays valid for this source's
@@ -86,15 +86,6 @@ void SetVolume( AudioSource& inAudioSource, float inVolume ) noexcept;
 namespace asge::game::scene
 {
 
-/**
- * @brief Round-trips m_VirtualClipPath only — which clip to play, not the live playback state.
- *
- * FromToml leaves m_Clip null and m_ResolvedVirtualClipPath empty (both
- * resolved later by AssetManager::ResolveAssets, same as Sprite::m_Texture)
- * and m_Stream/m_Playing/m_Loop/m_Volume at AudioSource's in-code defaults; a
- * scene file describes what an entity plays, not whether a previous run
- * happened to be mid-playback.
- */
 template<>
 struct Serializer<components::AudioSource>
 {
@@ -102,25 +93,13 @@ struct Serializer<components::AudioSource>
 
     using T = components::AudioSource;
 
-    /**
-     * @brief Writes the component's persisted fields into its TOML subtable.
-     *
-     * Part of the Serializer contract; the struct's own comment lists exactly
-     * which fields are saved.
-     */
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
-    /**
-     * @brief Rebuilds the component from its TOML subtable.
-     *
-     * Fields that are runtime-only are left at their defaults; see the
-     * struct's own comment for which ones are read.
-     */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

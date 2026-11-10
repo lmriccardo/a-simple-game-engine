@@ -7,7 +7,7 @@ namespace
 {
 using asge::input::Keycode;
 using asge::graphics::RGBA_Color;
-using asge::game::components::Animation;
+using asge::game::components::Animator;
 using asge::game::components::Sprite;
 using asge::game::components::Transform;
 
@@ -16,7 +16,7 @@ constexpr float kTwoPi = kPi * 2.0f;
 
 constexpr char const* kArrowPath = "textures/arrow.bmp";
 constexpr char const* kSheetPath = "textures/spritesheet.bmp";
-constexpr char const* kClipPath  = "textures/walk.toml"; // asset::FrameTable meta-file -- see assets/
+constexpr char const* kClipSetPath = "textures/spin.animset"; // asset::AnimationClipSet -- see assets/
 
 constexpr float kArrowScale = 4.0f; // draws the 32x32 arrow at 128x128
 constexpr float kSheetScale = 3.0f; // draws each 32x32 cell at 96x96
@@ -26,7 +26,6 @@ constexpr float kAnimatedSpinnerX = 540.0f;
 constexpr float kSpinY = 300.0f;
 
 constexpr float kAnimatedAngularSpeed = -0.9f; // radians/second, fixed -- just for visual contrast with the player-adjustable spinner
-constexpr float kFrameDuration = 0.12f;
 
 constexpr float kSpeedStep = 0.5f; // radians/second per LEFT/RIGHT press
 
@@ -67,9 +66,7 @@ void RotationDemoState::SpawnEntities()
         .m_WorldCoordinates = {kAnimatedSpinnerX, kSpinY}, .m_WorldScale = {kSheetScale, kSheetScale}
     } );
     m_Registry.AddComponent<Sprite>( m_AnimatedSpinner, Sprite{ .m_VirtualPath = kSheetPath } );
-    m_Registry.AddComponent<Animation>( m_AnimatedSpinner, Animation{
-        .m_ClipPath = kClipPath, .m_FrameDuration = kFrameDuration
-    } );
+    m_Registry.AddComponent<Animator>( m_AnimatedSpinner, Animator{ .m_ClipSetPath = kClipSetPath } );
 }
 
 void RotationDemoState::UpdateRotation(float inDeltaTime)

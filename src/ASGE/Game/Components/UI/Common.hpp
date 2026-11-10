@@ -80,7 +80,7 @@ struct Serializer<components::details::StateColors>
      */
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
@@ -90,7 +90,7 @@ struct Serializer<components::details::StateColors>
      * struct's own comment for which ones are read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
@@ -109,7 +109,7 @@ struct Serializer<components::UIRect>
      */
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
@@ -119,7 +119,7 @@ struct Serializer<components::UIRect>
      * struct's own comment for which ones are read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 
@@ -138,7 +138,7 @@ struct Serializer<components::Interactable>
      */
     static void ToToml(
                             T inValue,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
@@ -148,7 +148,7 @@ struct Serializer<components::Interactable>
      * struct's own comment for which ones are read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

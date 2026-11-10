@@ -8,7 +8,7 @@
 
 #include "TOML_Parser.hpp"
 
-namespace asge::config::toml
+namespace asge::formats::toml
 {
 
 /**
@@ -218,7 +218,7 @@ public:
      * @brief Read-only descent into element inIndex of an array-of-tables.
      *
      * Equivalent to GetTable(inPath + "[" + inIndex + "]"), for callers walking
-     * a known count of elements (e.g. Serializer<Animation>::FromToml over
+     * a known count of elements (e.g. Serializer<T>::FromToml over
      * "Frame[0]", "Frame[1]", ...) without building that string themselves.
      */
     [[nodiscard]] Result<TOMLTableView> GetTable( std::string const& inPath, int inIndex ) const

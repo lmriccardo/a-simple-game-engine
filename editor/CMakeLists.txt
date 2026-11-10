@@ -1,4 +1,4 @@
-add_executable(asge-editor main.cpp Inspector.cpp ViewportOverlay.cpp ConsolePanel.cpp BottomPanel.cpp FileDialog.cpp AssetBrowser.cpp AssetInspector.cpp VfsPanel.cpp ProjectManager.cpp CppProject.cpp CppBuild.cpp Toolchain.cpp BuildOutput.cpp BuildOutputPanel.cpp EntityGroups.cpp AssetTree.cpp)
+add_executable(asge-editor main.cpp AnimGraph.cpp AnimGraphPanel.cpp AnimClipSetPanel.cpp AnimPreview.cpp Inspector.cpp ViewportOverlay.cpp ConsolePanel.cpp BottomPanel.cpp FileDialog.cpp AssetBrowser.cpp AssetInspector.cpp VfsPanel.cpp ProjectManager.cpp CppProject.cpp CppBuild.cpp Toolchain.cpp BuildOutput.cpp BuildOutputPanel.cpp EntityGroups.cpp AssetTree.cpp)
 
 target_link_libraries(asge-editor PRIVATE ASGE imgui::imgui)
 

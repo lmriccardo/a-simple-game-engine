@@ -62,6 +62,12 @@ definition; every other function documents its header declaration only.
 Every struct/class data member gets a small trailing `//` comment beside it
 (what it holds, a few words); don't Doxygen-block a field.
 
+Do not Doxygen any Component Serializer and internal attributes or methods.
+
+Inline comments for structs/class attributes **MUST BE SMALL**.
+
+**DO NOT OVERCOMMENT OR OVERDOCUMENT THINGS THAT DO NOT NEED!!!!!!!!!!!!!!**
+
 ## Commit messages
 
 This repo follows **gitmoji + Conventional Commits**:

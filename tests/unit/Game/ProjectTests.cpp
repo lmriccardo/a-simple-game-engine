@@ -33,7 +33,7 @@ protected:
 
     void Write(std::string const& inMountDir, std::vector<std::string> const& inScenes, std::string const& inMain = {})
     {
-        asge::config::toml::TOMLBuilder builder;
+        asge::formats::toml::TOMLBuilder builder;
         auto mount = builder.ArrayTable("Mount");
         mount.Set("Name", std::string("assets"));
         mount.Set("RealDirectory", inMountDir);
@@ -75,7 +75,7 @@ TEST_F(ProjectTest, LoadProjectFile_RelativePaths_ResolveAgainstTheProjectFolder
 
 TEST_F(ProjectTest, LoadProjectFile_NoScenesOrMounts_YieldsEmptyLists)
 {
-    asge::config::toml::TOMLBuilder builder;
+    asge::formats::toml::TOMLBuilder builder;
     builder.SetArray("Scenes", std::vector<std::string>{});
     ASSERT_TRUE(builder.SaveToFile(m_File).IsOk());
 
@@ -98,7 +98,7 @@ TEST_F(ProjectTest, LoadProjectFile_MainScene_ResolvesAgainstTheProjectFolder)
 
 TEST_F(ProjectTest, LoadProjectFile_ViewTable_GivesTheGameWindowSize)
 {
-    asge::config::toml::TOMLBuilder builder;
+    asge::formats::toml::TOMLBuilder builder;
     builder.SetArray("Scenes", std::vector<std::string>{ "a.asgescene" });
     auto view = builder.Table("View");
     view.Set("TargetWidth", 1280);

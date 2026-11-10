@@ -9,7 +9,7 @@
 #include "TOML_Parser.hpp"
 #include "TOML_TableView.hpp"
 
-namespace asge::config::toml
+namespace asge::formats::toml
 {
 
 /**

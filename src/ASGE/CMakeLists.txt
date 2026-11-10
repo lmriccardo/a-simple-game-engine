@@ -31,6 +31,7 @@ add_library(ASGE STATIC
     Core/Math/LinearAlgebra/Vector2.cpp
     Core/Math/Geometry/Circle.cpp
     Core/Math/Geometry/Collision.cpp
+    Core/Math/Geometry/Angle.cpp
     Core/Math/Interpolation/CatmullRomSpline.cpp
     Core/Math/Geometry/Rect.cpp
     Core/Math/Interpolation/Easing.cpp
@@ -53,6 +54,7 @@ add_library(ASGE STATIC
 
     # Configuration utilities
     Core/Formats/TOML/TOML_Parser.cpp
+    Core/Formats/XML/XML.cpp
     Core/Configuration/ConfigurationManager.cpp
 
     # String utilities
@@ -82,7 +84,7 @@ add_library(ASGE STATIC
     Game/Components/Collider.cpp
     Game/Components/Sprite.cpp
     Game/Utils/SpriteGeometry.cpp
-    Game/Components/Animation.cpp
+    Game/Components/Animator.cpp
     Game/Components/AudioSource.cpp
     Game/Components/Camera.cpp
     Game/Components/Path.cpp
@@ -105,10 +107,14 @@ add_library(ASGE STATIC
     Game/Systems/AudioSystem.cpp
     Game/Systems/TransformPropagationSystem.cpp
     Game/Systems/UISystem.cpp
+    Game/Systems/AnimatorSystem.cpp
 
     # Asset Manager
     Game/Assets/AssetManager.cpp
     Game/Assets/AssetResolver.cpp
+    Game/Assets/AnimXml.cpp
+    Game/Assets/AnimStateMachine.cpp
+    Game/Assets/AnimationClipSet.cpp
     Game/Assets/FrameTable.cpp
 
     # Scene management and component TOML (de)serialization

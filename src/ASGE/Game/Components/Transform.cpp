@@ -1,7 +1,7 @@
 #include "Transform.hpp"
 
 void asge::game::scene::Serializer<asge::game::components::Transform>::ToToml(
-    components::Transform inTransform, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    components::Transform inTransform, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table(std::string(kTableName))
            .Set("m_X", inTransform.m_LocalCoordinates.x())
@@ -13,7 +13,7 @@ void asge::game::scene::Serializer<asge::game::components::Transform>::ToToml(
 }
 
 asge::game::components::Transform asge::game::scene::Serializer<asge::game::components::Transform>::FromToml(
-    asge::config::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inEnttView, LoadContext const& inCtx ) noexcept
 {
     auto table = inEnttView.Table(std::string(kTableName));
 

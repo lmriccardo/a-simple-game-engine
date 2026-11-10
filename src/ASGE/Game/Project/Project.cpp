@@ -22,9 +22,9 @@ asge::filesystem::Path Resolve( asge::filesystem::Path const& inBase, std::strin
 asge::Result<asge::game::project::ProjectData> asge::game::project::LoadProjectFile(
     filesystem::Path const& inPath ) noexcept
 {
-    auto parseResult = config::toml::Parse( inPath );
+    auto parseResult = formats::toml::Parse( inPath );
     if ( !parseResult ) return Result<ProjectData>::Err( parseResult.Error() );
-    config::toml::TOMLTableView const doc( parseResult.Value() );
+    formats::toml::TOMLTableView const doc( parseResult.Value() );
 
     ProjectData data;
     data.m_FilePath = inPath;

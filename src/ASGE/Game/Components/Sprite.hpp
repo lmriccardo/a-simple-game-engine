@@ -29,10 +29,10 @@ namespace asge::game::components
  * still needs one. Draw order isn't a Sprite concern -- see
  * components::RenderInfo for layer/y-sort/screen-space.
  *
- * m_SourceRect is owned by components::Animation only while it is playing:
- * AnimationSystem overwrites it every frame then, and restores the crop it
- * found (a hand-set rect, or whole-texture nullopt) once the Animation stops
- * or its clip is cleared. While nothing plays, the Sprite's own m_SourceRect
+ * m_SourceRect is owned by components::Animator only while it is playing:
+ * AnimatorSystem overwrites it every frame then, and restores the crop it
+ * found (a hand-set rect, or whole-texture nullopt) once the Animator stops
+ * or finishes a restoring state. While nothing plays, the Sprite's own m_SourceRect
  * is what is drawn.
  */
 struct Sprite
@@ -87,7 +87,7 @@ struct Serializer<components::Sprite>
      */
     static void ToToml(
                             components::Sprite inSprite,
-                            asge::config::toml::TOMLTableView inTview,
+                            asge::formats::toml::TOMLTableView inTview,
         [[maybe_unused]]    SaveContext const& inCtx ) noexcept;
 
     /**
@@ -97,7 +97,7 @@ struct Serializer<components::Sprite>
      * struct's own comment for which ones are read.
      */
     static T FromToml(
-                            asge::config::toml::TOMLTableView inEnttView,
+                            asge::formats::toml::TOMLTableView inEnttView,
         [[maybe_unused]]    LoadContext const& inCtx ) noexcept;
 };
 

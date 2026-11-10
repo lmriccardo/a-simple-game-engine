@@ -42,12 +42,12 @@ PanelLayout FromString(asge::str::String inValue) noexcept
  *
  * It has none, so nothing is written.
  */
-void SerializeLayout( LayoutAbsolute inLayout, asge::config::toml::TOMLTableView inTview ) {}
+void SerializeLayout( LayoutAbsolute inLayout, asge::formats::toml::TOMLTableView inTview ) {}
 
 /**
  * @brief Writes a Grid layout's m_Rows and m_Cols into inTview.
  */
-void SerializeLayout( LayoutGrid inLayout, asge::config::toml::TOMLTableView inTview )
+void SerializeLayout( LayoutGrid inLayout, asge::formats::toml::TOMLTableView inTview )
 {
     inTview.Set( "m_Rows", inLayout.m_Rows).Set( "m_Cols", inLayout.m_Cols );
 }
@@ -55,7 +55,7 @@ void SerializeLayout( LayoutGrid inLayout, asge::config::toml::TOMLTableView inT
 /**
  * @brief Writes an HStack layout's m_Cols into inTview.
  */
-void SerializeLayout( LayoutHStack inLayout, asge::config::toml::TOMLTableView inTview )
+void SerializeLayout( LayoutHStack inLayout, asge::formats::toml::TOMLTableView inTview )
 {
     inTview.Set( "m_Cols", inLayout.m_Cols);
 }
@@ -63,7 +63,7 @@ void SerializeLayout( LayoutHStack inLayout, asge::config::toml::TOMLTableView i
 /**
  * @brief Writes a VStack layout's m_Rows into inTview.
  */
-void SerializeLayout( LayoutVStack inLayout, asge::config::toml::TOMLTableView inTview )
+void SerializeLayout( LayoutVStack inLayout, asge::formats::toml::TOMLTableView inTview )
 {
     inTview.Set( "m_Rows", inLayout.m_Rows);
 }
@@ -74,7 +74,7 @@ void SerializeLayout( LayoutVStack inLayout, asge::config::toml::TOMLTableView i
  * The type name goes under m_LayoutType and the layout's own fields into a
  * "Layout" subtable of inTview.
  */
-void SerializeLayoutSpec( LayoutSpec inSpec, asge::config::toml::TOMLTableView inTview )
+void SerializeLayoutSpec( LayoutSpec inSpec, asge::formats::toml::TOMLTableView inTview )
 {
     std::visit( [&]( auto spec ) {
         inTview.Set( "m_LayoutType", ToString( LayoutType_v<decltype(spec)> ) );
@@ -91,7 +91,7 @@ asge::game::components::GetPanelLayout(UIPanel const &inPanel) noexcept
 }
 
 void asge::game::scene::Serializer<asge::game::components::UIPanel>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 
@@ -110,7 +110,7 @@ void asge::game::scene::Serializer<asge::game::components::UIPanel>::ToToml(
 
 asge::game::components::UIPanel
 asge::game::scene::Serializer<asge::game::components::UIPanel>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String( kTableName ) );
 

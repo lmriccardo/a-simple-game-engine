@@ -21,7 +21,7 @@ asge::game::components::FromString( str::StringView inStr ) noexcept
 }
 
 void asge::game::scene::Serializer<asge::game::components::UILabel>::ToToml(
-    T inValue, asge::config::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
+    T inValue, asge::formats::toml::TOMLTableView inTview, SaveContext const& inCtx ) noexcept
 {
     inTview.Table( str::String(kTableName) )
            .Set("m_Text", inValue.m_Text)
@@ -36,7 +36,7 @@ void asge::game::scene::Serializer<asge::game::components::UILabel>::ToToml(
 
 asge::game::components::UILabel
 asge::game::scene::Serializer<asge::game::components::UILabel>::FromToml(
-    asge::config::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
+    asge::formats::toml::TOMLTableView inTview, LoadContext const& inCtx ) noexcept
 {
     auto table = inTview.Table( str::String(kTableName) );
 

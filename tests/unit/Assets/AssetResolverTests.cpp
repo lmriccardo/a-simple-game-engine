@@ -1,7 +1,7 @@
 #include <ASGE/Game/Assets/AssetResolver.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
-#include <ASGE/Game/Components/Animation.hpp>
+#include <ASGE/Game/Components/Animator.hpp>
 #include <ASGE/Game/Components/AudioSource.hpp>
 #include <ASGE/Game/Components/Transform.hpp>
 
@@ -33,22 +33,22 @@ TEST(AssetRefsTest, Sprite_WithEmptyVirtualPathReturnsNullopt)
     EXPECT_FALSE(AssetRefs<Sprite>{}( sprite ).has_value());
 }
 
-// ─── AssetRefs<Animation> ───────────────────────────────────────────────────
+// ─── AssetRefs<Animator> ────────────────────────────────────────────────────
 
-TEST(AssetRefsTest, Animation_WithClipPathReturnsAnimationClipRef)
+TEST(AssetRefsTest, Animator_WithClipSetPathReturnsClipSetRef)
 {
-    Animation animation{ .m_ClipPath = "images/walk.toml" };
-    auto ref = AssetRefs<Animation>{}( animation );
+    Animator animator{ .m_ClipSetPath = "anim/goblin.animset" };
+    auto ref = AssetRefs<Animator>{}( animator );
 
     ASSERT_TRUE(ref.has_value());
-    EXPECT_EQ(ref->m_Kind, AssetKind::AnimationClip);
-    EXPECT_EQ(ref->m_VirtualPath, "images/walk.toml");
+    EXPECT_EQ(ref->m_Kind, AssetKind::AnimationClipSet);
+    EXPECT_EQ(ref->m_VirtualPath, "anim/goblin.animset");
 }
 
-TEST(AssetRefsTest, Animation_WithEmptyClipPathReturnsNullopt)
+TEST(AssetRefsTest, Animator_WithEmptyClipSetPathReturnsNullopt)
 {
-    Animation animation{};
-    EXPECT_FALSE(AssetRefs<Animation>{}( animation ).has_value());
+    Animator animator{};
+    EXPECT_FALSE(AssetRefs<Animator>{}( animator ).has_value());
 }
 
 // ─── AssetRefs<AudioSource> ─────────────────────────────────────────────────
@@ -113,11 +113,11 @@ TEST_F(CollectAssetRefsTest, SpriteWithEmptyPathContributesNothing)
 TEST_F(CollectAssetRefsTest, CollectsOneRefPerAssetOwningComponentAcrossEntities)
 {
     auto spriteEntity = m_Registry.CreateEntity().Value();
-    auto animationEntity = m_Registry.CreateEntity().Value();
+    auto animatorEntity = m_Registry.CreateEntity().Value();
     auto audioEntity = m_Registry.CreateEntity().Value();
 
     ASSERT_TRUE(m_Registry.AddComponent<Sprite>(spriteEntity, { .m_VirtualPath = "images/hero.bmp" }).IsOk());
-    ASSERT_TRUE(m_Registry.AddComponent<Animation>(animationEntity, { .m_ClipPath = "images/walk.toml" }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<Animator>(animatorEntity, { .m_ClipSetPath = "images/walk.animset" }).IsOk());
     ASSERT_TRUE(m_Registry.AddComponent<AudioSource>(audioEntity, { .m_VirtualClipPath = "audio/theme.ogg" }).IsOk());
 
     auto refs = CollectAssetRefs(m_Registry);
@@ -127,7 +127,7 @@ TEST_F(CollectAssetRefsTest, CollectsOneRefPerAssetOwningComponentAcrossEntities
         return r.m_Kind == AssetKind::Texture && r.m_VirtualPath == "images/hero.bmp";
     }), refs.end());
     EXPECT_NE(std::find_if(refs.begin(), refs.end(), [](AssetRef const& r) {
-        return r.m_Kind == AssetKind::AnimationClip && r.m_VirtualPath == "images/walk.toml";
+        return r.m_Kind == AssetKind::AnimationClipSet && r.m_VirtualPath == "images/walk.animset";
     }), refs.end());
     EXPECT_NE(std::find_if(refs.begin(), refs.end(), [](AssetRef const& r) {
         return r.m_Kind == AssetKind::AudioClip && r.m_VirtualPath == "audio/theme.ogg";
@@ -138,7 +138,7 @@ TEST_F(CollectAssetRefsTest, EntityWithMultipleAssetOwningComponentsContributesO
 {
     auto entity = m_Registry.CreateEntity().Value();
     ASSERT_TRUE(m_Registry.AddComponent<Sprite>(entity, { .m_VirtualPath = "images/hero.bmp" }).IsOk());
-    ASSERT_TRUE(m_Registry.AddComponent<Animation>(entity, { .m_ClipPath = "images/walk.toml" }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent<Animator>(entity, { .m_ClipSetPath = "images/walk.animset" }).IsOk());
 
     auto refs = CollectAssetRefs(m_Registry);
 
@@ -147,7 +147,7 @@ TEST_F(CollectAssetRefsTest, EntityWithMultipleAssetOwningComponentsContributesO
         return r.m_Kind == AssetKind::Texture;
     }), refs.end());
     EXPECT_NE(std::find_if(refs.begin(), refs.end(), [](AssetRef const& r) {
-        return r.m_Kind == AssetKind::AnimationClip;
+        return r.m_Kind == AssetKind::AnimationClipSet;
     }), refs.end());
 }
 

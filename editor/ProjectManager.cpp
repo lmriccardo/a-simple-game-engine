@@ -28,7 +28,7 @@ asge::BoolResult SaveProject(
     Project const& inProject,
     float inGridSpacing, int inTargetWidth, int inTargetHeight, int inTargetFps ) noexcept
 {
-    asge::config::toml::TOMLBuilder builder;
+    asge::formats::toml::TOMLBuilder builder;
     auto const projectDir = inProject.m_FilePath.parent_path();
 
     for ( auto const& mount : inVfs.ListMounts() )
@@ -45,6 +45,8 @@ asge::BoolResult SaveProject(
     builder.SetArray( "Animations", KnownAnimationPaths( inRegistry ) );
     builder.SetArray( "Audio", KnownAudioPaths( inRegistry ) );
     builder.SetArray( "Fonts", KnownFontPaths( inRegistry ) );
+    builder.SetArray( "StateMachines", KnownMachinePaths() );
+    builder.SetArray( "ClipSets", KnownClipSetPaths() );
 
     std::vector<std::string> scenePaths;
     scenePaths.reserve( inProject.m_Scenes.size() );
@@ -77,9 +79,9 @@ asge::BoolResult LoadProject(
     if ( !projectResult ) return asge::BoolResult::Err( projectResult.Error() );
     auto const& projectData = projectResult.Value();
 
-    auto parseResult = asge::config::toml::Parse( inPath );
+    auto parseResult = asge::formats::toml::Parse( inPath );
     if ( !parseResult ) return asge::BoolResult::Err( parseResult.Error() );
-    asge::config::toml::TOMLTableView const doc( parseResult.Value() );
+    asge::formats::toml::TOMLTableView const doc( parseResult.Value() );
 
     // ListMounts() returns a reference to the live mount table -- copy it
     // before Unmount()ing, since mutating while ranging over the original
@@ -106,7 +108,9 @@ asge::BoolResult LoadProject(
         doc.GetArray<std::string>( "Textures" ),
         doc.GetArray<std::string>( "Animations" ),
         doc.GetArray<std::string>( "Audio" ),
-        doc.GetArray<std::string>( "Fonts" ) );
+        doc.GetArray<std::string>( "Fonts" ),
+        doc.GetArray<std::string>( "StateMachines" ),
+        doc.GetArray<std::string>( "ClipSets" ) );
 
     outProject = Project{};
     outProject.m_FilePath = inPath;
@@ -132,7 +136,7 @@ asge::BoolResult SaveEditorSession(
     std::optional<std::filesystem::path> const& inActiveScenePath,
     std::filesystem::path const& inPath ) noexcept
 {
-    asge::config::toml::TOMLBuilder builder;
+    asge::formats::toml::TOMLBuilder builder;
 
     auto sessionTable = builder.Table( "Session" );
     if ( inProjectPath ) sessionTable.Set( "ProjectPath", inProjectPath->string() );
@@ -146,9 +150,9 @@ asge::BoolResult LoadEditorSession(
     std::optional<std::filesystem::path>& outProjectPath,
     std::optional<std::filesystem::path>& outActiveScenePath ) noexcept
 {
-    auto parseResult = asge::config::toml::Parse( inPath );
+    auto parseResult = asge::formats::toml::Parse( inPath );
     if ( !parseResult ) return asge::BoolResult::Err( parseResult.Error() );
-    asge::config::toml::TOMLTableView const doc( parseResult.Value() );
+    asge::formats::toml::TOMLTableView const doc( parseResult.Value() );
 
     if ( !doc.HasTable( "Session" ) ) return asge::BoolResult::Ok();
     auto const sessionTable = doc.GetTable( "Session" ).Value();
