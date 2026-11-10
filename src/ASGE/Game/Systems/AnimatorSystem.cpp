@@ -6,6 +6,8 @@
 #include <ASGE/Core/Math/Geometry/Angle.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
 #include <ASGE/Game/Components/Animator.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Velocity.hpp>
 #include <ASGE/Game/Events.hpp>
 
 namespace
@@ -123,6 +125,27 @@ PickedVariant PickVariant( Animator& ioAnimator, AnimationClipSet::Binding const
     return { &inBinding.m_Variants[variant]->Get(), changed };
 }
 
+// A moving PathFollow gives the heading; otherwise a moving Velocity does;
+// otherwise the heading is left as it was (last movement, or SetHeading).
+void UpdateHeading( asge::ecs::Registry& inRegistry, asge::ecs::Entity inEntity, Animator& ioAnimator ) noexcept
+{
+    if ( auto follow = inRegistry.GetComponent<PathFollow>( inEntity ) )
+    {
+        auto const& f = follow.Value().get();
+        if ( !f.m_Paused && !f.m_Finished && f.m_Traveled > 0.0f )
+        {
+            SetHeading( ioAnimator, f.m_Heading );
+            return;
+        }
+    }
+
+    if ( auto velocity = inRegistry.GetComponent<Velocity>( inEntity ) )
+    {
+        auto const& v = velocity.Value().get();
+        SetHeading( ioAnimator, { v.m_DX, v.m_DY } );
+    }
+}
+
 }
 
 void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDeltaTime)
@@ -133,6 +156,7 @@ void asge::game::systems::AnimatorSystem(ecs::Registry &inRegistry, float inDelt
         auto& animator = a.get();
         auto& sprite = s.get();
         if ( !animator.m_ClipSet ) continue;
+        UpdateHeading( inRegistry, e, animator );
         
         auto const& set         = animator.m_ClipSet->Get();
         auto const& machine     = set.Machine();

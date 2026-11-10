@@ -6,6 +6,8 @@
 #include <ASGE/Game/Events.hpp>
 #include <ASGE/Game/Components/Camera.hpp>
 #include <ASGE/Game/Components/Hierarchy.hpp>
+#include <ASGE/Game/Components/PathFollow.hpp>
+#include <ASGE/Game/Components/Velocity.hpp>
 #include <ASGE/Game/Components/RenderInfo.hpp>
 #include <ASGE/Game/Components/UI/UIButton.hpp>
 #include <ASGE/Game/Components/UI/UILabel.hpp>
@@ -2378,5 +2380,78 @@ TEST_F(DirectionalAnimatorTest, SetHeadingIgnoresAZeroOrNonFiniteVector)
 
     asge::game::components::SetHeading(animator, { -3.0f, 0.0f });
     EXPECT_FLOAT_EQ(animator.m_Heading.x(), -3.0f);
+}
+
+// ─── Heading sources ──────────────────────────────────────────────────────────
+
+TEST_F(DirectionalAnimatorTest, AMovingPathFollowerFacesItsPathHeading)
+{
+    Entity entity = SpawnFacing(4, Bearing(180.0f));
+    ASSERT_TRUE(m_Registry.AddComponent(entity, asge::game::components::PathFollow{
+        .m_Traveled = 5.0f, .m_Heading = { -1.0f, 0.0f } }).IsOk());
+
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_FLOAT_EQ(RectX(entity), 300.0f); // west
+}
+
+TEST_F(DirectionalAnimatorTest, APathFollowerThatHasNotMovedYetDoesNotOverrideTheHeading)
+{
+    Entity entity = SpawnFacing(4, Bearing(180.0f));
+    ASSERT_TRUE(m_Registry.AddComponent(entity, asge::game::components::PathFollow{}).IsOk());
+
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_FLOAT_EQ(RectX(entity), 200.0f); // still south, not the default +X
+}
+
+TEST_F(DirectionalAnimatorTest, APausedOrFinishedPathFollowerLeavesTheHeadingToTheGame)
+{
+    Entity paused = SpawnFacing(4, Bearing(180.0f));
+    Entity finished = SpawnFacing(4, Bearing(180.0f));
+    ASSERT_TRUE(m_Registry.AddComponent(paused, asge::game::components::PathFollow{
+        .m_Traveled = 5.0f, .m_Paused = true, .m_Heading = { -1.0f, 0.0f } }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(finished, asge::game::components::PathFollow{
+        .m_Traveled = 5.0f, .m_Finished = true, .m_Heading = { -1.0f, 0.0f } }).IsOk());
+
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_FLOAT_EQ(RectX(paused), 200.0f);
+    EXPECT_FLOAT_EQ(RectX(finished), 200.0f);
+}
+
+TEST_F(DirectionalAnimatorTest, AMovingVelocityGivesTheHeading)
+{
+    Entity entity = SpawnFacing(4, Bearing(180.0f));
+    ASSERT_TRUE(m_Registry.AddComponent(entity, asge::game::components::Velocity{ .m_DX = 40.0f, .m_DY = 0.0f }).IsOk());
+
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_FLOAT_EQ(RectX(entity), 100.0f); // east
+}
+
+TEST_F(DirectionalAnimatorTest, AStoppedEntityKeepsTheDirectionItLastMoved)
+{
+    Entity entity = SpawnFacing(4, Bearing(180.0f));
+    ASSERT_TRUE(m_Registry.AddComponent(entity, asge::game::components::Velocity{ .m_DX = 0.0f, .m_DY = -40.0f }).IsOk());
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+    ASSERT_FLOAT_EQ(RectX(entity), 0.0f); // north
+
+    m_Registry.GetComponent<asge::game::components::Velocity>(entity).Value().get() = {};
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_FLOAT_EQ(RectX(entity), 0.0f);
+}
+
+TEST_F(DirectionalAnimatorTest, APathFollowerWinsOverItsVelocity)
+{
+    Entity entity = SpawnFacing(4, Bearing(180.0f));
+    ASSERT_TRUE(m_Registry.AddComponent(entity, asge::game::components::PathFollow{
+        .m_Traveled = 5.0f, .m_Heading = { 0.0f, -1.0f } }).IsOk());
+    ASSERT_TRUE(m_Registry.AddComponent(entity, asge::game::components::Velocity{ .m_DX = 40.0f, .m_DY = 0.0f }).IsOk());
+
+    asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
+
+    EXPECT_FLOAT_EQ(RectX(entity), 0.0f); // north from the path, not east from the velocity
 }
 }
