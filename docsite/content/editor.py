@@ -259,17 +259,21 @@ TASKS = [
   <li>A side column holds the initial state, the flag, trigger and clip lists, and the selected state with its transitions. Renaming or deleting a flag, trigger, clip or state updates everything that refers to it.</li>
   <li>The engine's own loader validates every edit and shows its error inline; a machine it rejects is never written. Box positions are saved in a <code>.layout</code> file next to the machine, which the engine ignores.</li>
 </ul>
+{shot("animation-graph.png", "The Animation Graph window showing states, transitions and the side column")}
 <h2>Bind clips to frame tables</h2>
 <p>Create an <strong>Animation Clip Set</strong> from the same <strong>Create</strong> menu for a loaded machine. The clip set window lists every clip the machine declares: bind each to a loaded frame table and a frame duration. A clip the machine no longer declares is flagged. It validates and saves like the graph.</p>
 <p>For a character that faces several ways, give a clip up to 8 directions with its directions combo. Each direction gets a frame table dropdown labelled by compass name or bearing, spread clockwise from north. A clip with one direction is saved as a plain <code>path</code>.</p>
+{shot("clip-set-directions.png", "The Animation Clip Set window with a clip bound to several directions")}
 <h2>Play it on an entity</h2>
 <ol>
   <li>Add an <code>Animator</code> component to an entity that has a Sprite.</li>
-  <li>Pick its <strong>Clip Set</strong> from the loaded clip sets, and set <strong>Playback Speed</strong> and <strong>Start Playing</strong>. The state and frame show read-only once the clip set resolves.</li>
+  <li>Pick its <strong>Clip Set</strong> from the loaded clip sets, and set <strong>Playback Speed</strong> and <strong>Start Playing</strong>. The state and frame show read-only once the clip set resolves.{shot("animator-inspector.png", "The Animator section of the Inspector")}</li>
   <li>Open the Animation Graph window and turn on <strong>Preview</strong>. Only then does the animator run in the viewport, so editing never animates by itself.</li>
 </ol>
 <p>With the preview on and the entity selected, its current state is outlined in the graph, with its frame and status. A checkbox per flag and a button per trigger let you drive it by hand. The Live section also shows the heading and variant, with buttons that face the animator from N to NW to check each direction. Turning the preview off restores every animator's state and every sprite's source rect.</p>
+{shot("animation-preview.png", "The Animation Graph window with Preview on, driving the selected entity")}
 <p>While an Animator is playing it owns its Sprite's source rect, so the Sprite inspector shows that field as driven by the Animator. Use <strong>Reload Asset</strong> on a row after editing a file outside the editor; animators that use it are re-resolved.</p>
+
 <p>Previous: <a href="add-a-collider.html">Add a collider</a> &middot; Next: <a href="follow-a-path.html">Make an entity follow a path</a>.</p>
 """),
     ("follow-a-path", "Make an entity follow a path",
