@@ -312,6 +312,15 @@ void Draw(
     bool const tinted = tint.r != 255 || tint.g != 255 || tint.b != 255 || tint.a != 255;
     if ( tinted ) texture->SetColorMod( tint );
 
+    // Same sharing applies to the blend mode: set it around this draw, then put back what was there
+    video::BlendMode previousBlend = video::BlendMode::Alpha;
+    bool const blended = inSprite.m_BlendMode != video::BlendMode::Alpha;
+    if ( blended )
+    {
+        if ( auto current = texture->GetBlendMode() ) previousBlend = current.Value();
+        texture->SetBlendMode( inSprite.m_BlendMode );
+    }
+
     if ( inItem.m_Transform->m_WorldRotation == 0.0f )
     {
         if ( src.has_value() ) inRenderer.DrawTexture( *texture, *src, inItem.m_DstRect );
@@ -326,6 +335,7 @@ void Draw(
             inRenderer.DrawTextureAffine( *texture, corners.m_Origin, corners.m_Right, corners.m_Down );
     }
 
+    if ( blended ) texture->SetBlendMode( previousBlend );
     if ( tinted ) texture->SetColorMod( graphics::colors::s_White );
 }
 

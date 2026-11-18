@@ -41,6 +41,7 @@ struct Sprite
     std::optional<math::Rect>   m_SourceRect{};     // Serialized. Sub-region to draw; nullopt = whole texture
     std::string                 m_VirtualPath{};    // Serialized. VFS path m_Texture was (or will be) loaded from
     graphics::RGBA_Color        m_Tint{};           // Serialized. Color modulation; the alpha channel fades the sprite (white = untouched)
+    video::BlendMode            m_BlendMode{ video::BlendMode::Alpha }; // Serialized. How it combines with what is behind it; Additive makes a glow
     std::string                 m_ResolvedVirtualPath{}; // Runtime-only: the path m_Texture was actually last resolved from
 };
 

@@ -365,6 +365,14 @@ bool DrawInspector( Sprite& inSprite, std::vector<std::string> const& inKnownTex
     outRectChanged |= DrawSourceRectPicker( inSprite, inAnimationOwned );
     if ( inAnimationOwned ) ImGui::TextDisabled( "Source Rect is driven by the Animator." );
     DrawColorField( "Tint", inSprite.m_Tint ); // not an asset change, so not part of the return
+
+    static char const* const kBlendNames[]{ "None", "Alpha", "Additive (glow)", "Modulate" };
+    int blendIndex = static_cast<int>( inSprite.m_BlendMode );
+    ImGui::SetNextItemWidth( -FLT_MIN );
+    if ( ImGui::Combo( "Blend", &blendIndex, kBlendNames, 4 ) )
+    {
+        inSprite.m_BlendMode = static_cast<asge::video::BlendMode>( blendIndex );
+    }
     return changed;
 }
 

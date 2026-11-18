@@ -66,10 +66,14 @@ public:
 
     void SetColorMod(asge::graphics::RGBA_Color inColor) noexcept override { m_ColorMods.push_back(inColor); }
 
-    void SetBlendMode(asge::video::BlendMode) noexcept override {}
+    void SetBlendMode(asge::video::BlendMode inMode) noexcept override
+    {
+        m_BlendModes.push_back(inMode);
+        m_BlendMode = inMode;
+    }
     [[nodiscard]] asge::Result<asge::video::BlendMode> GetBlendMode() const noexcept override
     {
-        return asge::Result<asge::video::BlendMode>::Ok(asge::video::BlendMode::Alpha);
+        return asge::Result<asge::video::BlendMode>::Ok(m_BlendMode);
     }
 
     [[nodiscard]] Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
@@ -78,6 +82,8 @@ public:
     }
 
     std::vector<asge::graphics::RGBA_Color> m_ColorMods; // every SetColorMod call, in order
+    std::vector<asge::video::BlendMode> m_BlendModes;    // every SetBlendMode call, in order
+    asge::video::BlendMode m_BlendMode{ asge::video::BlendMode::Alpha }; // current mode
 
 private:
     asge::math::Int2 m_Size;
@@ -800,6 +806,44 @@ TEST(RenderSystemTest, Sprite_Tint_IsAppliedForTheDrawThenResetToWhite)
     EXPECT_EQ(texture.m_ColorMods[0].g, 128);
     EXPECT_EQ(texture.m_ColorMods[1].a, 255); // reset, so other users of the shared texture aren't faded
     EXPECT_EQ(texture.m_ColorMods[1].g, 255);
+}
+
+TEST(RenderSystemTest, Sprite_DefaultAlphaBlend_NeverTouchesTheTexturesBlendMode)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(texture.m_BlendModes.empty());
+}
+
+TEST(RenderSystemTest, Sprite_AdditiveBlend_IsAppliedForTheDrawThenRestored)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    texture.SetBlendMode(asge::video::BlendMode::Modulate); // whatever it was before must come back
+    texture.m_BlendModes.clear();
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Sprite{ .m_Texture = &texture, .m_BlendMode = asge::video::BlendMode::Additive }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);
+    ASSERT_EQ(texture.m_BlendModes.size(), 2u);
+    EXPECT_EQ(texture.m_BlendModes[0], asge::video::BlendMode::Additive);
+    EXPECT_EQ(texture.m_BlendModes[1], asge::video::BlendMode::Modulate);
 }
 
 TEST(RenderSystemTest, Culling_SpriteFarOutsideTheViewport_IsSkipped)
