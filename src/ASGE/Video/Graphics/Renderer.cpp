@@ -1,4 +1,4 @@
-#include "Compositing.hpp"
+#include "Renderer.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -67,15 +67,4 @@ void asge::video::IRenderer::DrawFade( graphics::RGBA_Color inColor, float inAmo
 
     // The world rect the camera maps onto the viewport, so the overlay fills the screen at any camera
     DrawRect( VisibleWorldRect( GetCamera(), GetViewport() ), color, true );
-}
-
-asge::video::RenderTargetScope::RenderTargetScope( IRenderer const& inRenderer, ITexture& inTarget ) noexcept
-: m_Renderer( inRenderer )
-{
-    m_Renderer.SetRenderTarget( &inTarget );
-}
-
-asge::video::RenderTargetScope::~RenderTargetScope()
-{
-    m_Renderer.SetRenderTarget( nullptr );
 }

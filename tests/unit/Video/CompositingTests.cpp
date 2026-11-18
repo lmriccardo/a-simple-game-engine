@@ -1,6 +1,6 @@
 #include "SDLHeadlessFixture.hpp"
 
-#include <ASGE/Video/Graphics/Compositing.hpp>
+#include <ASGE/Video/Graphics/Renderer.hpp>
 #include <ASGE/Video/Graphics/Rendering/SDL/SDLRenderer.hpp>
 
 #include <gtest/gtest.h>
