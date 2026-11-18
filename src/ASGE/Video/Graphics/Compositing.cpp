@@ -40,16 +40,16 @@ public:
 
 } // namespace
 
-void asge::video::DrawTextureTinted( IRenderer const& inRenderer, ITexture& inTexture,
-    math::Rect const& inDestRect, graphics::RGBA_Color inTint ) noexcept
+void asge::video::IRenderer::DrawTextureTinted( ITexture& inTexture,
+    math::Rect const& inDestRect, graphics::RGBA_Color inTint ) const noexcept
 {
     TextureStateGuard const guard( inTexture );
     inTexture.SetColorMod( inTint );
-    inRenderer.DrawTexture( inTexture, inDestRect );
+    DrawTexture( inTexture, inDestRect );
 }
 
-void asge::video::DrawTextureGlow( IRenderer const& inRenderer, ITexture& inTexture,
-    math::Rect const& inDestRect, float inIntensity, graphics::RGBA_Color inColor ) noexcept
+void asge::video::IRenderer::DrawTextureGlow( ITexture& inTexture,
+    math::Rect const& inDestRect, float inIntensity, graphics::RGBA_Color inColor ) const noexcept
 {
     float const intensity = std::clamp( inIntensity, 0.0f, 1.0f );
 
@@ -57,22 +57,16 @@ void asge::video::DrawTextureGlow( IRenderer const& inRenderer, ITexture& inText
     TextureStateGuard const guard( inTexture );
     inTexture.SetBlendMode( BlendMode::Additive );
     inTexture.SetColorMod( { inColor.r, inColor.g, inColor.b, ScaleChannel( inColor.a, intensity ) } );
-    inRenderer.DrawTexture( inTexture, inDestRect );
+    DrawTexture( inTexture, inDestRect );
 }
 
-void asge::video::DrawFade( IRenderer& inRenderer, graphics::RGBA_Color inColor, float inAmount ) noexcept
+void asge::video::IRenderer::DrawFade( graphics::RGBA_Color inColor, float inAmount ) const noexcept
 {
     float const amount = std::clamp( inAmount, 0.0f, 1.0f );
     graphics::RGBA_Color const color{ inColor.r, inColor.g, inColor.b, ScaleChannel( inColor.a, amount ) };
 
-    // The overlay is in screen space: swap in an identity camera and put the real one back
-    Camera const camera = inRenderer.GetCamera();
-    inRenderer.SetCamera( Camera{} );
-
-    Viewport const& viewport = inRenderer.GetViewport();
-    inRenderer.DrawRect( { 0.0f, 0.0f, viewport.m_Width, viewport.m_Height }, color, true );
-
-    inRenderer.SetCamera( camera );
+    // The world rect the camera maps onto the viewport, so the overlay fills the screen at any camera
+    DrawRect( VisibleWorldRect( GetCamera(), GetViewport() ), color, true );
 }
 
 asge::video::RenderTargetScope::RenderTargetScope( IRenderer const& inRenderer, ITexture& inTarget ) noexcept

@@ -145,6 +145,38 @@ public:
         graphics::RGBA_Color const& inColor ) const noexcept = 0;
 
     /**
+     * @brief Draws a texture multiplied by a tint color.
+     *
+     * inTint's RGB scales the pixels and its alpha the opacity (white at full
+     * alpha draws it unchanged). The texture's own color and blend mode are put
+     * back afterwards, so the tint never leaks into later draws of it. The
+     * default implementation is built on the other virtuals; a backend may override it.
+     */
+    virtual void DrawTextureTinted( ITexture& inTexture, math::Rect const& inDestRect,
+        graphics::RGBA_Color inTint ) const noexcept;
+
+    /**
+     * @brief Draws a texture additively, so it brightens what is under it.
+     *
+     * inIntensity (clamped to 0..1) scales the glow, 0 adds nothing and 1 adds
+     * the texture at full strength. inColor tints the glow. The texture's own
+     * color and blend mode are put back afterwards. The default implementation
+     * is built on the other virtuals; a backend may override it.
+     */
+    virtual void DrawTextureGlow( ITexture& inTexture, math::Rect const& inDestRect, float inIntensity,
+        graphics::RGBA_Color inColor = graphics::colors::s_White ) const noexcept;
+
+    /**
+     * @brief Covers the whole viewport with inColor at inAmount opacity.
+     *
+     * inAmount (clamped to 0..1) multiplies inColor's own alpha: ramp it 0 to 1
+     * for a fade-out and 1 to 0 for a fade-in. It follows the viewport whatever
+     * the camera is, so call it after the world is drawn. The default
+     * implementation is built on DrawRect; a backend may override it.
+     */
+    virtual void DrawFade( graphics::RGBA_Color inColor, float inAmount ) const noexcept;
+
+    /**
      * @brief Presents the rendered frame to the screen.
      *
      * Call once at the end of a frame, after every draw call. Nothing drawn

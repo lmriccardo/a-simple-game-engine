@@ -102,7 +102,7 @@ TEST_F(CompositingTest, DrawTextureTinted_MultipliesThePixels)
     auto target = MakeTarget(renderer, kWhite);
     renderer.Clear(kBlack);
 
-    asge::video::DrawTextureTinted(renderer, *target, kFull, kGreen);
+    renderer.DrawTextureTinted(*target, kFull, kGreen);
 
     auto const pixel = PixelAt(m_Window, 10, 10);
     EXPECT_EQ(pixel.r, 0);
@@ -115,7 +115,7 @@ TEST_F(CompositingTest, DrawTextureTinted_RestoresTheTextureColorMod)
     SDLRenderer renderer(m_Window);
     auto target = MakeTarget(renderer, kWhite);
 
-    asge::video::DrawTextureTinted(renderer, *target, kFull, kGreen);
+    renderer.DrawTextureTinted(*target, kFull, kGreen);
 
     auto const color = target->GetColorMod();
     ASSERT_TRUE(color);
@@ -130,7 +130,7 @@ TEST_F(CompositingTest, DrawTextureGlow_BrightensWhatIsUnderneath)
     auto target = MakeTarget(renderer, kRed);
     renderer.Clear(kGray);
 
-    asge::video::DrawTextureGlow(renderer, *target, kFull, 1.0f);
+    renderer.DrawTextureGlow(*target, kFull, 1.0f);
 
     auto const pixel = PixelAt(m_Window, 10, 10);
     EXPECT_EQ(pixel.r, 255);  // 50 + 255, saturated
@@ -143,7 +143,7 @@ TEST_F(CompositingTest, DrawTextureGlow_ZeroIntensityAddsNothing)
     auto target = MakeTarget(renderer, kRed);
     renderer.Clear(kGray);
 
-    asge::video::DrawTextureGlow(renderer, *target, kFull, 0.0f);
+    renderer.DrawTextureGlow(*target, kFull, 0.0f);
 
     EXPECT_EQ(PixelAt(m_Window, 10, 10).r, 50);
 }
@@ -154,7 +154,7 @@ TEST_F(CompositingTest, DrawTextureGlow_RestoresTheBlendMode)
     auto target = MakeTarget(renderer, kRed);
     target->SetBlendMode(BlendMode::Alpha);
 
-    asge::video::DrawTextureGlow(renderer, *target, kFull, 1.0f);
+    renderer.DrawTextureGlow(*target, kFull, 1.0f);
 
     auto const mode = target->GetBlendMode();
     ASSERT_TRUE(mode);
@@ -166,7 +166,7 @@ TEST_F(CompositingTest, DrawFade_BlendsTheOverlayByTheAmount)
     SDLRenderer renderer(m_Window);
     renderer.Clear(kWhite);
 
-    asge::video::DrawFade(renderer, kBlack, 0.5f);
+    renderer.DrawFade(kBlack, 0.5f);
 
     auto const pixel = PixelAt(m_Window, 10, 10);
     EXPECT_NEAR(pixel.r, 128, 2);
@@ -178,7 +178,7 @@ TEST_F(CompositingTest, DrawFade_ZeroAmountLeavesTheFrameAlone)
     SDLRenderer renderer(m_Window);
     renderer.Clear(kWhite);
 
-    asge::video::DrawFade(renderer, kBlack, 0.0f);
+    renderer.DrawFade(kBlack, 0.0f);
 
     EXPECT_EQ(PixelAt(m_Window, 10, 10).r, 255);
 }
@@ -189,17 +189,17 @@ TEST_F(CompositingTest, DrawFade_FullAmountCoversTheFrameDespiteTheCamera)
     renderer.SetCamera({.m_X = 500.0f, .m_Y = 500.0f, .m_Zoom = 3.0f});
     renderer.Clear(kWhite);
 
-    asge::video::DrawFade(renderer, kBlack, 1.0f);
+    renderer.DrawFade(kBlack, 1.0f);
 
     EXPECT_EQ(PixelAt(m_Window, 60, 60).r, 0);
 }
 
-TEST_F(CompositingTest, DrawFade_RestoresTheCamera)
+TEST_F(CompositingTest, DrawFade_LeavesTheCameraAlone)
 {
     SDLRenderer renderer(m_Window);
     renderer.SetCamera({.m_X = 12.0f, .m_Y = 34.0f, .m_Zoom = 2.0f});
 
-    asge::video::DrawFade(renderer, kBlack, 0.5f);
+    renderer.DrawFade(kBlack, 0.5f);
 
     EXPECT_FLOAT_EQ(renderer.GetCamera().m_X, 12.0f);
     EXPECT_FLOAT_EQ(renderer.GetCamera().m_Y, 34.0f);
