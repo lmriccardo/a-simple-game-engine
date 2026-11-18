@@ -6,48 +6,41 @@
 #include <random>
 
 // Orb Rush: WASD to collect the glowing orbs, avoid the red blocks, R restarts.
-// Shows the compositing helpers in a tiny game: a pulsing additive glow on a
-// render-target layer, a tint flash when hit, and fade in / out of the screen.
+// The world is assets/scene.toml: the orbs are additive sprites (the glow), and
+// the screen fade is the ScreenFade resource. This state only runs the game
+// rules; Game<> draws the scene and the fade through RenderPipeline.
 class CompositingDemoState final : public asge::game::state::IGameState<int>
 {
-    struct Orb
-    {
-        asge::math::Float2 m_Pos{};  // Center in pixels
-        float              m_Phase{}; // Offsets the pulse so orbs do not blink together
-    };
+    static constexpr std::size_t kFloors = 2;  // Floor strips, first in the scene so they draw behind
+    static constexpr std::size_t kOrbs = 6;    // Orb entities, after the floors
+    static constexpr std::size_t kHazards = 3; // Hazard entities, after the orbs
+    static constexpr std::size_t kLives = 3;   // Life pip entities, after the hazards
 
-    struct Hazard
-    {
-        asge::math::Float2 m_Pos{};   // Top-left in pixels
-        asge::math::Float2 m_Speed{}; // Pixels per second
-    };
+    asge::game::scene::SceneManager& m_SceneManager;
 
-    std::unique_ptr<asge::video::ITexture> m_OrbTexture;    // Soft white radial gradient
-    std::unique_ptr<asge::video::ITexture> m_BlockTexture;  // Solid white square, tinted when drawn
-    std::unique_ptr<asge::video::ITexture> m_GlowLayer;     // Offscreen layer all orb glows are drawn into
+    std::array<asge::ecs::Entity, kOrbs>    m_Orbs{};    // Glowing pickups
+    std::array<asge::ecs::Entity, kHazards> m_Hazards{}; // Bouncing red blocks
+    std::array<asge::ecs::Entity, kLives>   m_Pips{};    // Life indicators
+    asge::ecs::Entity m_Player{ asge::ecs::Entity::Null() }; // The scene's last entity
 
-    std::mt19937 m_Rng{ 1234 };            // Fixed seed so runs are repeatable
-    std::array<Orb, 5> m_Orbs{};           // Orbs on screen
-    std::array<Hazard, 3> m_Hazards{};     // Bouncing red blocks
-    asge::math::Float2 m_Player{};         // Top-left of the player
-    float m_Time{0.0f};                    // Seconds since start, drives the pulse
-    float m_HitFlash{0.0f};                // Seconds left of the red hit flash
-    float m_Invulnerable{0.0f};            // Seconds left of damage immunity
-    float m_Fade{1.0f};                    // Current black overlay amount
-    float m_FadeTarget{0.0f};              // Amount the overlay moves toward
-    int   m_Score{0};                      // Orbs collected
-    int   m_Lives{3};                      // Hits left
+    std::mt19937 m_Rng{ 1234 }; // Fixed seed so runs are repeatable
+    float m_Time{0.0f};         // Seconds since start, drives the pulse
+    float m_HitFlash{0.0f};     // Seconds left of the red hit flash
+    float m_Invulnerable{0.0f}; // Seconds left of damage immunity
+    int   m_Score{0};           // Orbs collected
+    int   m_Lives{kLives};      // Hits left
 
-    void EnsureResources(asge::video::IRenderer& inRenderer);
+    void FindEntities();
     void Restart();
-    void RespawnOrb(Orb& inOrb);
+    void StartFadeIn();
 
 public:
-    CompositingDemoState();
+    explicit CompositingDemoState(asge::game::scene::SceneManager& inSceneManager);
 
     [[nodiscard]] std::optional<asge::game::state::Transition<int>>
     Update(float inDeltaTime, asge::input::InputState const& inInput) override;
     void Render(asge::video::IRenderer& inRenderer) override;
+    [[nodiscard]] asge::graphics::RGBA_Color ClearColor() const noexcept override { return { 12, 12, 24, 255 }; }
     void OnSystemEvent(asge::event::SystemEvent const& inSysEvent) override;
 };
 
