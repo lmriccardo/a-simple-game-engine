@@ -64,6 +64,12 @@ public:
 
     void SetColorMod(asge::graphics::RGBA_Color inColor) noexcept override { m_ColorMods.push_back(inColor); }
 
+    void SetBlendMode(asge::video::BlendMode) noexcept override {}
+    [[nodiscard]] asge::Result<asge::video::BlendMode> GetBlendMode() const noexcept override
+    {
+        return asge::Result<asge::video::BlendMode>::Ok(asge::video::BlendMode::Alpha);
+    }
+
     [[nodiscard]] Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
     {
         return Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
@@ -164,6 +170,10 @@ public:
 
     [[nodiscard]] bool IsValid() const override { return true; }
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
+
+    [[nodiscard]] std::unique_ptr<asge::video::ITexture> CreateRenderTarget(
+        asge::math::Int2) const noexcept override { return nullptr; }
+    void SetRenderTarget(asge::video::ITexture*) const noexcept override {}
 
     void SetCamera(asge::video::Camera const& inCamera) override { m_Camera = inCamera; }
     [[nodiscard]] asge::video::Camera const& GetCamera() const override { return m_Camera; }

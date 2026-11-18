@@ -162,6 +162,25 @@ public:
     [[nodiscard]] virtual std::unique_ptr<ITexture> CreateTexture( media::Image const& inImage ) const noexcept = 0;
 
     /**
+     * @brief Creates an empty texture that can be drawn into.
+     *
+     * The texture starts transparent black and has size inSize in pixels.
+     * Pass it to SetRenderTarget to render into it, then draw it like any
+     * other texture. On failure the error is logged and the texture comes
+     * back invalid, so check ITexture::IsValid().
+     */
+    [[nodiscard]] virtual std::unique_ptr<ITexture> CreateRenderTarget( math::Int2 inSize ) const noexcept = 0;
+
+    /**
+     * @brief Redirects every draw call into inTarget, or back to the window.
+     *
+     * inTarget must come from CreateRenderTarget on this renderer and outlive
+     * its use; nullptr restores the window. Clear and the camera apply to the
+     * active target. Failures are logged and leave the target unchanged.
+     */
+    virtual void SetRenderTarget( ITexture* inTarget ) const noexcept = 0;
+
+    /**
      * @brief Checks if the current renderer is valid or not.
      *
      * False once the renderer was destroyed or failed to initialise.

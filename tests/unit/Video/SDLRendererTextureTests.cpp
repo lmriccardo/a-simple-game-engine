@@ -57,6 +57,11 @@ public:
     [[nodiscard]] bool IsValid() const noexcept override { return false; }
 
     void SetColorMod(RGBA_Color) noexcept override {}
+    void SetBlendMode(asge::video::BlendMode) noexcept override {}
+    [[nodiscard]] asge::Result<asge::video::BlendMode> GetBlendMode() const noexcept override
+    {
+        return asge::Result<asge::video::BlendMode>::Ok(asge::video::BlendMode::Alpha);
+    }
     [[nodiscard]] asge::Result<RGBA_Color> GetColorMod() const noexcept override
     {
         return asge::Result<RGBA_Color>::Ok(RGBA_Color{});

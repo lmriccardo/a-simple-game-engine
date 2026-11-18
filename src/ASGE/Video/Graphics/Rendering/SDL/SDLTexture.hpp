@@ -25,6 +25,15 @@ public:
     SDLTexture(SDL_Renderer* inRenderer, media::Image const& inImage);
 
     /**
+     * @brief Creates an empty SDL texture of inSize that can be rendered into.
+     *
+     * Uses SDL_TEXTUREACCESS_TARGET with alpha blending on, so a target drawn
+     * back onto the window composites normally. A creation failure is logged
+     * and leaves IsValid() false.
+     */
+    SDLTexture(SDL_Renderer* inRenderer, math::Int2 inSize);
+
+    /**
      * @brief Takes ownership of inOther's SDL texture, leaving it empty.
      */
     SDLTexture(SDLTexture&& inOther);
@@ -80,6 +89,18 @@ public:
      * Returns an error Result carrying SDL's message if either query fails.
      */
     Result<graphics::RGBA_Color> GetColorMod() const noexcept override;
+
+    /**
+     * @brief Sets the SDL blend mode mapped from inMode.
+     */
+    void SetBlendMode( BlendMode inMode ) noexcept override;
+
+    /**
+     * @brief Reads SDL's blend mode back.
+     *
+     * Returns an error Result if the query fails or the mode is not one of BlendMode.
+     */
+    Result<BlendMode> GetBlendMode() const noexcept override;
 
     /**
      * @brief Destroys the native SDL texture.

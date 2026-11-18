@@ -315,6 +315,20 @@ std::unique_ptr<ITexture> asge::video::SDLRenderer::CreateTexture(media::Image c
     return std::make_unique<SDLTexture>( m_Renderer, inImage );
 }
 
+std::unique_ptr<ITexture> asge::video::SDLRenderer::CreateRenderTarget(math::Int2 inSize) const noexcept
+{
+    return std::make_unique<SDLTexture>( m_Renderer, inSize );
+}
+
+void asge::video::SDLRenderer::SetRenderTarget(ITexture* inTarget) const noexcept
+{
+    auto* texture = inTarget ? static_cast<SDL_Texture*>( inTarget->NativeHandle() ) : nullptr;
+    if ( !SDL_SetRenderTarget( m_Renderer, texture ) )
+    {
+        LogError( make_error_code( errors::RenderError::SetRenderTargetFailed ), SDL_GetError() );
+    }
+}
+
 void asge::video::SDLRenderer::Present() const
 {
     if (!SDL_RenderPresent(m_Renderer))

@@ -28,6 +28,21 @@ asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, media::Image const
     }
 }
 
+asge::video::SDLTexture::SDLTexture(SDL_Renderer *inRenderer, math::Int2 inSize)
+{
+    m_Handle = SDL_CreateTexture(
+        inRenderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET, inSize.x(), inSize.y()
+    );
+
+    if ( !m_Handle )
+    {
+        LogError( make_error_code( errors::RenderError::TextureCreationFailed ), SDL_GetError() );
+        return;
+    }
+
+    SDL_SetTextureBlendMode( m_Handle, SDL_BLENDMODE_BLEND );
+}
+
 asge::video::SDLTexture::SDLTexture(SDLTexture &&inOther)
 : m_Handle( inOther.m_Handle )
 {
@@ -100,6 +115,45 @@ asge::Result<asge::graphics::RGBA_Color> asge::video::SDLTexture::GetColorMod() 
     }
 
     return Result<graphics::RGBA_Color>::Ok( outColor );
+}
+
+void asge::video::SDLTexture::SetBlendMode(BlendMode inMode) noexcept
+{
+    SDL_BlendMode sdlMode = SDL_BLENDMODE_NONE;
+    switch ( inMode )
+    {
+    case BlendMode::None:     sdlMode = SDL_BLENDMODE_NONE;  break;
+    case BlendMode::Alpha:    sdlMode = SDL_BLENDMODE_BLEND; break;
+    case BlendMode::Additive: sdlMode = SDL_BLENDMODE_ADD;   break;
+    case BlendMode::Modulate: sdlMode = SDL_BLENDMODE_MOD;   break;
+    }
+
+    if ( !SDL_SetTextureBlendMode( m_Handle, sdlMode ) )
+    {
+        LogError( make_error_code( errors::RenderError::TextureSetBlendModeFailed ), SDL_GetError() );
+    }
+}
+
+asge::Result<asge::video::BlendMode> asge::video::SDLTexture::GetBlendMode() const noexcept
+{
+    SDL_BlendMode sdlMode = SDL_BLENDMODE_NONE;
+    if ( !SDL_GetTextureBlendMode( m_Handle, &sdlMode ) )
+    {
+        return Result<BlendMode>::Err(
+            make_error_code( errors::RenderError::TextureGetBlendModeFailed ), SDL_GetError() );
+    }
+
+    switch ( sdlMode )
+    {
+    case SDL_BLENDMODE_NONE:  return Result<BlendMode>::Ok( BlendMode::None );
+    case SDL_BLENDMODE_BLEND: return Result<BlendMode>::Ok( BlendMode::Alpha );
+    case SDL_BLENDMODE_ADD:   return Result<BlendMode>::Ok( BlendMode::Additive );
+    case SDL_BLENDMODE_MOD:   return Result<BlendMode>::Ok( BlendMode::Modulate );
+    default: break;
+    }
+
+    return Result<BlendMode>::Err(
+        make_error_code( errors::RenderError::TextureGetBlendModeFailed ), "unsupported blend mode" );
 }
 
 void asge::video::SDLTexture::Destroy()

@@ -78,5 +78,6 @@
 
 // ASGE Video 
 #include <ASGE/Video/Graphics/Renderer.hpp>
+#include <ASGE/Video/Graphics/Compositing.hpp>
 #include <ASGE/Video/Graphics/Window.hpp>
 #include <ASGE/Video/GraphicsBackend.hpp>

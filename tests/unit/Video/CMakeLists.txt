@@ -5,6 +5,7 @@ add_executable(ASGE_VideoTests
     SDLRendererTextureTests.cpp
     CameraTests.cpp
     SDLRendererCameraTests.cpp
+    CompositingTests.cpp
 )
 
 target_link_libraries(ASGE_VideoTests
