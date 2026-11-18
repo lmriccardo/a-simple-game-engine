@@ -23,6 +23,9 @@ enum class RenderError : std::uint8_t
     RenderLineFailed,
     RenderCircleFailed,
     RenderTextureFailed,
+    TextureSetBlendModeFailed,
+    TextureGetBlendModeFailed,
+    SetRenderTargetFailed,
 };
 
 /**
@@ -46,6 +49,9 @@ inline str::String ToErrorString(RenderError e) noexcept
     case RenderError::RenderTextureFailed: return "failed to render a texture";
     case RenderError::TextureSetColorModFailed: return "unable to set texture color modulation";
     case RenderError::TextureGetColorModFailed: return "unable to get texture color modulation";
+    case RenderError::TextureSetBlendModeFailed: return "unable to set texture blend mode";
+    case RenderError::TextureGetBlendModeFailed: return "unable to get texture blend mode";
+    case RenderError::SetRenderTargetFailed: return "failed to set the render target";
     }
     return "uknown render error";
 }

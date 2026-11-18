@@ -1,0 +1,239 @@
+# ASGE compositing_demo -- hand-authored scene, loaded by SceneSerializer::Load.
+#
+# Every entity is a plain Sprite; the compositing effects come from two fields:
+#   m_Tint       color multiplied into the texture (its alpha is the opacity)
+#   m_BlendMode  0 None, 1 Alpha (default), 2 Additive, 3 Modulate
+# The orbs are the same sprite in two blend modes, over light-gray floor strips so
+# the difference is visible (on a dark background both look alike):
+#   Additive (2)  adds light to what is behind: brightens the floor, overlaps sum up
+#   Alpha (1)     covers what is behind with a gold smudge, overlaps just stack
+# The screen fade is not in this file: it is the ScreenFade resource, set up in Game.cpp.
+#
+# Roles are positional, as in scene_demo (the engine has no entity names yet);
+# sprites draw in this order, so the floors come first to sit behind everything:
+#   entities 0-1   floor strips
+#   entities 2-7   orbs: 2 additive and 3 alpha (twins, side by side), 4 and 5 an
+#                  overlapping additive pair, 6 and 7 an overlapping alpha pair
+#   next 3         bouncing red hazards (have a Velocity)
+#   next 3         life pips (dimmed one by one on a hit)
+#   last entity    the player (WASD)
+#
+# Numeric Transform/Velocity fields must be TOML floats ("60.0", not "60").
+# m_Tint packs the color as (alpha << 32) | (r << 16) | (g << 8) | b.
+
+# Floor strip 0 (800x120)
+[[entity]]
+[entity.Transform]
+m_X = 0.0
+m_Y = 100.0
+m_Rotation = 0.0
+m_ScaleX = 50.0
+m_ScaleY = 7.5
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095224555660
+
+# Floor strip 1 (800x120)
+[[entity]]
+[entity.Transform]
+m_X = 0.0
+m_Y = 400.0
+m_Rotation = 0.0
+m_ScaleX = 50.0
+m_ScaleY = 7.5
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095224555660
+
+# Orb 0: ADDITIVE, twin of orb 1
+[[entity]]
+[entity.Transform]
+m_X = 255.2
+m_Y = 115.2
+m_Rotation = 0.0
+m_ScaleX = 1.4
+m_ScaleY = 1.4
+
+[entity.Sprite]
+m_VirtualPath = "assets/orb.png"
+m_Tint = 1095233420860
+m_BlendMode = 2
+
+# Orb 1: ALPHA, twin of orb 0
+[[entity]]
+[entity.Transform]
+m_X = 455.2
+m_Y = 115.2
+m_Rotation = 0.0
+m_ScaleX = 1.4
+m_ScaleY = 1.4
+
+[entity.Sprite]
+m_VirtualPath = "assets/orb.png"
+m_Tint = 1095233420860
+m_BlendMode = 1
+
+# Orb 2: ADDITIVE, overlaps orb 3 -- the overlap gets brighter
+[[entity]]
+[entity.Transform]
+m_X = 145.2
+m_Y = 415.2
+m_Rotation = 0.0
+m_ScaleX = 1.4
+m_ScaleY = 1.4
+
+[entity.Sprite]
+m_VirtualPath = "assets/orb.png"
+m_Tint = 1095233420860
+m_BlendMode = 2
+
+# Orb 3: ADDITIVE
+[[entity]]
+[entity.Transform]
+m_X = 205.2
+m_Y = 425.2
+m_Rotation = 0.0
+m_ScaleX = 1.4
+m_ScaleY = 1.4
+
+[entity.Sprite]
+m_VirtualPath = "assets/orb.png"
+m_Tint = 1095233420860
+m_BlendMode = 2
+
+# Orb 4: ALPHA, overlaps orb 5 -- the overlap does not
+[[entity]]
+[entity.Transform]
+m_X = 495.2
+m_Y = 415.2
+m_Rotation = 0.0
+m_ScaleX = 1.4
+m_ScaleY = 1.4
+
+[entity.Sprite]
+m_VirtualPath = "assets/orb.png"
+m_Tint = 1095233420860
+m_BlendMode = 1
+
+# Orb 5: ALPHA
+[[entity]]
+[entity.Transform]
+m_X = 555.2
+m_Y = 425.2
+m_Rotation = 0.0
+m_ScaleX = 1.4
+m_ScaleY = 1.4
+
+[entity.Sprite]
+m_VirtualPath = "assets/orb.png"
+m_Tint = 1095233420860
+m_BlendMode = 1
+
+# Hazard 0
+[[entity]]
+[entity.Transform]
+m_X = 80.0
+m_Y = 80.0
+m_Rotation = 0.0
+m_ScaleX = 2.125
+m_ScaleY = 2.125
+
+[entity.Velocity]
+m_DX = 150.0
+m_DY = 110.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095229780550
+
+# Hazard 1
+[[entity]]
+[entity.Transform]
+m_X = 650.0
+m_Y = 120.0
+m_Rotation = 0.0
+m_ScaleX = 2.125
+m_ScaleY = 2.125
+
+[entity.Velocity]
+m_DX = -130.0
+m_DY = 150.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095229780550
+
+# Hazard 2
+[[entity]]
+[entity.Transform]
+m_X = 400.0
+m_Y = 500.0
+m_Rotation = 0.0
+m_ScaleX = 2.125
+m_ScaleY = 2.125
+
+[entity.Velocity]
+m_DX = 170.0
+m_DY = -120.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095229780550
+
+# Life pip 0
+[[entity]]
+[entity.Transform]
+m_X = 760.0
+m_Y = 12.0
+m_Rotation = 0.0
+m_ScaleX = 0.75
+m_ScaleY = 0.75
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095233387580
+
+# Life pip 1
+[[entity]]
+[entity.Transform]
+m_X = 738.0
+m_Y = 12.0
+m_Rotation = 0.0
+m_ScaleX = 0.75
+m_ScaleY = 0.75
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095233387580
+
+# Life pip 2
+[[entity]]
+[entity.Transform]
+m_X = 716.0
+m_Y = 12.0
+m_Rotation = 0.0
+m_ScaleX = 0.75
+m_ScaleY = 0.75
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095233387580
+
+# Player (must stay last)
+[[entity]]
+[entity.Transform]
+m_X = 386.0
+m_Y = 286.0
+m_Rotation = 0.0
+m_ScaleX = 1.75
+m_ScaleY = 1.75
+
+[entity.Velocity]
+m_DX = 0.0
+m_DY = 0.0
+
+[entity.Sprite]
+m_VirtualPath = "assets/block.png"
+m_Tint = 1095222610175

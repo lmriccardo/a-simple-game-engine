@@ -37,6 +37,7 @@ void asge::game::scene::Serializer<asge::game::components::Sprite>::ToToml(
     auto sprite = inTview.Table(std::string(kTableName));
     sprite.Set<std::string>("m_VirtualPath", inSprite.m_VirtualPath);
     sprite.Set("m_Tint", static_cast<std::int64_t>(graphics::RGBATo32A( inSprite.m_Tint )));
+    sprite.Set("m_BlendMode", static_cast<std::int64_t>( inSprite.m_BlendMode ));
 
     if ( inSprite.m_SourceRect )
     {
@@ -58,6 +59,14 @@ asge::game::components::Sprite asge::game::scene::Serializer<asge::game::compone
 
     auto const dTint = static_cast<std::int64_t>( graphics::RGBATo32A( result.m_Tint ) );
     result.m_Tint = graphics::C32AToRGBA( static_cast<graphics::Color32A>( sprite.Get("m_Tint", dTint) ) );
+
+    // A missing key or an out-of-range value falls back to the default (Alpha)
+    auto const blend = sprite.Get( "m_BlendMode", static_cast<std::int64_t>( result.m_BlendMode ) );
+    if ( blend >= static_cast<std::int64_t>( video::BlendMode::None )
+        && blend <= static_cast<std::int64_t>( video::BlendMode::Modulate ) )
+    {
+        result.m_BlendMode = static_cast<video::BlendMode>( blend );
+    }
 
     if ( sprite.HasTable("SourceRect") )
     {

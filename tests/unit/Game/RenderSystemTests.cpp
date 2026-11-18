@@ -16,6 +16,7 @@
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
+#include <ASGE/Game/Resources/ScreenFade.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 
@@ -49,6 +50,7 @@ using asge::game::components::UIRect;
 using asge::game::components::Interactable;
 using asge::game::resources::ActiveCamera;
 using asge::game::resources::HitEntry;
+using asge::game::resources::ScreenFade;
 using asge::game::resources::UIHitList;
 
 // Minimal ITexture stub that just reports a fixed size -- no SDL/GPU
@@ -64,12 +66,24 @@ public:
 
     void SetColorMod(asge::graphics::RGBA_Color inColor) noexcept override { m_ColorMods.push_back(inColor); }
 
+    void SetBlendMode(asge::video::BlendMode inMode) noexcept override
+    {
+        m_BlendModes.push_back(inMode);
+        m_BlendMode = inMode;
+    }
+    [[nodiscard]] asge::Result<asge::video::BlendMode> GetBlendMode() const noexcept override
+    {
+        return asge::Result<asge::video::BlendMode>::Ok(m_BlendMode);
+    }
+
     [[nodiscard]] Result<asge::graphics::RGBA_Color> GetColorMod() const noexcept override
     {
         return Result<asge::graphics::RGBA_Color>::Ok(asge::graphics::RGBA_Color{});
     }
 
     std::vector<asge::graphics::RGBA_Color> m_ColorMods; // every SetColorMod call, in order
+    std::vector<asge::video::BlendMode> m_BlendModes;    // every SetBlendMode call, in order
+    asge::video::BlendMode m_BlendMode{ asge::video::BlendMode::Alpha }; // current mode
 
 private:
     asge::math::Int2 m_Size;
@@ -164,6 +178,10 @@ public:
 
     [[nodiscard]] bool IsValid() const override { return true; }
     [[nodiscard]] void* NativeHandle() const noexcept override { return nullptr; }
+
+    [[nodiscard]] std::unique_ptr<asge::video::ITexture> CreateRenderTarget(
+        asge::math::Int2) const noexcept override { return nullptr; }
+    void SetRenderTarget(asge::video::ITexture*) const noexcept override {}
 
     void SetCamera(asge::video::Camera const& inCamera) override { m_Camera = inCamera; }
     [[nodiscard]] asge::video::Camera const& GetCamera() const override { return m_Camera; }
@@ -788,6 +806,44 @@ TEST(RenderSystemTest, Sprite_Tint_IsAppliedForTheDrawThenResetToWhite)
     EXPECT_EQ(texture.m_ColorMods[0].g, 128);
     EXPECT_EQ(texture.m_ColorMods[1].a, 255); // reset, so other users of the shared texture aren't faded
     EXPECT_EQ(texture.m_ColorMods[1].g, 255);
+}
+
+TEST(RenderSystemTest, Sprite_DefaultAlphaBlend_NeverTouchesTheTexturesBlendMode)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Sprite{ .m_Texture = &texture }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_TRUE(texture.m_BlendModes.empty());
+}
+
+TEST(RenderSystemTest, Sprite_AdditiveBlend_IsAppliedForTheDrawThenRestored)
+{
+    Registry registry;
+    FakeTexture texture(asge::math::Int2{ 32, 32 });
+    texture.SetBlendMode(asge::video::BlendMode::Modulate); // whatever it was before must come back
+    texture.m_BlendModes.clear();
+    RecordingRenderer renderer;
+
+    auto entity = registry.CreateEntity();
+    ASSERT_TRUE(entity.IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(), Transform{ .m_WorldCoordinates = {100.0f, 100.0f} }).IsOk());
+    ASSERT_TRUE(registry.AddComponent(entity.Value(),
+        Sprite{ .m_Texture = &texture, .m_BlendMode = asge::video::BlendMode::Additive }).IsOk());
+
+    asge::game::systems::RenderSystem(registry, renderer);
+
+    EXPECT_EQ(renderer.m_Calls.size(), 1u);
+    ASSERT_EQ(texture.m_BlendModes.size(), 2u);
+    EXPECT_EQ(texture.m_BlendModes[0], asge::video::BlendMode::Additive);
+    EXPECT_EQ(texture.m_BlendModes[1], asge::video::BlendMode::Modulate);
 }
 
 TEST(RenderSystemTest, Culling_SpriteFarOutsideTheViewport_IsSkipped)
@@ -2453,5 +2509,116 @@ TEST_F(DirectionalAnimatorTest, APathFollowerWinsOverItsVelocity)
     asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
 
     EXPECT_FLOAT_EQ(RectX(entity), 0.0f); // north from the path, not east from the velocity
+}
+
+// ─── ScreenFadeSystem ────────────────────────────────────────────────────────────
+
+TEST(ScreenFadeSystemTest, NoResourceSet_DrawsNothing)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.1f);
+
+    EXPECT_TRUE(renderer.m_RectCalls.empty());
+}
+
+TEST(ScreenFadeSystemTest, ZeroAmount_DrawsNothing)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    registry.SetResource(ScreenFade{});
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.1f);
+
+    EXPECT_TRUE(renderer.m_RectCalls.empty());
+}
+
+TEST(ScreenFadeSystemTest, Amount_DrawsAFullViewportOverlayWithThatOpacity)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.Set(0.5f);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.1f);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    auto const& call = renderer.m_RectCalls[0];
+    EXPECT_TRUE(call.m_Fill);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Width, 800.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Height, 600.0f);
+    EXPECT_EQ(call.m_Color.a, 128);
+}
+
+TEST(ScreenFadeSystemTest, FadeTo_EasesTheAmountOverTheDuration)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.FadeTo(1.0f, 1.0f);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.5f);
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 0.5f);
+    EXPECT_TRUE(registry.GetResource<ScreenFade>().Value().get().IsFading());
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.5f);
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 1.0f);
+    EXPECT_FALSE(registry.GetResource<ScreenFade>().Value().get().IsFading());
+}
+
+TEST(ScreenFadeSystemTest, FadeTo_StartsFromTheCurrentAmountAndHonoursTheEasing)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.Set(1.0f);
+    fade.FadeTo(0.0f, 1.0f, asge::math::Easing::InQuad);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.5f);
+
+    // InQuad at t = 0.5 is 0.25, so 1 -> 0 has only dropped to 0.75
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 0.75f);
+}
+
+TEST(ScreenFadeSystemTest, ZeroDuration_SnapsToTheTargetOnTheNextUpdate)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.FadeTo(1.0f, 0.0f);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.016f);
+
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 1.0f);
+}
+
+TEST(ScreenFadeTest, Set_CancelsARunningFadeAndClamps)
+{
+    ScreenFade fade;
+    fade.FadeTo(1.0f, 1.0f);
+
+    fade.Set(5.0f);
+
+    EXPECT_FLOAT_EQ(fade.m_Amount, 1.0f);
+    EXPECT_FALSE(fade.IsFading());
+}
+
+TEST(ScreenFadeSystemTest, RenderPipeline_DrawsTheFadeOverTheFrame)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.Set(1.0f);
+    registry.SetResource(fade);
+
+    asge::game::systems::RenderPipeline(registry, renderer, 0.016f);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    EXPECT_EQ(renderer.m_RectCalls[0].m_Color.a, 255);
 }
 }

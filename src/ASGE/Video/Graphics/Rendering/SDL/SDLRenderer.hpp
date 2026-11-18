@@ -164,6 +164,20 @@ public:
     [[nodiscard]] std::unique_ptr<ITexture> CreateTexture( media::Image const& inImage ) const noexcept override;
 
     /**
+     * @brief SDL implementation of IRenderer::CreateRenderTarget.
+     *
+     * Returns an SDLTexture with target access; on failure it is invalid (IsValid() false).
+     */
+    [[nodiscard]] std::unique_ptr<ITexture> CreateRenderTarget( math::Int2 inSize ) const noexcept override;
+
+    /**
+     * @brief SDL implementation of IRenderer::SetRenderTarget (SDL_SetRenderTarget).
+     *
+     * An SDL error is logged.
+     */
+    void SetRenderTarget( ITexture* inTarget ) const noexcept override;
+
+    /**
      * @brief SDL implementation of IRenderer::Present (SDL_RenderPresent).
      *
      * An SDL error is logged.

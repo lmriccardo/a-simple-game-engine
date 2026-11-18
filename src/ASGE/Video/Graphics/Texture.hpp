@@ -4,9 +4,22 @@
 #include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Core/Errors.hpp>
 
+#include <cstdint>
+
 namespace asge::video
 {
-    
+
+/**
+ * @brief How a texture's pixels combine with what is already on the target.
+ */
+enum class BlendMode : std::uint8_t
+{
+    None,     // Overwrites the destination, alpha ignored
+    Alpha,    // Standard source-over alpha blending
+    Additive, // Adds the source to the destination, brightening it
+    Modulate, // Multiplies the source with the destination, darkening it
+};
+
 class ITexture
 {
 public:
@@ -76,6 +89,22 @@ public:
      * texture) instead of a color.
      */
     virtual Result<graphics::RGBA_Color> GetColorMod() const noexcept = 0;
+
+    /**
+     * @brief Sets how later draws of this texture blend with the target.
+     *
+     * Applies to every following draw until changed again. Backend failures
+     * are logged.
+     */
+    virtual void SetBlendMode( BlendMode inMode ) noexcept = 0;
+
+    /**
+     * @brief Reads back the mode set by SetBlendMode.
+     *
+     * Returns an error Result if the backend query fails (e.g. on an invalid
+     * texture) or reports a mode this enum does not cover.
+     */
+    virtual Result<BlendMode> GetBlendMode() const noexcept = 0;
 
 protected:
     /**

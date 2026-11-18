@@ -30,9 +30,18 @@ void CameraSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, floa
 void RenderSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer ) noexcept;
 
 /**
- * @brief The single per-frame entry point: AnimatorSystem, CameraSystem, RenderSystem.
+ * @brief Advances resources::ScreenFade's tween and draws the overlay over the frame.
  *
- * Equivalent to calling the three in that order. CameraSystem runs before
+ * A no-op unless the resource is set. Draws only while m_Amount is above 0,
+ * through IRenderer::DrawFade. Call it after RenderSystem so the fade covers
+ * sprites and UI alike; RenderPipeline already does.
+ */
+void ScreenFadeSystem( ecs::Registry& inRegistry, video::IRenderer& inRenderer, float inDeltaTime ) noexcept;
+
+/**
+ * @brief The single per-frame entry point: AnimatorSystem, CameraSystem, RenderSystem, ScreenFadeSystem.
+ *
+ * Equivalent to calling the four in that order. CameraSystem runs before
  * RenderSystem so this frame's camera move is what gets culled and drawn.
  */
 void RenderPipeline(

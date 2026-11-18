@@ -11,6 +11,7 @@ add_library(ASGE STATIC
     Video/VideoSystem.cpp
     Video/Graphics/GraphicsFactory.cpp
     Video/Graphics/Camera.cpp
+    Video/Graphics/Renderer.cpp
     Video/Graphics/Rendering/SDL/SDLRenderer.cpp
     Video/Graphics/Rendering/SDL/SDLTexture.cpp
     Video/Graphics/Rendering/SDL/SDLPixelFormat.cpp
