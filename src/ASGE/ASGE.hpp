@@ -39,6 +39,7 @@
 #include <ASGE/Game/Events.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
+#include <ASGE/Game/Resources/ScreenFade.hpp>
 
 // ASGE Core ECS functionalities
 #include <ASGE/Core/ECS/Registry.hpp>

@@ -16,6 +16,7 @@
 #include <ASGE/Game/Components/UI/UIPanel.hpp>
 #include <ASGE/Game/Components/UI/Common.hpp>
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
+#include <ASGE/Game/Resources/ScreenFade.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 
@@ -49,6 +50,7 @@ using asge::game::components::UIRect;
 using asge::game::components::Interactable;
 using asge::game::resources::ActiveCamera;
 using asge::game::resources::HitEntry;
+using asge::game::resources::ScreenFade;
 using asge::game::resources::UIHitList;
 
 // Minimal ITexture stub that just reports a fixed size -- no SDL/GPU
@@ -2463,5 +2465,116 @@ TEST_F(DirectionalAnimatorTest, APathFollowerWinsOverItsVelocity)
     asge::game::systems::AnimatorSystem(m_Registry, 0.01f);
 
     EXPECT_FLOAT_EQ(RectX(entity), 0.0f); // north from the path, not east from the velocity
+}
+
+// ─── ScreenFadeSystem ────────────────────────────────────────────────────────────
+
+TEST(ScreenFadeSystemTest, NoResourceSet_DrawsNothing)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.1f);
+
+    EXPECT_TRUE(renderer.m_RectCalls.empty());
+}
+
+TEST(ScreenFadeSystemTest, ZeroAmount_DrawsNothing)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    registry.SetResource(ScreenFade{});
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.1f);
+
+    EXPECT_TRUE(renderer.m_RectCalls.empty());
+}
+
+TEST(ScreenFadeSystemTest, Amount_DrawsAFullViewportOverlayWithThatOpacity)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.Set(0.5f);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.1f);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    auto const& call = renderer.m_RectCalls[0];
+    EXPECT_TRUE(call.m_Fill);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Width, 800.0f);
+    EXPECT_FLOAT_EQ(call.m_Rect.m_Height, 600.0f);
+    EXPECT_EQ(call.m_Color.a, 128);
+}
+
+TEST(ScreenFadeSystemTest, FadeTo_EasesTheAmountOverTheDuration)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.FadeTo(1.0f, 1.0f);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.5f);
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 0.5f);
+    EXPECT_TRUE(registry.GetResource<ScreenFade>().Value().get().IsFading());
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.5f);
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 1.0f);
+    EXPECT_FALSE(registry.GetResource<ScreenFade>().Value().get().IsFading());
+}
+
+TEST(ScreenFadeSystemTest, FadeTo_StartsFromTheCurrentAmountAndHonoursTheEasing)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.Set(1.0f);
+    fade.FadeTo(0.0f, 1.0f, asge::math::Easing::InQuad);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.5f);
+
+    // InQuad at t = 0.5 is 0.25, so 1 -> 0 has only dropped to 0.75
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 0.75f);
+}
+
+TEST(ScreenFadeSystemTest, ZeroDuration_SnapsToTheTargetOnTheNextUpdate)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.FadeTo(1.0f, 0.0f);
+    registry.SetResource(fade);
+
+    asge::game::systems::ScreenFadeSystem(registry, renderer, 0.016f);
+
+    EXPECT_FLOAT_EQ(registry.GetResource<ScreenFade>().Value().get().m_Amount, 1.0f);
+}
+
+TEST(ScreenFadeTest, Set_CancelsARunningFadeAndClamps)
+{
+    ScreenFade fade;
+    fade.FadeTo(1.0f, 1.0f);
+
+    fade.Set(5.0f);
+
+    EXPECT_FLOAT_EQ(fade.m_Amount, 1.0f);
+    EXPECT_FALSE(fade.IsFading());
+}
+
+TEST(ScreenFadeSystemTest, RenderPipeline_DrawsTheFadeOverTheFrame)
+{
+    Registry registry;
+    RecordingRenderer renderer;
+    ScreenFade fade;
+    fade.Set(1.0f);
+    registry.SetResource(fade);
+
+    asge::game::systems::RenderPipeline(registry, renderer, 0.016f);
+
+    ASSERT_EQ(renderer.m_RectCalls.size(), 1u);
+    EXPECT_EQ(renderer.m_RectCalls[0].m_Color.a, 255);
 }
 }

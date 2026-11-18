@@ -25,6 +25,7 @@
 #include <ASGE/Game/Resources/ActiveCamera.hpp>
 #include <ASGE/Game/Resources/HitEntry.hpp>
 #include <ASGE/Game/Resources/ScreenSpaceCamera.hpp>
+#include <ASGE/Game/Resources/ScreenFade.hpp>
 #include <ASGE/Video/Graphics/Camera.hpp>
 #include <ASGE/Core/Math/Geometry/Collision.hpp>
 #include <ASGE/Core/Graphics/Color.hpp>
@@ -736,10 +737,28 @@ void asge::game::systems::RenderSystem(
     if ( inScreenSpace ) inRenderer.SetCamera( worldCamera );
 }
 
+void asge::game::systems::ScreenFadeSystem(
+    ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
+{
+    auto resource = inRegistry.GetResource<resources::ScreenFade>();
+    if ( !resource ) return;
+
+    auto& fade = resource.Value().get();
+    if ( fade.m_Tween )
+    {
+        fade.m_Tween->Update( inDeltaTime );
+        fade.m_Amount = fade.m_Tween->Value();
+        if ( fade.m_Tween->IsFinished() ) fade.m_Tween.reset();
+    }
+
+    if ( fade.m_Amount > 0.0f ) inRenderer.DrawFade( fade.m_Color, fade.m_Amount );
+}
+
 void asge::game::systems::RenderPipeline(
     ecs::Registry &inRegistry, video::IRenderer &inRenderer, float inDeltaTime) noexcept
 {
     AnimatorSystem( inRegistry, inDeltaTime );
     CameraSystem( inRegistry, inRenderer, inDeltaTime );
     RenderSystem( inRegistry, inRenderer );
+    ScreenFadeSystem( inRegistry, inRenderer, inDeltaTime );
 }
