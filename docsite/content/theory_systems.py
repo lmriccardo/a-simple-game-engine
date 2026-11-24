@@ -326,6 +326,17 @@ players move between them.</p>
 <code>Serializer&lt;T&gt;</code> specialization. Asset references are stored as virtual paths, which is why scenes survive
 being moved: see <a href="filesystem.html">Filesystem &amp; VFS</a>.</p>
 
+<h3>Prefabs</h3>
+<p>A prefab is a saved entity, with its children, that can be spawned many times. It is an ordinary scene file with exactly
+one root entity, written first as Id 0. <code>SceneSerializer::SavePrefab(registry, root, path)</code> saves a root and its
+descendants, dropping any link to a parent outside that subtree. <code>AssetManager::GetScenePrefab(virtualPath)</code> loads
+and validates the file once and caches the parsed TOML, so spawning many copies does not re-read it.
+<code>SceneSerializer::Instantiate(registry, prefab, transform)</code> creates a fresh copy and returns its root. Each copy is
+independent, so editing the prefab later does not change existing instances. The optional <code>Transform</code> replaces
+the root's. In the editor: <a href="../../editor/work-with-prefabs.html">Work with prefabs</a>.</p>
+""" + code_card("prefabs.cpp", "cpp", """auto prefab = assets.GetScenePrefab( "prefabs/enemy.toml" );   // Result, cached by path
+auto enemy  = serializer.Instantiate( registry, prefab.Value()->Get(), spawnTransform );  // Result<Entity>""") + """
+
 <h3>SceneManager</h3>
 <p><code>SceneManager</code> owns one <code>Registry</code> holding only the <em>active</em> scene's entities.
 <code>LoadScene(virtualPath)</code> makes a scene active, <code>SaveScene(path)</code> saves the active one,

@@ -101,7 +101,7 @@ descendants, dropping any link to a parent outside that subtree. <code>AssetMana
 and validates the file once and caches the parsed TOML, so spawning many copies does not re-read it.
 <code>SceneSerializer::Instantiate(registry, prefab, transform)</code> creates a fresh copy and returns its root. Each copy is
 independent, so editing the prefab later does not change existing instances. The optional <code>Transform</code> replaces
-the root's.</p>
+the root's. In the editor: <a href="../../editor/work-with-prefabs.html">Work with prefabs</a>.</p>
 <div class="code-card">
   <div class="code-card-head"><span>prefabs.cpp</span><button class="copy-btn" data-copy>Copy</button></div>
   <pre><code class="language-cpp">auto prefab = assets.GetScenePrefab( &quot;prefabs/enemy.toml&quot; );   // Result, cached by path
