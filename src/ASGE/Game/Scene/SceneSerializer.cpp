@@ -11,17 +11,49 @@
 asge::BoolResult asge::game::scene::SceneSerializer::Save(
     ecs::Registry const &inRegistry, filesystem::Path const &inPath, SaveContext* outCtx) const noexcept
 {
+    std::vector<ecs::Entity> entities;
+    inRegistry.ForEachEntity( [&](ecs::Entity const& e) { entities.push_back( e ); } );
+    return WriteEntities( inRegistry, entities, inPath, outCtx );
+}
+
+asge::BoolResult asge::game::scene::SceneSerializer::SavePrefab(
+    ecs::Registry const &inRegistry, ecs::Entity inRoot, filesystem::Path const &inPath, SaveContext* outCtx) const noexcept
+{
+    // Root first (so it gets Id 0), then its descendants, walking each child list
+    std::size_t const maxEntities = inRegistry.AllEntities().size(); // stops a corrupt cyclic list
+    std::vector<ecs::Entity> subtree{ inRoot };
+    for ( std::size_t i = 0; i < subtree.size(); ++i )
+    {
+        auto h = inRegistry.GetComponent<ecs::components::Hierarchy>( subtree[i] );
+        if ( !h ) continue;
+
+        ecs::Entity child = h.Value().get().m_FirstChild;
+        while ( child != ecs::Entity::Null() && subtree.size() <= maxEntities )
+        {
+            subtree.push_back( child );
+            auto ch = inRegistry.GetComponent<ecs::components::Hierarchy>( child );
+            if ( !ch ) break;
+            child = ch.Value().get().m_NextSibling;
+        }
+    }
+
+    return WriteEntities( inRegistry, subtree, inPath, outCtx );
+}
+
+asge::BoolResult asge::game::scene::SceneSerializer::WriteEntities(
+    ecs::Registry const &inRegistry, std::vector<ecs::Entity> const &inEntities,
+    filesystem::Path const &inPath, SaveContext *outCtx) const noexcept
+{
     formats::toml::TOMLBuilder builder;
-    
-    // First I need to create the SaveContext and save newly created ids
+
+    // First I need to create the SaveContext and save newly created ids. Links
+    // to entities outside inEntities resolve to -1, so a subtree root is a root.
     std::uint32_t nextId{ 0 };
     SaveContext ctx;
-    inRegistry.ForEachEntity( [&](ecs::Entity const& e) {
-        ctx.m_Ids[e] = nextId++;
-    });
+    for ( auto const& e : inEntities ) ctx.m_Ids[e] = nextId++;
 
     // Then we need to serialize each entity and its connected components
-    inRegistry.ForEachEntity( [&](ecs::Entity const& entity)
+    for ( auto const& entity : inEntities )
     {
         auto entityTable = builder.ArrayTable( "entity" );
         entityTable.Set( "Id", ctx.Resolve( entity ) );
@@ -43,7 +75,7 @@ asge::BoolResult asge::game::scene::SceneSerializer::Save(
                     }
                 }(), ... );
         }, components::SerializableComponents{} );
-    } );
+    }
 
     if ( auto result = builder.SaveToFile( inPath ); !result ) return result;
 
