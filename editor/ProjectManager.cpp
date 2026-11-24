@@ -47,6 +47,7 @@ asge::BoolResult SaveProject(
     builder.SetArray( "Fonts", KnownFontPaths( inRegistry ) );
     builder.SetArray( "StateMachines", KnownMachinePaths() );
     builder.SetArray( "ClipSets", KnownClipSetPaths() );
+    builder.SetArray( "Prefabs", KnownPrefabPaths() );
 
     std::vector<std::string> scenePaths;
     scenePaths.reserve( inProject.m_Scenes.size() );
@@ -110,7 +111,8 @@ asge::BoolResult LoadProject(
         doc.GetArray<std::string>( "Audio" ),
         doc.GetArray<std::string>( "Fonts" ),
         doc.GetArray<std::string>( "StateMachines" ),
-        doc.GetArray<std::string>( "ClipSets" ) );
+        doc.GetArray<std::string>( "ClipSets" ),
+        doc.GetArray<std::string>( "Prefabs" ) );
 
     outProject = Project{};
     outProject.m_FilePath = inPath;

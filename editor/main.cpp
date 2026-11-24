@@ -50,6 +50,7 @@
 #include <string>
 
 #include "Inspector.hpp"
+#include "PrefabEditor.hpp"
 #include "EntityGroups.hpp"
 #include "ViewportOverlay.hpp"
 #include "ConsolePanel.hpp"
@@ -75,6 +76,7 @@ using asge::ecs::components::DestroyEntityGraph;
 
 constexpr SDL_DialogFileFilter kProjectFileFilters[]{ { "Project (*.asgeproject)", "asgeproject" } };
 constexpr SDL_DialogFileFilter kSceneFileFilters[]{ { "Scene (*.asgescene)", "asgescene" } };
+constexpr SDL_DialogFileFilter kPrefabFileFilters[]{ { "Prefab (*.asgeprefab)", "asgeprefab" } };
 
 /** @brief Phase 16: which UI widget "Create UI Element"'s Type Selection modal picked. */
 enum class UIElementType { Button, Label, Checkbox, Slider, Panel };
@@ -299,6 +301,17 @@ asge::ecs::Entity DuplicateEntity(
     return copy;
 }
 
+/** @brief Tags inRoot and every entity under it with inScenePath's SceneId, as the scene loader does for a loaded scene. */
+void TagSceneSubtree(
+    asge::ecs::Registry& inRegistry, asge::ecs::Entity inRoot, asge::str::String const& inScenePath ) noexcept
+{
+    inRegistry.AddComponent<asge::game::scene::SceneId>( inRoot, asge::game::scene::SceneId{ inScenePath } );
+    std::vector<asge::ecs::Entity> children;
+    asge::ecs::components::ForEachChild( inRegistry, inRoot, [&]( asge::ecs::Entity inChild )
+    { children.push_back( inChild ); } );
+    for ( auto child : children ) TagSceneSubtree( inRegistry, child, inScenePath );
+}
+
 /**
  * @brief Phase 14: attaches inEntity the component "corresponding" to an
  *        asset of inKind, pointed at inPath -- Sprite::m_VirtualPath for a
@@ -340,6 +353,7 @@ void AttachAssetComponent(
         break;
     case AssetPickKind::StateMachine:
     case AssetPickKind::ClipSet:
+    case AssetPickKind::Prefab:
     case AssetPickKind::None:
         break;
     }
@@ -764,6 +778,8 @@ int main(int, char**)
     FileDialogResult saveProjectAsDialogResult;
     FileDialogResult openProjectDialogResult;
     FileDialogResult openSceneDialogResult;
+    FileDialogResult savePrefabDialogResult;
+    asge::ecs::Entity pendingPrefabRoot = asge::ecs::Entity::Null(); // entity the open "Save as Prefab" dialog will write
 
     // asge.session -- the ambient "what does the editor currently look
     // like" state (active project + active scene), distinct from a Project
@@ -2664,6 +2680,19 @@ int main(int, char**)
                 selectedEntity = DuplicateEntity(sceneManager.GetRegistry(), selectedEntity, *path);
             }
             break;
+        case EntityAction::SaveAsPrefab:
+        {
+            pendingPrefabRoot = selectedEntity;
+            std::string location;
+            if (auto const mounts = vfs.ListMounts(); !mounts.empty())
+            {
+                location = DialogDefaultLocation(mounts.front().m_RealDirectory) + "NewPrefab.asgeprefab";
+            }
+            SDL_ShowSaveFileDialog(
+                OnFileDialogResult, &savePrefabDialogResult, window,
+                kPrefabFileFilters, 1, location.empty() ? nullptr : location.c_str());
+            break;
+        }
         case EntityAction::ComponentsChanged:
             // A newly-added Sprite/Animation/AudioSource has nothing
             // resolved yet -- called here rather than unconditionally every
@@ -2673,6 +2702,31 @@ int main(int, char**)
             break;
         case EntityAction::None:
             break;
+        }
+
+        {
+            std::string chosenPath;
+            if (DrainFileDialogResult(savePrefabDialogResult, chosenPath) && !chosenPath.empty())
+            {
+                fs::path path = chosenPath;
+                if (path.extension() != ".asgeprefab") path += ".asgeprefab";
+                auto const alive = sceneManager.GetRegistry().AllEntities();
+                if (std::find(alive.begin(), alive.end(), pendingPrefabRoot) == alive.end())
+                {
+                    LOG_WARNING("The entity to save as a prefab no longer exists -- nothing saved");
+                }
+                else if (auto const saved = asge::game::scene::SceneSerializer(vfs).SavePrefab(
+                             sceneManager.GetRegistry(), pendingPrefabRoot, path); !saved)
+                {
+                    saved.LogError();
+                }
+                else if (auto const virtualPath = RegisterPrefabFile(vfs, path); !virtualPath.empty())
+                {
+                    assets.ReloadAsset(virtualPath, sceneManager.GetRegistry()); // drop a stale cached copy of an overwritten prefab
+                    LOG_INFO("Saved prefab ", virtualPath);
+                }
+                pendingPrefabRoot = asge::ecs::Entity::Null();
+            }
         }
 
         // Phase 7: browse what's known (scene usage + "Load Asset..."
@@ -2690,6 +2744,11 @@ int main(int, char**)
             if (real.IsOk()) { OpenAnimClipSet(real.Value()); showClipSet = true; }
             else real.LogError();
         }
+        if (!assetBrowserResult.m_OpenPrefab.empty())
+        {
+            OpenPrefabEditor(vfs, assets, videoSys.GetRenderer(), assetBrowserResult.m_OpenPrefab);
+        }
+        DrawPrefabEditor(vfs, assets, videoSys.GetRenderer(), sceneManager.GetRegistry());
         if (!assetBrowserResult.m_OpenStateMachine.empty())
         {
             auto const real = vfs.Resolve(assetBrowserResult.m_OpenStateMachine);
@@ -2738,6 +2797,23 @@ int main(int, char**)
             assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
             MarkActiveSceneDirty(currentProject);
             break;
+        case AssetContextAction::InstantiatePrefab:
+        {
+            auto const& scenePath = sceneManager.CurrentScenePath();
+            auto prefab = assets.GetScenePrefab(assetBrowserResult.m_ContextPath);
+            if (!prefab) { prefab.LogError(); break; }
+            if (!scenePath) break;
+
+            auto root = asge::game::scene::SceneSerializer(vfs).Instantiate(
+                sceneManager.GetRegistry(), prefab.Value()->Get());
+            if (!root) { root.LogError(); break; }
+
+            TagSceneSubtree(sceneManager.GetRegistry(), root.Value(), *scenePath);
+            selectedEntity = root.Value();
+            assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());
+            MarkActiveSceneDirty(currentProject);
+            break;
+        }
         case AssetContextAction::ReloadAsset:
             assets.ReloadAsset(assetBrowserResult.m_ContextPath, sceneManager.GetRegistry());
             assets.ResolveAssets(sceneManager.GetRegistry(), videoSys.GetRenderer());

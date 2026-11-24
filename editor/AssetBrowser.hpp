@@ -5,13 +5,14 @@
 #include <ASGE/Game/Assets/AssetManager.hpp>
 #include <ASGE/Video/Graphics/Renderer.hpp>
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
 struct SDL_Window;
 
 /** @brief Which kind of asset an AssetBrowser entry the user clicked names. */
-enum class AssetPickKind { None, Texture, Animation, Audio, Font, StateMachine, ClipSet };
+enum class AssetPickKind { None, Texture, Animation, Audio, Font, StateMachine, ClipSet, Prefab };
 
 /**
  * @brief This frame's pick (if any) from DrawAssetExplorer -- which
@@ -34,7 +35,7 @@ struct AssetPick
  *        menu's own submenu, instead of creating one; ReloadAsset (every
  *        row) re-reads the file so entities show its updated pixels.
  */
-enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadAsset };
+enum class AssetContextAction { None, CreateEntity, AttachTo, ReloadAsset, InstantiatePrefab };
 
 /**
  * @brief Where the bottom panel's explorer is looking: which mountpoint is
@@ -65,6 +66,7 @@ struct AssetBrowserResult
     asge::ecs::Entity  m_ContextTarget  = asge::ecs::Entity::Null();       // AttachTo only: the entity picked from the submenu
     std::string        m_OpenClipSet;                                     // clip set the user asked to open in the Clip Set panel
     std::string        m_OpenStateMachine;                                // state machine the user asked to open in the Animation Graph
+    std::string        m_OpenPrefab;                                      // prefab the user asked to edit
 };
 
 /**
@@ -176,7 +178,20 @@ void ImportAssets(
     std::vector<std::string> const& inAudioPaths,
     std::vector<std::string> const& inFontPaths = {},
     std::vector<std::string> const& inMachinePaths = {},
-    std::vector<std::string> const& inClipSetPaths = {} ) noexcept;
+    std::vector<std::string> const& inClipSetPaths = {},
+    std::vector<std::string> const& inPrefabPaths = {} ) noexcept;
+
+/** @brief Virtual paths of the scene prefabs in the asset list, saved in the project file. */
+std::vector<std::string> KnownPrefabPaths() noexcept;
+
+/**
+ * @brief Adds the prefab file at inRealPath to the asset list.
+ *
+ * Finds the mount that contains the file and lists it under its virtual path. Returns that
+ * path, or an empty string (logged) if the file is outside every mount.
+ */
+std::string RegisterPrefabFile(
+    asge::filesystem::VirtualFileSystem const& inVfs, std::filesystem::path const& inRealPath ) noexcept;
 
 /**
  * @brief Empties the browser's persistent "known asset" set entirely.
