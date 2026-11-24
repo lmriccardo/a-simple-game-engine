@@ -33,6 +33,7 @@ Result<ScenePrefab> asge::game::asset::ScenePrefab::Load(filesystem::Path const 
 
     std::size_t n_RootEntities{0}, n_Entities{0}, n_NonHierarchyEntities{0};
     bool hasHierarchyDefined{false};
+    bool firstIsRoot{false}; // Instantiate() takes entity Id 0 as the root
 
     do {
         auto const result = table.GetTable("entity", n_Entities);
@@ -40,16 +41,17 @@ Result<ScenePrefab> asge::game::asset::ScenePrefab::Load(filesystem::Path const 
         auto& entityTable = result.Value();
 
         // Check for hierarchy component attached or not
+        bool isRoot{true};
         auto const hResult = entityTable.GetTable(str::String(k_HierarchyTableName));
         if ( !hResult ) ++n_NonHierarchyEntities;
         else
         {
-            if ( !hasHierarchyDefined ) hasHierarchyDefined = true;
-            if ( hResult.Value().Get<int>( "m_Parent", -1 ) < 0 )
-            {
-                ++n_RootEntities;
-            }
+            hasHierarchyDefined = true;
+            isRoot = hResult.Value().Get<int>( "m_Parent", -1 ) < 0;
+            if ( isRoot ) ++n_RootEntities;
         }
+
+        if ( n_Entities == 0 ) firstIsRoot = isRoot && entityTable.Get<int>( "Id", -1 ) == 0;
 
         ++n_Entities;
     } while ( true );
@@ -77,6 +79,14 @@ Result<ScenePrefab> asge::game::asset::ScenePrefab::Load(filesystem::Path const 
         // Hierarchy component attached at all, or with a m_Parent value of -1.
         return Result<ScenePrefab>::Err( 
             make_error_code( asge::errors::AssetError::ScenePrefab_TooManyRoots ) 
+        );
+    }
+
+    if ( !firstIsRoot )
+    {
+        // The root must be the first [[entity]], saved with Id 0.
+        return Result<ScenePrefab>::Err(
+            make_error_code( asge::errors::AssetError::ScenePrefab_RootNotFirst )
         );
     }
 
