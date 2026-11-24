@@ -1615,7 +1615,7 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownAudio,
     std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
-    ColliderDrawState& ioColliderDraw ) noexcept
+    ColliderDrawState& ioColliderDraw, bool inEmbedded ) noexcept
 {
     if ( inSelected == asge::ecs::Entity::Null() ) return {};
 
@@ -1623,12 +1623,15 @@ InspectorResult DrawInspectorPanel(
     // resize -- see AnchorCondOnResize's own doc comment.
     float const rightX = ImGui::GetIO().DisplaySize.x - kEditorPanelWidth - kEditorPanelRightMargin;
     float const remainingHeight = ImGui::GetIO().DisplaySize.y - 265.0f - 20.0f; // fills down to a bottom margin
-    ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), AnchorCondOnResize() );
-    ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, remainingHeight ), ImGuiCond_FirstUseEver );
+    if ( !inEmbedded )
+    {
+        ImGui::SetNextWindowPos( ImVec2( rightX, 265.0f ), AnchorCondOnResize() );
+        ImGui::SetNextWindowSize( ImVec2( kEditorPanelWidth, remainingHeight ), ImGuiCond_FirstUseEver );
+    }
 
     EntityAction action = EntityAction::None;
 
-    ImGui::Begin( "Inspector" );
+    if ( !inEmbedded ) ImGui::Begin( "Inspector" );
 
     // Two independent accumulators (bitwise-OR, not ||, so every section
     // still draws even once one reports a change -- short-circuiting would
@@ -1678,8 +1681,13 @@ InspectorResult DrawInspectorPanel(
         ImGui::TextDisabled( "Parent: %s", GetEntityLabel( inRegistry, hierarchy.Value().get().m_Parent ).c_str() );
     }
 
-    if ( ImGui::Button( "Duplicate" ) ) action = EntityAction::Duplicate;
-    ImGui::SameLine();
+    if ( !inEmbedded )
+    {
+        if ( ImGui::Button( "Duplicate" ) ) action = EntityAction::Duplicate;
+        ImGui::SameLine();
+        if ( ImGui::Button( "Save as Prefab" ) ) action = EntityAction::SaveAsPrefab;
+        ImGui::SameLine();
+    }
     if ( ImGui::Button( "Delete" ) ) action = EntityAction::Delete;
 
     ImGui::Separator();
@@ -1737,7 +1745,7 @@ InspectorResult DrawInspectorPanel(
     bool const addComponentClicked = DrawAddComponentControl( inRegistry, inSelected, inKnownTextures );
     componentsChanged |= addComponentClicked; fieldChanged |= addComponentClicked;
 
-    ImGui::End();
+    if ( !inEmbedded ) ImGui::End();
 
     if ( action == EntityAction::None && componentsChanged ) action = EntityAction::ComponentsChanged;
     return { action, fieldChanged || action != EntityAction::None };

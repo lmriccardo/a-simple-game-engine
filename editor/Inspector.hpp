@@ -108,7 +108,7 @@ EntityListResult DrawEntityListPanel(
  *        having to do it unconditionally every frame, which would re-log
  *        the same failure for anything that stays unresolved.
  */
-enum class EntityAction { None, Delete, Duplicate, ComponentsChanged };
+enum class EntityAction { None, Delete, Duplicate, SaveAsPrefab, ComponentsChanged };
 
 /**
  * @brief DrawInspectorPanel's full per-frame report: m_Action drives
@@ -188,6 +188,9 @@ struct ColliderDrawState
  *        KnownFontPaths, Phase 16).
  * @param ioWaypointEdit See WaypointEditState's own doc comment.
  * @param ioColliderDraw See ColliderDrawState's own doc comment.
+ * @param inEmbedded True to draw into the current window or child instead of
+ *        opening the docked "Inspector" window, and to hide the Duplicate and
+ *        Save as Prefab buttons (the prefab editor modal uses it).
  * @return See InspectorResult's own doc comment.
  */
 InspectorResult DrawInspectorPanel(
@@ -196,7 +199,7 @@ InspectorResult DrawInspectorPanel(
     std::vector<std::string> const& inKnownAudio,
     std::vector<std::string> const& inKnownFonts,
     WaypointEditState& ioWaypointEdit,
-    ColliderDrawState& ioColliderDraw ) noexcept;
+    ColliderDrawState& ioColliderDraw, bool inEmbedded = false ) noexcept;
 
 /**
  * @brief Restarts the "Entity #N" fallback numbering (see GetEntityLabel)

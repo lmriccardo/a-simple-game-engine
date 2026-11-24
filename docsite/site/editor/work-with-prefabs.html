@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Work with prefabs · ASGE</title>
+<meta name="description" content="Save an entity and its children as a prefab, spawn copies of it into a scene and edit it later."/>
+<meta property="og:title" content="Work with prefabs · ASGE"/>
+<meta property="og:description" content="Save an entity and its children as a prefab, spawn copies of it into a scene and edit it later."/>
+<link rel="icon" type="image/svg+xml" href="../assets/img/favicon.svg"/>
+<link rel="stylesheet" href="../assets/css/style.css"/>
+
+</head>
+<body data-root="../">
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="../index.html"><img src="../assets/img/logo.svg" alt=""/> ASGE</a>
+    <nav class="nav-links" aria-label="Sections">
+    <a href="../index.html">Overview</a>
+    <a href="../engine/getting-started.html">Engine</a>
+    <a href="../editor/index.html" aria-current="page">Editor</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <div class="nav-right">
+      <button class="search-btn" data-search-open aria-label="Search the docs"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><span>Search</span><kbd>Ctrl K</kbd></button>
+      <button class="icon-btn" data-theme-toggle title="Toggle color theme" aria-label="Toggle color theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button class="icon-btn nav-toggle" data-nav-toggle title="Menu" aria-label="Toggle navigation menu" aria-controls="drawer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+</header>
+<div class="drawer" id="drawer">
+  <nav class="drawer-sections" aria-label="Sections">
+  <a href="../index.html">Overview</a>
+    <a href="../engine/getting-started.html">Engine</a>
+    <a href="../editor/index.html" aria-current="page">Editor</a>
+    <a href="../releases.html">Releases</a>
+    <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <div class="side-group"><h4>Guide</h4><ul><li><a href="../editor/index.html">Editor overview</a></li><li><a href="../editor/create-a-project.html">Create a project</a></li><li><a href="../editor/work-with-scenes.html">Work with scenes</a></li><li><a href="../editor/navigate-the-viewport.html">Navigate the viewport</a></li><li><a href="../editor/configure-the-game-window.html">Configure the game window</a></li><li><a href="../editor/add-entities-and-components.html">Add entities and components</a></li><li><a href="../editor/arrange-the-ui.html">Arrange the UI</a></li><li><a href="../editor/import-and-inspect-assets.html">Import and inspect assets</a></li><li><a href="../editor/add-a-collider.html">Add a collider</a></li><li><a href="../editor/animate-a-sprite.html">Animate a sprite</a></li><li><a href="../editor/follow-a-path.html">Make an entity follow a path</a></li><li><a href="../editor/work-with-prefabs.html" aria-current="page">Work with prefabs</a></li></ul></div>
+</div>
+<main>
+<div class="container layout">
+<aside class="sidebar" aria-label="Section navigation"><div class="side-group"><h4>Guide</h4><ul><li><a href="../editor/index.html">Editor overview</a></li><li><a href="../editor/create-a-project.html">Create a project</a></li><li><a href="../editor/work-with-scenes.html">Work with scenes</a></li><li><a href="../editor/navigate-the-viewport.html">Navigate the viewport</a></li><li><a href="../editor/configure-the-game-window.html">Configure the game window</a></li><li><a href="../editor/add-entities-and-components.html">Add entities and components</a></li><li><a href="../editor/arrange-the-ui.html">Arrange the UI</a></li><li><a href="../editor/import-and-inspect-assets.html">Import and inspect assets</a></li><li><a href="../editor/add-a-collider.html">Add a collider</a></li><li><a href="../editor/animate-a-sprite.html">Animate a sprite</a></li><li><a href="../editor/follow-a-path.html">Make an entity follow a path</a></li><li><a href="../editor/work-with-prefabs.html" aria-current="page">Work with prefabs</a></li></ul></div></aside>
+<article class="article">
+<h1>Work with prefabs</h1>
+<p class="lede">A prefab is a reusable template: one root entity with its children, saved to its own file and spawned as many times as you like.</p>
+<h2 id="save-a-prefab">Save a prefab</h2>
+<ol>
+  <li>Select the entity that should be the prefab's root. Its children come with it.</li>
+  <li>Click <strong>Save as Prefab</strong> in the Inspector, next to Duplicate.</li>
+  <li>Choose a name and a folder inside a mounted directory. The editor adds <code>.asgeprefab</code> if you leave it out.</li>
+</ol>
+<p><strong>Result:</strong> the prefab appears in the Assets panel with its own icon. If the entity had a parent, that link is dropped: a prefab always has exactly one root.</p>
+<h2 id="spawn-a-prefab">Spawn a prefab</h2>
+<ol>
+  <li>Right-click the prefab in the Assets panel and choose <strong>Instantiate</strong> (needs an open project and scene).</li>
+  <li>A copy of the root and all its children appears in the active scene, at the position the prefab was saved with. The root is selected and the scene is marked unsaved.</li>
+</ol>
+<p>Every copy is independent: changing one, or the prefab itself later, does not change the others.</p>
+<h2 id="edit-a-prefab">Edit a prefab</h2>
+<ol>
+  <li>Double-click the prefab, or right-click it and choose <strong>Edit Prefab</strong>. A window opens with the prefab's entity tree on the left and an Inspector for the selected entity on the right.</li>
+  <li>Edit components as usual. <strong>Add Child</strong> adds a new entity under the selected one.</li>
+  <li>Click <strong>Save</strong> to write the file back, reload the asset and close the window. <strong>Cancel</strong> (or the close button) discards your changes.</li>
+</ol>
+<p>The prefab is edited apart from your scene, so the scene does not change until you spawn the prefab again. Copies already in a scene keep the data they were spawned with. The root cannot be deleted, and there is no detach or reparent, so the prefab keeps its single root.</p>
+<h2 id="reference">Reference</h2>
+<table><tr><th>Item</th><th>What it does</th></tr><tr><td>Save as Prefab</td><td>Inspector button: writes the selected entity and its children to a <code>.asgeprefab</code> file.</td></tr><tr><td>Instantiate</td><td>Assets row menu: spawns an independent copy into the active scene.</td></tr><tr><td>Edit Prefab</td><td>Assets row menu or double-click: opens the prefab editor window.</td></tr><tr><td>Reload Asset</td><td>Assets row menu: re-reads the file the next time the prefab is used.</td></tr><tr><td>Load Asset</td><td>Brings an existing <code>.asgeprefab</code> file into the Assets panel.</td></tr></table>
+<p>The list of prefabs is stored in the <code>.asgeproject</code> file, so save the project (<kbd>Ctrl+P</kbd>) to keep a new prefab listed. The prefab files live in your mounted folders like any other asset. How prefabs work in the engine: <a href="../engine/theory/scenes.html#prefabs">Scenes</a>.</p>
+<p>Previous: <a href="follow-a-path.html">Make an entity follow a path</a>.</p>
+</article>
+<aside class="toc-wrap"><nav class="toc" aria-label="On this page"><h4>On this page</h4><ul><li class="l2"><a href="#save-a-prefab">Save a prefab</a></li><li class="l2"><a href="#spawn-a-prefab">Spawn a prefab</a></li><li class="l2"><a href="#edit-a-prefab">Edit a prefab</a></li><li class="l2"><a href="#reference">Reference</a></li></ul></nav></aside>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <div>&#169; ASGE, A Simple Game Engine. MIT Licensed.</div>
+    <div class="footer-links">
+      <a href="https://github.com/lmriccardo/a-simple-game-engine" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/lmriccardo/a-simple-game-engine/issues" target="_blank" rel="noopener">Issues</a>
+      <a href="../index.html#roadmap">Roadmap</a>
+      <a href="../releases.html">Releases</a>
+    </div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cpp.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/cmake.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/atom-one-dark.min.css" media="(prefers-color-scheme: dark)"/>
+<dialog class="search-modal" aria-label="Search the docs">
+  <input type="search" placeholder="Search the docs..." autocomplete="off" aria-label="Search"/>
+  <div class="search-results"></div>
+</dialog>
+<script src="../assets/js/main.js"></script>
+<script src="../assets/js/search.js"></script>
+
+</body>
+</html>

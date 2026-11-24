@@ -305,7 +305,43 @@ TASKS = [
 <p>Waypoints stay visible as pin markers after selection ends. Outside edit mode, a real Catmull-Rom curve, the same interpolation <code>PathFollowingSystem</code> uses at runtime, overlays the straight point-to-point lines, sampled at the Path's own <em>Resolution</em>.</p>
 <h2>Preview the follower</h2>
 <p>Selecting a route draws a translucent ghost of every child follower's sprite at the path start and at a <strong>Preview</strong> slider position, using the sprite's real size, source rect, offsets and tangent rotation, so you can check the visible body against the line. In code, <code>PathFollowPause</code> / <code>PathFollowResume</code> stop and restart a follower in place, and <code>PathFollow::m_Heading</code> exposes the path tangent so a game can choose a facing. A PathFollow has <em>Speed</em>, an H/V offset from the line, and <em>Align Rotation</em>: turn it off to move along the path without turning the sprite to the tangent.</p>
-<p>Previous: <a href="animate-a-sprite.html">Animate a sprite</a>.</p>
+<p>Previous: <a href="animate-a-sprite.html">Animate a sprite</a> &middot; Next: <a href="work-with-prefabs.html">Work with prefabs</a>.</p>
+"""),
+    ("work-with-prefabs", "Work with prefabs",
+     "Save an entity and its children as a prefab, spawn copies of it into a scene and edit it later.",
+     f"""
+<h1>Work with prefabs</h1>
+<p class="lede">A prefab is a reusable template: one root entity with its children, saved to its own file and spawned as many times as you like.</p>
+<h2>Save a prefab</h2>
+<ol>
+  <li>Select the entity that should be the prefab's root. Its children come with it.</li>
+  <li>Click <strong>Save as Prefab</strong> in the Inspector, next to Duplicate.</li>
+  <li>Choose a name and a folder inside a mounted directory. The editor adds <code>.asgeprefab</code> if you leave it out.</li>
+</ol>
+<p><strong>Result:</strong> the prefab appears in the Assets panel with its own icon. If the entity had a parent, that link is dropped: a prefab always has exactly one root.</p>
+<h2>Spawn a prefab</h2>
+<ol>
+  <li>Right-click the prefab in the Assets panel and choose <strong>Instantiate</strong> (needs an open project and scene).</li>
+  <li>A copy of the root and all its children appears in the active scene, at the position the prefab was saved with. The root is selected and the scene is marked unsaved.</li>
+</ol>
+<p>Every copy is independent: changing one, or the prefab itself later, does not change the others.</p>
+<h2>Edit a prefab</h2>
+<ol>
+  <li>Double-click the prefab, or right-click it and choose <strong>Edit Prefab</strong>. A window opens with the prefab's entity tree on the left and an Inspector for the selected entity on the right.</li>
+  <li>Edit components as usual. <strong>Add Child</strong> adds a new entity under the selected one.</li>
+  <li>Click <strong>Save</strong> to write the file back, reload the asset and close the window. <strong>Cancel</strong> (or the close button) discards your changes.</li>
+</ol>
+<p>The prefab is edited apart from your scene, so the scene does not change until you spawn the prefab again. Copies already in a scene keep the data they were spawned with. The root cannot be deleted, and there is no detach or reparent, so the prefab keeps its single root.</p>
+<h2>Reference</h2>
+{kv_table([
+    ("Save as Prefab", "Inspector button: writes the selected entity and its children to a <code>.asgeprefab</code> file."),
+    ("Instantiate", "Assets row menu: spawns an independent copy into the active scene."),
+    ("Edit Prefab", "Assets row menu or double-click: opens the prefab editor window."),
+    ("Reload Asset", "Assets row menu: re-reads the file the next time the prefab is used."),
+    ("Load Asset", "Brings an existing <code>.asgeprefab</code> file into the Assets panel."),
+], ("Item", "What it does"))}
+<p>The list of prefabs is stored in the <code>.asgeproject</code> file, so save the project (<kbd>Ctrl+P</kbd>) to keep a new prefab listed. The prefab files live in your mounted folders like any other asset. How prefabs work in the engine: <a href="../engine/theory/scenes.html#prefabs">Scenes</a>.</p>
+<p>Previous: <a href="follow-a-path.html">Make an entity follow a path</a>.</p>
 """),
 ]
 

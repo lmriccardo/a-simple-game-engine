@@ -39,6 +39,7 @@ std::set<std::string> g_LoadedAudio;
 std::set<std::string> g_LoadedFonts;
 std::set<std::string> g_LoadedMachines;
 std::set<std::string> g_LoadedClipSets;
+std::set<std::string> g_LoadedPrefabs;
 
 // SDL_ShowOpenFileDialog's async result -- same FileDialogResult/
 // DrainFileDialogResult plumbing main.cpp's scene dialogs use.
@@ -61,6 +62,7 @@ constexpr SDL_DialogFileFilter kAssetFilters[]{
     { "Font", "ttf" },
     { "State machine (*.animsm)", "animsm" },
     { "Clip set (*.animset)", "animset" },
+    { "Prefab (*.asgeprefab)", "asgeprefab" },
 };
 
 // media::AudioClip has no IsSupportedFile equivalent to Image's -- it
@@ -148,6 +150,18 @@ void DrawAssetContextMenu(
     if ( !ImGui::BeginPopupContextItem() ) return;
     if ( isMachine && ImGui::MenuItem( "Open in Animation Graph" ) ) ioResult.m_OpenStateMachine = inPath;
     if ( isClipSet && ImGui::MenuItem( "Open in Clip Set Editor" ) ) ioResult.m_OpenClipSet = inPath;
+    if ( inKind == AssetPickKind::Prefab )
+    {
+        if ( ImGui::MenuItem( "Edit Prefab" ) ) ioResult.m_OpenPrefab = inPath;
+        ImGui::BeginDisabled( !inHasProject );
+        if ( ImGui::MenuItem( "Instantiate" ) )
+        {
+            ioResult.m_ContextAction = AssetContextAction::InstantiatePrefab;
+            ioResult.m_ContextKind = inKind;
+            ioResult.m_ContextPath = inPath;
+        }
+        ImGui::EndDisabled();
+    }
 
     if ( inShowActions )
     {
@@ -221,7 +235,7 @@ void DrawAssetContextMenu(
 constexpr float kCellWidth = 88.0f;
 constexpr float kIconSize = 56.0f;
 
-enum class ExplorerItem { Folder, Texture, Animation, Audio, Font, StateMachine };
+enum class ExplorerItem { Folder, Texture, Animation, Audio, Font, StateMachine, Prefab };
 
 // What drawing one explorer cell needs besides the cell itself.
 struct ExplorerContext
@@ -355,6 +369,20 @@ void DrawStateMachineIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
     for ( ImVec2 p : { a, b, c } ) inList->AddCircleFilled( p, 6.0f, IM_COL32( 90, 170, 220, 255 ) );
 }
 
+// A parent square with a smaller child square under it: one entity and its children.
+void DrawPrefabIcon( ImDrawList* inList, ImVec2 inMin ) noexcept
+{
+    ImVec2 const max( inMin.x + kIconSize, inMin.y + kIconSize );
+    inList->AddRectFilled( inMin, max, IM_COL32( 52, 52, 58, 255 ), 4.0f );
+    ImVec2 const parent( inMin.x + kIconSize * 0.5f, inMin.y + 17.0f );
+    ImVec2 const left( inMin.x + 17.0f, max.y - 15.0f ), right( max.x - 17.0f, max.y - 15.0f );
+    inList->AddLine( parent, left, IM_COL32( 150, 150, 160, 255 ), 1.5f );
+    inList->AddLine( parent, right, IM_COL32( 150, 150, 160, 255 ), 1.5f );
+    inList->AddRectFilled( ImVec2( parent.x - 8.0f, parent.y - 8.0f ), ImVec2( parent.x + 8.0f, parent.y + 8.0f ), IM_COL32( 110, 190, 130, 255 ), 2.0f );
+    for ( ImVec2 p : { left, right } )
+        inList->AddRectFilled( ImVec2( p.x - 6.0f, p.y - 6.0f ), ImVec2( p.x + 6.0f, p.y + 6.0f ), IM_COL32( 90, 170, 220, 255 ), 2.0f );
+}
+
 // Draws one explorer cell and returns true the frame it is clicked. The cell is the last ImGui
 // item afterwards, so the caller can bind a context menu to it.
 bool DrawExplorerItem(
@@ -377,6 +405,7 @@ bool DrawExplorerItem(
     case ExplorerItem::Audio:     DrawAudioIcon( list, iconMin ); break;
     case ExplorerItem::Font:      DrawFontIcon( list, iconMin ); break;
     case ExplorerItem::StateMachine: DrawStateMachineIcon( list, iconMin ); break;
+    case ExplorerItem::Prefab:    DrawPrefabIcon( list, iconMin ); break;
     case ExplorerItem::Texture:
         // Only a cell that is actually on screen loads its texture, so a folder of hundreds of
         // sprites does not read them all at once.
@@ -416,6 +445,7 @@ KindSets SetsFor(
     case AssetPickKind::Font:      return { g_LoadedFonts, inUsedFonts };
     case AssetPickKind::StateMachine: return { g_LoadedMachines, inUsedFonts };
     case AssetPickKind::ClipSet:   return { g_LoadedClipSets, inUsedFonts };
+    case AssetPickKind::Prefab:    return { g_LoadedPrefabs, inUsedFonts };
     default:                       return { g_LoadedTextures, inUsedTextures };
     }
 }
@@ -429,6 +459,7 @@ ExplorerItem ItemTypeFor( AssetPickKind inKind ) noexcept
     case AssetPickKind::Font:      return ExplorerItem::Font;
     case AssetPickKind::StateMachine: return ExplorerItem::StateMachine;
     case AssetPickKind::ClipSet:   return ExplorerItem::StateMachine;
+    case AssetPickKind::Prefab:    return ExplorerItem::Prefab;
     default:                       return ExplorerItem::Texture;
     }
 }
@@ -496,6 +527,29 @@ std::vector<std::string> KnownClipSetPaths() noexcept
     return { g_LoadedClipSets.begin(), g_LoadedClipSets.end() };
 }
 
+std::vector<std::string> KnownPrefabPaths() noexcept
+{
+    return { g_LoadedPrefabs.begin(), g_LoadedPrefabs.end() };
+}
+
+std::string RegisterPrefabFile(
+    asge::filesystem::VirtualFileSystem const& inVfs, std::filesystem::path const& inRealPath ) noexcept
+{
+    for ( auto const& mount : inVfs.ListMounts() )
+    {
+        std::error_code ec;
+        fs::path const relative = fs::relative( inRealPath, mount.m_RealDirectory, ec );
+        if ( ec || relative.empty() || relative.generic_string().rfind( "..", 0 ) == 0 ) continue;
+
+        std::string const virtualPath = mount.m_VirtualRoot + "/" + relative.generic_string();
+        g_LoadedPrefabs.insert( virtualPath );
+        return virtualPath;
+    }
+
+    LOG_ERROR( "\"", inRealPath.string(), "\" is outside every mounted directory" );
+    return {};
+}
+
 std::vector<std::string> KnownAudioPaths( asge::ecs::Registry& inRegistry ) noexcept
 {
     auto const audio = MergedAudio( inRegistry );
@@ -524,8 +578,10 @@ void ImportAssets(
     std::vector<std::string> const& inAudioPaths,
     std::vector<std::string> const& inFontPaths,
     std::vector<std::string> const& inMachinePaths,
-    std::vector<std::string> const& inClipSetPaths ) noexcept
+    std::vector<std::string> const& inClipSetPaths,
+    std::vector<std::string> const& inPrefabPaths ) noexcept
 {
+    g_LoadedPrefabs.insert( inPrefabPaths.begin(), inPrefabPaths.end() );
     g_LoadedTextures.insert( inTexturePaths.begin(), inTexturePaths.end() );
     g_LoadedAnimations.insert( inAnimationPaths.begin(), inAnimationPaths.end() );
     g_LoadedAudio.insert( inAudioPaths.begin(), inAudioPaths.end() );
@@ -542,6 +598,7 @@ void ClearKnownAssets() noexcept
     g_LoadedFonts.clear();
     g_LoadedMachines.clear();
     g_LoadedClipSets.clear();
+    g_LoadedPrefabs.clear();
     g_ThumbnailRetryAt.clear();
 }
 
@@ -602,6 +659,11 @@ AssetBrowserResult DrawAssetExplorer(
                 {
                     g_LoadedClipSets.insert( virtualPath );
                     LOG_INFO( "Loaded clip set ", virtualPath );
+                }
+                else if ( picked.extension() == ".asgeprefab" )
+                {
+                    g_LoadedPrefabs.insert( virtualPath );
+                    LOG_INFO( "Loaded prefab ", virtualPath );
                 }
                 else if ( picked.extension() == ".animsm" )
                 {
@@ -784,6 +846,7 @@ AssetBrowserResult DrawAssetExplorer(
     for ( auto const& path : fonts )      { kinds[path] = AssetPickKind::Font;      allPaths.insert( path ); }
     for ( auto const& path : g_LoadedClipSets ) { kinds[path] = AssetPickKind::ClipSet; allPaths.insert( path ); }
     for ( auto const& path : g_LoadedMachines ) { kinds[path] = AssetPickKind::StateMachine; allPaths.insert( path ); }
+    for ( auto const& path : g_LoadedPrefabs ) { kinds[path] = AssetPickKind::Prefab; allPaths.insert( path ); }
 
     std::string const folderPath = ioState.m_Folder.empty() ? ioState.m_Root : ioState.m_Root + "/" + ioState.m_Folder;
     FolderListing const listing = ListFolder( allPaths, folderPath );
@@ -820,16 +883,20 @@ AssetBrowserResult DrawAssetExplorer(
         bool const selected = inSelected.m_Kind == kind && inSelected.m_VirtualPath == path;
         if ( DrawExplorerItem( ctx, ItemTypeFor( kind ), name, path, selected ) )
         {
-            if ( kind != AssetPickKind::StateMachine && kind != AssetPickKind::ClipSet ) result.m_Pick = { kind, path };
+            if ( kind != AssetPickKind::StateMachine && kind != AssetPickKind::ClipSet && kind != AssetPickKind::Prefab )
+                result.m_Pick = { kind, path };
         }
         if ( kind == AssetPickKind::ClipSet && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
             result.m_OpenClipSet = path;
         if ( kind == AssetPickKind::StateMachine && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
             result.m_OpenStateMachine = path;
+        if ( kind == AssetPickKind::Prefab && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked( ImGuiMouseButton_Left ) )
+            result.m_OpenPrefab = path;
         // Bound to the cell just drawn (BeginPopupContextItem with no explicit id ties to the last item).
         auto const sets = SetsFor( kind, usedTextures, usedAnimations, usedAudio, usedFonts );
         DrawAssetContextMenu(
-            inRegistry, kind, path, kind == AssetPickKind::Texture, kind != AssetPickKind::Font,
+            inRegistry, kind, path, kind == AssetPickKind::Texture,
+            kind != AssetPickKind::Font && kind != AssetPickKind::Prefab,
             inHasProject, sets.m_Loaded, sets.m_Used, result );
         ImGui::PopID();
     }

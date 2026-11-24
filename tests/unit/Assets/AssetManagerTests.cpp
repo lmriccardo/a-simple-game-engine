@@ -1,4 +1,5 @@
 #include <ASGE/Game/Assets/AssetManager.hpp>
+#include <ASGE/Game/Assets/AssetErrors.hpp>
 #include <ASGE/Core/Filesystem/VirtualFileSystem.hpp>
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Game/Components/Sprite.hpp>
@@ -167,6 +168,11 @@ protected:
             "columns = 3\n"
             "count = 6\n"
         );
+        WriteText(m_ImagesDir / "prefab.toml",
+            "[[entity]]\nId = 0\n[entity.Hierarchy]\nm_Parent = -1\n\n"
+            "[[entity]]\nId = 1\n[entity.Hierarchy]\nm_Parent = 0\n"
+        );
+        WriteText(m_ImagesDir / "two-roots.toml", "[[entity]]\nId = 0\n\n[[entity]]\nId = 1\n");
         WriteBytes(m_ImagesDir / "theme.wav", MakeMinimalWav());
         WriteBytes(m_ImagesDir / "other-theme.wav", MakeMinimalWav());
 
@@ -311,6 +317,66 @@ TEST_F(AssetManagerTest, GetFrameTable_SamePathTwiceReturnsSameCachedAsset)
     ASSERT_TRUE(first.IsOk());
     ASSERT_TRUE(second.IsOk());
     EXPECT_EQ(first.Value(), second.Value());
+}
+
+// ─── GetScenePrefab ────────────────────────────────────────────────────────────
+
+TEST_F(AssetManagerTest, GetScenePrefab_ValidPathReturnsLoadedPrefab)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto result = mgr.GetScenePrefab("images/prefab.toml");
+    ASSERT_TRUE(result.IsOk());
+    EXPECT_TRUE(result.Value()->Get().m_Table.HasTable("entity[1]"));
+    EXPECT_EQ(result.Value()->VirtualPath(), "images/prefab.toml");
+}
+
+TEST_F(AssetManagerTest, GetScenePrefab_UnresolvableVirtualPathReturnsNotMountedError)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto result = mgr.GetScenePrefab("images/missing.toml");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(VfsError::NotMounted));
+}
+
+TEST_F(AssetManagerTest, GetScenePrefab_InvalidPrefabReturnsTheValidationError)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto result = mgr.GetScenePrefab("images/two-roots.toml");
+    ASSERT_FALSE(result.IsOk());
+    EXPECT_EQ(result.Code(), make_error_code(asge::errors::AssetError::ScenePrefab_TooManyRoots));
+}
+
+TEST_F(AssetManagerTest, GetScenePrefab_SamePathTwiceReturnsSameCachedAsset)
+{
+    AssetManager mgr(m_Vfs);
+
+    auto first = mgr.GetScenePrefab("images/prefab.toml");
+    auto second = mgr.GetScenePrefab("images/prefab.toml");
+    ASSERT_TRUE(first.IsOk());
+    ASSERT_TRUE(second.IsOk());
+    EXPECT_EQ(first.Value(), second.Value());
+}
+
+TEST_F(AssetManagerTest, ReloadAsset_OfAScenePrefabMakesTheNextGetReadTheFileAgain)
+{
+    AssetManager mgr(m_Vfs);
+    asge::ecs::Registry registry;
+
+    auto before = mgr.GetScenePrefab("images/prefab.toml");
+    ASSERT_TRUE(before.IsOk());
+
+    WriteText(m_ImagesDir / "prefab.toml", "[[entity]]\nId = 0\n");
+    mgr.ReloadAsset("images/prefab.toml", registry);
+
+    auto after = mgr.GetScenePrefab("images/prefab.toml");
+    ASSERT_TRUE(after.IsOk());
+    EXPECT_NE(before.Value(), after.Value());
+    EXPECT_FALSE(after.Value()->Get().m_Table.HasTable("entity[1]"));
+    // A holder of the old asset keeps a valid, unchanged prefab
+    EXPECT_TRUE(before.Value()->Get().m_Table.HasTable("entity[1]"));
 }
 
 // ─── GetTexture / ResolveAssets test doubles ────────────────────────────────

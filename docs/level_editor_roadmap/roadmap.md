@@ -658,6 +658,31 @@ to check them, instead of writing the XML by hand.
 
 - [ ] Scenes saved with the removed `[Animation]` component load as `[Animator]`.
 
+## Phase 20 - Scene Prefabs
+
+**Goal**: Make a reusable entity template (a root entity with its children) in
+the editor, spawn it into a scene, and edit it, on top of the engine's scene
+prefabs (`ScenePrefab`, `SceneSerializer::SavePrefab` / `Instantiate`).
+
+- [x] The Inspector's `Save as Prefab` button writes the selected entity and
+      its children to a `.asgeprefab` file through a save dialog that starts in
+      the first mount. The file joins the asset list.
+
+- [x] Prefabs are a tracked asset kind with their own icon: saved with the
+      project (`Prefabs`), accepted by `Load Asset`, and given `Reload Asset`
+      like every other kind. Their row menu has `Instantiate`, which spawns an
+      independent copy into the active scene at the prefab's own position, tags
+      it with the scene id and selects its root.
+
+- [x] `Edit Prefab` (row menu or double-click) opens a modal with the prefab's
+      entity tree, an inspector for the selected entity and `Add Child`. The
+      prefab is edited in a private registry, so the scene is untouched until
+      `Save` rewrites the file, reloads the asset and closes the modal; `Cancel`
+      discards the edits. The root cannot be deleted and there is no detach or
+      reparent, so a prefab always keeps exactly one root. Existing instances
+      are copies and keep their old data. The Inspector draws into the modal
+      through an `inEmbedded` flag instead of its docked window.
+
 ## Explicitly deferred — do not build until a concrete need forces it
 
 Consistent with "no speculative abstraction, no second consumer, no

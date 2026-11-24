@@ -117,6 +117,7 @@ add_library(ASGE STATIC
     Game/Assets/AnimStateMachine.cpp
     Game/Assets/AnimationClipSet.cpp
     Game/Assets/FrameTable.cpp
+    Game/Assets/ScenePrefab.cpp
 
     # Scene management and component TOML (de)serialization
     Game/Project/Project.cpp

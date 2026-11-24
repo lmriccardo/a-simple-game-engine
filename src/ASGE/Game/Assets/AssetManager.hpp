@@ -13,6 +13,7 @@
 #include "FrameTable.hpp"
 #include "AnimationClipSet.hpp"
 #include "AnimStateMachine.hpp"
+#include "ScenePrefab.hpp"
 
 namespace asge::game::asset
 {
@@ -20,14 +21,11 @@ namespace asge::game::asset
 /**
  * @brief Owns the per-asset-type `AssetPool`s and loads through a VFS.
  *
- * The caller keeps the `VirtualFileSystem` alive. The one entry point for loading assets by virtual path: `GetImage`/
- * `GetFont`/`GetFrameTable`/`GetAudio` each forward to their own
- * `AssetPool`, which caches by virtual path (plus, for fonts, the bake
- * pixel height) and only calls the underlying `Load` on a cache miss.
- * `ResolveAssets` builds on these to deferred-load an entire Registry's
- * worth of components in one pass, dispatching per component type through
- * `Resolver<T>` — see its own doc comment. Does not own `inVfs` — it must
- * outlive the `AssetManager`.
+ * The one entry point for loading assets by virtual path. Each `Get*` method
+ * forwards to the `AssetPool` of its asset type, which caches by virtual path
+ * and only loads on a cache miss. `ResolveAssets` builds on these to load the
+ * assets a whole Registry's components refer to in one pass. Does not own the
+ * `VirtualFileSystem`: it must outlive the `AssetManager`.
  */
 class AssetManager
 {
@@ -39,6 +37,8 @@ class AssetManager
     AssetPool<media::AudioClip>      m_AudioPool        { &media::AudioClip::Load       };
     AssetPool<AnimationClipSet>      m_AnimClipSet      { &AnimationClipSet::Load       };
     AssetPool<AnimationStateMachine> m_AnimStateMachines{ &AnimationStateMachine::Load  };
+    AssetPool<ScenePrefab>           m_ScenePrefabs     { &ScenePrefab::Load            };
+    
 
     std::unordered_map<str::String, std::unique_ptr<video::ITexture>> m_TextureCache;
     std::unordered_map<media::Font const*, std::unique_ptr<video::ITexture>> m_FontAtlasCache; 
@@ -116,9 +116,32 @@ public:
      */
     [[nodiscard]] Result<asset_ptr<media::AudioClip>> GetAudio( str::StringCRef inVirtualPath );
 
+    /**
+     * @brief Loads (or returns the cached) `AnimationClipSet` at a virtual path.
+     *
+     * Only the clip set file is read: its state machine and frame tables stay
+     * unresolved paths until AnimationClipSet::ResolveAssets() is called.
+     * Fails if the path doesn't resolve through the VFS or fails to parse.
+     */
     [[nodiscard]] Result<asset_ptr<AnimationClipSet>> GetClipSet( str::StringCRef inVirtualPath );
-    
+
+    /**
+     * @brief Loads (or returns the cached) `AnimationStateMachine` at a virtual path.
+     *
+     * Fails if the path doesn't resolve through the VFS or fails to parse
+     * (see AnimStateMachineErrors). Clip sets reach their machine through
+     * this same cache.
+     */
     [[nodiscard]] Result<asset_ptr<AnimationStateMachine>> GetStateMachine( str::StringCRef inVirtualPath );
+
+    /**
+     * @brief Loads (or returns the cached) `ScenePrefab` at a virtual path.
+     *
+     * The prefab keeps the parsed TOML, so repeated instantiation doesn't
+     * re-read the file. Fails if the path doesn't resolve through the VFS,
+     * fails to parse, or isn't a valid prefab (see AssetError).
+     */
+    [[nodiscard]] Result<asset_ptr<ScenePrefab>> GetScenePrefab( str::StringCRef inVirtualPath );
 
     /**
      * @brief Loads (or returns the cached) GPU texture for a virtual path.
@@ -153,11 +176,10 @@ public:
     /**
      * @brief Drops every cached asset at inVirtualPath, whatever its kind.
      *
-     * Covers images and textures, audio clips, fonts, frame tables, clip sets
-     * and state machines. The components in inRegistry that use it (including a
-     * clip set that binds it, or a machine it plays) are un-resolved, so the
-     * next ResolveAssets() re-reads the file from disk. A path that names no
-     * cached asset is a no-op.
+     * Covers every asset pool. The components in inRegistry that use it
+     * (directly or through another asset that binds it) are un-resolved, so
+     * the next ResolveAssets() or Get*() re-reads the file from disk. A path
+     * that names no cached asset is a no-op.
      */
     void ReloadAsset( str::StringCRef inVirtualPath, ecs::Registry& inRegistry ) noexcept;
 
