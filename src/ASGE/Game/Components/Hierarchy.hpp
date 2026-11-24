@@ -4,7 +4,6 @@
 #include <ASGE/Core/ECS/Registry.hpp>
 #include <ASGE/Core/ECS/Hierarchy.hpp>
 #include <ASGE/Game/Scene/Serialize.hpp>
-#include <ASGE/Core/Functools.hpp>
 
 namespace asge::game::components
 {

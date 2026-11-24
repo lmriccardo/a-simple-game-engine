@@ -3,7 +3,6 @@
 #include <ASGE/Core/Math/Geometry/Rect.hpp>
 #include <ASGE/Core/Math/Geometry/Circle.hpp>
 #include <ASGE/Core/Formats/TOML/TOML_TableView.hpp>
-#include <ASGE/Core/Graphics/Color.hpp>
 #include <ASGE/Core/ECS/Markers.hpp>
 #include "IdContext.hpp"
 

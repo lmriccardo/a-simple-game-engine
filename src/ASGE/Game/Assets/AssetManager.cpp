@@ -45,6 +45,12 @@ asge::game::asset::AssetManager::GetStateMachine(str::StringCRef inVirtualPath)
     return m_AnimStateMachines.GetOrLoad( m_Vfs, inVirtualPath );
 }
 
+asge::Result<asge::game::asset::AssetManager::asset_ptr<asge::game::asset::ScenePrefab>> 
+asge::game::asset::AssetManager::GetScenePrefab(str::StringCRef inVirtualPath)
+{
+    return m_ScenePrefabs.GetOrLoad( m_Vfs, inVirtualPath );
+}
+
 asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetTexture(
     str::StringCRef inVirtualPath, video::IRenderer &inRenderer) noexcept
 {
@@ -94,6 +100,7 @@ void asge::game::asset::AssetManager::ReloadAsset( str::StringCRef inVirtualPath
         audio.get().m_Clip = nullptr;
         audio.get().m_ResolvedVirtualClipPath.clear();
     }
+    
     m_AudioPool.Remove( inVirtualPath );
 
     for ( auto [e, label] : inRegistry.View<components::UILabel>().IncludeDisabled() )
@@ -119,9 +126,11 @@ void asge::game::asset::AssetManager::ReloadAsset( str::StringCRef inVirtualPath
         m_AnimClipSet.Remove( str::String( a.m_ClipSet->VirtualPath() ) );
         a.m_ClipSet = nullptr;
     }
+
     m_AnimClipSet.Remove( inVirtualPath );
     m_AnimStateMachines.Remove( inVirtualPath );
     m_FrameTables.Remove( inVirtualPath );
+    m_ScenePrefabs.Remove( inVirtualPath );
 }
 
 asge::Result<asge::video::ITexture*> asge::game::asset::AssetManager::GetFontAtlasTexture(
